@@ -1,0 +1,56 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id            String         @id @default(uuid()) // Random secure ID (UUID)
+  employee_id   String         @unique
+  email         String         @unique
+  password      String
+  fname         String
+  lname         String
+  role          Role           @default(Staff)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+
+
+  //notif relations
+
+  received_notif Notification[] @relation("notif_rcpt")
+  sent_notif     Notification[] @relation("notif_sndr")
+}
+
+enum Role {
+  Staff
+  CoAdmin
+  DepartmentHead
+  SuperUser
+}
+
+// notif table (useswr for fetch)
+model Notification {
+  id          String   @id @default(uuid())
+  title       String
+  message     String
+  isRead      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  // notif receipient
+  recipientId String
+  recipient   User     @relation("notif_rcpt", fields: [recipientId], references: [id], onDelete: Cascade)
+
+  // notif sender
+  senderId    String
+  sender      User     @relation("notif_sndr", fields: [senderId], references: [id], onDelete: Cascade)
+}
