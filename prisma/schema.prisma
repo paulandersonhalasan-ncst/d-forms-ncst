@@ -20,6 +20,7 @@ model User {
   fname         String
   lname         String
   role          Role           @default(Staff)
+  department    Department?     @default(ITO)
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
 
@@ -36,6 +37,42 @@ enum Role {
   CoAdmin
   DepartmentHead
   SuperUser
+}
+
+enum Department {
+  SSO
+  BUSINESS
+  HTMD
+  GENED
+  SHS
+  REGISTRAR
+  CJED
+  OP
+  CSD
+  ENGINEERING
+  ACAD
+  HEROES
+  NASTECH
+  ITO
+  LIBRARY
+  INSTRUCTOR
+  OCM
+  RESEARCH
+  PSMO
+  IIRT
+  EDPSYCOMM
+  MARKETING
+  ACCOUNTING
+  OSA
+  BRAND
+  ARCHITECTURE
+  CDO
+  IMUS
+  HRD
+  PRD
+  HSO
+  NSTP
+  ITJPO
 }
 
 // notif table (useswr for fetch)

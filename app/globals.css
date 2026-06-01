@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #fff8f2;
+  --foreground: #242424;
 }
 
 @theme inline {
@@ -14,8 +14,8 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #242424;
+    --foreground: #fff8f2;
   }
 }
 
@@ -23,4 +23,16 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Kapag Light Mode */
+[data-mantine-color-scheme="light"] body {
+  background-color: #fff8f2; /* Seashell */
+  color: #242424;            /* Carbon Black */
+}
+
+/* Kapag Dark Mode */
+[data-mantine-color-scheme="dark"] body {
+  background-color: #242424;  /* Carbon Black */
+  color: #fff8f2;             /* Seashell */
 }
