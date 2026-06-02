@@ -20,16 +20,20 @@ model User {
   fname         String
   lname         String
   role          Role           @default(Staff)
-  department    Department?     @default(ITO)
+  department    Department     @default(ITO)
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
 
-
-
   //notif relations
-
   received_notif Notification[] @relation("notif_rcpt")
   sent_notif     Notification[] @relation("notif_sndr")
+
+  //login sessions
+  last_login       DateTime?
+
+  login_logs       LoginLog[]
+
+  @@unique([employee_id, email])
 }
 
 enum Role {
@@ -40,39 +44,35 @@ enum Role {
 }
 
 enum Department {
-  SSO
+  AMT
+  ARCHITECTURE
   BUSINESS
-  HTMD
-  GENED
-  SHS
-  REGISTRAR
   CJED
-  OP
   CSD
+  EDPSYCOMM
+  GENED
+  NSTP
   ENGINEERING
-  ACAD
   HEROES
-  NASTECH
+  HTMD
+  RESEARCH
+  SSMT
+  ACAD
+  ACCOUNTING
+  OP
+  OCMCDO
+  HRD
+  GUIDANCE
+  OSA
+  HSO
+  ITJPO
   ITO
   LIBRARY
-  INSTRUCTOR
-  OCM
-  RESEARCH
-  PSMO
-  IIRT
-  EDPSYCOMM
-  MARKETING
-  ACCOUNTING
-  OSA
-  BRAND
-  ARCHITECTURE
-  CDO
-  IMUS
-  HRD
   PRD
-  HSO
-  NSTP
-  ITJPO
+  PSMOFMO
+  REGISTRAR
+  SAFETYSECURITY
+  //FMO AND PRODUCTION UNSURE PA
 }
 
 // notif table (useswr for fetch)
@@ -90,4 +90,21 @@ model Notification {
   // notif sender
   senderId    String
   sender      User     @relation("notif_sndr", fields: [senderId], references: [id], onDelete: Cascade)
+}
+
+model LoginLog {
+  id           Int          @id @default(autoincrement())
+  employee_id  String?
+  email        String?
+  status       LoginStatus  @default(SUCCESS)
+  ip_address   String?
+  attempted_at DateTime     @default(now())
+
+  //
+  user         User?    @relation(fields: [employee_id, email], references: [employee_id, email], onDelete: Cascade)
+}
+
+enum LoginStatus {
+  SUCCESS
+  FAILURE
 }

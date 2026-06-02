@@ -3,21 +3,23 @@
 //LOGIN PAGE
 
 import { useState, type FormEvent } from "react";
-import { Anchor, Group, PasswordInput, TextInput, useMantineColorScheme, Button } from '@mantine/core';
+import { Anchor, Group, PasswordInput, TextInput, Button, Text, Stack } from '@mantine/core';
 import { useRouter } from "next/navigation";
+import { modals } from "@mantine/modals";
 import '@mantine/core/styles.css';
 
 export default function LoginPage() {
     const [employee_id, setEmployee_id] = useState("");
     const [password, setPassword] = useState("");
     const [error, setError] = useState("");
-    const [role, setRole] = useState("");
     const router = useRouter();
 
     async function handleSubmit(e: FormEvent<HTMLFormElement>) {
         e.preventDefault();
         setError("");
-        const res = await fetch("./api/auth/login", {
+
+        try {
+            const res = await fetch("/api/auth/login", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json"
@@ -26,11 +28,41 @@ export default function LoginPage() {
                 employee_id: employee_id,
                 password: password
             }),
-        });
-        
-        const data = await res.json();
+            });
+            
+            const data = await res.json();
 
-        switch (data.user.role){
+            if (!res.ok) {
+                if (data.alertTriggered) {
+                    modals.openConfirmModal({
+                        title: "Can't log in?",
+                        centered: true,
+                        closeOnClickOutside: false,
+                        withCloseButton: false,
+                        children: (
+                            <Stack gap="xs">
+                                <Text size="sm" fw={700} c="red.7">
+                                    You have entered an incorrect password {data.failedAttempts} times.
+                                </Text>
+                                <Text size="sm" c="dimmed">
+                                    Due to this suspicious activity, your Department Head and the system administrator have been alerted. Please contact them immediately if you can not access your account.
+                                </Text>
+                            </Stack>
+                        ),
+                        labels: { confirm: 'Acknowledge & Close', cancel: 'Exit' },
+                        confirmProps: { color: 'red' },
+                        cancelProps: { variant: 'outline', color: 'gray' },
+                    });
+
+                    //clear the form after showing the modal
+                    setEmployee_id("");
+                    setPassword("");
+
+                    return; 
+                }
+            }
+
+            switch (data.user?.role) {
             case "Staff":
                 router.push("./dashboard/staff");
                 break;
@@ -43,25 +75,49 @@ export default function LoginPage() {
             case "SuperUser":
                 router.push("./dashboard/superuser");
                 break;
+            case undefined:
+            case null:
+                console.error("User role is missing for user: ", data.user);
+                break;
             default:
                 setError("Unknown user role");
+                console.error("Unknown user role: ", data.user?.role);
+            }
+
+        } catch (err) {
+            console.error("Network error occurred:", err);
+            setError("Connection error. Please try again later.");
         }
-        
-        if (!res.ok) return setError(data.message || "Login failed");
-            // Option A: server sets HttpOnly cookie — redirect or update UI
-            // Option B: store token/user in localStorage (less secure)
-            // Example: redirect on success
-    }
+        }
 
 return (
-    <main style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+    <main
+        style={{
+            minHeight: '100vh',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            backgroundImage: "url('/image.png')",
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            backgroundRepeat: 'no-repeat'
+        }}
+    >
         <form
             onSubmit={handleSubmit}
-            style={{ width: 360, padding: 24, borderRadius: 8, boxShadow: '0 2px 10px rgba(0,0,0,0.08)', background:' }}var(--background)' }}>
+            style={{
+                width: 360,
+                padding: 24,
+                borderRadius: 8,
+                boxShadow: '0 2px 10px rgba(0,0,0,0.08)',
+                background: 'var(--background)',
+            }}
+        >
             <TextInput
                 value={employee_id}
                 onChange={(e) => setEmployee_id(e.target.value)}
                 placeholder="Employee ID"
+                variant="filled"
             />
 
             {/* Password input */}
@@ -75,6 +131,7 @@ return (
                 placeholder="Your password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                variant="filled"
             />
 
             <Button variant="filled" style={{ width: '100%', padding: '10px 12px', marginTop: 14 }} type="submit">
