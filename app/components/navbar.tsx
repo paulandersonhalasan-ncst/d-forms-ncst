@@ -1,15 +1,13 @@
 "use client";
 
-import { useState } from "react";
 import {
     IconGauge,
     IconUsersGroup,
     IconShieldLock,
     IconSettings,
     IconLogout,
-    IconChevronRight
 } from "@tabler/icons-react";
-import { Code, Group, ScrollArea, Box, Text, UnstyledButton } from "@mantine/core";
+import { Code, Group, ScrollArea, Text, UnstyledButton } from "@mantine/core";
 import { useRouter, usePathname } from "next/navigation";
 
 interface SidebarProps {
