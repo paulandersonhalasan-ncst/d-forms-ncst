@@ -15,12 +15,13 @@ datasource db {
 model User {
   id            String         @id @default(uuid()) // Random secure ID (UUID)
   employee_id   String         @unique
-  email         String         @unique
+  email         String
   password      String
   fname         String
   lname         String
   role          Role           @default(Staff)
   department    Department     @default(ITO)
+  branch        SystemBranch   @default(MAIN)
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
 
@@ -32,8 +33,6 @@ model User {
   last_login       DateTime?
 
   login_logs       LoginLog[]
-
-  @@unique([employee_id, email])
 }
 
 enum Role {
@@ -41,6 +40,13 @@ enum Role {
   CoAdmin
   DepartmentHead
   SuperUser
+}
+
+enum SystemBranch {
+  MAIN
+  IMUS
+  NASTECH
+  SHS
 }
 
 enum Department {
@@ -94,14 +100,13 @@ model Notification {
 
 model LoginLog {
   id           Int          @id @default(autoincrement())
-  employee_id  String?
+  userId  String?
   email        String?
   status       LoginStatus  @default(SUCCESS)
   ip_address   String?
   attempted_at DateTime     @default(now())
 
-  //
-  user         User?    @relation(fields: [employee_id, email], references: [employee_id, email], onDelete: Cascade)
+  user         User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 enum LoginStatus {

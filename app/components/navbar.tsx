@@ -14,7 +14,7 @@ import { useRouter, usePathname } from "next/navigation";
 
 interface SidebarProps {
     role: "SuperUser" | "CoAdmin" | "DepartmentHead" | "Staff";
-    employeeId: string;
+    email: string;
 }
 
 //menu data
@@ -36,7 +36,7 @@ const schoolMenuData = [
     */
 ];
 
-export default function Sidebar({ role, employeeId }: SidebarProps) {
+export default function Sidebar({ role, email }: SidebarProps) {
     const router = useRouter();
     const pathname = usePathname();
 
@@ -176,7 +176,7 @@ export default function Sidebar({ role, employeeId }: SidebarProps) {
             gap: 12
         }}>
             <div style={{ fontSize: "13px", opacity: 0.8 }}>
-            Logged in: <b>{employeeId}</b>
+            Logged in: <b>{email}</b>
             </div>
             
             <UnstyledButton 

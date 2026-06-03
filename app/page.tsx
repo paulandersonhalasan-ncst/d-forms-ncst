@@ -9,7 +9,7 @@ import { modals } from "@mantine/modals";
 import '@mantine/core/styles.css';
 
 export default function LoginPage() {
-    const [employee_id, setEmployee_id] = useState("");
+    const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [error, setError] = useState("");
     const router = useRouter();
@@ -18,6 +18,8 @@ export default function LoginPage() {
         e.preventDefault();
         setError("");
 
+        console.log("Attempting login with email:", email); // Debug log
+
         try {
             const res = await fetch("/api/auth/login", {
             method: "POST",
@@ -25,7 +27,7 @@ export default function LoginPage() {
                 "Content-Type": "application/json"
             },
             body: JSON.stringify({
-                employee_id: employee_id,
+                email: email,
                 password: password
             }),
             });
@@ -55,7 +57,7 @@ export default function LoginPage() {
                     });
 
                     //clear the form after showing the modal
-                    setEmployee_id("");
+                    setEmail("");
                     setPassword("");
 
                     return; 
@@ -114,9 +116,9 @@ return (
             }}
         >
             <TextInput
-                value={employee_id}
-                onChange={(e) => setEmployee_id(e.target.value)}
-                placeholder="Employee ID"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="NCST Email"
                 variant="filled"
             />
 

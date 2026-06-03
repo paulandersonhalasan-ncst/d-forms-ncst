@@ -7,85 +7,103 @@ export async function POST(request) {
 
   try {
     const req = await request.json();
-    const { employee_id, password } = req;
+    const { email, password } = req;
 
-    console.log("employee id for debug only:", employee_id);
+    console.log("email for debug only:", email);
 
-    if (!employee_id || !password) {
+    if (!email || !password) {
       return Response.json(
-        { success: false, message: "Missing Employee ID or Password" },
+        { success: false, message: "Missing Email or Password" },
         { status: 400 }
       );
     }
 
-    const user = await prisma.user.findUnique({
+    const usersWithThisEmail = await prisma.user.findMany({
       where: { 
-        employee_id: employee_id
+        email: email
       },
     });
 
-    // case a: walang gantong employee_id sa database
-    if (!user) {
+    // case a: invalid email
+    if (usersWithThisEmail.length === 0) {
       await prisma.loginLog.create({
-        data: { employee_id: employee_id, status: "FAILURE", ip_address: ip }
+        data: { email: email, status: "FAILURE", ip_address: ip }
       });
 
       return Response.json(
-        { success: false, message: "Invalid Employee ID or Password" },
+        { success: false, message: "Invalid Email or Password" },
         { status: 401 }
       );
     }
 
-    // case b: tama employee_id mali ang password
-    if (user.password !== password) {
-      await prisma.loginLog.create({
-        data: { employee_id: user.employee_id, status: "FAILURE", ip_address: ip, email: user.email }
-      });
+    // kanino password
+    let authenticatedUser = null;
 
-      // brute force detection, bilangin ang mga failed attempts sa last 10 mins
-      const failedAttempts = await prisma.loginLog.count({
-        where: {
-          employee_id: user.employee_id,
-          status: "FAILURE",
-          attempted_at: {
-            gte: new Date(Date.now() - 10 * 60 * 1000) // last 10 minutes
+    for (const currentUser of usersWithThisEmail) {
+      // 📝 Paalala: Kung naka-bcrypt ka na, palitan mo ito ng: await bcrypt.compare(password, currentUser.password)
+      if (currentUser.password === password) {
+        authenticatedUser = currentUser;
+        break; // Nahanap na natin ang may-ari, ihinto na ang loop!
+      }
+    }
+
+    // case b: tama email mali password
+    if (!authenticatedUser) {
+      let maxFailedAttempts = 0;
+
+      for (const currentUser of usersWithThisEmail) {
+        await prisma.loginLog.create({
+          data: { email: currentUser.email, status: "FAILURE", ip_address: ip }
+        });
+
+        // brute force check
+        const failedAttempts = await prisma.loginLog.count({
+          where: {
+            email: currentUser.email,
+            status: "FAILURE",
+            attempted_at: {
+              gte: new Date(Date.now() - 10 * 60 * 1000) // last 10 minutes
+            }
           }
-        }
-      });
+        });
 
-      //trigger alert to dept_head/superuser/coadmin
-      if (failedAttempts >= 5) {
-        console.log(`🚨 SECURITY ALERT! Ang user [${user.employee_id}] of ${user.department} ay may ${failedAttempts} na sunod-sunod na maling login sa loob ng 5 minuto!`);
-        //later dapat gagawa ng notification for dept_head/superuser/coadmin to respective department accordingly
+        if (failedAttempts > maxFailedAttempts) {
+          maxFailedAttempts = failedAttempts;
+        }
+
+        // trigger logic to dept head and admin
+        if (failedAttempts >= 5) {
+          console.log(`🚨 SECURITY ALERT! Ang user [${currentUser.fname}] [${currentUser.lname}] of ${currentUser.department} ay may ${failedAttempts} na sunod-sunod na maling login sa loob ng 10 minuto!`);
+        }
       }
 
       return Response.json(
         { 
           success: false, 
-          message: "Invalid Employee ID or Password",
-          failedAttempts: failedAttempts,
-          alertTriggered: failedAttempts >= 5
+          message: "Invalid Email or Password",
+          failedAttempts: maxFailedAttempts,
+          alertTriggered: maxFailedAttempts >= 5
         }, 
         { status: 401 }
       );
     }
 
-    //case c: correct login
+    // tama lahat
     await prisma.loginLog.create({
-      data: { employee_id: user.employee_id, status: "SUCCESS", ip_address: ip }
+      data: { email: authenticatedUser.email, status: "SUCCESS", ip_address: ip }
     });
 
     await prisma.user.update({
-      where: { employee_id: user.employee_id },
+      where: { id: authenticatedUser.id }, 
       data: { last_login: new Date() }
     });
 
     const secret = new TextEncoder().encode(process.env.JWT_SECRET);
     
     const token = await new SignJWT({ 
-        id: user.id, 
-        employee_id: user.employee_id, 
-        role: user.role // babasahin ng middleware
+        id: authenticatedUser.id, 
+        email: authenticatedUser.email, 
+        role: authenticatedUser.role // babasahin ng middleware
       })
       .setProtectedHeader({ alg: "HS256" })
       .setIssuedAt()
@@ -97,11 +115,11 @@ export async function POST(request) {
         success: true,
         message: "Login successful",
         user: {
-          id: user.id,
-          employee_id: user.employee_id,
-          fname: user.fname,
-          lname: user.lname,
-          role: user.role
+          id: authenticatedUser.id,
+          email: authenticatedUser.email,
+          fname: authenticatedUser.fname,
+          lname: authenticatedUser.lname,
+          role: authenticatedUser.role
         },
       },
       { status: 200 }

@@ -14,7 +14,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
     const sessionToken = cookieStore.get("session_token")?.value;
 
     // Mag-set tayo ng defaults sakaling magkaproblema sa pag-decode habang nagde-demo
-    let employeeId = "UNKNOWN";
+    let email = "UNKNOWN";
     const VALID_ROLES = ["SuperUser", "CoAdmin", "DepartmentHead", "Staff"] as const;
     type RoleType = typeof VALID_ROLES[number];
     let userRole: RoleType = "Staff";
@@ -26,7 +26,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         const { payload } = await jwtVerify(sessionToken, JWT_SECRET);
         
         // Kunin ang mga claims/data na ibinaon mo nung nag-login
-        employeeId = (payload.employee_id as string) || "UNKNOWN";
+        email = (payload.email as string) || "UNKNOWN";
         const roleClaim = payload.role;
         if (typeof roleClaim === 'string' && VALID_ROLES.includes(roleClaim as RoleType)) {
             userRole = roleClaim as RoleType;
@@ -42,7 +42,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
     return (
         <div style={{ display: "flex", minHeight: "100vh" }}>
         {/* 🎯 TOTOONG DATA GALING SA DECODED JWT SESSION TOKEN */}
-        <Sidebar role={userRole} employeeId={employeeId} />
+        <Sidebar role={userRole} email={email} />
 
         {/* CONTENT PROPER */}
         <main style={{ 

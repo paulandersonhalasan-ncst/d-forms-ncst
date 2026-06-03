@@ -1,10 +1,9 @@
-// middleware.js
+// proxy.js
 import { NextResponse } from 'next/server';
 
 import { jwtVerify } from 'jose';
 
-export async function middleware(request) {
-  const path = request.nextUrl.pathname;
+export async function proxy(request) {
 
   const token = request.cookies.get('session_token')?.value;
 
@@ -17,7 +16,7 @@ export async function middleware(request) {
       const { payload } = await jwtVerify(token, secret);
       user = payload; 
 
-      console.log(`decrypted user info (for debug only): ${user.employee_id} | Role: ${user.role}`);
+      console.log(`decrypted user info (for debug only): ${user.email} | Role: ${user.role}`);
     } catch (error) {
       console.error('❌ Token Error (Expired, Peke, o Corrupted), redirecting to login page.:', error.message);
       
