@@ -14,16 +14,19 @@ datasource db {
 
 model User {
   id            String         @id @default(uuid()) // Random secure ID (UUID)
-  employee_id   String         @unique
-  email         String
+  employee_id   String
+  email         String         @unique
   password      String
   fname         String
   lname         String
   role          Role           @default(Staff)
-  department    Department     @default(ITO)
   branch        SystemBranch   @default(MAIN)
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
+
+  //department relations
+  departmentCode  String
+  department    Department     @relation(fields: [departmentCode], references: [code], onDelete: Restrict)
 
   //notif relations
   received_notif Notification[] @relation("notif_rcpt")
@@ -31,15 +34,25 @@ model User {
 
   //login sessions
   last_login       DateTime?
-
   login_logs       LoginLog[]
+}
+
+model Department {
+  id        String   @id @default(uuid())
+  code      String   @unique //(e.g., "ITO", "CSD", "HRD")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  //pabalik na relationship to User (1 departament, maraming users ang pwede nakatali)
+  users     User[]
 }
 
 enum Role {
   Staff
-  CoAdmin
+  OIC
   DepartmentHead
   SuperUser
+  Admin
 }
 
 enum SystemBranch {
@@ -47,38 +60,6 @@ enum SystemBranch {
   IMUS
   NASTECH
   SHS
-}
-
-enum Department {
-  AMT
-  ARCHITECTURE
-  BUSINESS
-  CJED
-  CSD
-  EDPSYCOMM
-  GENED
-  NSTP
-  ENGINEERING
-  HEROES
-  HTMD
-  RESEARCH
-  SSMT
-  ACAD
-  ACCOUNTING
-  OP
-  OCMCDO
-  HRD
-  GUIDANCE
-  OSA
-  HSO
-  ITJPO
-  ITO
-  LIBRARY
-  PRD
-  PSMOFMO
-  REGISTRAR
-  SAFETYSECURITY
-  //FMO AND PRODUCTION UNSURE PA
 }
 
 // notif table (useswr for fetch)
@@ -100,7 +81,7 @@ model Notification {
 
 model LoginLog {
   id           Int          @id @default(autoincrement())
-  userId  String?
+  userId       String?
   email        String?
   status       LoginStatus  @default(SUCCESS)
   ip_address   String?

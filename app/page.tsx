@@ -68,8 +68,11 @@ export default function LoginPage() {
             case "Staff":
                 router.push("./dashboard/staff");
                 break;
-            case "CoAdmin":
-                router.push("./dashboard/coadmin");
+            case "OIC":
+                router.push("./dashboard/oic");
+                break;
+            case "Admin":
+                router.push("./dashboard/admin");
                 break;
             case "DepartmentHead":
                 router.push("./dashboard/dept_head");

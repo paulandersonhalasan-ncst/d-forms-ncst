@@ -15,7 +15,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
     // Mag-set tayo ng defaults sakaling magkaproblema sa pag-decode habang nagde-demo
     let email = "UNKNOWN";
-    const VALID_ROLES = ["SuperUser", "CoAdmin", "DepartmentHead", "Staff"] as const;
+    const VALID_ROLES = ["SuperUser", "OIC", "DepartmentHead", "Staff", "Admin"] as const;
     type RoleType = typeof VALID_ROLES[number];
     let userRole: RoleType = "Staff";
 
