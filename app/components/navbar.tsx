@@ -198,13 +198,13 @@ export default function Sidebar({ role, email }: SidebarProps) {
                             <NavLink
                                 key={item.label}
                                 label={item.label}
-                                leftSection={<item.icon size={18} stroke={1.5} />}
+                                leftSection={<item.icon size={18} stroke={1.5} color={textColor} />}
                                 active={isMainActive}
                                 onClick={item.links ? undefined : handleMainClick} // Kung may sub-links, hayaan lang si Mantine magbuka ng dropdown, wag mag-navigate
                                 styles={customNavLinkStyles}
                                 onMouseEnter={() => setHoverKey(item.label)}
                                 onMouseLeave={() => setHoverKey((k) => (k === item.label ? null : k))}
-                                style={{ backgroundColor: hoverKey === item.label ? hoverBg : (isMainActive ? activeBg : "transparent") }}
+                                style={{ color: textColor, backgroundColor: hoverKey === item.label ? hoverBg : (isMainActive ? activeBg : "transparent") }}
                             >
                                 {/* 🆕 DROPDOWN RENDERER: Dito awtomatikong ilalatag ni Mantine yung mga anak kapag pinindot ang 'Forms' */}
                                 {item.links?.map((subItem) => {

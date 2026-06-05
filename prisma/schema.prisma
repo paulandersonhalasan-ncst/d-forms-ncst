@@ -3,6 +3,11 @@
 
 // Get a free hosted Postgres database in seconds: `npx create-db`
 
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
 generator client {
   provider = "prisma-client"
   output   = "../app/generated/prisma"
@@ -26,7 +31,7 @@ model User {
 
   //department relations
   departmentCode  String
-  department    Department     @relation(fields: [departmentCode], references: [code], onDelete: Restrict)
+  department    Department     @relation(fields: [departmentCode], references: [code], onDelete: Restrict, onUpdate: Cascade)
 
   //notif relations
   received_notif Notification[] @relation("notif_rcpt")

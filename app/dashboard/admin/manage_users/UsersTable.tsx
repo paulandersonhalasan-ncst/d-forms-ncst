@@ -1,0 +1,614 @@
+"use client";
+
+import React, { useEffect, useState } from "react";
+import {
+  Table,
+  Checkbox,
+  Button,
+  Group,
+  Modal,
+  TextInput,
+  Select,
+  ScrollArea,
+  Text,
+  Stack,
+  PasswordInput,
+} from "@mantine/core";
+
+interface User {
+  id: string;
+  employee_id?: string;
+  email?: string;
+  fname?: string;
+  lname?: string;
+  role?: string;
+  departmentCode?: string;
+  branch?: string;
+  last_login: string;
+}
+
+interface Department {
+    id: string;
+    code: string;
+}
+
+export default function UsersTable() {
+  const [users, setUsers] = useState<User[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [addOpen, setAddOpen] = useState(false);
+  const [deptAddOpen, setDeptAddOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editing, setEditing] = useState<User | null>(null);
+  const [deptCode, setDeptCode] = useState<string>("");
+  const [bulkRoleOpen, setBulkRoleOpen] = useState(false);
+  const [bulkDeptOpen, setBulkDeptOpen] = useState(false);
+  const [bulkBranchOpen, setBulkBranchOpen] = useState(false);
+  const [bulkRoleValue, setBulkRoleValue] = useState<string>("Staff");
+  const [bulkDeptValue, setBulkDeptValue] = useState<string>("");
+  const [bulkBranchValue, setBulkBranchValue] = useState<string>("MAIN");
+  const initialForm = {
+    employee_id: "",
+    email: "",
+    password: "",
+    fname: "",
+    lname: "",
+    role: "Staff",
+    departmentCode: "",
+    branch: "MAIN",
+  };
+
+  const [form, setForm] = useState(initialForm);
+  const [tableKey, setTableKey] = useState<number>(0); // 🎯 Idagdag ito sa taas
+
+  useEffect(() => {
+    fetchAll();
+    fetchDept();
+  }, []);
+
+  async function fetchAll() {
+    setLoading(true);
+    try {
+      const res = await fetch("../../../api/user/get");
+      const json = await res.json();
+      if (json && json.success) setUsers(json.data || json.users || json.data);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function fetchDept() {
+    setLoading(true);
+    try {
+      const res = await fetch("../../../api/department/get");
+      const json = await res.json();
+      if (json && json.success) setDepartments(json.data || json.department || json.data);
+
+      console.log(json.data);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function toggleSelect(id: string) {
+    const s = new Set(selected);
+    if (s.has(id)) s.delete(id);
+    else s.add(id);
+    setSelected(s);
+  }
+
+  function toggleSelectAll() {
+    if (selected.size === users.length) setSelected(new Set<string>());
+    else setSelected(new Set(users.map((u) => u.id)));
+  }
+
+  function openEdit(user: User) {
+    setEditing(user);
+    setForm({
+      employee_id: user.employee_id || "",
+      email: user.email || "",
+      password: "",
+      fname: user.fname || "",
+      lname: user.lname || "",
+      role: user.role || "Staff",
+      departmentCode: user.departmentCode || "",
+      branch: user.branch || "MAIN",
+    });
+    setEditOpen(true);
+  }
+
+  async function handleDelete(singleId?: string) {
+    const toDelete = singleId ? users.filter((u) => u.id === singleId) : users.filter((u) => selected.has(u.id));
+    if (toDelete.length === 0) return alert("No users selected to delete");
+
+    if (!confirm(`Delete ${toDelete.length} user(s)?`)) return;
+
+    try {
+      const body = toDelete.map((u) => ({ id: u.id }));
+      const res = await fetch("../../../api/user/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const json = await res.json();
+      if (json && json.success) {
+        setSelected(new Set());
+        fetchAll();
+      } else {
+        alert(json.message || "Delete failed");
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Delete request failed");
+    }
+  }
+
+  async function handleAdd(e?: React.FormEvent) {
+    e && e.preventDefault();
+    try {
+      const res = await fetch("../../../api/user/add", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+      const json = await res.json();
+      if (json && json.success) {
+        setAddOpen(false);
+        setForm({
+          employee_id: "",
+          email: "",
+          password: "",
+          fname: "",
+          lname: "",
+          role: "Staff",
+          departmentCode: "",
+          branch: "MAIN",
+        });
+        fetchAll();
+      } else {
+        alert(json.message || "Add failed");
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Add request failed");
+    }
+  }
+
+  async function handleEdit(e?: React.FormEvent) {
+    e && e.preventDefault();
+    if (!editing) return;
+    try {
+      const payload = { id: editing.id, ...form };
+      const res = await fetch("../../../api/user/edit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const json = await res.json();
+      if (json && json.success) {
+        setEditOpen(false);
+        setEditing(null);
+        fetchAll();
+      } else {
+        alert(json.message || "Edit failed");
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Edit request failed");
+    }
+  }
+
+  function formatToPHT(value?: string | null) {
+    if (!value) return "-";
+    try {
+      const d = new Date(value);
+      if (isNaN(d.getTime())) return value;
+      return new Intl.DateTimeFormat("en-PH", {
+        year: "numeric",
+        month: "short",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: true,
+        timeZone: "Asia/Manila",
+      }).format(d);
+    } catch (err) {
+      return value;
+    }
+  }
+
+  // 🎯 Palitan ang rendering ng rows gamit ang Mantine Table primitives:
+    const rows = users.map((user: User) => (
+    <Table.Tr key={user.id} style={{ background: selected.has(user.id) ? "var(--mantine-color-gray-1)" : undefined }}>
+        <Table.Td>
+        <Checkbox
+            checked={selected.has(user.id)}
+            onChange={() => toggleSelect(user.id)}
+            aria-label="select user"
+        />
+        </Table.Td>
+        <Table.Td>{user.employee_id}</Table.Td>
+        <Table.Td>{user.email}</Table.Td>
+        <Table.Td>{`${user.fname || ""} ${user.lname || ""}`}</Table.Td>
+        <Table.Td>{user.role}</Table.Td>
+        <Table.Td>{user.departmentCode}</Table.Td>
+        <Table.Td>{user.branch}</Table.Td>
+        <Table.Td>{formatToPHT(user.last_login)}</Table.Td>
+        <Table.Td>
+        <Group gap={4}>
+            <Button size="xs" variant="default" onClick={() => openEdit(user)}>
+            Edit
+            </Button>
+            <Button size="xs" color="red" variant="outline" onClick={() => handleDelete(user.id)}>
+            Delete
+            </Button>
+        </Group>
+        </Table.Td>
+    </Table.Tr>
+    ));
+
+  return (
+    <div>
+      <Group style={{ justifyContent: "space-between", marginBottom: 16 }}>
+          <Group>
+            <Button onClick={() => { fetchDept(); setForm(initialForm); setAddOpen(true); }}>Add User</Button>
+            <Button onClick={() => { fetchDept(); setDeptAddOpen(true); }}>Manage Departments</Button>
+            <Button disabled={selected.size === 0} color="red" onClick={() => handleDelete()}>Delete Selected</Button>
+            <Select
+              placeholder="Bulk actions"
+              data={[
+                { value: "", label: "Actions" },
+                { value: "delete", label: "Delete selected" },
+                { value: "role", label: "Change role" },
+                { value: "dept", label: "Change department" },
+                { value: "branch", label: "Change branch" },
+              ]}
+              disabled={selected.size === 0}
+              onChange={(val) => {
+                if (!val) return;
+                if (val === "delete") return handleDelete();
+                if (val === "role") return setBulkRoleOpen(true);
+                if (val === "dept") {
+                  setBulkDeptOpen(true);
+                  fetchDept();
+                  return;
+                }
+                if (val === "branch") {
+                  setBulkBranchOpen(true);
+                  return;
+                }
+              }}
+              style={{ width: 200 }}
+            />
+          </Group>
+        <Text>{users.length} users</Text>
+      </Group>
+
+      <ScrollArea key={tableKey}>
+        <Table highlightOnHover striped withColumnBorders verticalSpacing="sm" stickyHeader>
+            <Table.Thead>
+                <Table.Tr>
+                <Table.Th style={{ width: 40 }}>
+                    <Checkbox
+                    onChange={toggleSelectAll}
+                    checked={selected.size === users.length && users.length > 0}
+                    indeterminate={selected.size > 0 && selected.size < users.length}
+                    aria-label="select all"
+                    />
+                </Table.Th>
+                <Table.Th>Employee ID</Table.Th>
+                <Table.Th>Email</Table.Th>
+                <Table.Th>Name</Table.Th>
+                <Table.Th>Role</Table.Th>
+                <Table.Th>Department</Table.Th>
+                <Table.Th>Branch</Table.Th>
+                <Table.Th>Last Log In</Table.Th>
+                <Table.Th>Actions</Table.Th>
+                </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>{rows}</Table.Tbody>
+            </Table>
+      </ScrollArea>
+
+      <Modal opened={addOpen} onClose={() => { setAddOpen(false); setForm(initialForm); }} title="Add User">
+        <form onSubmit={handleAdd}>
+          <Stack>
+            <TextInput
+              label="Employee ID"
+              value={form.employee_id}
+              onChange={(e) => setForm({ ...form, employee_id: e.currentTarget.value })}
+              required
+            />
+            <TextInput
+              label="Email"
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.currentTarget.value })}
+              required
+            />
+            <PasswordInput
+              label="Password"
+              value={form.password}
+              onChange={(e) => setForm({ ...form, password: e.currentTarget.value })}
+              required
+            />
+            <TextInput label="First name" value={form.fname} onChange={(e) => setForm({ ...form, fname: e.currentTarget.value })} />
+            <TextInput label="Last name" value={form.lname} onChange={(e) => setForm({ ...form, lname: e.currentTarget.value })} />
+              <Select
+                label="Department"
+                data={departments.map((d) => ({ value: d.code, label: d.code }))}
+                value={form.departmentCode}
+                onChange={(val) => setForm({ ...form, departmentCode: val || "" })}
+                required
+                placeholder={departments.length === 0 ? "No departments" : "Select department"}
+              />
+            <Select
+              label="Role"
+              data={["Staff", "OIC", "DepartmentHead", "SuperUser", "Admin"]}
+              value={form.role}
+              onChange={(val) => setForm({ ...form, role: val || "Staff" })}
+            />
+            <Group style={{ justifyContent: "flex-end" }}>
+              <Button type="submit">Create</Button>
+            </Group>
+          </Stack>
+        </form>
+      </Modal>
+
+      {/* Bulk action modals (moved outside Manage Departments modal) */}
+      <Modal opened={bulkRoleOpen} onClose={() => setBulkRoleOpen(false)} title="Change Role for Selected Users">
+        <Stack>
+          <Select
+            label="Role"
+            data={["Staff", "OIC", "DepartmentHead", "SuperUser", "Admin"]}
+            value={bulkRoleValue}
+            onChange={(val) => setBulkRoleValue(val || "Staff")}
+          />
+          <Group style={{ justifyContent: "flex-end" }}>
+            <Button
+              onClick={async () => {
+                if (selected.size === 0) return alert("No users selected");
+                const ids = Array.from(selected);
+                try {
+                  await Promise.all(ids.map((id) =>
+                    fetch("../../../api/user/edit", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ id, role: bulkRoleValue }),
+                    })
+                  ));
+                  setBulkRoleOpen(false);
+                  setSelected(new Set());
+                  fetchAll();
+                } catch (err) {
+                  console.error(err);
+                  alert("Bulk role update failed");
+                }
+              }}
+            >
+              Apply
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+
+      <Modal opened={bulkDeptOpen} onClose={() => setBulkDeptOpen(false)} title="Change Department for Selected Users">
+        <Stack>
+          <Select
+            label="Department"
+            data={departments.map((d) => ({ value: d.code, label: d.code }))}
+            value={bulkDeptValue}
+            onChange={(val) => setBulkDeptValue(val || "")}
+            placeholder={departments.length === 0 ? "No departments" : "Select department"}
+          />
+          <Group style={{ justifyContent: "flex-end" }}>
+            <Button
+              onClick={async () => {
+                if (selected.size === 0) return alert("No users selected");
+                if (!bulkDeptValue) return alert("Please choose a department");
+                const ids = Array.from(selected);
+                try {
+                  await Promise.all(ids.map((id) =>
+                    fetch("../../../api/user/edit", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ id, departmentCode: bulkDeptValue }),
+                    })
+                  ));
+                  setBulkDeptOpen(false);
+                  setSelected(new Set());
+                  fetchAll();
+                } catch (err) {
+                  console.error(err);
+                  alert("Bulk department update failed");
+                }
+              }}
+            >
+              Apply
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+
+      <Modal opened={bulkBranchOpen} onClose={() => setBulkBranchOpen(false)} title="Change Branch for Selected Users">
+        <Stack>
+          <Select
+            label="Branch"
+            data={["MAIN", "IMUS", "NASTECH", "SHS"]}
+            value={bulkBranchValue}
+            onChange={(val) => setBulkBranchValue(val || "MAIN")}
+          />
+          <Group style={{ justifyContent: "flex-end" }}>
+            <Button
+              onClick={async () => {
+                if (selected.size === 0) return alert("No users selected");
+                if (!bulkBranchValue) return alert("Please choose a branch");
+                const ids = Array.from(selected);
+                try {
+                  await Promise.all(ids.map((id) =>
+                    fetch("../../../api/user/edit", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ id, branch: bulkBranchValue }),
+                    })
+                  ));
+                  setBulkBranchOpen(false);
+                  setSelected(new Set());
+                  fetchAll();
+                } catch (err) {
+                  console.error(err);
+                  alert("Bulk branch update failed");
+                }
+              }}
+            >
+              Apply
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+
+      <Modal opened={deptAddOpen} onClose={() => setDeptAddOpen(false)} title="Manage Departments" size="lg">
+        <Stack>
+          <div style={{ display: "flex", gap: 8 }}>
+            <TextInput placeholder="New department code" value={deptCode} onChange={(e) => setDeptCode(e.currentTarget.value)} />
+            <Button
+              onClick={async () => {
+                const code = String(deptCode || "").toUpperCase().trim();
+                if (!code) return alert("Please provide a department code.");
+                try {
+                  const res = await fetch("../../../api/department/add", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ code }),
+                  });
+                  const json = await res.json();
+                  if (json && json.success) {
+                    setDeptCode("");
+                    fetchDept();
+                  } else {
+                    alert(json.message || "Add department failed");
+                  }
+                } catch (err) {
+                  console.error(err);
+                  alert("Add department request failed");
+                }
+              }}
+            >
+              Add
+            </Button>
+          </div>
+
+          <ScrollArea style={{ height: 320 }}>
+            <Table highlightOnHover striped withColumnBorders verticalSpacing="sm" stickyHeader>
+              <Table.Thead>
+                <Table.Tr>
+                  <Table.Th>Code</Table.Th>
+                  <Table.Th style={{ width: 200 }}>Actions</Table.Th>
+                </Table.Tr>
+              </Table.Thead>
+              <Table.Tbody>
+                {departments.map((d) => (
+                  <Table.Tr key={d.id}>
+                    <Table.Td><b>{d.code}</b></Table.Td>
+                    <Table.Td>
+                      <Group>
+                        <Button size="xs" onClick={async () => {
+                          const newCode = String(prompt(`New code for ${d.code}:`, d.code) || "").toUpperCase().trim();
+                          if (!newCode) return;
+                          if (newCode === d.code) return;
+                          try {
+                            const res = await fetch(`../../../api/department/edit`, {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ id: d.id, code: d.code, newCode: newCode }),
+                            });
+                            const json = await res.json();
+                            if (json && json.success) {
+                              // refresh departments and users so renamed department shows immediately
+                              await fetchDept();
+                              await fetchAll();
+                            } else {
+                              alert(json.message || "Edit department failed");
+                            }
+                          } catch (err) {
+                            console.error(err);
+                            alert("Edit department request failed");
+                          }
+                        }}>Edit</Button>
+                        <Button size="xs" color="red" variant="outline" onClick={async () => {
+                          if (!confirm(`Delete department ${d.code}? This will fail if users are assigned.`)) return;
+                          try {
+                            const res = await fetch(`../../../api/department/delete`, {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ id: d.id }),
+                            });
+                            const json = await res.json();
+                            if (json && json.success) {
+                              fetchDept();
+                              fetchAll();
+                            } else {
+                              alert(json.message || "Delete department failed");
+                            }
+                          } catch (err) {
+                            console.error(err);
+                            alert("Delete department request failed");
+                          }
+                        }}>Delete</Button>
+                      </Group>
+                    </Table.Td>
+                  </Table.Tr>
+                ))}
+              </Table.Tbody>
+            </Table>
+          </ScrollArea>
+        </Stack>
+      </Modal>
+
+      <Modal opened={editOpen} onClose={() => setEditOpen(false)} title="Edit User">
+        <form onSubmit={handleEdit}>
+          <Stack>
+            <TextInput
+              label="Employee ID"
+              value={form.employee_id}
+              onChange={(e) => setForm({ ...form, employee_id: e.currentTarget.value })}
+              required
+            />
+            <TextInput label="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.currentTarget.value })} required />
+            <PasswordInput label="Password (leave blank to keep)" value={form.password} onChange={(e) => setForm({ ...form, password: e.currentTarget.value })} />
+            <TextInput label="First name" value={form.fname} onChange={(e) => setForm({ ...form, fname: e.currentTarget.value })} />
+            <TextInput label="Last name" value={form.lname} onChange={(e) => setForm({ ...form, lname: e.currentTarget.value })} />
+            <Select
+              label="Department"
+              data={departments.map((d) => ({ value: d.code, label: d.code }))}
+              value={form.departmentCode}
+              onChange={(val) => setForm({ ...form, departmentCode: val || "" })}
+              required
+              placeholder={departments.length === 0 ? "No departments" : "Select department"}
+            />
+            <Select
+              label="Role"
+              data={["Staff", "OIC", "DepartmentHead", "SuperUser", "Admin"]}
+              value={form.role}
+              onChange={(val) => setForm({ ...form, role: val || "Staff" })}
+            />
+            <Select
+                label="Branch"
+                data={["MAIN", "IMUS", "NASTECH", "SHS"]}
+                value={form.branch}
+                onChange={(val) => setForm({ ...form, branch: val || "MAIN" })}
+            />
+            <Group style={{ justifyContent: "flex-end" }}>
+              <Button type="submit">Save</Button>
+            </Group>
+          </Stack>
+        </form>
+      </Modal>
+    </div>
+  );
+}

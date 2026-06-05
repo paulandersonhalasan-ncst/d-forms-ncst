@@ -7,8 +7,8 @@ import { theme } from './theme'; // I-import ang theme na ginawa natin sa taas
 import { ModalsProvider } from '@mantine/modals'; // 🆕 I-import ito
 
 export const metadata = {
-  title: 'NCST | E-IOM',
-  description: 'Digital Inter-Office Memorandum System of National College of Science and Technology - Main',
+  title: 'NCST | E-FORMS',
+  description: 'Digital Forms System of National College of Science and Technology - Main',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -15,12 +15,10 @@ export async function POST(request) {
       );
     }
 
-    // 🆕 HAKBANG 2: Linisin at i-format ang mga input (Gawing uppercase ang code)
     const formattedDepartments = departmentsArray.map((dept) => ({
       code: dept.code?.toUpperCase().trim()
     }));
 
-    // 🆕 HAKBANG 3: Masusing Validation para sa maramihang data
     for (const dept of formattedDepartments) {
       if (!dept.code) {
         return Response.json(
@@ -30,7 +28,6 @@ export async function POST(request) {
       }
     }
 
-    // 🆕 HAKBANG 4: I-tsek kung may matatamaan na umiiral na sa database
     const codesToCheck = formattedDepartments.map(d => d.code);
     const existingDepts = await prisma.department.findMany({
       where: { code: { in: codesToCheck } }
@@ -47,8 +44,6 @@ export async function POST(request) {
       );
     }
 
-    // 🆕 HAKBANG 5: BULK INSERTION gamit ang createMany!
-    // Mas mabilis ito dahil isang bagsakan lang ang transaction sa Postgres.
     const result = await prisma.department.createMany({
       data: formattedDepartments,
       skipDuplicates: true, //Para siguradong walang error kung may sumabot na duplicate
