@@ -31,15 +31,21 @@ model User {
 
   //department relations
   departmentCode  String
-  department    Department     @relation(fields: [departmentCode], references: [code], onDelete: Restrict, onUpdate: Cascade)
+  department      Department     @relation(fields: [departmentCode], references: [code], onDelete: Restrict, onUpdate: Cascade)
 
   //notif relations
-  received_notif Notification[] @relation("notif_rcpt")
-  sent_notif     Notification[] @relation("notif_sndr")
+  received_notif  Notification[] @relation("notif_rcpt")
+  sent_notif      Notification[] @relation("notif_sndr")
 
   //login sessions
-  last_login       DateTime?
-  login_logs       LoginLog[]
+  last_login        DateTime?
+  login_logs        LoginLog[]
+
+  //forgot password flag
+  forgot_password   Boolean      @default(false)
+
+  //activity logs
+  activity_logs ActivityLog[]
 }
 
 model Department {
@@ -50,6 +56,18 @@ model Department {
 
   //pabalik na relationship to User (1 departament, maraming users ang pwede nakatali)
   users     User[]
+}
+
+model ActivityLog {
+  id           String   @id @default(uuid())
+  userId       String?  // Pwedeng null kung hindi pa naka-login (hal. Failed login attempt)
+  email        String?  // Para madaling basahin kahit nabura na yung user
+  action       String   // Halimbawa: "LOGIN_SUCCESS", "LOGOUT", "USER_CREATE", "DEPT_UPDATE", "CHANGE_PASSWORD"
+  details      String?  // Mas madetalyeng kwento (e.g., "Created user: juan@email.com", "Updated Dept: ITO to IT_NEW")
+  ipAddress    String?
+  createdAt    DateTime @default(now())
+
+  user         User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
 }
 
 enum Role {

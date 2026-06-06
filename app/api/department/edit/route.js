@@ -1,5 +1,7 @@
 // app/api/department/edit/route.js
 import { prisma } from "../../../../prisma/prisma";
+import { jwtVerify } from "jose";
+import { logActivity } from "../../../lib/logger";
 
 export const dynamic = "force-dynamic";
 
@@ -62,6 +64,31 @@ export async function POST(request) {
 			]);
 
 			updated.push({ id: existing.id, code: newCode });
+		}
+
+		// log department edit activity BEFORE returning
+		try {
+			const cookieHeader = request.headers.get("cookie") || "";
+			let requesterId = null;
+			let requesterEmail = null;
+			if (cookieHeader) {
+				const cookieParts = cookieHeader.split(";").map((c) => c.trim());
+				const sessionCookie = cookieParts.find((c) => c.startsWith("session_token="));
+				if (sessionCookie) {
+					try {
+						const token = sessionCookie.split("=")[1];
+						const secret = new TextEncoder().encode(process.env.JWT_SECRET);
+						const { payload } = await jwtVerify(token, secret);
+						requesterId = payload?.id ? String(payload.id) : null;
+						requesterEmail = payload?.email || null;
+					} catch (err) {
+						console.error("Failed to verify session token in dept edit route:", err);
+					}
+				}
+			}
+			await logActivity({ req: request, userId: requesterId, email: requesterEmail, action: "EDIT_DEPARTMENTS", details: JSON.stringify({ updated: updated.map(d => d.id) }) });
+		} catch (err) {
+			console.error("Failed to log department edit activity:", err);
 		}
 
 		return Response.json({ success: true, message: `Updated ${updated.length} department(s).`, departments: updated });

@@ -1,10 +1,32 @@
 // app/api/user/add/route.js
 import { prisma } from "../../../../prisma/prisma";
+import { jwtVerify } from "jose";
+import { logActivity } from "../../../lib/logger";
 
 export async function POST(request) {
   try {
     const req = await request.json();
     const usersArray = Array.isArray(req) ? req : [req];
+
+    // determine requester from session_token cookie (if present)
+    const cookieHeader = request.headers.get("cookie") || "";
+    let requesterId = null;
+    let requesterEmail = null;
+    if (cookieHeader) {
+      try {
+        const cookieParts = cookieHeader.split(";").map((c) => c.trim());
+        const sessionCookie = cookieParts.find((c) => c.startsWith("session_token="));
+        if (sessionCookie) {
+          const token = sessionCookie.split("=")[1];
+          const secret = new TextEncoder().encode(process.env.JWT_SECRET);
+          const { payload } = await jwtVerify(token, secret);
+          requesterId = payload && payload.id ? String(payload.id) : null;
+          requesterEmail = payload && payload.email ? String(payload.email) : null;
+        }
+      } catch (err) {
+        console.error("Failed to verify session token in add route:", err);
+      }
+    }
 
     if (usersArray.length === 0) {
       return Response.json({ success: false, message: "Walang data na ipinadala." }, { status: 400 });
@@ -72,6 +94,13 @@ export async function POST(request) {
         role: newUser.role,
         department: departmentCode
       });
+    }
+
+    // log activity for created users
+    try {
+      await logActivity({ req: request, userId: requesterId, email: requesterEmail, action: "CREATE_USERS", details: JSON.stringify({ created: createdUsers.map((u) => u.id) }) });
+    } catch (err) {
+      console.error("Failed to log create users activity:", err);
     }
 
     return Response.json(

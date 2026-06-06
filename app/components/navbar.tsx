@@ -4,9 +4,12 @@ import {
     IconGauge,
     IconCategory2,
     IconLogout,
-    IconUserCog
+    IconUserCog,
+    IconUserCircle,
+    IconSun,
+    IconMoon  
 } from "@tabler/icons-react";
-import { Code, Group, ScrollArea, Text, UnstyledButton, NavLink } from "@mantine/core";
+import { Code, Group, ScrollArea, Text, UnstyledButton, NavLink, useMantineColorScheme } from "@mantine/core";
 import React, { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { TablerIcon } from "@tabler/icons-react";
@@ -36,10 +39,13 @@ const schoolMenuData: MenuItem[] = [
         ]
     },
     { label: "Manage Users", icon: IconUserCog, link: "/dashboard/admin/manage_users" },
+    { label: "Account Settings", icon: IconUserCircle, link: "/dashboard/account_settings" }
 ];
 
 export default function Sidebar({ role, email }: SidebarProps) {
     const [currentTime, setCurrentTime] = useState<string>("Loading...");
+
+    const { colorScheme, setColorScheme } = useMantineColorScheme();
 
     useEffect(() => {
         //Philippine Standard Time (PST)
@@ -246,6 +252,34 @@ export default function Sidebar({ role, email }: SidebarProps) {
                 <div style={{ fontSize: "13px", opacity: 0.8 }}>
                     Logged in: <b>{email}</b>
                 </div>
+
+                <UnstyledButton
+                    onClick={() => setColorScheme(colorScheme === 'dark' ? 'light' : 'dark')}
+                    style={{
+                        display: "flex",
+                        alignItems: "center",
+                        padding: "8px 12px",
+                        borderRadius: 6,
+                        background: "rgba(255, 255, 255, 0.1)",
+                        color: textColor,
+                        fontSize: "14px",
+                        fontWeight: 500,
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = hoverBg}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 0.1)"}
+                >
+                    {colorScheme === 'dark' ? (
+                        <>
+                            <IconSun size={16} stroke={2} style={{ marginRight: 8 }} color={textColor} />
+                            <span>Light Mode</span>
+                        </>
+                    ) : (
+                        <>
+                            <IconMoon size={16} stroke={2} style={{ marginRight: 8 }} color={textColor} />
+                            <span>Dark Mode</span>
+                        </>
+                    )}
+                </UnstyledButton>
 
                 <UnstyledButton
                     onClick={handleLogout}

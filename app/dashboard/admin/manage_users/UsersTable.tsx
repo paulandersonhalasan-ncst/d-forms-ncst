@@ -291,7 +291,7 @@ export default function UsersTable() {
       </Group>
 
       <ScrollArea key={tableKey}>
-        <Table highlightOnHover striped withColumnBorders verticalSpacing="sm" stickyHeader>
+        <Table highlightOnHover striped withColumnBorders verticalSpacing="sm" stickyHeader horizontalSpacing="md" withTableBorder >
             <Table.Thead>
                 <Table.Tr>
                 <Table.Th style={{ width: 40 }}>
@@ -307,7 +307,7 @@ export default function UsersTable() {
                 <Table.Th>Name</Table.Th>
                 <Table.Th>Role</Table.Th>
                 <Table.Th>Department</Table.Th>
-                <Table.Th>Branch</Table.Th>
+                <Table.Th>System</Table.Th>
                 <Table.Th>Last Log In</Table.Th>
                 <Table.Th>Actions</Table.Th>
                 </Table.Tr>

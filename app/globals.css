@@ -1,11 +1,20 @@
 @import '@mantine/core/styles.css';
 @import "tailwindcss";
 
-:root {
-  --background: #fff8f2;
-  --foreground: #242424;
+/* ☀️ DEFAULT (Light Mode) Setup para sa parehong Mantine at Tailwind */
+:root,
+[data-mantine-color-scheme="light"] {
+  --background: #fff8f2; /* Seashell */
+  --foreground: #242424; /* Carbon Black */
 }
 
+/* 🌙 DARK MODE Setup - Dito mag-papasok kapag pinindot ang toggle button */
+[data-mantine-color-scheme="dark"] {
+  --background: #242424; /* Carbon Black */
+  --foreground: #fff8f2; /* Seashell */
+}
+
+/* 🎯 I-bind ang Tailwind v4 theme utility sa ating dynamic variables */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -13,27 +22,10 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #242424;
-    --foreground: #fff8f2;
-  }
-}
-
+/* 🧼 Isang bagsakang styling para sa body, automatic mag-t-toggle ang kulay! */
 body {
-  background: var(--background);
+  background-color: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
-}
-
-/* Kapag Light Mode */
-[data-mantine-color-scheme="light"] body {
-  background-color: #fff8f2; /* Seashell */
-  color: #242424;            /* Carbon Black */
-}
-
-/* Kapag Dark Mode */
-[data-mantine-color-scheme="dark"] body {
-  background-color: #242424;  /* Carbon Black */
-  color: #fff8f2;             /* Seashell */
+  transition: background-color 0.2s ease, color 0.2s ease; /* Para swabe ang paglipat ng kulay */
 }

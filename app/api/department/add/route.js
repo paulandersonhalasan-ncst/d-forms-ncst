@@ -1,5 +1,7 @@
 // app/api/department/add/route.js (I-adjust mo ang path ng folder kung iba ang pangalan)
 import { prisma } from "../../../../prisma/prisma";
+import { jwtVerify } from "jose";
+import { logActivity } from "../../../lib/logger";
 
 export async function POST(request) {
   try {
@@ -48,6 +50,32 @@ export async function POST(request) {
       data: formattedDepartments,
       skipDuplicates: true, //Para siguradong walang error kung may sumabot na duplicate
     });
+
+    // try to capture requester info and log activity
+    try {
+      const cookieHeader = request.headers.get("cookie") || "";
+      let requesterId = null;
+      let requesterEmail = null;
+      if (cookieHeader) {
+        const cookieParts = cookieHeader.split(";").map((c) => c.trim());
+        const sessionCookie = cookieParts.find((c) => c.startsWith("session_token="));
+        if (sessionCookie) {
+          try {
+            const token = sessionCookie.split("=")[1];
+            const secret = new TextEncoder().encode(process.env.JWT_SECRET);
+            const { payload } = await jwtVerify(token, secret);
+            requesterId = payload?.id ? String(payload.id) : null;
+            requesterEmail = payload?.email || null;
+          } catch (err) {
+            console.error("Failed to verify session token in dept add route:", err);
+          }
+        }
+      }
+
+      await logActivity({ req: request, userId: requesterId, email: requesterEmail, action: "CREATE_DEPARTMENTS", details: JSON.stringify({ count: result.count, codes: formattedDepartments.map(d => d.code) }) });
+    } catch (err) {
+      console.error("Failed to log department add activity:", err);
+    }
 
     return Response.json(
       {

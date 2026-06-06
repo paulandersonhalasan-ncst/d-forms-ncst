@@ -1,5 +1,6 @@
 // app/api/auth/login/route.js
 import { prisma } from "../../../../prisma/prisma";
+import { logActivity } from "../../../lib/logger";
 import { SignJWT } from "jose";
 
 export async function POST(request) {
@@ -29,6 +30,12 @@ export async function POST(request) {
       await prisma.loginLog.create({
         data: { email: email, status: "FAILURE", ip_address: ip }
       });
+
+      try {
+        await logActivity({ req: request, userId: null, email, action: "LOGIN_FAILURE", details: JSON.stringify({ ip }) });
+      } catch (err) {
+        console.error("Failed to log activity (login failure):", err);
+      }
 
       return Response.json(
         { success: false, message: "Invalid Email or Password" },
@@ -77,6 +84,12 @@ export async function POST(request) {
         }
       }
 
+      try {
+        await logActivity({ req: request, userId: null, email, action: "LOGIN_FAILURE", details: JSON.stringify({ failedAttempts: maxFailedAttempts, ip }) });
+      } catch (err) {
+        console.error("Failed to log activity (login failure):", err);
+      }
+
       return Response.json(
         { 
           success: false, 
@@ -109,6 +122,12 @@ export async function POST(request) {
       .setIssuedAt()
       .setExpirationTime("3d")
       .sign(secret);
+
+    try {
+      await logActivity({ req: request, userId: authenticatedUser.id, email: authenticatedUser.email, action: "LOGIN_SUCCESS", details: JSON.stringify({ ip }) });
+    } catch (err) {
+      console.error("Failed to log activity (login success):", err);
+    }
 
     const response = Response.json(
       {
