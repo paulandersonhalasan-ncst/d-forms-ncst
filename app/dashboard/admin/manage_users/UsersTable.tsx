@@ -15,7 +15,7 @@ import {
   PasswordInput,
   UnstyledButton,
 } from "@mantine/core";
-import { IconChevronDown, IconChevronUp, IconSelector } from "@tabler/icons-react";
+import { IconChevronDown, IconChevronUp, IconSearch, IconSelector } from "@tabler/icons-react";
 
 interface User {
   id: string;
@@ -72,6 +72,7 @@ function SortableHeader({
 export default function UsersTable() {
   const [users, setUsers] = useState<User[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
+  const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [addOpen, setAddOpen] = useState(false);
   const [deptAddOpen, setDeptAddOpen] = useState(false);
@@ -133,8 +134,19 @@ export default function UsersTable() {
   }
 
   function toggleSelectAll() {
-    if (selected.size === users.length) setSelected(new Set<string>());
-    else setSelected(new Set(users.map((u) => u.id)));
+    const visibleIds = filteredUsers.map((user) => user.id);
+    const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selected.has(id));
+
+    if (allVisibleSelected) {
+      setSelected((current) => {
+        const next = new Set(current);
+        visibleIds.forEach((id) => next.delete(id));
+        return next;
+      });
+      return;
+    }
+
+    setSelected((current) => new Set([...current, ...visibleIds]));
   }
 
   function openEdit(user: User) {
@@ -259,7 +271,16 @@ export default function UsersTable() {
     setSortField(field);
   }
 
-  const sortedUsers = [...users].sort((a, b) => {
+  const normalizedSearch = search.trim().toLowerCase();
+  const filteredUsers = users.filter((user) => {
+    if (!normalizedSearch) return true;
+
+    return [user.employee_id, user.email, user.fname, user.lname].some((value) =>
+      String(value || "").toLowerCase().includes(normalizedSearch)
+    );
+  });
+
+  const sortedUsers = [...filteredUsers].sort((a, b) => {
     if (!sortField) return 0;
 
     if (sortField === "last_login") {
@@ -307,7 +328,7 @@ export default function UsersTable() {
 
   return (
     <div>
-      <Group style={{ justifyContent: "space-between", marginBottom: 16 }}>
+      <Group style={{ justifyContent: "space-between", marginBottom: 16 }} justify="flex-end" mb="md">
           <Group>
             <Button onClick={() => { fetchDept(); setForm(initialForm); setAddOpen(true); }}>Add User</Button>
             <Button onClick={() => { fetchDept(); setDeptAddOpen(true); }}>Manage Departments</Button>
@@ -339,7 +360,14 @@ export default function UsersTable() {
               style={{ width: 200 }}
             />
           </Group>
-        <Text>{users.length} users</Text>
+        {/* <Text>{filteredUsers.length} users</Text> saka ko nalang lagay pag kailangan ko*/}
+        <TextInput
+          placeholder="Search by employee ID, email, first name, or last name"
+          value={search}
+          onChange={(event) => setSearch(event.currentTarget.value)}
+          leftSection={<IconSearch size={16} />}
+          w={400}
+        />
       </Group>
 
       <ScrollArea>
@@ -349,8 +377,8 @@ export default function UsersTable() {
                 <Table.Th style={{ width: 40 }}>
                     <Checkbox
                     onChange={toggleSelectAll}
-                    checked={selected.size === users.length && users.length > 0}
-                    indeterminate={selected.size > 0 && selected.size < users.length}
+                    checked={filteredUsers.length > 0 && filteredUsers.every((user) => selected.has(user.id))}
+                    indeterminate={filteredUsers.some((user) => selected.has(user.id)) && !filteredUsers.every((user) => selected.has(user.id))}
                     aria-label="select all"
                     />
                 </Table.Th>
