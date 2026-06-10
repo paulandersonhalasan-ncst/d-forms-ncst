@@ -13,7 +13,9 @@ import {
   Text,
   Stack,
   PasswordInput,
+  UnstyledButton,
 } from "@mantine/core";
+import { IconChevronDown, IconChevronUp, IconSelector } from "@tabler/icons-react";
 
 interface User {
   id: string;
@@ -32,10 +34,44 @@ interface Department {
     code: string;
 }
 
+type SortField =
+  | "employee_id"
+  | "email"
+  | "fname"
+  | "lname"
+  | "role"
+  | "departmentCode"
+  | "branch"
+  | "last_login";
+
+function SortableHeader({
+  children,
+  sorted,
+  reversed,
+  onSort,
+}: {
+  children: React.ReactNode;
+  sorted: boolean;
+  reversed: boolean;
+  onSort: () => void;
+}) {
+  const Icon = sorted ? (reversed ? IconChevronUp : IconChevronDown) : IconSelector;
+
+  return (
+    <UnstyledButton onClick={onSort} style={{ width: "100%" }}>
+      <Group justify="space-between" wrap="nowrap" gap={4}>
+        <Text fw={500} size="sm">
+          {children}
+        </Text>
+        <Icon size={14} />
+      </Group>
+    </UnstyledButton>
+  );
+}
+
 export default function UsersTable() {
   const [users, setUsers] = useState<User[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
-  const [loading, setLoading] = useState<boolean>(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [addOpen, setAddOpen] = useState(false);
   const [deptAddOpen, setDeptAddOpen] = useState(false);
@@ -48,6 +84,8 @@ export default function UsersTable() {
   const [bulkRoleValue, setBulkRoleValue] = useState<string>("Staff");
   const [bulkDeptValue, setBulkDeptValue] = useState<string>("");
   const [bulkBranchValue, setBulkBranchValue] = useState<string>("MAIN");
+  const [sortField, setSortField] = useState<SortField | null>(null);
+  const [reverseSortDirection, setReverseSortDirection] = useState(false);
   const initialForm = {
     employee_id: "",
     email: "",
@@ -60,28 +98,22 @@ export default function UsersTable() {
   };
 
   const [form, setForm] = useState(initialForm);
-  const [tableKey, setTableKey] = useState<number>(0); // 🎯 Idagdag ito sa taas
-
   useEffect(() => {
     fetchAll();
     fetchDept();
   }, []);
 
   async function fetchAll() {
-    setLoading(true);
     try {
       const res = await fetch("../../../api/user/get");
       const json = await res.json();
       if (json && json.success) setUsers(json.data || json.users || json.data);
     } catch (e) {
       console.error(e);
-    } finally {
-      setLoading(false);
     }
   }
 
   async function fetchDept() {
-    setLoading(true);
     try {
       const res = await fetch("../../../api/department/get");
       const json = await res.json();
@@ -90,8 +122,6 @@ export default function UsersTable() {
       console.log(json.data);
     } catch (e) {
       console.error(e);
-    } finally {
-      setLoading(false);
     }
   }
 
@@ -149,7 +179,7 @@ export default function UsersTable() {
   }
 
   async function handleAdd(e?: React.FormEvent) {
-    e && e.preventDefault();
+    if (e) e.preventDefault();
     try {
       const res = await fetch("../../../api/user/add", {
         method: "POST",
@@ -180,7 +210,7 @@ export default function UsersTable() {
   }
 
   async function handleEdit(e?: React.FormEvent) {
-    e && e.preventDefault();
+    if (e) e.preventDefault();
     if (!editing) return;
     try {
       const payload = { id: editing.id, ...form };
@@ -218,13 +248,34 @@ export default function UsersTable() {
         hour12: true,
         timeZone: "Asia/Manila",
       }).format(d);
-    } catch (err) {
+    } catch {
       return value;
     }
   }
 
+  function setSorting(field: SortField) {
+    const reversed = field === sortField ? !reverseSortDirection : false;
+    setReverseSortDirection(reversed);
+    setSortField(field);
+  }
+
+  const sortedUsers = [...users].sort((a, b) => {
+    if (!sortField) return 0;
+
+    if (sortField === "last_login") {
+      const left = a.last_login ? new Date(a.last_login).getTime() : 0;
+      const right = b.last_login ? new Date(b.last_login).getTime() : 0;
+      return reverseSortDirection ? right - left : left - right;
+    }
+
+    const left = String(a[sortField] || "").toLowerCase();
+    const right = String(b[sortField] || "").toLowerCase();
+
+    return reverseSortDirection ? right.localeCompare(left) : left.localeCompare(right);
+  });
+
   // 🎯 Palitan ang rendering ng rows gamit ang Mantine Table primitives:
-    const rows = users.map((user: User) => (
+    const rows = sortedUsers.map((user: User) => (
     <Table.Tr key={user.id} style={{ background: selected.has(user.id) ? "var(--mantine-color-gray-1)" : undefined }}>
         <Table.Td>
         <Checkbox
@@ -235,7 +286,8 @@ export default function UsersTable() {
         </Table.Td>
         <Table.Td>{user.employee_id}</Table.Td>
         <Table.Td>{user.email}</Table.Td>
-        <Table.Td>{`${user.fname || ""} ${user.lname || ""}`}</Table.Td>
+        <Table.Td>{user.fname}</Table.Td>
+        <Table.Td>{user.lname}</Table.Td>
         <Table.Td>{user.role}</Table.Td>
         <Table.Td>{user.departmentCode}</Table.Td>
         <Table.Td>{user.branch}</Table.Td>
@@ -290,7 +342,7 @@ export default function UsersTable() {
         <Text>{users.length} users</Text>
       </Group>
 
-      <ScrollArea key={tableKey}>
+      <ScrollArea>
         <Table highlightOnHover striped withColumnBorders verticalSpacing="sm" stickyHeader horizontalSpacing="md" withTableBorder >
             <Table.Thead>
                 <Table.Tr>
@@ -302,13 +354,46 @@ export default function UsersTable() {
                     aria-label="select all"
                     />
                 </Table.Th>
-                <Table.Th>Employee ID</Table.Th>
-                <Table.Th>Email</Table.Th>
-                <Table.Th>Name</Table.Th>
-                <Table.Th>Role</Table.Th>
-                <Table.Th>Department</Table.Th>
-                <Table.Th>System</Table.Th>
-                <Table.Th>Last Log In</Table.Th>
+                <Table.Th>
+                  <SortableHeader sorted={sortField === "employee_id"} reversed={reverseSortDirection} onSort={() => setSorting("employee_id")}>
+                    Employee ID
+                  </SortableHeader>
+                </Table.Th>
+                <Table.Th>
+                  <SortableHeader sorted={sortField === "email"} reversed={reverseSortDirection} onSort={() => setSorting("email")}>
+                    Email
+                  </SortableHeader>
+                </Table.Th>
+                <Table.Th>
+                  <SortableHeader sorted={sortField === "fname"} reversed={reverseSortDirection} onSort={() => setSorting("fname")}>
+                    First Name
+                  </SortableHeader>
+                </Table.Th>
+                <Table.Th>
+                  <SortableHeader sorted={sortField === "lname"} reversed={reverseSortDirection} onSort={() => setSorting("lname")}>
+                    Last Name
+                  </SortableHeader>
+                </Table.Th>
+                <Table.Th>
+                  <SortableHeader sorted={sortField === "role"} reversed={reverseSortDirection} onSort={() => setSorting("role")}>
+                    Role
+                  </SortableHeader>
+                </Table.Th>
+                <Table.Th>
+                  <SortableHeader sorted={sortField === "departmentCode"} reversed={reverseSortDirection} onSort={() => setSorting("departmentCode")}>
+                    Department
+                  </SortableHeader>
+                </Table.Th>
+                <Table.Th>
+                  <SortableHeader sorted={sortField === "branch"} reversed={reverseSortDirection} onSort={() => setSorting("branch")}>
+                    System
+                  </SortableHeader>
+                </Table.Th>
+                <Table.Th>
+                  <SortableHeader sorted={sortField === "last_login"} reversed={reverseSortDirection} onSort={() => setSorting("last_login")}>
+                    Last Log In
+                  </SortableHeader>
+                </Table.Th>
                 <Table.Th>Actions</Table.Th>
                 </Table.Tr>
             </Table.Thead>
