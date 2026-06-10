@@ -8,6 +8,8 @@ export async function POST(request) {
     const req = await request.json();
     const usersArray = Array.isArray(req) ? req : [req];
 
+    console.log("Received request to add users:", usersArray);
+
     // determine requester from session_token cookie (if present)
     const cookieHeader = request.headers.get("cookie") || "";
     let requesterId = null;

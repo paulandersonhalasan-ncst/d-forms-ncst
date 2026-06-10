@@ -30,34 +30,48 @@ export async function proxy(request) {
   // RBAC: normalize role casing to avoid mismatches between DB and checks
   // RBAC: use DB role values as-is (case-sensitive)
   const role = user?.role ?? null;
+  const unauthorizedURL = new URL('/unauthorized', request.url);
+  const loginURL = new URL('/', request.url);
+
+  const denyIfNotRole = (allowedRoles) => {
+    if (!user) return NextResponse.rewrite(loginURL);
+    if (!allowedRoles.includes(role)) return NextResponse.rewrite(unauthorizedURL);
+    return null;
+  };
 
   // Check dashboard routes (your pages live under /dashboard/*)
   if (request.nextUrl.pathname.startsWith('/dashboard/superuser')) {
-    if (!user) return NextResponse.rewrite(new URL('/', request.url));
-    if (role !== 'SuperUser') return NextResponse.rewrite(new URL('/403-unauthorized', request.url));
+    const denied = denyIfNotRole(['SuperUser']);
+    if (denied) return denied;
   }
 
   if (request.nextUrl.pathname.startsWith('/dashboard/dept_head')) {
-    if (!user) return NextResponse.rewrite(new URL('/', request.url));
-    if (role !== 'DepartmentHead' && role !== 'depthead') return NextResponse.rewrite(new URL('/403-unauthorized', request.url));
-  }
-
-  if (request.nextUrl.pathname.startsWith('/dashboard/coadmin')) {
-    if (!user) return NextResponse.rewrite(new URL('/', request.url));
-    if (role !== 'CoAdmin') return NextResponse.rewrite(new URL('/403-unauthorized', request.url));
+    const denied = denyIfNotRole(['DepartmentHead', 'depthead']);
+    if (denied) return denied;
   }
 
   if (request.nextUrl.pathname.startsWith('/dashboard/staff')) {
-    if (!user) return NextResponse.rewrite(new URL('/', request.url));
-    if (role !== 'Staff') return NextResponse.rewrite(new URL('/403-unauthorized', request.url));
+    const denied = denyIfNotRole(['Staff']);
+    if (denied) return denied;
+  }
+
+  if (request.nextUrl.pathname.startsWith('/dashboard/admin')) {
+    const denied = denyIfNotRole(['Admin']);
+    if (denied) return denied;
+  }
+
+  if (request.nextUrl.pathname.startsWith('/dashboard/oic')) {
+    const denied = denyIfNotRole(['OIC']);
+    if (denied) return denied;
   }
 
   // If an authenticated user hits the frontend login page (`/`), send them to their dashboard
   if (request.nextUrl.pathname === '/' && user) {
     if (role === 'SuperUser') return NextResponse.rewrite(new URL('/dashboard/superuser', request.url));
     if (role === 'DepartmentHead') return NextResponse.rewrite(new URL('/dashboard/dept_head', request.url));
-    if (role === 'CoAdmin') return NextResponse.rewrite(new URL('/dashboard/coadmin', request.url));
     if (role === 'Staff') return NextResponse.rewrite(new URL('/dashboard/staff', request.url));
+    if (role === 'Admin') return NextResponse.rewrite(new URL('/dashboard/admin', request.url));
+    if (role === 'OIC') return NextResponse.rewrite(new URL('/dashboard/oic', request.url));
   }
 
   return NextResponse.next();

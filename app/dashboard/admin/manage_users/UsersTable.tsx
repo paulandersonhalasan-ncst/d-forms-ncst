@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   Table,
   Checkbox,
@@ -87,6 +87,7 @@ export default function UsersTable() {
   const [bulkBranchValue, setBulkBranchValue] = useState<string>("MAIN");
   const [sortField, setSortField] = useState<SortField | null>(null);
   const [reverseSortDirection, setReverseSortDirection] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const initialForm = {
     employee_id: "",
     email: "",
@@ -370,7 +371,7 @@ export default function UsersTable() {
         />
       </Group>
 
-      <ScrollArea>
+      <ScrollArea h="calc(100vh - 260px)">
         <Table highlightOnHover striped withColumnBorders verticalSpacing="sm" stickyHeader horizontalSpacing="md" withTableBorder >
             <Table.Thead>
                 <Table.Tr>
@@ -584,6 +585,104 @@ export default function UsersTable() {
           </Group>
         </Stack>
       </Modal>
+
+      <Group style={{ marginTop: 12, gap: 8 }}>
+          <Button
+            onClick={async () => {
+              try {
+                const XLSX = await import("xlsx");
+                const toExport = filteredUsers.map((u) => ({
+                  employee_id: u.employee_id || "",
+                  email: u.email || "",
+                  fname: u.fname || "",
+                  lname: u.lname || "",
+                  role: u.role || "",
+                  departmentCode: u.departmentCode || "",
+                  branch: u.branch || "",
+                  last_login: u.last_login || "",
+                }));
+                const ws = XLSX.utils.json_to_sheet(toExport);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "Users");
+                XLSX.writeFile(wb, `users_${new Date().toISOString().slice(0,10)}.xlsx`);
+              } catch (err) {
+                console.error(err);
+                alert("XLSX export failed. Install 'xlsx' or check the console for details.");
+              }
+            }}
+          >
+            Export XLSX
+          </Button>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".xlsx,.xls"
+            style={{ display: "none" }}
+            onChange={async (e) => {
+              const f = e.currentTarget.files && e.currentTarget.files[0];
+              if (!f) return;
+              try {
+                const arrayBuffer = await f.arrayBuffer();
+                
+                const XLSX = await import("xlsx");
+                const workbook = XLSX.read(arrayBuffer, { type: "array" });
+                const sheetName = workbook.SheetNames[0];
+                const sheet = workbook.Sheets[sheetName];
+                const data: Record<string, unknown>[] = XLSX.utils.sheet_to_json(sheet);
+                if (!data || data.length === 0) return alert("No rows found in the uploaded file.");
+                const proceed = confirm(`Parsed ${data.length} rows. Upload to server as users?`);
+                if (!proceed) return console.log(data);
+                // attempt to add each row (best-effort) - use safe extractor for unknown-typed rows
+                const getVal = (r: Record<string, unknown>, ...keys: string[]) => {
+                  for (const k of keys) {
+                    const v = r[k];
+                    if (v !== undefined && v !== null && String(v).trim() !== "") return String(v);
+                  }
+                  return "";
+                };
+
+                const results = { success: 0, fail: 0 };
+                for (const row of data) {
+                  const payload = {
+                    employee_id: getVal(row, "employee_id", "Employee ID", "employee_id"),
+                    email: getVal(row, "email", "Email"),
+                    password: "123",
+                    fname: getVal(row, "fname", "FIRST_NAME", "first_name", "FirstName"),
+                    lname: getVal(row, "lname", "LAST_NAME", "last_name", "LastName"),
+                    role: getVal(row, "role", "Role") || "Staff",
+                    departmentCode: getVal(row, "departmentCode", "Department"),
+                    branch: getVal(row, "branch", "Branch") || "MAIN",
+                  };
+
+                  try {
+                    const res = await fetch("../../../api/user/add", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify(payload),
+                    });
+                    const json = await res.json();
+                    if (json && json.success) results.success += 1;
+                    else results.fail += 1;
+                  } catch (err) {
+                    console.error(err);
+                    results.fail += 1;
+                  }
+                }
+                alert(`Import finished. Success: ${results.success}, Fail: ${results.fail}`);
+                fetchAll();
+              } catch (err) {
+                console.error(err);
+                alert("Failed to parse XLSX file. See console for details.");
+              } finally {
+                // reset input
+                if (fileInputRef.current) fileInputRef.current.value = "";
+              }
+            }}
+          />
+
+          <Button onClick={() => fileInputRef.current && fileInputRef.current.click()}>Import XLSX</Button>
+        </Group>
 
       <Modal opened={deptAddOpen} onClose={() => setDeptAddOpen(false)} title="Manage Departments" size="lg">
         <Stack>

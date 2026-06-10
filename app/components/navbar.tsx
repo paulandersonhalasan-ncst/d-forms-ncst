@@ -7,7 +7,8 @@ import {
     IconUserCog,
     IconUserCircle,
     IconSun,
-    IconMoon  
+    IconMoon,  
+    IconLogs
 } from "@tabler/icons-react";
 import { Code, Group, ScrollArea, Text, UnstyledButton, NavLink, useMantineColorScheme } from "@mantine/core";
 import React, { useState, useEffect } from "react";
@@ -39,7 +40,8 @@ const schoolMenuData: MenuItem[] = [
         ]
     },
     { label: "Manage Users", icon: IconUserCog, link: "/dashboard/admin/manage_users" },
-    { label: "Account Settings", icon: IconUserCircle, link: "/dashboard/account_settings" }
+    { label: "Account Settings", icon: IconUserCircle, link: "/dashboard/account_settings" },
+    { label: "Activity Logs", icon: IconLogs, link: "superuser/activity_logs" },
 ];
 
 export default function Sidebar({ role, email }: SidebarProps) {
