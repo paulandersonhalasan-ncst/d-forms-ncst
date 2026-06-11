@@ -78,6 +78,12 @@ export default function Sidebar({ role, email }: SidebarProps) {
     const router = useRouter();
     const pathname = usePathname();
     const [hoverKey, setHoverKey] = useState<string | null>(null);
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        const id = window.setTimeout(() => setMounted(true), 0);
+        return () => window.clearTimeout(id);
+    }, []);
 
     // DYNAMIC COLORS BASE SA ROLE
     let sidebarBg = "";
@@ -270,15 +276,22 @@ export default function Sidebar({ role, email }: SidebarProps) {
                     onMouseEnter={(e) => e.currentTarget.style.backgroundColor = hoverBg}
                     onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 0.1)"}
                 >
-                    {colorScheme === 'dark' ? (
-                        <>
-                            <IconSun size={16} stroke={2} style={{ marginRight: 8 }} color={textColor} />
-                            <span>Light Mode</span>
-                        </>
+                    {mounted ? (
+                        colorScheme === 'dark' ? (
+                            <>
+                                <IconSun size={16} stroke={2} style={{ marginRight: 8 }} color={textColor} />
+                                <span>Light Mode</span>
+                            </>
+                        ) : (
+                            <>
+                                <IconMoon size={16} stroke={2} style={{ marginRight: 8 }} color={textColor} />
+                                <span>Dark Mode</span>
+                            </>
+                        )
                     ) : (
                         <>
-                            <IconMoon size={16} stroke={2} style={{ marginRight: 8 }} color={textColor} />
-                            <span>Dark Mode</span>
+                            <IconSun size={16} stroke={2} style={{ marginRight: 8 }} color={textColor} />
+                            <span>Toggle Theme</span>
                         </>
                     )}
                 </UnstyledButton>

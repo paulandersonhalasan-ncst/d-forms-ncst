@@ -83,7 +83,7 @@ export async function POST(request) {
           password: password, // Plain text muna gaya ng setup mo ngayon
           fname: fname.trim(),
           lname: lname.trim(),
-          role: role, // Awtomatikong babasahin ang Enum (Staff, CoAdmin, DepartmentHead, SuperUser)
+          role: role, // Awtomatikong babasahin ang Enum (Staff, OIC, DepartmentHead, SuperUser, Admin)
           branch: branch || "MAIN",
           departmentCode: targetDept.code,
         }

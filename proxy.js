@@ -81,8 +81,9 @@ export const config = {
   matcher: [
     '/dashboard/superuser/:path*',
     '/dashboard/dept_head/:path*',
-    '/dashboard/coadmin/:path*',
+    '/dashboard/oic/:path*',
     '/dashboard/staff/:path*',
+    '/dashboard/admin/:path*',
     '/',
   ],
 };
