@@ -16,21 +16,21 @@ const roleToDashboard: Record<string, string> = {
 export default function AccessDeniedPage() {
   const [dashboardHref, setDashboardHref] = useState("/");
   const [loggingOut, setLoggingOut] = useState(false);
+  const [mounted, setMounted] = useState(false); // 👈 1. Eto ang tunay na tagabantay ng hydration
+
   const router = useRouter();
   const theme = useMantineTheme();
   const { colorScheme } = useMantineColorScheme();
-  const accent = theme.colors.imperialBlue[6];
-  const paperBackground = colorScheme === "dark" ? "rgba(24, 24, 24, 0.92)" : "rgba(255, 255, 255, 0.94)";
-  const paperBorder = colorScheme === "dark" ? "rgba(255, 248, 242, 0.14)" : "rgba(36, 36, 36, 0.10)";
-  const titleColor = colorScheme === "dark" ? theme.colors.schoolBusYellow[4] : theme.colors.imperialBlue[6];
-  const backgroundGlow =
-    colorScheme === "dark"
-      ? "radial-gradient(circle at top left, rgba(255, 196, 69, 0.12), transparent 30%), radial-gradient(circle at bottom right, rgba(14, 39, 105, 0.30), transparent 26%)"
-      : "radial-gradient(circle at top left, rgba(14, 39, 105, 0.12), transparent 30%), radial-gradient(circle at bottom right, rgba(254, 196, 53, 0.18), transparent 26%)";
 
-  useEffect(() => {
+  // 📝 2. Tinanggal natin ang "if (!colorScheme)" na hindi gumagana, at ginamit ang mounted state sa baba.
+
+ useEffect(() => {
+    // 🚀 Ginawang async/delayed para hindi mag-trigger ng synchronous cascading renders ayon sa linter
+    const timeoutId = setTimeout(() => {
+      setMounted(true);
+    }, 0);
+
     let isMounted = true;
-
     document.title = "404 | Access Denied";
 
     async function loadUserRole() {
@@ -57,8 +57,25 @@ export default function AccessDeniedPage() {
 
     return () => {
       isMounted = false;
+      clearTimeout(timeoutId); // 🧹 Linisin ang timeout kapag nag-unmount ang component
     };
   }, []);
+
+  // 👈 4. Habang nagluluto pa sa server, magpakita muna ng walang laman na container 
+  // para walang maging mismatch sa mga inline styles o attribute values.
+  if (!mounted) {
+    return <main style={{ minHeight: "100vh", backgroundColor: "var(--background)" }} />;
+  }
+
+  // 👇 5. Ligtas na kalkulahin ang mga kulay dito dahil sigurado tayong hydrated na ang client branch.
+  const accent = theme.colors.imperialBlue[6];
+  const paperBackground = colorScheme === "dark" ? "rgba(24, 24, 24, 0.92)" : "rgba(255, 255, 255, 0.94)";
+  const paperBorder = colorScheme === "dark" ? "rgba(255, 248, 242, 0.14)" : "rgba(36, 36, 36, 0.10)";
+  const titleColor = colorScheme === "dark" ? theme.colors.schoolBusYellow[4] : theme.colors.imperialBlue[6];
+  const backgroundGlow =
+    colorScheme === "dark"
+      ? "radial-gradient(circle at top left, rgba(255, 196, 69, 0.12), transparent 30%), radial-gradient(circle at bottom right, rgba(14, 39, 105, 0.30), transparent 26%)"
+      : "radial-gradient(circle at top left, rgba(14, 39, 105, 0.12), transparent 30%), radial-gradient(circle at bottom right, rgba(254, 196, 53, 0.18), transparent 26%)";
 
   async function handleLogoutAndLogin() {
     setLoggingOut(true);
@@ -68,7 +85,7 @@ export default function AccessDeniedPage() {
         credentials: "include",
       });
     } catch {
-      // continue to login even if logout fails; the redirect still clears the flow for the user
+      // okey lang kahit mag-fail, itutuloy pa rin sa baba
     } finally {
       setLoggingOut(false);
       router.push("/");
@@ -133,7 +150,13 @@ export default function AccessDeniedPage() {
             </Stack>
 
             <Group justify="center" gap="sm" wrap="wrap">
-              <Button component="a" href={dashboardHref} size="md" leftSection={<IconLock size={16} />} color="imperialBlue">
+              {/* 🎯 Pinalitan din natin ito ng router.push para hindi mag-mismatch ang structural anchor tags galing server */}
+              <Button 
+                onClick={() => router.push(dashboardHref)} 
+                size="md" 
+                leftSection={<IconLock size={16} />} 
+                color="imperialBlue"
+              >
                 Go to dashboard
               </Button>
               <Button variant="light" size="md" color="schoolBusYellow" onClick={handleLogoutAndLogin} loading={loggingOut}>
