@@ -16,16 +16,12 @@ const roleToDashboard: Record<string, string> = {
 export default function AccessDeniedPage() {
   const [dashboardHref, setDashboardHref] = useState("/");
   const [loggingOut, setLoggingOut] = useState(false);
-  const [mounted, setMounted] = useState(false); // 👈 1. Eto ang tunay na tagabantay ng hydration
-
+  const [mounted, setMounted] = useState(false); 
   const router = useRouter();
   const theme = useMantineTheme();
   const { colorScheme } = useMantineColorScheme();
 
-  // 📝 2. Tinanggal natin ang "if (!colorScheme)" na hindi gumagana, at ginamit ang mounted state sa baba.
-
  useEffect(() => {
-    // 🚀 Ginawang async/delayed para hindi mag-trigger ng synchronous cascading renders ayon sa linter
     const timeoutId = setTimeout(() => {
       setMounted(true);
     }, 0);
@@ -57,17 +53,14 @@ export default function AccessDeniedPage() {
 
     return () => {
       isMounted = false;
-      clearTimeout(timeoutId); // 🧹 Linisin ang timeout kapag nag-unmount ang component
+      clearTimeout(timeoutId);
     };
   }, []);
 
-  // 👈 4. Habang nagluluto pa sa server, magpakita muna ng walang laman na container 
-  // para walang maging mismatch sa mga inline styles o attribute values.
   if (!mounted) {
     return <main style={{ minHeight: "100vh", backgroundColor: "var(--background)" }} />;
   }
 
-  // 👇 5. Ligtas na kalkulahin ang mga kulay dito dahil sigurado tayong hydrated na ang client branch.
   const accent = theme.colors.imperialBlue[6];
   const paperBackground = colorScheme === "dark" ? "rgba(24, 24, 24, 0.92)" : "rgba(255, 255, 255, 0.94)";
   const paperBorder = colorScheme === "dark" ? "rgba(255, 248, 242, 0.14)" : "rgba(36, 36, 36, 0.10)";
@@ -85,7 +78,6 @@ export default function AccessDeniedPage() {
         credentials: "include",
       });
     } catch {
-      // okey lang kahit mag-fail, itutuloy pa rin sa baba
     } finally {
       setLoggingOut(false);
       router.push("/");
@@ -150,7 +142,6 @@ export default function AccessDeniedPage() {
             </Stack>
 
             <Group justify="center" gap="sm" wrap="wrap">
-              {/* 🎯 Pinalitan din natin ito ng router.push para hindi mag-mismatch ang structural anchor tags galing server */}
               <Button 
                 onClick={() => router.push(dashboardHref)} 
                 size="md" 
