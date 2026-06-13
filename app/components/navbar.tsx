@@ -8,7 +8,9 @@ import {
     IconUserCircle,
     IconSun,
     IconMoon,  
-    IconLogs
+    IconLogs,
+    IconUsers,
+    IconUser
 } from "@tabler/icons-react";
 import { Code, Group, ScrollArea, Text, UnstyledButton, NavLink, useMantineColorScheme } from "@mantine/core";
 import React, { useState, useEffect } from "react";
@@ -24,13 +26,23 @@ interface SidebarProps {
 // 🆕 Nilagyan natin ng pormal na interface ang array para maintindihan ni TypeScript ang hugis ng menu mo
 interface MenuItem {
     label: string;
-    icon: TablerIcon; // 🎯 Eksaktong type ng Tabler Icons, burado ang 'any'!
+    icon: TablerIcon;
     link?: string;
-    links?: { label: string; link: string }[];
+    allowedRoles?: ("SuperUser" | "OIC" | "DepartmentHead" | "Staff" | "Admin")[]; // 👈 Idagdag ito
+    links?: { 
+        label: string; 
+        link: string;
+        allowedRoles?: ("SuperUser" | "OIC" | "DepartmentHead" | "Staff" | "Admin")[]; // 👈 Pati sa sub-links
+    }[];
 }
 
 const schoolMenuData: MenuItem[] = [
-    { label: "Dashboard", icon: IconGauge, link: "/dashboard" },
+    { 
+        label: "Dashboard", 
+        icon: IconGauge, 
+        link: "/dashboard" 
+        // Walang allowedRoles = Makikita ng kahit sinong naka-login
+    },
     {
         label: "Forms",
         icon: IconCategory2,
@@ -39,9 +51,29 @@ const schoolMenuData: MenuItem[] = [
             { label: "PLACEHOLDER", link: "/dashboard/forms/placeholder" },
         ]
     },
-    { label: "Manage Users", icon: IconUserCog, link: "/dashboard/admin/manage_users" },
-    { label: "Account Settings", icon: IconUserCircle, link: "/dashboard/account_settings" },
-    { label: "Activity Logs", icon: IconLogs, link: "/dashboard/activity_logs" },
+    { 
+        label: "Manage Users", 
+        icon: IconUserCog, 
+        link: "/dashboard/manage_users",
+        allowedRoles: ["Admin", "SuperUser"] // 👈 Sila lang ang makakakita nito
+    },
+    { 
+        label: "Account Settings", 
+        icon: IconUserCircle, 
+        link: "/dashboard/account_settings" 
+    },
+    { 
+        label: "Activity Logs", 
+        icon: IconLogs, 
+        link: "/dashboard/activity_logs",
+        allowedRoles: ["Admin", "SuperUser"] // 👈 Sila lang ang makakakita nito
+    },
+    { 
+        label: "Manage Staff", 
+        icon: IconUser, 
+        link: "/dashboard/manage_staff",
+        allowedRoles: ["OIC", "DepartmentHead"] // 👈 Sila lang ang makakakita nito sigurado!
+    }
 ];
 
 export default function Sidebar({ role, email }: SidebarProps) {
@@ -156,96 +188,91 @@ export default function Sidebar({ role, email }: SidebarProps) {
             {/* BODY: Mantine NavLink Engine */}
             <ScrollArea style={{ flex: 1, padding: "16px 0" }}>
                 <div style={{ paddingLeft: 12, paddingRight: 12 }}>
-                    {schoolMenuData.map((item) => {
-                        // DYNAMIC ACTIVE DETECTION FOR DASHBOARD OR ROLE-SPECIFIC DASHBOARDS
-                        let isMainActive = false;
-                        if (item.label === "Dashboard") {
-                            // Don't mark Dashboard active on the initial root path ('/').
-                            // Only consider it active when pathname exists and is one of the dashboard routes.
-                            if (pathname && pathname !== "/") {
-                                isMainActive = [
-                                    "/dashboard",
-                                    "/dashboard/staff",
-                                    "/dashboard/superuser",
-                                    "/dashboard/oic",
-                                    "/dashboard/dept_head",
-                                    "/dashboard/admin"
-                                ].includes(pathname);
-                            } else {
-                                isMainActive = false;
-                            }
-                        } else if (item.link) {
-                            isMainActive = pathname === item.link;
-                        }
-
-                        // 🆕 DYNAMIC INLINE STYLES PARA KAY MANTINE NAVLINK (Tugma sa roles colors mo)
-                        const customNavLinkStyles = {
-                            label: { color: textColor, fontWeight: isMainActive ? 600 : 500 },
-                            description: { color: textColor },
-                            children: { paddingLeft: 16 }, // Indentation ng sub-menus
-                            root: {
-                                borderRadius: 6,
-                                marginBottom: 4,
-                                backgroundColor: isMainActive ? activeBg : "transparent",
-                                "&:hover": {
-                                    // Force hover to take precedence over active styles
-                                    backgroundColor: `${hoverBg} !important`,
-                                }
-                            }
-                        };
-
-                        // DYNAMIC ROUTING PARA SA MISMONG MGA SUB-ROUTES
-                        const handleMainClick = () => {
+                    {schoolMenuData
+                        // 🛡️ HAKBANG A: I-filter ang mga MAIN MENU items base sa role ng user
+                        .filter((item) => {
+                            if (!item.allowedRoles) return true; // Kung walang limitasyon, ipakita sa lahat
+                            return item.allowedRoles.includes(role); // Ipakita lang kung kasama ang role ng user
+                        })
+                        .map((item) => {
+                            // DYNAMIC ACTIVE DETECTION (Iwanan mo lang ang code mo rito gaya ng dati)
+                            let isMainActive = false;
                             if (item.label === "Dashboard") {
-                                if (role === "Staff") router.push("/dashboard/staff");
-                                else if (role === "SuperUser") router.push("/dashboard/superuser");
-                                else if (role === "Admin") router.push("/dashboard/admin");
-                                else if (role === "OIC") router.push("/dashboard/oic");
-                                else if (role === "DepartmentHead") router.push("/dashboard/dept_head");
-                                else router.push("/dashboard");
+                                if (pathname && pathname !== "/") {
+                                    isMainActive = [
+                                        "/dashboard", "/dashboard/staff", "/dashboard/superuser",
+                                        "/dashboard/oic", "/dashboard/dept_head", "/dashboard/admin"
+                                    ].includes(pathname);
+                                }
                             } else if (item.link) {
-                                router.push(item.link);
+                                isMainActive = pathname === item.link;
                             }
-                        };
 
-                        return (
-                            <NavLink
-                                key={item.label}
-                                label={item.label}
-                                leftSection={<item.icon size={18} stroke={1.5} color={textColor} />}
-                                active={isMainActive}
-                                onClick={item.links ? undefined : handleMainClick} // Kung may sub-links, hayaan lang si Mantine magbuka ng dropdown, wag mag-navigate
-                                styles={customNavLinkStyles}
-                                onMouseEnter={() => setHoverKey(item.label)}
-                                onMouseLeave={() => setHoverKey((k) => (k === item.label ? null : k))}
-                                style={{ color: textColor, backgroundColor: hoverKey === item.label ? hoverBg : (isMainActive ? activeBg : "transparent") }}
-                            >
-                                {/* 🆕 DROPDOWN RENDERER: Dito awtomatikong ilalatag ni Mantine yung mga anak kapag pinindot ang 'Forms' */}
-                                {item.links?.map((subItem) => {
-                                    const isSubActive = pathname === subItem.link;
-                                        const subKey = `${item.label}::${subItem.label}`;
-                                        return (
-                                            <NavLink
-                                                key={subItem.label}
-                                                label={subItem.label}
-                                                active={isSubActive}
-                                                onClick={() => router.push(subItem.link)}
-                                                onMouseEnter={() => setHoverKey(subKey)}
-                                                onMouseLeave={() => setHoverKey((k) => (k === subKey ? null : k))}
-                                                style={{ backgroundColor: hoverKey === subKey ? hoverBg : (isSubActive ? activeBg : "transparent") }}
-                                                styles={{
-                                                    root: {
-                                                        borderRadius: 6,
-                                                        marginBottom: 2,
-                                                    },
-                                                    label: { color: textColor, fontSize: "13px", fontWeight: isSubActive ? 600 : 400 }
-                                                }}
-                                            />
-                                        );
-                                })}
-                            </NavLink>
-                        );
-                    })}
+                            const customNavLinkStyles = {
+                                label: { color: textColor, fontWeight: isMainActive ? 600 : 500 },
+                                description: { color: textColor },
+                                children: { paddingLeft: 16 },
+                                root: {
+                                    borderRadius: 6,
+                                    marginBottom: 4,
+                                    backgroundColor: isMainActive ? activeBg : "transparent",
+                                    "&:hover": { backgroundColor: `${hoverBg} !important` }
+                                }
+                            };
+
+                            const handleMainClick = () => {
+                                if (item.label === "Dashboard") {
+                                    if (role === "Staff") router.push("/dashboard/staff");
+                                    else if (role === "SuperUser") router.push("/dashboard/superuser");
+                                    else if (role === "Admin") router.push("/dashboard/admin");
+                                    else if (role === "OIC") router.push("/dashboard/oic");
+                                    else if (role === "DepartmentHead") router.push("/dashboard/dept_head");
+                                    else router.push("/dashboard");
+                                } else if (item.link) {
+                                    router.push(item.link);
+                                }
+                            };
+
+                            return (
+                                <NavLink
+                                    key={item.label}
+                                    label={item.label}
+                                    leftSection={<item.icon size={18} stroke={1.5} color={textColor} />}
+                                    active={isMainActive}
+                                    onClick={item.links ? undefined : handleMainClick}
+                                    styles={customNavLinkStyles}
+                                    onMouseEnter={() => setHoverKey(item.label)}
+                                    onMouseLeave={() => setHoverKey((k) => (k === item.label ? null : k))}
+                                    style={{ color: textColor, backgroundColor: hoverKey === item.label ? hoverBg : (isMainActive ? activeBg : "transparent") }}
+                                >
+                                    {/* 🛡️ HAKBANG B: I-filter din ang mga SUB-LINKS kung sakaling may tinatagong sub-menu item */}
+                                    {item.links
+                                        ?.filter((subItem) => {
+                                            if (!subItem.allowedRoles) return true;
+                                            return subItem.allowedRoles.includes(role);
+                                        })
+                                        .map((subItem) => {
+                                            const isSubActive = pathname === subItem.link;
+                                            const subKey = `${item.label}::${subItem.label}`;
+                                            return (
+                                                <NavLink
+                                                    key={subItem.label}
+                                                    label={subItem.label}
+                                                    active={isSubActive}
+                                                    onClick={() => router.push(subItem.link)}
+                                                    onMouseEnter={() => setHoverKey(subKey)}
+                                                    onMouseLeave={() => setHoverKey((k) => (k === subKey ? null : k))}
+                                                    style={{ backgroundColor: hoverKey === subKey ? hoverBg : (isSubActive ? activeBg : "transparent") }}
+                                                    styles={{
+                                                        root: { borderRadius: 6, marginBottom: 2 },
+                                                        label: { color: textColor, fontSize: "13px", fontWeight: isSubActive ? 600 : 400 }
+                                                    }}
+                                                />
+                                            );
+                                        })}
+                                </NavLink>
+                            );
+                        })}
                 </div>
             </ScrollArea>
 
