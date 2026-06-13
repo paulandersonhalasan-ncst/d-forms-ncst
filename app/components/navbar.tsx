@@ -41,7 +41,7 @@ const schoolMenuData: MenuItem[] = [
     },
     { label: "Manage Users", icon: IconUserCog, link: "/dashboard/admin/manage_users" },
     { label: "Account Settings", icon: IconUserCircle, link: "/dashboard/account_settings" },
-    { label: "Activity Logs", icon: IconLogs, link: "superuser/activity_logs" },
+    { label: "Activity Logs", icon: IconLogs, link: "/dashboard/activity_logs" },
 ];
 
 export default function Sidebar({ role, email }: SidebarProps) {
