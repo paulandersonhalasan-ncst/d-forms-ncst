@@ -41,6 +41,10 @@ model User {
 
   //activity logs
   activity_logs ActivityLog[]
+
+  //for oic assignment
+  oic_start   String?
+  oic_end     String?
 }
 
 model Department {
@@ -67,7 +71,6 @@ model ActivityLog {
 
 enum Role {
   Staff
-  OIC
   DepartmentHead
   SuperUser
   Admin
