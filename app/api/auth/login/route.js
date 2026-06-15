@@ -115,7 +115,9 @@ export async function POST(request) {
     
     const token = await new SignJWT({ 
         id: authenticatedUser.id, 
-        email: authenticatedUser.email, 
+        email: authenticatedUser.email,
+        fname: authenticatedUser.fname,
+        lname: authenticatedUser.lname,
         role: authenticatedUser.role // babasahin ng middleware
       })
       .setProtectedHeader({ alg: "HS256" })

@@ -9,10 +9,9 @@ import {
     IconSun,
     IconMoon,  
     IconLogs,
-    IconUsers,
     IconUser
 } from "@tabler/icons-react";
-import { Code, Group, ScrollArea, Text, UnstyledButton, NavLink, useMantineColorScheme } from "@mantine/core";
+import { Code, Group, ScrollArea, Text, UnstyledButton, NavLink, useMantineColorScheme, Image } from "@mantine/core";
 import React, { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { TablerIcon } from "@tabler/icons-react";
@@ -21,6 +20,8 @@ import { TablerIcon } from "@tabler/icons-react";
 interface SidebarProps {
     role: "SuperUser" | "OIC" | "DepartmentHead" | "Staff" | "Admin";
     email: string;
+    fname: string;
+    lname: string;
 }
 
 // 🆕 Nilagyan natin ng pormal na interface ang array para maintindihan ni TypeScript ang hugis ng menu mo
@@ -76,7 +77,7 @@ const schoolMenuData: MenuItem[] = [
     }
 ];
 
-export default function Sidebar({ role, email }: SidebarProps) {
+export default function Sidebar({ role, email, fname, lname }: SidebarProps) {
     const [currentTime, setCurrentTime] = useState<string>("Loading...");
 
     const { colorScheme, setColorScheme } = useMantineColorScheme();
@@ -172,7 +173,10 @@ export default function Sidebar({ role, email }: SidebarProps) {
             {/* HEADER: Logo at Bersyon */}
             <div style={{ padding: 24, borderBottom: role === "Staff" ? "1px solid rgba(0,0,0,0.08)" : "1px solid rgba(255,255,255,0.08)" }}>
                 <Group justify="space-between">
-                    <Text fw={800} size="xl">NCST E-FORMS</Text>
+                    <Group align="center" gap="sm">
+                        <Image src="/favicon.ico" alt="NCST logo" style={{ width: 24, height: 24, borderRadius: 4 }} />
+                        <Text fw={800} size="xl">NCST E-FORMS</Text>
+                    </Group>
                     <Code fw={700} style={{ 
                         background: role === "Staff" ? "rgba(0,0,0,0.1)" : "rgba(255,255,255,0.15)",
                         color: textColor 
@@ -285,7 +289,7 @@ export default function Sidebar({ role, email }: SidebarProps) {
                 gap: 12
             }}>
                 <div style={{ fontSize: "13px", opacity: 0.8 }}>
-                    Logged in: <b>{email}</b>
+                    Logged in: <b>{email} | {lname}, {fname}</b>
                 </div>
 
                 <UnstyledButton
