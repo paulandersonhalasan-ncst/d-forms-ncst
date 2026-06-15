@@ -40,6 +40,30 @@ export async function GET(request) {
       }
     }
 
+    // support filtering users in the same department as the current user
+    const sameDepartmentFlag = searchParams.get("sameDepartment");
+    const roleFilter = searchParams.get("role");
+
+    if (sameDepartmentFlag === "true" && currentUserId) {
+      const currentUser = await prisma.user.findUnique({ where: { id: currentUserId } });
+      if (!currentUser) {
+        return Response.json({ success: false, message: "Current user not found." }, { status: 404 });
+      }
+
+      const whereClause = {
+        departmentCode: currentUser.departmentCode || null,
+        id: { not: currentUserId },
+      };
+
+      // if a specific role is requested, include it in the filter
+      if (roleFilter) {
+        whereClause.role = roleFilter;
+      }
+
+      const deptUsers = await prisma.user.findMany({ where: whereClause });
+      return Response.json({ success: true, count: deptUsers.length, data: deptUsers });
+    }
+
     // if we have a currentUserId, exclude it from the list
     const allUsers = currentUserId
       ? await prisma.user.findMany({ where: { id: { not: currentUserId } } })

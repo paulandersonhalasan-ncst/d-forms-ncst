@@ -14,6 +14,7 @@ import {
   Stack,
   PasswordInput,
   UnstyledButton,
+  Card
 } from "@mantine/core";
 import { IconChevronDown, IconChevronUp, IconSearch, IconSelector } from "@tabler/icons-react";
 
@@ -329,6 +330,7 @@ export default function UsersTable() {
 
   return (
     <div>
+      <Card withBorder shadow="sm" radius="md" p="md">
       <Group style={{ justifyContent: "space-between", marginBottom: 16 }} justify="flex-end" mb="md">
           <Group>
             <Button onClick={() => { fetchDept(); setForm(initialForm); setAddOpen(true); }}>Add User</Button>
@@ -683,6 +685,7 @@ export default function UsersTable() {
 
           <Button onClick={() => fileInputRef.current && fileInputRef.current.click()}>Import XLSX</Button>
         </Group>
+      </Card>
 
       <Modal opened={deptAddOpen} onClose={() => setDeptAddOpen(false)} title="Manage Departments" size="lg">
         <Stack>

@@ -29,6 +29,8 @@ export async function GET(request) {
         role: user.role,
         departmentCode: user.departmentCode,
         branch: user.branch,
+        oic_start: user.oic_start,
+        oic_end: user.oic_end
       };
 
       return Response.json({ success: true, data: safeUser });

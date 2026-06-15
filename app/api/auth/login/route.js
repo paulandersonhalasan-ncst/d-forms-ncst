@@ -118,7 +118,9 @@ export async function POST(request) {
         email: authenticatedUser.email,
         fname: authenticatedUser.fname,
         lname: authenticatedUser.lname,
-        role: authenticatedUser.role // babasahin ng middleware
+        role: authenticatedUser.role,
+        oic_start: authenticatedUser.oic_start,
+        oic_end: authenticatedUser.oic_end
       })
       .setProtectedHeader({ alg: "HS256" })
       .setIssuedAt()

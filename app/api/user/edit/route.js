@@ -53,17 +53,37 @@ export async function POST(request) {
 
       // Prepare update payload (allow only specific fields)
       const updateData = {};
-      const allowed = ["employee_id", "password", "fname", "lname", "role", "branch", "departmentCode"];
+      // 1. Idagdag ang dalawang OIC fields sa allowed list
+      const allowed = [
+        "employee_id", 
+        "password", 
+        "fname", 
+        "lname", 
+        "role", 
+        "branch", 
+        "departmentCode", 
+        "oic_start",
+        "oic_end"
+      ];
 
       // Handle password updates specially: require currentPassword for self-updates
       const wantsPasswordUpdate = userData.password !== undefined && userData.password !== null;
 
       for (const key of allowed) {
-        if (key === "password") continue; // handle below
-        if (userData[key] !== undefined && userData[key] !== null) {
-          if (key === "email") updateData.email = String(userData.email).toLowerCase().trim();
-          else if (key === "employee_id") updateData.employee_id = String(userData.employee_id).trim();
-          else updateData[key] = userData[key];
+        if (key === "password") continue;
+
+        if (userData[key] !== undefined) {
+          if (key === "oic_start" || key === "oic_end") {
+            updateData[key] =
+              userData[key] === "" ||
+              userData[key] === null
+                ? null
+                : String(userData[key]);
+          } else if (key === "employee_id") {
+            updateData.employee_id = String(userData.employee_id).trim();
+          } else {
+            updateData[key] = userData[key];
+          }
         }
       }
 

@@ -1,4 +1,3 @@
-// proxy.js
 import { NextResponse } from 'next/server';
 import { jwtVerify } from 'jose';
 
@@ -25,8 +24,24 @@ export async function proxy(request) {
   const unauthorizedURL = new URL('/unauthorized', request.url);
   const loginURL = new URL('/', request.url);
 
+  // 🎯 RUNTIME CHECK: Aktibo bang OIC ang user ngayon?
+  const isCurrentlyOIC = (() => {
+    if (!user || !user.oic_start || !user.oic_end) return false;
+    const ngayon = new Date();
+    const simula = new Date(user.oic_start);
+    const tapos = new Date(user.oic_end);
+    tapos.setHours(23, 59, 59, 999); // Isama ang buong huling araw ng term
+    return ngayon >= simula && ngayon <= tapos;
+  })();
+
+  // 🛡️ REUSABLE VALIDATOR HELPER
   const denyIfNotRole = (allowedRoles) => {
     if (!user) return NextResponse.rewrite(loginURL);
+    
+    // Custom exception para sa OIC: Kung kasama sa allowed list ang 'OIC' at active ang status niya, LIGTAS!
+    if (allowedRoles.includes('OIC') && isCurrentlyOIC) return null;
+    
+    // Kung hindi, babagsak sa normal na role checking ng database record
     if (!allowedRoles.includes(role)) return NextResponse.rewrite(unauthorizedURL);
     return null;
   };
@@ -35,6 +50,7 @@ export async function proxy(request) {
   // MULTI ROLE PAGES
   // ----------------------------------------------------------------
   if (request.nextUrl.pathname.startsWith('/dashboard/manage_staff')) {
+    // 🟢 Dito natin hahayaan si Staff na makapasok dahil may validation exception sa itaas!
     const denied = denyIfNotRole(['OIC', 'DepartmentHead']);
     if (denied) return denied;
   }
@@ -62,7 +78,6 @@ export async function proxy(request) {
     if (denied) return denied;
   }
 
-  // Dahil nauna na sa itaas ang '/dashboard/manage_staff', ligtas na itong basahin ngayon!
   if (request.nextUrl.pathname.startsWith('/dashboard/staff')) {
     const denied = denyIfNotRole(['Staff']);
     if (denied) return denied;
@@ -78,8 +93,12 @@ export async function proxy(request) {
     if (denied) return denied;
   }
 
-  // Frontend authenticated login redirect handler
+  // ----------------------------------------------------------------
+  // FRONTEND AUTHENTICATED LOGIN REDIRECT HANDLER
+  // ----------------------------------------------------------------
   if (request.nextUrl.pathname === '/' && user) {
+    // 🎯 Safe na ito! Babalik tayo sa standard database-driven routing mo 
+    // para pumasok pa rin siya sa file architecture na nakatadhana sa kanya.
     if (role === 'SuperUser') return NextResponse.rewrite(new URL('/dashboard/superuser', request.url));
     if (role === 'DepartmentHead') return NextResponse.rewrite(new URL('/dashboard/dept_head', request.url));
     if (role === 'Staff') return NextResponse.rewrite(new URL('/dashboard/staff', request.url));
@@ -91,23 +110,3 @@ export async function proxy(request) {
 }
 
 export default proxy;
-
-export const config = {
-  matcher: [
-    '/dashboard/superuser/:path*',
-    '/dashboard/dept_head/:path*',
-    '/dashboard/oic/:path*',
-    '/dashboard/staff/:path*',
-    '/dashboard/admin/:path*',
-
-    '/dashboard/manage_users',
-    '/dashboard/manage_users/:path*',
-
-    '/dashboard/activity_logs',
-    '/dashboard/activity_logs/:path*',
-
-    '/dashboard/manage_staff',
-    '/dashboard/manage_staff/:path*',
-    '/',
-  ],
-};

@@ -2,6 +2,7 @@
 import './globals.css';
 import { ColorSchemeScript, MantineProvider, } from '@mantine/core';
 import '@mantine/core/styles.css';
+import '@mantine/dates/styles.css';
 import './globals.css'; // Isama ang global CSS mo rito
 import { theme } from './theme'; // I-import ang theme na ginawa natin sa taas
 import { ModalsProvider } from '@mantine/modals'; // 🆕 I-import ito

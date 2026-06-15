@@ -22,18 +22,19 @@ interface SidebarProps {
     email: string;
     fname: string;
     lname: string;
+    oic_start?: string | null;
+    oic_end?: string | null;
 }
 
-// 🆕 Nilagyan natin ng pormal na interface ang array para maintindihan ni TypeScript ang hugis ng menu mo
 interface MenuItem {
     label: string;
     icon: TablerIcon;
     link?: string;
-    allowedRoles?: ("SuperUser" | "OIC" | "DepartmentHead" | "Staff" | "Admin")[]; // 👈 Idagdag ito
+    allowedRoles?: ("SuperUser" | "OIC" | "DepartmentHead" | "Staff" | "Admin")[];
     links?: { 
         label: string; 
         link: string;
-        allowedRoles?: ("SuperUser" | "OIC" | "DepartmentHead" | "Staff" | "Admin")[]; // 👈 Pati sa sub-links
+        allowedRoles?: ("SuperUser" | "OIC" | "DepartmentHead" | "Staff" | "Admin")[];
     }[];
 }
 
@@ -56,7 +57,7 @@ const schoolMenuData: MenuItem[] = [
         label: "Manage Users", 
         icon: IconUserCog, 
         link: "/dashboard/manage_users",
-        allowedRoles: ["Admin", "SuperUser"] // 👈 Sila lang ang makakakita nito
+        allowedRoles: ["Admin", "SuperUser"]
     },
     { 
         label: "Account Settings", 
@@ -67,56 +68,72 @@ const schoolMenuData: MenuItem[] = [
         label: "Activity Logs", 
         icon: IconLogs, 
         link: "/dashboard/activity_logs",
-        allowedRoles: ["Admin", "SuperUser"] // 👈 Sila lang ang makakakita nito
+        allowedRoles: ["Admin", "SuperUser"]
     },
     { 
         label: "Manage Staff", 
         icon: IconUser, 
         link: "/dashboard/manage_staff",
-        allowedRoles: ["OIC", "DepartmentHead"] // 👈 Sila lang ang makakakita nito sigurado!
+        allowedRoles: ["OIC", "DepartmentHead"]
     }
 ];
 
-export default function Sidebar({ role, email, fname, lname }: SidebarProps) {
+export default function Sidebar({ role, email, fname, lname, oic_start, oic_end }: SidebarProps) {
     const [currentTime, setCurrentTime] = useState<string>("Loading...");
-
+    const [isCurrentlyOIC, setIsCurrentlyOIC] = useState<boolean>(false);
     const { colorScheme, setColorScheme } = useMantineColorScheme();
-
-    useEffect(() => {
-        //Philippine Standard Time (PST)
-        const updateTime = () => {
-            const options: Intl.DateTimeFormatOptions = {
-                timeZone: "Asia/Manila",
-                hour: "2-digit",
-                minute: "2-digit",
-                second: "2-digit",
-                hour12: true
-            };
-            
-            // Format: "HH:MM:SS AM/PM"
-            const timeString = new Date().toLocaleTimeString("en-US", options);
-            setCurrentTime(timeString);
-        };
-
-        // Patakbuhin agad pag-load ng page
-        updateTime();
-
-        // I-update ang oras bawat segundo (1000ms)
-        const timer = setInterval(updateTime, 1000);
-
-        // Linisin ang memory kapag umalis sa page ang user
-        return () => clearInterval(timer);
-    }, []);
 
     const router = useRouter();
     const pathname = usePathname();
     const [hoverKey, setHoverKey] = useState<string | null>(null);
     const [mounted, setMounted] = useState(false);
 
+    // 🎯 TIMEOUT/MOUNT ENGINE AT RUNTIME OIC CHECK INTERVAL
     useEffect(() => {
-        const id = window.setTimeout(() => setMounted(true), 0);
-        return () => window.clearTimeout(id);
-    }, []);
+    const id = window.setTimeout(() => setMounted(true), 0);
+
+    const updateTimeAndStatus = () => {
+        const options: Intl.DateTimeFormatOptions = {
+            timeZone: "Asia/Manila",
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+            hour12: true
+        };
+        
+        const timeString = new Date().toLocaleTimeString("en-US", options);
+        setCurrentTime(timeString);
+
+        // 🎯 STAGE 1: Siguraduhing may valid na data talaga
+        if (oic_start && oic_end && oic_start !== "null" && oic_end !== "null") {
+            
+            // Kunin ang kasalukuyang petsa at oras sa Pilipinas
+            const ngayon = new Date();
+
+            // I-parse ang simula at tapos na petsa (Tanggalin ang timezone bias sa pamamagitan ng pag-set ng oras)
+            const simula = new Date(oic_start);
+            simula.setHours(0, 0, 0, 0); // Unang segundo ng araw ng simula
+
+            const tapos = new Date(oic_end);
+            tapos.setHours(23, 59, 59, 999); // Huling segundo ng araw ng pagtatapos
+
+            const checkCondition = ngayon >= simula && ngayon <= tapos;
+
+            setIsCurrentlyOIC(checkCondition);
+        } else {
+            // Kung walang oic_start o oic_end, siguradong hinde sya OIC
+            setIsCurrentlyOIC(false);
+        }
+        };
+
+        updateTimeAndStatus();
+        const timer = setInterval(updateTimeAndStatus, 1000);
+
+        return () => {
+            window.clearTimeout(id);
+            clearInterval(timer);
+        };
+    }, [oic_start, oic_end, email]);
 
     // DYNAMIC COLORS BASE SA ROLE
     let sidebarBg = "";
@@ -124,7 +141,12 @@ export default function Sidebar({ role, email, fname, lname }: SidebarProps) {
     const hoverBg = "rgba(0, 0, 0, 0.1)";
     const activeBg = "rgba(70, 70, 70, 0.15)";
 
-    switch (role) {
+    // 🔄 Epektibong Role para sa Rendering at Permissions
+    // Kung ang DB role ay Staff pero aktibong OIC ngayon, ituring siyang "OIC"
+    const effectiveRole = (role === "Staff" && isCurrentlyOIC) ? "OIC" : role;
+
+    // Palitan ang 'role' ng 'effectiveRole' dito para mag-iba ang kulay ng bar kung OIC siya
+    switch (effectiveRole) {
         case "SuperUser":
             sidebarBg = "var(--mantine-color-dark-8)";
             break;
@@ -133,7 +155,7 @@ export default function Sidebar({ role, email, fname, lname }: SidebarProps) {
             break;
         case "OIC":
         case "DepartmentHead":
-            sidebarBg = "var(--mantine-color-imperialBlue-6)";
+            sidebarBg = "var(--mantine-color-imperialBlue-6)"; // Magiging kulay Blue na rin ang Staff kapag aktibong OIC!
             break;
         case "Staff":
             sidebarBg = "var(--mantine-color-schoolBusYellow-5)";
@@ -171,35 +193,55 @@ export default function Sidebar({ role, email, fname, lname }: SidebarProps) {
             transition: "background-color 0.3s ease"
         }}>
             {/* HEADER: Logo at Bersyon */}
-            <div style={{ padding: 24, borderBottom: role === "Staff" ? "1px solid rgba(0,0,0,0.08)" : "1px solid rgba(255,255,255,0.08)" }}>
+            <div style={{ padding: 24, borderBottom: effectiveRole === "Staff" ? "1px solid rgba(0,0,0,0.08)" : "1px solid rgba(255,255,255,0.08)" }}>
                 <Group justify="space-between">
                     <Group align="center" gap="sm">
                         <Image src="/favicon.ico" alt="NCST logo" style={{ width: 24, height: 24, borderRadius: 4 }} />
                         <Text fw={800} size="xl">NCST E-FORMS</Text>
                     </Group>
                     <Code fw={700} style={{ 
-                        background: role === "Staff" ? "rgba(0,0,0,0.1)" : "rgba(255,255,255,0.15)",
+                        background: effectiveRole === "Staff" ? "rgba(0,0,0,0.1)" : "rgba(255,255,255,0.15)",
                         color: textColor 
                     }}>
                         {currentTime}
                     </Code>
                 </Group>
-                <Text size="xs" fw={700} mt="xs" style={{ opacity: 0.7 }}>
-                    ROLE: {role.toUpperCase()}
-                </Text>
+                
+                <Group justify="space-between" align="center" mt="xs">
+                    <Text size="xs" fw={700} style={{ opacity: 0.7 }}>
+                        ROLE: {role.toUpperCase()}
+                    </Text>
+
+                    {/* ANG GRAPHICAL INDICATOR / TAG */}
+                    {isCurrentlyOIC && (
+                        <Code 
+                            fw={800} 
+                            style={{ 
+                                background: "#2f9e44", // Magandang Berde (Success Color)
+                                color: "#ffffff", 
+                                fontSize: "10px", 
+                                padding: "2px 6px",
+                                borderRadius: "4px",
+                                boxShadow: "0 0 8px rgba(47, 158, 68, 0.5)"
+                            }}
+                        >
+                            ACTIVE OIC ACCESS
+                        </Code>
+                    )}
+                </Group>
             </div>
 
             {/* BODY: Mantine NavLink Engine */}
             <ScrollArea style={{ flex: 1, padding: "16px 0" }}>
                 <div style={{ paddingLeft: 12, paddingRight: 12 }}>
                     {schoolMenuData
-                        // 🛡️ HAKBANG A: I-filter ang mga MAIN MENU items base sa role ng user
+                        // 🛡️ HAKBANG A: I-filter ang mga MAIN MENU items base sa epektibong role ng user
                         .filter((item) => {
                             if (!item.allowedRoles) return true; // Kung walang limitasyon, ipakita sa lahat
-                            return item.allowedRoles.includes(role); // Ipakita lang kung kasama ang role ng user
+                            return item.allowedRoles.includes(effectiveRole); // Ipakita lang kung kasama ang role ng user
                         })
                         .map((item) => {
-                            // DYNAMIC ACTIVE DETECTION (Iwanan mo lang ang code mo rito gaya ng dati)
+                            // DYNAMIC ACTIVE DETECTION
                             let isMainActive = false;
                             if (item.label === "Dashboard") {
                                 if (pathname && pathname !== "/") {
@@ -226,11 +268,11 @@ export default function Sidebar({ role, email, fname, lname }: SidebarProps) {
 
                             const handleMainClick = () => {
                                 if (item.label === "Dashboard") {
-                                    if (role === "Staff") router.push("/dashboard/staff");
-                                    else if (role === "SuperUser") router.push("/dashboard/superuser");
-                                    else if (role === "Admin") router.push("/dashboard/admin");
-                                    else if (role === "OIC") router.push("/dashboard/oic");
-                                    else if (role === "DepartmentHead") router.push("/dashboard/dept_head");
+                                    if (effectiveRole === "Staff") router.push("/dashboard/staff");
+                                    else if (effectiveRole === "SuperUser") router.push("/dashboard/superuser");
+                                    else if (effectiveRole === "Admin") router.push("/dashboard/admin");
+                                    else if (effectiveRole === "OIC") router.push("/dashboard/oic");
+                                    else if (effectiveRole === "DepartmentHead") router.push("/dashboard/dept_head");
                                     else router.push("/dashboard");
                                 } else if (item.link) {
                                     router.push(item.link);
@@ -249,11 +291,11 @@ export default function Sidebar({ role, email, fname, lname }: SidebarProps) {
                                     onMouseLeave={() => setHoverKey((k) => (k === item.label ? null : k))}
                                     style={{ color: textColor, backgroundColor: hoverKey === item.label ? hoverBg : (isMainActive ? activeBg : "transparent") }}
                                 >
-                                    {/* 🛡️ HAKBANG B: I-filter din ang mga SUB-LINKS kung sakaling may tinatagong sub-menu item */}
+                                    {/* 🛡️ HAKBANG B: I-filter din ang mga SUB-LINKS gamit ang effectiveRole */}
                                     {item.links
                                         ?.filter((subItem) => {
                                             if (!subItem.allowedRoles) return true;
-                                            return subItem.allowedRoles.includes(role);
+                                            return subItem.allowedRoles.includes(effectiveRole);
                                         })
                                         .map((subItem) => {
                                             const isSubActive = pathname === subItem.link;

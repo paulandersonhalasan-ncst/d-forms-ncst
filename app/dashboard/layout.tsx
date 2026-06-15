@@ -15,8 +15,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
     // Mag-set tayo ng defaults sakaling magkaproblema sa pag-decode habang nagde-demo
     let email = "UNKNOWN";
-    let fname = "UNKNOWN;"
-    let lname = "UNKNOWN;"
+    let fname = "UNKNOWN;";
+    let lname = "UNKNOWN;";
+    let oic_start = "UNKNOWN";
+    let oic_end = "UNKNOWN";
 
     const VALID_ROLES = ["SuperUser", "OIC", "DepartmentHead", "Staff", "Admin"] as const;
     type RoleType = typeof VALID_ROLES[number];
@@ -32,6 +34,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
         email = (payload.email as string) || "UNKNOWN";
         fname = (payload.fname as string) || "UNKNOWN";
         lname = (payload.lname as string) || "UNKNOWN";
+        oic_start = (payload.oic_start as string) || "UNKNOWN";
+        oic_end = (payload.oic_end as string) || "UNKNOWN";
         const roleClaim = payload.role;
         if (typeof roleClaim === 'string' && VALID_ROLES.includes(roleClaim as RoleType)) {
             userRole = roleClaim as RoleType;
@@ -47,7 +51,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
     return (
         <div style={{ display: "flex", minHeight: "100vh" }}>
         {/* 🎯 TOTOONG DATA GALING SA DECODED JWT SESSION TOKEN */}
-        <Sidebar role={userRole} email={email} fname={fname} lname={lname}/>
+        <Sidebar role={userRole} email={email} fname={fname} lname={lname} oic_start={oic_start} oic_end={oic_end}/>
 
         {/* CONTENT PROPER */}
         <main style={{ 
