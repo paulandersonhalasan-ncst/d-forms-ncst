@@ -470,7 +470,6 @@ export default function IOMDashboardPage() {
           } else if (memo.priority === 'RUSH') { badgeText = 'RUSH'; badgeColor = 'gray'; }
           else if (memo.priority === 'URGENT') { badgeColor = (isMemoResolvedForMe || isAllResolved) ? 'gray' : 'pink'; }
 
-          // 🎯 BAGO: Eksaktong Thread Check. Bibilangin natin kung ilan talaga ang nasa thread.
           const rootIdForThread = memo.rootMemoId || memo.id;
           const threadCount = memos.filter(m => m.rootMemoId === rootIdForThread || m.id === rootIdForThread).length;
           const hasThread = threadCount > 1; // Lalabas lang kapag may 2 or more memos na sa thread
