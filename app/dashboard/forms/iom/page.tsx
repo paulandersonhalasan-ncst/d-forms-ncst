@@ -444,7 +444,7 @@ export default function IOMDashboardPage() {
 
   const renderMemoCards = (memoList: Memo[], isApprovalTab = false) => {
     if (memoList.length === 0) {
-      return <Text c="dimmed" ta="center" py="xl" w="100%">No documents logged in this directory view.</Text>;
+      return <Text c="dimmed" ta="center" py="xl" w="100%">No documents logged.</Text>;
     }
 
     return (
