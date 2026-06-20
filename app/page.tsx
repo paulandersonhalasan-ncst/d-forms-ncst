@@ -1,65 +1,180 @@
-import Image from "next/image";
+"use client"
 
-export default function Home() {
-  return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+//LOGIN PAGE
+
+import { useState, type FormEvent } from "react";
+import { Anchor, Group, PasswordInput, TextInput, Button, Text, Stack, Alert } from '@mantine/core';
+import { useRouter } from "next/navigation";
+import { modals } from "@mantine/modals";
+import { IconAlertCircle } from "@tabler/icons-react";
+import '@mantine/core/styles.css';
+
+export default function LoginPage() {
+    const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
+    const [error, setError] = useState("");
+    const [loading, setLoading] = useState(false); // Para iwas double submit habang nagpoproseso
+    const router = useRouter();
+
+    async function handleSubmit(e: FormEvent<HTMLFormElement>) {
+        e.preventDefault();
+        setError("");
+        setLoading(true);
+
+        console.log("Attempting login with email:", email); // Debug log
+
+        try {
+            const res = await fetch("/api/auth/login", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    email: email,
+                    password: password
+                }),
+            });
+            
+            const data = await res.json();
+
+            // 🛠️ ERROR CATCHING NG MALING EMAIL O PASSWORD
+            if (!res.ok) {
+                setLoading(false);
+
+                // Check kung ito yung multiple wrong password lock triggers
+                if (data.alertTriggered) {
+                    modals.openConfirmModal({
+                        title: "Can't log in?",
+                        centered: true,
+                        closeOnClickOutside: false,
+                        withCloseButton: false,
+                        children: (
+                            <Stack gap="xs">
+                                <Text size="sm" fw={700} c="red.7">
+                                    You have entered an incorrect password {data.failedAttempts} times.
+                                </Text>
+                                <Text size="sm" c="dimmed">
+                                    Due to this suspicious activity, your Department Head and the system administrator have been alerted. Please contact them immediately if you can not access your account.
+                                </Text>
+                            </Stack>
+                        ),
+                        labels: { confirm: 'Acknowledge & Close', cancel: 'Exit' },
+                        confirmProps: { color: 'red' },
+                        cancelProps: { variant: 'outline', color: 'gray' },
+                    });
+
+                    //clear the form after showing the modal
+                    setEmail("");
+                    setPassword("");
+                    return; 
+                }
+
+                // 🎯 DITO SASALUHIN ANG STANDARD ERRORS (e.g., "Invalid credentials", "User not found")
+                setError(data.message || data.error || "Maling email o password. Pakisuri muli.");
+                return;
+            }
+
+            // Kapag matagumpay ang login, i-route batay sa role
+            switch (data.user?.role) {
+                case "Staff":
+                    router.push("./dashboard/staff");
+                    break;
+                case "OIC":
+                    router.push("./dashboard/oic");
+                    break;
+                case "Admin":
+                    router.push("./dashboard/admin");
+                    break;
+                case "DepartmentHead":
+                    router.push("./dashboard/dept_head");
+                    break;
+                case "SuperUser":
+                    router.push("./dashboard/superuser");
+                    break;
+                case undefined:
+                case null:
+                    setError("Walang nakatalagang role ang account na ito.");
+                    console.error("User role is missing for user: ", data.user);
+                    setLoading(false);
+                    break;
+                default:
+                    setError("Unknown user role");
+                    console.error("Unknown user role: ", data.user?.role);
+                    setLoading(false);
+            }
+
+        } catch (err) {
+            console.error("Network error occurred:", err);
+            setError("Connection error. Please try again later.");
+            setLoading(false);
+        }
+    }
+
+    return (
+        <main
+            style={{
+                minHeight: '100vh',
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                backgroundImage: "url('/image.png')",
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+                backgroundRepeat: 'no-repeat'
+            }}
+        >
+            <form
+                onSubmit={handleSubmit}
+                style={{
+                    width: 360,
+                    padding: 24,
+                    borderRadius: 8,
+                    boxShadow: '0 2px 10px rgba(0,0,0,0.08)',
+                    background: 'var(--background)',
+                }}
             >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
-  );
+                <Stack gap="md">
+                    {/* 🎯 MANTINE ALERT BOX PARA SA LOGIN ERRORS */}
+                    {error && (
+                        <Alert variant="light" color="red" title="Login Failed" icon={<IconAlertCircle size={16} />}>
+                            {error}
+                        </Alert>
+                    )}
+
+                    <TextInput
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="NCST Email"
+                        variant="filled"
+                        required
+                    />
+
+                    <div>
+                        <Group justify="space-between" mb={5}>
+                            <Text size="sm" fw={500} style={{ visibility: 'hidden' }}>Password</Text>
+                            <Anchor href="#" onClick={(event) => event.preventDefault()} fw={500} fz="xs">
+                                Forgot your password?
+                            </Anchor>
+                        </Group>
+                        <PasswordInput
+                            placeholder="Your password"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            variant="filled"
+                            required
+                        />
+                    </div>
+
+                    <Button 
+                        variant="filled" 
+                        style={{ width: '100%', padding: '10px 12px' }} 
+                        type="submit"
+                        loading={loading} // Nagpapakita ng spinner habang nag-a-authenticate
+                    >
+                        Login
+                    </Button>
+                </Stack>
+            </form>
+        </main>
+    );
 }
