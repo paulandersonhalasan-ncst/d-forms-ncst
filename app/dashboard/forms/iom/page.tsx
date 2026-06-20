@@ -355,7 +355,8 @@ export default function IOMDashboardPage() {
             departmentName: pendingAction?.data?.departmentName || null,
             action: actionMap[pendingAction?.type || ''], 
             password: confirmPassword, 
-            feedbackNote 
+            feedbackNote,
+            isSenderClosing: pendingAction?.data?.isSenderClosing || false
           }),
         });
 
@@ -451,7 +452,10 @@ export default function IOMDashboardPage() {
         {memoList.map((memo: Memo) => {
           const amISender = memo.senderId === currentUser?.id;
           const myRecipientInfo = memo.recipients?.find(r => r.departmentName === activeDepartment);
-          const isBeingProcessed = myRecipientInfo?.status === 'PROCESSING';
+          
+          const processingRecipients = memo.recipients?.filter(r => r.status === 'PROCESSING') || [];
+          const isBeingProcessed = processingRecipients.length > 0; 
+          
           const isMemoResolvedForMe = ['RESPONDED', 'DENIED'].includes(myRecipientInfo?.status || '');
           const isAllResolved = memo.senderId === currentUser?.id && memo.recipients?.every(r => ['RESPONDED', 'DENIED'].includes(r.status));
           const disableReply = !isAdminOrSuper && (isMemoResolvedForMe || isAllResolved || memo.status === 'FOR_APPROVAL');
@@ -466,40 +470,51 @@ export default function IOMDashboardPage() {
           } else if (memo.priority === 'RUSH') { badgeText = 'RUSH'; badgeColor = 'gray'; }
           else if (memo.priority === 'URGENT') { badgeColor = (isMemoResolvedForMe || isAllResolved) ? 'gray' : 'pink'; }
 
-          const hasThread = memo.parentMemoId || memo.rootMemoId || memos.some(m => m.parentMemoId === memo.id || m.rootMemoId === memo.id);
+          // 🎯 BAGO: Eksaktong Thread Check. Bibilangin natin kung ilan talaga ang nasa thread.
+          const rootIdForThread = memo.rootMemoId || memo.id;
+          const threadCount = memos.filter(m => m.rootMemoId === rootIdForThread || m.id === rootIdForThread).length;
+          const hasThread = threadCount > 1; // Lalabas lang kapag may 2 or more memos na sa thread
 
           return (
             <Card 
               key={memo.id} 
-              withBorder 
+              withBorder={!isBeingProcessed} 
               radius="md" 
-              shadow="sm"
+              shadow={isBeingProcessed ? "md" : "sm"}
               style={{
-                borderLeft: isBeingProcessed ? '6px solid var(--mantine-color-orange-filled)' : '1px solid light-dark(var(--mantine-color-gray-3), var(--mantine-color-dark-4))',
+                border: isBeingProcessed 
+                  ? '2px solid var(--mantine-color-orange-filled)' 
+                  : '1px solid light-dark(var(--mantine-color-gray-3), var(--mantine-color-dark-4))',
+                boxShadow: isBeingProcessed 
+                  ? '0 0 12px rgba(255, 165, 0, 0.4)' 
+                  : undefined,
                 display: 'flex',
                 flexDirection: 'column',
                 minHeight: '420px',
-                padding: 0
+                padding: 0,
+                transition: 'all 0.2s ease',
               }}
             >
               <UnstyledButton 
                 onClick={() => handleExpandNoteOpen(memo)} 
-                style={{ 
-                  display: 'flex', 
-                  flexDirection: 'column',
-                  flex: 1, 
-                  padding: '20px',
-                  textAlign: 'left'
-                }}
+                style={{ display: 'flex', flexDirection: 'column', flex: 1, padding: '20px', textAlign: 'left' }}
               >
                 <Group justify="space-between" w="100%" mb="xs">
                   <Group gap="xs" onClick={(e) => e.stopPropagation()}> 
                     <Text ff="monospace" fw={700} c="blue" size="sm">
                       {memo.referenceId || 'DRAFT-DPT'}
                     </Text>
-                    {memo.attachmentPath && <IconDownload size={14} color="gray" />}
+
+                    {memo.attachmentPath && (
+                      <Badge color="indigo" variant="filled" size="xs" leftSection={<IconDownload size={12} />}>
+                        FILE ATTACHED
+                      </Badge>
+                    )}
+
                     {amISender && <Badge color="gray" variant="light" size="xs">Ours</Badge>}
                     {memo.status === 'FOR_APPROVAL' && <Badge color="orange" variant="filled" size="xs">Draft/For Review</Badge>}
+                    
+                    {/* Tago ang "In Thread" badge kapag mag-isa lang ang memo */}
                     {hasThread && (
                       <Badge 
                         color="teal" variant="outline" size="xs" leftSection={<IconGitBranch size={10} />} style={{ cursor: 'pointer' }}
@@ -524,6 +539,14 @@ export default function IOMDashboardPage() {
                     )}
                   </Group>
                   <Text size="10px" c="dimmed"><b>DATE:</b> {new Date(memo.createdAt).toLocaleString()}</Text>
+
+                  {isBeingProcessed && processingRecipients.map((pr) => pr.processedBy && (
+                    <Group gap={4} mt={2} key={pr.id}>
+                      <Badge color="orange" variant="light" size="xs" style={{ textTransform: 'none', letterSpacing: 0 }}>
+                        ⚙️ {pr.departmentName} processing by: <b>{pr.processedBy}</b>
+                      </Badge>
+                    </Group>
+                  ))}
                 </Stack>
 
                 <Text fz="sm" fw={700} mt="xs" w="100%" lineClamp={1}>
@@ -545,6 +568,7 @@ export default function IOMDashboardPage() {
                 }}
               >
                 <Group gap="xs">
+                  {/* Tago rin ang button na 'History Thread' kapag wala pang karugtong */}
                   {hasThread && (
                     <Button size="xs" variant="outline" color="teal" leftSection={<IconGitBranch size={13} />} onClick={() => handleViewThread(memo)}>
                       History Thread
@@ -679,7 +703,7 @@ export default function IOMDashboardPage() {
 
           <Tabs.Panel value="approval">
             <Alert icon={<IconInfoCircle size={16} />} title="Super Editor & Approval Command Queue" color="orange" mb="md" radius="md">
-              Draft documents formulated by department staff. As Department Head, you can click **Review & Approve** to modify mistakes or directly finalize contents.
+              Draft documents formulated by department staff. As Department Head, you can click <b><i>Review & Approve</i></b> to modify mistakes or directly finalize contents.
             </Alert>
             {renderMemoCards(forApprovalMemos, true)}
           </Tabs.Panel>
@@ -693,7 +717,7 @@ export default function IOMDashboardPage() {
 
           <Tabs.Panel value="action_board">
             <Alert icon={<IconInfoCircle size={16} />} title="Departmental Action Board (Public Staff View)" color="indigo" mb="md" radius="md">
-              Documents acknowledged by management. **Visible to all department members** to collaborate, process, and address.
+              Documents acknowledged by management. <b><i>Visible to all department members</i></b> to collaborate, process, and address.
             </Alert>
             {renderMemoCards(actionBoardMemos)}
           </Tabs.Panel>
@@ -860,7 +884,8 @@ export default function IOMDashboardPage() {
                     color="blue" 
                     leftSection={<IconDownload size={16} />}
                   >
-                    View / Download Attachment
+                    {/* Kukunin nito yung dulo ng path. Ex: /memos/file.pdf -> file.pdf */}
+                    {selectedMemoForExpand.attachmentPath.split('/').pop()}
                   </Button>
                 </>
               )}

@@ -1,31 +1,31 @@
 import { createTheme, MantineColorsTuple, virtualColor } from '@mantine/core';
 
 // 10 shades para sa Imperial Blue (0e2769 ang primary/index 6)
-const imperialBlue: MantineColorsTuple = [
-  '#e8efff',
-  '#cfddf8',
-  '#9bb9f3',
-  '#6392ee',
-  '#3873ea',
-  '#1d5fe9',
-  '#0e2769', // Iyong core color (Index 6)
-  '#0746cb',
-  '#003eb7',
-  '#0035a3',
-];
+const regalNavy: MantineColorsTuple = [
+  "#ebf4ff",
+  "#d4e4fa",
+  "#a3c7f7",
+  "#70a9f6",
+  "#4a8ff5",
+  "#377ff5",
+  "#2d77f6",
+  "#2265dc",
+  "#185ac5",
+  "#003980" //main color
+]
 
-// 10 shades para sa School Bus Yellow (fec435 ang primary/index 5 o 6)
-const schoolBusYellow: MantineColorsTuple = [
-  '#fff8e1',
-  '#ffefc4',
-  '#ffde8a',
-  '#fecd4c',
-  '#fec435', // Iyong core color (Index 4)
-  '#febe20',
-  '#e5a500',
-  '#cc9300',
-  '#b38000',
-  '#996b00',
+// 10 shades para sa Light/Cream Yellow (fff1d0 ang primary/index 4)
+const customCreamYellow: MantineColorsTuple = [
+  '#fffdf5', // 0: Lightest (maganda sa very subtle backgrounds)
+  '#fffaf0', // 1: Hover state ng subtle backgrounds
+  '#fff6e6', // 2
+  '#fff3dc', // 3
+  '#fff1d0', // 4: Iyong core color (Primary)
+  '#ffe8ab', // 5: Hover state ng primary
+  '#ffde85', // 6: Active state
+  '#ffd55e', // 7
+  '#ffcb38', // 8
+  '#e6b419', // 9: Darkest (maganda sa borders o text contrast)
 ];
 
 export const theme = createTheme({
@@ -33,8 +33,8 @@ export const theme = createTheme({
   
   // I-register ang iyong custom colors
   colors: {
-    imperialBlue,
-    schoolBusYellow,
+    regalNavy,
+    customCreamYellow,
     
     // Virtual color na nagpapalit depende sa active theme
     // Ginagamit nito ang Seashell para sa light at Carbon Black para sa dark
@@ -52,8 +52,8 @@ export const theme = createTheme({
   },
 
   // Dito mo i-set kung ano ang default primary color mo (e.g., Imperial Blue)
-  primaryColor: 'imperialBlue',
-  primaryShade: 6,
+  primaryColor: 'regalNavy',
+  primaryShade: 9,
 
   // Global style overrides para pilitin ang Seashell at Carbon Black bilang body background
   components: {

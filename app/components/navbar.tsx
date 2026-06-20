@@ -11,7 +11,7 @@ import {
     IconLogs,
     IconUser
 } from "@tabler/icons-react";
-import { Code, Group, ScrollArea, Text, UnstyledButton, NavLink, useMantineColorScheme, Image } from "@mantine/core";
+import { Code, Group, ScrollArea, Text, UnstyledButton, NavLink, useMantineColorScheme, Image, Switch } from "@mantine/core";
 import React, { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { TablerIcon } from "@tabler/icons-react";
@@ -136,14 +136,24 @@ export default function Sidebar({ role, email, fname, lname, oic_start, oic_end 
     }, [oic_start, oic_end, email]);
 
     // DYNAMIC COLORS BASE SA ROLE
-    let sidebarBg = "";
-    const textColor = "#fff8f2";
-    const hoverBg = "rgba(0, 0, 0, 0.1)";
-    const activeBg = "rgba(70, 70, 70, 0.15)";
+    // let sidebarBg = "";
+    // const textColor = "#242424";
+    // const hoverBg = "var(--mantine-color-customCreamYellow-5)"; //"rgba(0, 0, 0, 0.1)";
+    // const activeBg = "var(--mantine-color-customCreamYellow-6)";
 
     // 🔄 Epektibong Role para sa Rendering at Permissions
     // Kung ang DB role ay Staff pero aktibong OIC ngayon, ituring siyang "OIC"
     const effectiveRole = (role === "Staff" && isCurrentlyOIC) ? "OIC" : role;
+
+    // DYNAMIC COLORS BASE SA ROLE
+    let sidebarBg = "";
+    
+    // 🎯 DITO NA YUNG LOGIC PARA SA TEXT COLOR
+    // Kung Staff, yung gray. Para sa lahat ng iba (OIC, DeptHead, Admin, SuperUser), white.
+    const textColor = effectiveRole === "Staff" ? "#242424" : "#ffffff"; 
+
+    const hoverBg = "rgba(0, 0, 0, 0.1)";
+    const activeBg = "rgba(0, 0, 0, 0.2)";
 
     // Palitan ang 'role' ng 'effectiveRole' dito para mag-iba ang kulay ng bar kung OIC siya
     switch (effectiveRole) {
@@ -155,10 +165,10 @@ export default function Sidebar({ role, email, fname, lname, oic_start, oic_end 
             break;
         case "OIC":
         case "DepartmentHead":
-            sidebarBg = "var(--mantine-color-imperialBlue-6)"; // Magiging kulay Blue na rin ang Staff kapag aktibong OIC!
+            sidebarBg = "var(--mantine-color-regalNavy-9)"; // Magiging kulay Blue na rin ang Staff kapag aktibong OIC!
             break;
         case "Staff":
-            sidebarBg = "var(--mantine-color-schoolBusYellow-5)";
+            sidebarBg = "var(--mantine-color-customCreamYellow-4)";
             break;
         default:
             sidebarBg = "var(--mantine-color-gray-6)";
@@ -339,34 +349,40 @@ export default function Sidebar({ role, email, fname, lname, oic_start, oic_end 
                     style={{
                         display: "flex",
                         alignItems: "center",
+                        justifyContent: "space-between", // 🎯 Itutulak nito ang Switch sa dulong kanan
                         padding: "8px 12px",
                         borderRadius: 6,
-                        background: "rgba(255, 255, 255, 0.1)",
+                        background: "rgba(0, 0, 0, 0.2)",
                         color: textColor,
-                        fontSize: "14px",
-                        fontWeight: 500,
+                        width: "100%"
                     }}
-                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = hoverBg}
-                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 0.1)"}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "rgba(0, 0, 0, 0.1)"}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "rgba(0, 0, 0, 0.2)"}
                 >
-                    {mounted ? (
-                        colorScheme === 'dark' ? (
-                            <>
-                                <IconSun size={16} stroke={2} style={{ marginRight: 8 }} color={textColor} />
-                                <span>Light Mode</span>
-                            </>
+                    {/* LEFT SIDE: Icon at Text */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        {mounted ? (
+                            colorScheme === 'dark' ? (
+                                <IconMoon size={16} stroke={2} color={textColor} />
+                            ) : (
+                                <IconSun size={16} stroke={2} color={textColor} />
+                            )
                         ) : (
-                            <>
-                                <IconMoon size={16} stroke={2} style={{ marginRight: 8 }} color={textColor} />
-                                <span>Dark Mode</span>
-                            </>
-                        )
-                    ) : (
-                        <>
-                            <IconSun size={16} stroke={2} style={{ marginRight: 8 }} color={textColor} />
-                            <span>Toggle Theme</span>
-                        </>
-                    )}
+                            <IconSun size={16} stroke={2} color={textColor} />
+                        )}
+                        <span style={{ fontSize: "14px", fontWeight: 500 }}>
+                            {mounted ? (colorScheme === 'dark' ? 'Dark Mode' : 'Light Mode') : 'Toggle Theme'}
+                        </span>
+                    </div>
+
+                    {/* RIGHT SIDE: Ang Mantine Switch */}
+                    <Switch
+                        checked={mounted ? colorScheme === 'dark' : false}
+                        onChange={() => setColorScheme(colorScheme === 'dark' ? 'light' : 'dark')}
+                        size="sm"
+                        color="violet"
+                        style={{ pointerEvents: 'none' }} // 🎯 Pinipigilan ang double-click bug dahil buong row ay clickable na
+                    />
                 </UnstyledButton>
 
                 <UnstyledButton

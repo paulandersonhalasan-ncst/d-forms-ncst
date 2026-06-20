@@ -61,10 +61,10 @@ export default function AccessDeniedPage() {
     return <main style={{ minHeight: "100vh", backgroundColor: "var(--background)" }} />;
   }
 
-  const accent = theme.colors.imperialBlue[6];
+  const accent = theme.colors.regalNavy[6];
   const paperBackground = colorScheme === "dark" ? "rgba(24, 24, 24, 0.92)" : "rgba(255, 255, 255, 0.94)";
   const paperBorder = colorScheme === "dark" ? "rgba(255, 248, 242, 0.14)" : "rgba(36, 36, 36, 0.10)";
-  const titleColor = colorScheme === "dark" ? theme.colors.schoolBusYellow[4] : theme.colors.imperialBlue[6];
+  const titleColor = colorScheme === "dark" ? theme.colors.customCreamYellow[4] : theme.colors.regalNavy[6];
   const backgroundGlow =
     colorScheme === "dark"
       ? "radial-gradient(circle at top left, rgba(255, 196, 69, 0.12), transparent 30%), radial-gradient(circle at bottom right, rgba(14, 39, 105, 0.30), transparent 26%)"
@@ -125,7 +125,7 @@ export default function AccessDeniedPage() {
                 border: `1px solid ${colorScheme === "dark" ? "rgba(254, 196, 53, 0.22)" : "rgba(14, 39, 105, 0.18)"}`,
               }}
             >
-              <IconShieldLock size={42} stroke={1.7} color={colorScheme === "dark" ? theme.colors.schoolBusYellow[4] : accent} />
+              <IconShieldLock size={42} stroke={1.7} color={colorScheme === "dark" ? theme.colors.customCreamYellow[4] : accent} />
             </div>
 
             <Stack gap={4} align="center">
@@ -146,11 +146,11 @@ export default function AccessDeniedPage() {
                 onClick={() => router.push(dashboardHref)} 
                 size="md" 
                 leftSection={<IconLock size={16} />} 
-                color="imperialBlue"
+                color="regalNavy"
               >
                 Go to dashboard
               </Button>
-              <Button variant="light" size="md" color="schoolBusYellow" onClick={handleLogoutAndLogin} loading={loggingOut}>
+              <Button variant="light" size="md" color="customCreamYellow" onClick={handleLogoutAndLogin} loading={loggingOut}>
                 Back to login
               </Button>
             </Group>

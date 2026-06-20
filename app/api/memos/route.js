@@ -40,7 +40,7 @@ export async function GET(request) {
   }
 }
 
-// 2. CREATE NEW MEMO (MODIFIED FOR MULTIPART / FILE UPLOAD HANDLING)
+// 2. CREATE NEW MEMO (WITH MULTIPART / FILE UPLOAD HANDLING)
 export async function POST(request) {
   try {
     const authenticatedUser = await getAuthenticatedUser(request);
@@ -217,7 +217,6 @@ export async function PATCH(request) {
       
       const officialRefId = `${targetMemo.senderDept}-${currentYear}-${String(approvedCount + 1).padStart(3, '0')}`;
 
-      // Suriin kung binago ba ni Head ang orihinal na gawa ng staff
       const hasSubjectChanged = subject && subject !== targetMemo.subject;
       const hasContentChanged = content && content !== targetMemo.content;
       const isRevised = !!(hasSubjectChanged || hasContentChanged);
@@ -247,7 +246,10 @@ export async function PATCH(request) {
     }
 
     // 🔥 BACKEND HANDLER 2: SENDER OVERRIDE CLOSURE
-    if (isSenderClosing) {
+    // 🚨 SAFEGUARD: Kahit nakalimutan ng frontend i-pasa ang isSenderClosing = true, sasaluhin ito kapag ang action ay RESOLVE at walang departmentName!
+    const effectiveIsSenderClosing = isSenderClosing || (action === 'RESOLVE' && !departmentName);
+
+    if (effectiveIsSenderClosing) {
       await prisma.memoRecipientStatus.updateMany({
         where: { 
           memoId: memoId,
@@ -274,6 +276,11 @@ export async function PATCH(request) {
     }
 
     // --- STANDARD OPERATIONS MATRIX FOR RECIPIENTS ---
+    // 🚨 SAFEGUARD: Pangontra sa Prisma Null Crash. Bago umusad sa Recipient switch, chine-check muna na HINDI null ang departmentName.
+    if (!departmentName) {
+      return NextResponse.json({ success: false, message: "System Error: Missing Department Name for this action." }, { status: 400 });
+    }
+
     let currentSearchStatus;
     let updateData = {};
 
