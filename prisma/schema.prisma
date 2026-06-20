@@ -115,3 +115,84 @@ enum LoginStatus {
   SUCCESS
   FAILURE
 }
+
+enum MemoWorkflowStatus {
+  FOR_APPROVAL
+  APPROVED
+}
+
+model Memo {
+  id              String                @id @default(uuid())
+  referenceId     String                @unique // e.g., CS-2026-001
+  subject         String                // Re1
+  content         String                @db.Text
+  priority        Priority              @default(ROUTINE) // ROUTINE, URGENT, RUSH
+  purpose         Purpose               // FYI, SIGNATURE, ACTION, etc.
+  senderId        String
+  senderName      String                // Staff/Head Name
+  senderDept      String                // Department Name
+  createdAt       DateTime              @default(now())
+  deadlineAt      DateTime?             // +3 days kapag RUSH
+
+  attachmentPath  String?               // Optional PDF/Image link na ise-save sa server disk
+
+  status          MemoWorkflowStatus    @default(APPROVED)
+  
+  // Threading pointers
+  parentMemoId    String?
+  parentMemo      Memo?                 @relation("MemoHierarchy", fields: [parentMemoId], references: [id], onDelete: Cascade)
+  replies         Memo[]                @relation("MemoHierarchy")
+  rootMemoId      String?
+  rootMemo        Memo?                 @relation("RootThread", fields: [rootMemoId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  threadMembers   Memo[]                @relation("RootThread")
+
+  // Tracking per department
+  recipients      MemoRecipientStatus[]
+
+  isRevisedByHead Boolean @default(false) // Ito ang indicator natin
+}
+
+model MemoRecipientStatus {
+  id              String    @id @default(uuid())
+  memoId          String
+  memo            Memo      @relation(fields: [memoId], references: [id], onDelete: Cascade)
+  departmentName  String    // e.g., "REGISTRAR", "CASHIER"
+  status          Status    @default(PENDING) // PENDING, ACKNOWLEDGED, RESPONDED
+  acknowledgedBy  String?   // Pangalan ng Head
+
+  // 🎯 Mga Bagong Field para sa Workflow Extensions
+  processedBy     String?   // Pangalan ng staff/head na nag-set sa In Progress
+  processedAt     DateTime?
+  
+  deniedBy        String?   // Kung sino ang nag-deny
+  deniedAt        DateTime?
+  
+  // 🎯 Dito natin ilalagay ang dahilan ng Denied o Karagdagang Note
+  feedbackNote    String?   @db.Text // Pwedeng Return Reason o Resolution Note
+
+  acknowledgedAt  DateTime?
+  respondedAt     DateTime?
+}
+
+enum Priority {
+   ROUTINE
+   URGENT
+   RUSH 
+}
+
+enum Purpose { 
+  FYI
+  SIGNATURE
+  ACTION
+  COMMENTS
+  APPROVAL
+  REQUEST 
+}
+
+enum Status {
+   PENDING
+   ACKNOWLEDGED
+   RESPONDED
+   PROCESSING
+   DENIED
+}

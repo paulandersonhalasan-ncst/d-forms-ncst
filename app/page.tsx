@@ -3,38 +3,45 @@
 //LOGIN PAGE
 
 import { useState, type FormEvent } from "react";
-import { Anchor, Group, PasswordInput, TextInput, Button, Text, Stack } from '@mantine/core';
+import { Anchor, Group, PasswordInput, TextInput, Button, Text, Stack, Alert } from '@mantine/core';
 import { useRouter } from "next/navigation";
 import { modals } from "@mantine/modals";
+import { IconAlertCircle } from "@tabler/icons-react";
 import '@mantine/core/styles.css';
 
 export default function LoginPage() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [error, setError] = useState("");
+    const [loading, setLoading] = useState(false); // Para iwas double submit habang nagpoproseso
     const router = useRouter();
 
     async function handleSubmit(e: FormEvent<HTMLFormElement>) {
         e.preventDefault();
         setError("");
+        setLoading(true);
 
         console.log("Attempting login with email:", email); // Debug log
 
         try {
             const res = await fetch("/api/auth/login", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                email: email,
-                password: password
-            }),
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    email: email,
+                    password: password
+                }),
             });
             
             const data = await res.json();
 
+            // 🛠️ ERROR CATCHING NG MALING EMAIL O PASSWORD
             if (!res.ok) {
+                setLoading(false);
+
+                // Check kung ito yung multiple wrong password lock triggers
                 if (data.alertTriggered) {
                     modals.openConfirmModal({
                         title: "Can't log in?",
@@ -59,91 +66,115 @@ export default function LoginPage() {
                     //clear the form after showing the modal
                     setEmail("");
                     setPassword("");
-
                     return; 
                 }
+
+                // 🎯 DITO SASALUHIN ANG STANDARD ERRORS (e.g., "Invalid credentials", "User not found")
+                setError(data.message || data.error || "Maling email o password. Pakisuri muli.");
+                return;
             }
 
+            // Kapag matagumpay ang login, i-route batay sa role
             switch (data.user?.role) {
-            case "Staff":
-                router.push("./dashboard/staff");
-                break;
-            case "OIC":
-                router.push("./dashboard/oic");
-                break;
-            case "Admin":
-                router.push("./dashboard/admin");
-                break;
-            case "DepartmentHead":
-                router.push("./dashboard/dept_head");
-                break;
-            case "SuperUser":
-                router.push("./dashboard/superuser");
-                break;
-            case undefined:
-            case null:
-                console.error("User role is missing for user: ", data.user);
-                break;
-            default:
-                setError("Unknown user role");
-                console.error("Unknown user role: ", data.user?.role);
+                case "Staff":
+                    router.push("./dashboard/staff");
+                    break;
+                case "OIC":
+                    router.push("./dashboard/oic");
+                    break;
+                case "Admin":
+                    router.push("./dashboard/admin");
+                    break;
+                case "DepartmentHead":
+                    router.push("./dashboard/dept_head");
+                    break;
+                case "SuperUser":
+                    router.push("./dashboard/superuser");
+                    break;
+                case undefined:
+                case null:
+                    setError("Walang nakatalagang role ang account na ito.");
+                    console.error("User role is missing for user: ", data.user);
+                    setLoading(false);
+                    break;
+                default:
+                    setError("Unknown user role");
+                    console.error("Unknown user role: ", data.user?.role);
+                    setLoading(false);
             }
 
         } catch (err) {
             console.error("Network error occurred:", err);
             setError("Connection error. Please try again later.");
+            setLoading(false);
         }
-        }
+    }
 
-return (
-    <main
-        style={{
-            minHeight: '100vh',
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            backgroundImage: "url('/image.png')",
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-            backgroundRepeat: 'no-repeat'
-        }}
-    >
-        <form
-            onSubmit={handleSubmit}
+    return (
+        <main
             style={{
-                width: 360,
-                padding: 24,
-                borderRadius: 8,
-                boxShadow: '0 2px 10px rgba(0,0,0,0.08)',
-                background: 'var(--background)',
+                minHeight: '100vh',
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                backgroundImage: "url('/image.png')",
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+                backgroundRepeat: 'no-repeat'
             }}
         >
-            <TextInput
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="NCST Email"
-                variant="filled"
-            />
+            <form
+                onSubmit={handleSubmit}
+                style={{
+                    width: 360,
+                    padding: 24,
+                    borderRadius: 8,
+                    boxShadow: '0 2px 10px rgba(0,0,0,0.08)',
+                    background: 'var(--background)',
+                }}
+            >
+                <Stack gap="md">
+                    {/* 🎯 MANTINE ALERT BOX PARA SA LOGIN ERRORS */}
+                    {error && (
+                        <Alert variant="light" color="red" title="Login Failed" icon={<IconAlertCircle size={16} />}>
+                            {error}
+                        </Alert>
+                    )}
 
-            {/* Password input */}
-            <Group justify="space-between" mb={5}>
+                    <TextInput
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="NCST Email"
+                        variant="filled"
+                        required
+                    />
 
-                <Anchor href="#" onClick={(event) => event.preventDefault()} pt={2} fw={500} fz="xs">
-                    Forgot your password?
-                </Anchor>
-            </Group>
-            <PasswordInput
-                placeholder="Your password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                variant="filled"
-            />
+                    <div>
+                        <Group justify="space-between" mb={5}>
+                            <Text size="sm" fw={500} style={{ visibility: 'hidden' }}>Password</Text>
+                            <Anchor href="#" onClick={(event) => event.preventDefault()} fw={500} fz="xs">
+                                Forgot your password?
+                            </Anchor>
+                        </Group>
+                        <PasswordInput
+                            placeholder="Your password"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            variant="filled"
+                            required
+                        />
+                    </div>
 
-            <Button variant="filled" style={{ width: '100%', padding: '10px 12px', marginTop: 14 }} type="submit">
-                Login
-            </Button>
-            {error && <div style={{ color: 'red', marginTop: 8 }}>{error}</div>}
-        </form>
-    </main>
-);
+                    <Button 
+                        variant="filled" 
+                        style={{ width: '100%', padding: '10px 12px' }} 
+                        type="submit"
+                        loading={loading} // Nagpapakita ng spinner habang nag-a-authenticate
+                    >
+                        Login
+                    </Button>
+                </Stack>
+            </form>
+        </main>
+    );
 }

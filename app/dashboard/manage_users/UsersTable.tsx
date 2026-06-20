@@ -227,7 +227,18 @@ export default function UsersTable() {
     if (e) e.preventDefault();
     if (!editing) return;
     try {
-      const payload = { id: editing.id, ...form };
+      // 1. Gumawa ng base copy ng form states natin
+      const dataToSend: Record<string, string> = { ...form };
+
+      // 2. Solid check: Kung walang tinype si admin sa password input box,
+      //    BURAHIN natin ang password property sa payload para hindi ito ma-overwrite sa database ng blangko!
+      if (!dataToSend.password || dataToSend.password.trim() === "") {
+        delete dataToSend.password;
+      }
+
+      // 3. I-combine kasama ang user ID na kasalukuyang ine-edit
+      const payload = { id: editing.id, ...dataToSend };
+
       const res = await fetch("../../../api/user/edit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

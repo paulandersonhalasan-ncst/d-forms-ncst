@@ -55,7 +55,8 @@ export async function POST(request) {
       const updateData = {};
       // 1. Idagdag ang dalawang OIC fields sa allowed list
       const allowed = [
-        "employee_id", 
+        "employee_id",
+        "email",
         "password", 
         "fname", 
         "lname", 
