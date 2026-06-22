@@ -906,7 +906,7 @@ export default function IOMDashboardPage() {
             
             {/* 🎯 TAMA AT DIRETSAHANG FILE INPUT (WALANG DYNAMIC IMPORT) */}
             <FileInput 
-              label="Optional Attachment Document (Memo/PDF/Image)" 
+              label="Optional Attachment Document" 
               placeholder="Choose file to upload (Optional)" 
               clearable
               accept="application/pdf,image/*"
