@@ -15,7 +15,6 @@ import {
   IconThumbUp,
   IconPrinter,
   IconLayersIntersect,
-  IconProgress,
   IconPlayerPlay,
   IconLock,
   IconInfoCircle,
@@ -83,7 +82,8 @@ export interface Memo {
   parentMemoId: string | null;
   rootMemoId: string | null;
   isRevisedByHead?: boolean; 
-  attachmentPath?: string | null; // 🎯 Idinagdag natin ang path field
+  attachmentPath?: string | null;
+  feedbackNote?: string | null;
   recipients?: MemoRecipientStatus[];
 }
 
@@ -119,7 +119,10 @@ export default function IOMDashboardPage() {
   const [loadingMemos, setLoadingMemos] = useState(true);
   const [currentUser, setCurrentUser] = useState<UserContext | null>(null);
 
-  const [pendingAction, setPendingAction] = useState<{ type: 'CREATE' | 'ACKNOWLEDGE' | 'START_PROCESSING' | 'DENY' | 'RESOLVE' | 'APPROVE_MEMO'; data: Record<string, unknown> } | null>(null);
+  const [pendingAction, setPendingAction] = useState<{ 
+    type: 'CREATE' | 'ACKNOWLEDGE' | 'START_PROCESSING' | 'DENY' | 'RESOLVE' | 'APPROVE_MEMO' | 'DISAPPROVE_DRAFT' | 'JOIN_PROCESSING'; // 👈 Idinagdag dito
+    data: Record<string, unknown> 
+  } | null>(null);
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passError, setPassError] = useState('');
   const [activeThreadMemos, setActiveThreadMemos] = useState<Memo[]>([]);
@@ -161,19 +164,29 @@ export default function IOMDashboardPage() {
       try {
         const authRes = await fetch('../../../api/auth/me');
         const authData = await authRes.json();
+
+        let userDeptCode = '';
+
         if (authData.success) {
           setCurrentUser(authData.data);
+          userDeptCode = authData.data.departmentCode;
+
         }
 
         const deptRes = await fetch('../../../api/department/get');
         const deptData = await deptRes.json();
         if (deptData.success && Array.isArray(deptData.data)) {
-          const mappedDepts = deptData.data.map((dept: Department) => ({
+        const mappedDepts = deptData.data
+          .filter((dept: Department) => dept.code !== userDeptCode)
+          .map((dept: Department) => ({
             value: dept.code,
-            label: dept.name ? `${dept.code} - ${dept.name}` : dept.code
+            label: dept.name
+              ? `${dept.code} - ${dept.name}`
+              : dept.code,
           }));
-          setDepartments(mappedDepts);
-        }
+
+        setDepartments(mappedDepts);
+      }
       } catch (err) {
         console.error('Initialization error:', err);
       } finally {
@@ -213,42 +226,109 @@ export default function IOMDashboardPage() {
       ? `<div style="margin-top: 10px; font-size: 12px; color: #555;"><em>* This document contains a digital attachment in the system.</em></div>`
       : '';
 
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>Print Memo - ${memo.referenceId || 'DRAFT'}</title>
-          <style>
-            body { font-family: monospace; line-height: 1.6; padding: 40px; color: #000; font-size: 14px; }
-            .header { text-align: center; margin-bottom: 30px; font-weight: bold; font-size: 18px; letter-spacing: 1px; }
-            .meta-table { width: 100%; border-collapse: collapse; margin-bottom: 25px; }
-            .meta-table td { padding: 6px 0; vertical-align: top; }
-            .meta-label { width: 140px; font-weight: bold; }
-            .content-box { border-top: 2px dashed #000; border-bottom: 2px dashed #000; padding: 25px 0; margin-bottom: 30px; white-space: pre-wrap; font-size: 15px; }
-          </style>
-        </head>
-        <body>
-          <div class="header">INTERNAL OFFICE MEMORANDUM<br>==========================</div>
-          <table class="meta-table">
-            <tr><td class="meta-label">REF ID:</td><td><strong>${memo.referenceId || 'DRAFT (PENDING APPROVAL)'}</strong></td></tr>
-            <tr><td class="meta-label">DATE CREATED:</td><td>${new Date(memo.createdAt).toLocaleString()}</td></tr>
-            <tr><td class="meta-label">FROM (SENDER):</td><td>${memo.senderName} (${memo.senderDept}) ${memo.isRevisedByHead ? '[Amended by Head]' : ''}</td></tr>
-            <tr><td class="meta-label">TO (TARGET):</td><td>${recipientDepts}</td></tr>
-            <tr><td class="meta-label">PRIORITY:</td><td>[${memo.priority}]</td></tr>
-            <tr><td class="meta-label">PURPOSE:</td><td>${memo.purpose || 'N/A'}</td></tr>
-            <tr><td class="meta-label">SUBJECT:</td><td><strong>${memo.subject}</strong></td></tr>
-          </table>
-          ${revisionNotice}
-          <div class="content-box">${memo.content.replace(/\n/g, '<br>')}</div>
-          ${attachmentNotice}
-          <div style="margin-top: 60px; font-size: 11px; text-align: center; color: #555;">-- System Generated Document --</div>
-          <script>
-            window.onload = function() { window.print(); };
-            window.onafterprint = function() { window.close(); };
-          </script>
-        </body>
-      </html>
-    `);
-    printWindow.document.close();
+    // 📊 1. I-generate ang HTML Rows para sa Dispatch Route Matrix
+    // 📊 1. I-generate ang HTML Rows para sa Dispatch Route Matrix (FIXED LONGER REMARKS & DATE)
+  // 📊 1. I-generate ang HTML Rows para sa Dispatch Route Matrix (TypeScript & Null Safe)
+  const dispatchMatrixRows = memo.recipients && memo.recipients.length > 0
+    ? memo.recipients.map(rec => {
+        // 🎯 Kumuha ng valid na petsa mula sa mga opsyonal na fields
+        const rawDate = rec.respondedAt || rec.deniedAt || rec.acknowledgedAt || rec.processedAt;
+        
+        // ⏰ Siguraduhing may valid na date bago i-parse, kung wala ay gawing walang laman
+        const formattedTimestamp = rawDate 
+          ? new Date(rawDate).toLocaleString() 
+          : null;
+
+        return `
+        <tr style="border-bottom: 1px dashed #000; page-break-inside: avoid;">
+          <td style="padding: 10px 4px; font-weight: bold; vertical-align: top;">${rec.departmentName}</td>
+          <td style="padding: 10px 4px; vertical-align: top;">
+            <span style="padding: 2px 6px; border: 1px solid #000; font-size: 12px; font-weight: bold; display: inline-block;">
+              ${rec.status}
+            </span>
+          </td>
+          <td style="padding: 10px 4px; font-size: 13px; vertical-align: top; word-break: break-word;">
+            <div style="font-weight: 500; margin-bottom: 6px; white-space: pre-wrap;">
+              ${rec.feedbackNote || '--'}
+            </div>
+            
+            ${formattedTimestamp ? `
+              <div style="font-size: 11px; color: #444; margin-top: 4px; border-left: 2px solid #000; padding-left: 5px;">
+                <b>TIMESTAMP:</b> ${formattedTimestamp}
+              </div>
+            ` : ''}
+          </td>
+        </tr>
+        `;
+      }).join('')
+    : `<tr><td colspan="3" style="text-align: center; padding: 15px; color: #000; border-bottom: 1px dashed #000;">No recipient records found.</td></tr>`;
+
+  // 📋 2. I-assemble ang buong Matrix Table Component
+  const dispatchMatrixTable = `
+    <div style="margin-top: 40px; page-break-inside: avoid;">
+      <div style="font-weight: bold; margin-bottom: 10px; text-decoration: underline; font-size: 14px;">DISPATCH ROUTE TRACKING MATRIX</div>
+      <table style="width: 100%; border-collapse: collapse; font-size: 13px; text-align: left; font-family: monospace; table-layout: fixed;">
+        <thead>
+          <tr style="border-bottom: 2px solid #000; font-weight: bold;">
+            <th style="padding: 6px 4px; width: 20%;">DEPARTMENT</th>
+            <th style="padding: 6px 4px; width: 18%;">STATUS</th>
+            <th style="padding: 6px 4px; width: 62%;">REMARKS & TRANSACTION TIMESTAMP</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${dispatchMatrixRows}
+        </tbody>
+      </table>
+    </div>
+  `;
+
+  // 🖨️ 3. Isalang na sa Document Write para sa Print Window
+  printWindow.document.write(`
+    <html>
+      <head>
+        <title>Print Memo - ${memo.referenceId || 'DRAFT'}</title>
+        <style>
+          body { font-family: monospace; line-height: 1.6; padding: 40px; color: #000; font-size: 14px; }
+          .header { text-align: center; margin-bottom: 30px; font-weight: bold; font-size: 18px; letter-spacing: 1px; }
+          .meta-table { width: 100%; border-collapse: collapse; margin-bottom: 25px; }
+          .meta-table td { padding: 6px 0; vertical-align: top; }
+          .meta-label { width: 140px; font-weight: bold; }
+          .content-box { border-top: 2px dashed #000; border-bottom: 2px dashed #000; padding: 25px 0; margin-bottom: 30px; white-space: pre-wrap; font-size: 15px; }
+          @media print {
+            tr { page-break-inside: avoid !important; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">INTERNAL OFFICE MEMORANDUM<br>==========================</div>
+        <table class="meta-table">
+          <tr><td class="meta-label">REF ID:</td><td><strong>${memo.referenceId || 'DRAFT (PENDING APPROVAL)'}</strong></td></tr>
+          <tr><td class="meta-label">DATE CREATED:</td><td>${new Date(memo.createdAt).toLocaleString()}</td></tr>
+          <tr><td class="meta-label">FROM (SENDER):</td><td>${memo.senderName} (${memo.senderDept}) ${memo.isRevisedByHead ? '[Amended by Head]' : ''}</td></tr>
+          <tr><td class="meta-label">TO (TARGET):</td><td>${recipientDepts}</td></tr>
+          <tr><td class="meta-label">PRIORITY:</td><td>[${memo.priority}]</td></tr>
+          <tr><td class="meta-label">PURPOSE:</td><td>${memo.purpose || 'N/A'}</td></tr>
+          <tr><td class="meta-label">SUBJECT:</td><td><strong>${memo.subject}</strong></td></tr>
+        </table>
+        
+        ${revisionNotice}
+        
+        <div class="content-box">${memo.content.replace(/\n/g, '<br>')}</div>
+        
+        ${attachmentNotice}
+        
+        ${dispatchMatrixTable}
+        
+        <div style="margin-top: 60px; font-size: 11px; text-align: center; color: #555;">-- System Generated Document --</div>
+        
+        <script>
+          window.onload = function() { window.print(); };
+          window.onafterprint = function() { window.close(); };
+        </script>
+      </body>
+    </html>
+  `);
+  printWindow.document.close();
   };
 
   const allMemosLedgerList = isAdminOrSuper ? memos : [];
@@ -274,7 +354,7 @@ export default function IOMDashboardPage() {
     return isRecipientResolved || isSenderResolved;
   });
 
-  const triggerActionPasswordCheck = (type: 'CREATE' | 'ACKNOWLEDGE' | 'START_PROCESSING' | 'DENY' | 'RESOLVE' | 'APPROVE_MEMO', data: Record<string, unknown>) => {
+  const triggerActionPasswordCheck = (type: 'CREATE' | 'ACKNOWLEDGE' | 'START_PROCESSING' | 'DENY' | 'RESOLVE' | 'APPROVE_MEMO' | 'DISAPPROVE_DRAFT' | 'JOIN_PROCESSING', data: Record<string, unknown>) => {
     setConfirmPassword('');
     setPassError('');
     setFeedbackNote('');
@@ -296,8 +376,8 @@ export default function IOMDashboardPage() {
       setPassError('Password is required.');
       return;
     }
-    if (pendingAction?.type === 'DENY' && (!feedbackNote || feedbackNote.trim() === "")) {
-      setPassError('Please include a reason of rejection.');
+    if ((pendingAction?.type === 'DENY' || pendingAction?.type === 'DISAPPROVE_DRAFT') && (!feedbackNote || feedbackNote.trim() === "")) {
+      setPassError('Please include a reason or feedback notes.');
       return;
     }
 
@@ -339,12 +419,15 @@ export default function IOMDashboardPage() {
           setPassError(resData.message || 'Incorrect credentials.');
         }
       } else {
+        // 🎯 FIXED ACTION MAP: Kasama na si JOIN_PROCESSING para tugma sa backend schema actions mo
         const actionMap: Record<string, string> = {
           'ACKNOWLEDGE': 'ACKNOWLEDGE',
           'START_PROCESSING': 'START_PROCESSING',
+          'JOIN_PROCESSING': 'JOIN_PROCESSING', // 👈 Eto ang salarin kaya ayaw gumalaw!
           'RESOLVE': 'RESOLVE',
           'DENY': 'DENY',
-          'APPROVE_MEMO': 'APPROVE'
+          'APPROVE_MEMO': 'APPROVE',
+          'DISAPPROVE_DRAFT': 'DISAPPROVE'
         };
 
         const response = await fetch('../../../api/memos', {
@@ -353,7 +436,7 @@ export default function IOMDashboardPage() {
           body: JSON.stringify({ 
             memoId: pendingAction?.data?.memoId, 
             departmentName: pendingAction?.data?.departmentName || null,
-            action: actionMap[pendingAction?.type || ''], 
+            action: actionMap[pendingAction?.type || ''], // Mapapasa na ngayon nang tama si 'JOIN_PROCESSING'
             password: confirmPassword, 
             feedbackNote,
             isSenderClosing: pendingAction?.data?.isSenderClosing || false
@@ -465,10 +548,24 @@ export default function IOMDashboardPage() {
           if (memo.priority === 'RUSH' && memo.deadlineAt && !isMemoResolvedForMe && !isAllResolved) {
             const diffTime = new Date(memo.deadlineAt).getTime() - Date.now();
             const MathCeilDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-            badgeText = MathCeilDays < 0 ? 'OVERDUE' : `${MathCeilDays} days left`;
-            badgeColor = MathCeilDays < 0 ? 'red' : 'orange';
-          } else if (memo.priority === 'RUSH') { badgeText = 'RUSH'; badgeColor = 'gray'; }
-          else if (memo.priority === 'URGENT') { badgeColor = (isMemoResolvedForMe || isAllResolved) ? 'gray' : 'pink'; }
+
+            if (MathCeilDays < 0) {
+              badgeText = 'OVERDUE';
+              badgeColor = 'red';
+            } else if (MathCeilDays === 0 || MathCeilDays === 1) { 
+              // 🎯 Kapag 0 o 1 day na lang ang natitira, markahan natin na Due Today at gawing matingkad na pula/orange
+              badgeText = 'DUE TODAY';
+              badgeColor = 'red'; // Pwede rin 'orange' kung gusto mong i-reserve ang red para sa Overdue lang talaga
+            } else {
+              badgeText = `${MathCeilDays} days left`;
+              badgeColor = 'orange';
+            }
+          } else if (memo.priority === 'RUSH') { 
+            badgeText = 'RUSH'; 
+            badgeColor = 'gray'; 
+          } else if (memo.priority === 'URGENT') { 
+            badgeColor = (isMemoResolvedForMe || isAllResolved) ? 'gray' : 'pink'; 
+          }
 
           // 🎯 BAGO: Eksaktong Thread Check. Bibilangin natin kung ilan talaga ang nasa thread.
           const rootIdForThread = memo.rootMemoId || memo.id;
@@ -477,171 +574,222 @@ export default function IOMDashboardPage() {
 
           return (
             <Card 
-              key={memo.id} 
-              withBorder={!isBeingProcessed} 
-              radius="md" 
-              shadow={isBeingProcessed ? "md" : "sm"}
-              style={{
-                border: isBeingProcessed 
-                  ? '2px solid var(--mantine-color-orange-filled)' 
-                  : '1px solid light-dark(var(--mantine-color-gray-3), var(--mantine-color-dark-4))',
-                boxShadow: isBeingProcessed 
-                  ? '0 0 12px rgba(255, 165, 0, 0.4)' 
-                  : undefined,
-                display: 'flex',
-                flexDirection: 'column',
-                minHeight: '420px',
-                padding: 0,
-                transition: 'all 0.2s ease',
+            key={memo.id} 
+            withBorder={!isBeingProcessed} 
+            radius="md" 
+            shadow={isBeingProcessed ? "md" : "sm"}
+            style={{
+              border: isBeingProcessed 
+                ? '2px solid var(--mantine-color-orange-filled)' 
+                : '1px solid light-dark(var(--mantine-color-gray-3), var(--mantine-color-dark-4))',
+              boxShadow: isBeingProcessed 
+                ? '0 0 12px rgba(255, 165, 0, 0.4)' 
+                : undefined,
+              display: 'flex',
+              flexDirection: 'column',
+              minHeight: '420px',
+              padding: 0,
+              transition: 'all 0.2s ease',
+            }}
+          >
+            <UnstyledButton 
+              onClick={() => handleExpandNoteOpen(memo)} 
+              style={{ display: 'flex', flexDirection: 'column', flex: 1, padding: '20px', textAlign: 'left' }}
+            >
+              <Group justify="space-between" w="100%" mb="xs">
+                <Group gap="xs" onClick={(e) => e.stopPropagation()}> 
+                  <Text ff="monospace" fw={700} c="blue" size="sm">
+                    {memo.referenceId || 'DRAFT-DPT'}
+                  </Text>
+
+                  {memo.attachmentPath && (
+                    <Badge color="indigo" variant="filled" size="xs" leftSection={<IconDownload size={12} />}>
+                      FILE ATTACHED
+                    </Badge>
+                  )}
+
+                  {amISender && <Badge color="gray" variant="light" size="xs">Ours</Badge>}
+                  {memo.status === 'FOR_APPROVAL' && <Badge color="orange" variant="filled" size="xs">Draft/For Review</Badge>}
+                  
+                  {/* Tago ang "In Thread" badge kapag mag-isa lang ang memo */}
+                  {hasThread && (
+                    <Badge 
+                      color="teal" variant="outline" size="xs" leftSection={<IconGitBranch size={10} />} style={{ cursor: 'pointer' }}
+                      onClick={(e) => { e.stopPropagation(); handleViewThread(memo); }}
+                    >
+                      In Thread
+                    </Badge>
+                  )}
+                </Group>
+                <Group gap="xs">
+                  <Badge color="cyan" variant="light" size="xs">{memo.purpose}</Badge>
+                  <Badge color={badgeColor} variant="filled" size="xs">{badgeText}</Badge>
+                </Group>
+              </Group>
+
+              <Stack gap={4} my="xs" p="xs" w="100%" bg="light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-7))" style={{ borderRadius: '6px' }}>
+                <Text size="xs"><b>TO:</b> {memo.recipients?.map(r => r.departmentName).join(', ')}</Text>
+                <Group gap={6} align="center">
+                  <Text size="xs"><b>FROM:</b> {memo.senderName} ({memo.senderDept})</Text>
+                  {memo.isRevisedByHead && (
+                    <Badge color="grape" variant="light" size="9px" radius="sm">Amended by Head</Badge>
+                  )}
+                </Group>
+                <Text size="10px" c="dimmed"><b>DATE:</b> {new Date(memo.createdAt).toLocaleString()}</Text>
+
+                {isBeingProcessed && processingRecipients.map((pr) => pr.processedBy && (
+                  <Group gap={4} mt={2} key={pr.id}>
+                    <Badge color="orange" variant="light" size="xs" style={{ textTransform: 'none', letterSpacing: 0 }}>
+                      ⚙️ {pr.departmentName} processing by: <b>{pr.processedBy}</b>
+                    </Badge>
+                  </Group>
+                ))}
+              </Stack>
+
+              <Text fz="sm" fw={700} mt="xs" w="100%" lineClamp={1}>
+                SUBJECT: {memo.subject}
+              </Text>
+              
+              <Divider my="xs" w="100%" style={{ opacity: 0.5 }} />
+              <Text fz="sm" c="dimmed" lineClamp={4} style={{ whiteSpace: 'pre-wrap' }}>
+                {memo.content}
+              </Text>
+            </UnstyledButton>
+
+            <Group 
+              justify="space-between" p="md" 
+              style={{ 
+                borderTop: '1px solid light-dark(var(--mantine-color-gray-2), var(--mantine-color-dark-5))',
+                backgroundColor: 'light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-8))',
+                marginTop: 'auto'
               }}
             >
-              <UnstyledButton 
-                onClick={() => handleExpandNoteOpen(memo)} 
-                style={{ display: 'flex', flexDirection: 'column', flex: 1, padding: '20px', textAlign: 'left' }}
-              >
-                <Group justify="space-between" w="100%" mb="xs">
-                  <Group gap="xs" onClick={(e) => e.stopPropagation()}> 
-                    <Text ff="monospace" fw={700} c="blue" size="sm">
-                      {memo.referenceId || 'DRAFT-DPT'}
-                    </Text>
-
-                    {memo.attachmentPath && (
-                      <Badge color="indigo" variant="filled" size="xs" leftSection={<IconDownload size={12} />}>
-                        FILE ATTACHED
-                      </Badge>
-                    )}
-
-                    {amISender && <Badge color="gray" variant="light" size="xs">Ours</Badge>}
-                    {memo.status === 'FOR_APPROVAL' && <Badge color="orange" variant="filled" size="xs">Draft/For Review</Badge>}
-                    
-                    {/* Tago ang "In Thread" badge kapag mag-isa lang ang memo */}
-                    {hasThread && (
-                      <Badge 
-                        color="teal" variant="outline" size="xs" leftSection={<IconGitBranch size={10} />} style={{ cursor: 'pointer' }}
-                        onClick={(e) => { e.stopPropagation(); handleViewThread(memo); }}
-                      >
-                        In Thread
-                      </Badge>
-                    )}
-                  </Group>
-                  <Group gap="xs">
-                    <Badge color="cyan" variant="light" size="xs">{memo.purpose}</Badge>
-                    <Badge color={badgeColor} variant="filled" size="xs">{badgeText}</Badge>
-                  </Group>
-                </Group>
-
-                <Stack gap={4} my="xs" p="xs" w="100%" bg="light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-7))" style={{ borderRadius: '6px' }}>
-                  <Text size="xs"><b>TO:</b> {memo.recipients?.map(r => r.departmentName).join(', ')}</Text>
-                  <Group gap={6} align="center">
-                    <Text size="xs"><b>FROM:</b> {memo.senderName} ({memo.senderDept})</Text>
-                    {memo.isRevisedByHead && (
-                      <Badge color="grape" variant="light" size="9px" radius="sm">Amended by Head</Badge>
-                    )}
-                  </Group>
-                  <Text size="10px" c="dimmed"><b>DATE:</b> {new Date(memo.createdAt).toLocaleString()}</Text>
-
-                  {isBeingProcessed && processingRecipients.map((pr) => pr.processedBy && (
-                    <Group gap={4} mt={2} key={pr.id}>
-                      <Badge color="orange" variant="light" size="xs" style={{ textTransform: 'none', letterSpacing: 0 }}>
-                        ⚙️ {pr.departmentName} processing by: <b>{pr.processedBy}</b>
-                      </Badge>
-                    </Group>
-                  ))}
-                </Stack>
-
-                <Text fz="sm" fw={700} mt="xs" w="100%" lineClamp={1}>
-                  SUBJECT: {memo.subject}
-                </Text>
-                
-                <Divider my="xs" w="100%" style={{ opacity: 0.5 }} />
-                <Text fz="sm" c="dimmed" lineClamp={4} style={{ whiteSpace: 'pre-wrap' }}>
-                  {memo.content}
-                </Text>
-              </UnstyledButton>
-
-              <Group 
-                justify="space-between" p="md" 
-                style={{ 
-                  borderTop: '1px solid light-dark(var(--mantine-color-gray-2), var(--mantine-color-dark-5))',
-                  backgroundColor: 'light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-8))',
-                  marginTop: 'auto'
-                }}
-              >
-                <Group gap="xs">
-                  {/* Tago rin ang button na 'History Thread' kapag wala pang karugtong */}
-                  {hasThread && (
-                    <Button size="xs" variant="outline" color="teal" leftSection={<IconGitBranch size={13} />} onClick={() => handleViewThread(memo)}>
-                      History Thread
-                    </Button>
-                  )}
-                  <Button size="xs" variant="outline" color="gray" leftSection={<IconPrinter size={13} />} onClick={() => handlePrintMemo(memo)}>
-                    Print
+              <Group gap="xs">
+                {/* Tago rin ang button na 'History Thread' kapag wala pang karugtong */}
+                {hasThread && (
+                  <Button size="xs" variant="outline" color="teal" leftSection={<IconGitBranch size={13} />} onClick={() => handleViewThread(memo)}>
+                    History Thread
                   </Button>
-                </Group>
+                )}
+                <Button size="xs" variant="outline" color="gray" leftSection={<IconPrinter size={13} />} onClick={() => handlePrintMemo(memo)}>
+                  Print
+                </Button>
+              </Group>
 
-                <Group gap="xs">
-                  {isApprovalTab && (isDepartmentHead || isAdminOrSuper) && (
+              <Group gap="xs">
+                {/* 🎯 EDIT DITO: Nilagyan ng Disapprove button sa tabi ng Review & Approve */}
+                {isApprovalTab && (isDepartmentHead || isAdminOrSuper) && (
+                  <Group gap={4}>
                     <Button size="xs" color="indigo" leftSection={<IconEdit size={13} />} onClick={() => triggerSuperEditReview(memo)}>
                       Review & Approve
                     </Button>
-                  )}
+                    <Button size="xs" color="red" onClick={() => triggerActionPasswordCheck('DISAPPROVE_DRAFT', { memoId: memo.id })}>
+                      Disapprove
+                    </Button>
+                  </Group>
+                )}
+                
+                {isDepartmentHead && myRecipientInfo?.status === 'PENDING' && !isApprovalTab && (
+                  <Group gap={4}>
+                    <Button size="xs" color="green" leftSection={<IconCheck size={13} />} onClick={() => triggerActionPasswordCheck('ACKNOWLEDGE', { memoId: memo.id, departmentName: activeDepartment })}>
+                      Acknowledge
+                    </Button>
+                    <Button size="xs" color="red" onClick={() => triggerActionPasswordCheck('DENY', { memoId: memo.id, departmentName: activeDepartment })}>
+                      Deny Inbound
+                    </Button>
+                  </Group>
+                )}
+                {myRecipientInfo?.status === 'ACKNOWLEDGED' && (
+                  <Button size="xs" color="orange" leftSection={<IconPlayerPlay size={13} />} onClick={() => triggerActionPasswordCheck('START_PROCESSING', { memoId: memo.id, departmentName: activeDepartment })}>
+                    Process
+                  </Button>
+                )}
+
+                {amISender && !isAllResolved && memo.status !== 'FOR_APPROVAL' && (
+                  <Button size="xs" color="teal" leftSection={<IconFileCheck size={13} />} onClick={() => triggerActionPasswordCheck('RESOLVE', { memoId: memo.id, isSenderClosing: true })}>
+                    Resolve & Close
+                  </Button>
+                )}
+                
+                {/* 🎯 ADVANCED COLLABORATION & OVERRIDE BLOCK */}
+                {(() => {
+                  const isUnderProcessing = myRecipientInfo?.status === 'PROCESSING';
+                  const isAcknowledged = myRecipientInfo?.status === 'ACKNOWLEDGED';
+                  const currentUserName = `${currentUser?.fname} ${currentUser?.lname}`;
                   
-                  {isDepartmentHead && myRecipientInfo?.status === 'PENDING' && !isApprovalTab && (
+                  // I-tsek kung kasama na ba ang kasalukuyang user sa listahan ng mga nagpo-process
+                  const amIAlreadyProcessing = myRecipientInfo?.processedBy?.includes(currentUserName);
+
+                  return (
                     <Group gap={4}>
-                      <Button size="xs" color="green" leftSection={<IconCheck size={13} />} onClick={() => triggerActionPasswordCheck('ACKNOWLEDGE', { memoId: memo.id, departmentName: activeDepartment })}>
-                        Acknowledge
-                      </Button>
-                      <Button size="xs" color="red" onClick={() => triggerActionPasswordCheck('DENY', { memoId: memo.id, departmentName: activeDepartment })}>
-                        Deny Inbound
-                      </Button>
-                    </Group>
-                  )}
-                  {myRecipientInfo?.status === 'ACKNOWLEDGED' && (
-                    <Button size="xs" color="orange" leftSection={<IconPlayerPlay size={13} />} onClick={() => triggerActionPasswordCheck('START_PROCESSING', { memoId: memo.id, departmentName: activeDepartment })}>
-                      Process
-                    </Button>
-                  )}
-
-                  {amISender && !isAllResolved && memo.status !== 'FOR_APPROVAL' && (
-                    <Button size="xs" color="teal" leftSection={<IconFileCheck size={13} />} onClick={() => triggerActionPasswordCheck('RESOLVE', { memoId: memo.id, isSenderClosing: true })}>
-                      Resolve & Close
-                    </Button>
-                  )}
-                  
-                  {(() => {
-                    const currentUserName = `${currentUser?.fname} ${currentUser?.lname}`;
-                    const isAcknowledged = myRecipientInfo?.status === 'ACKNOWLEDGED';
-                    const isMismongNagProcess = myRecipientInfo?.status === 'PROCESSING' && myRecipientInfo?.processedBy === currentUserName;
-
-                    if (isAcknowledged || isMismongNagProcess) {
-                      return (
+                      {/* 1. HEAD OVERRIDE & DELEGATION CONTROLS */}
+                      {isDepartmentHead && (isUnderProcessing || isAcknowledged) && (
                         <Group gap={4}>
+                          {/* Force Complete button para kay Head */}
+                          <Button size="xs" color="teal" variant="filled" onClick={() => triggerActionPasswordCheck('RESOLVE', { memoId: memo.id, departmentName: activeDepartment })}>
+                            Head Force Complete
+                          </Button>
+                          {/* Dito mo pwedeng isunod o isalpak 'yung dropdown/select component para sa Delegation ng staff balang araw */}
+                        </Group>
+                      )}
+
+                      {/* 2. STAFF COLLABORATION CONTROLS */}
+                      {isUnderProcessing && !isDepartmentHead && (
+                        <Group gap={4}>
+                          {/* Kung processing na pero HINDI pa kasali si kasalukuyang staff, bigyan ng opsyon sumalo */}
+                          {!amIAlreadyProcessing && (
+                            <Button size="xs" color="indigo" variant="light" onClick={() => triggerActionPasswordCheck('JOIN_PROCESSING', { memoId: memo.id, departmentName: activeDepartment })}>
+                              Join Process
+                            </Button>
+                          )}
+                          
+                          {/* Kahit sinong staff sa dept ay pwedeng mag-complete ng trabaho */}
                           <Button size="xs" color="green" onClick={() => triggerActionPasswordCheck('RESOLVE', { memoId: memo.id, departmentName: activeDepartment })}>
                             Complete
                           </Button>
-                          <Button size="xs" color="red" variant="light" onClick={() => triggerActionPasswordCheck('DENY', { memoId: memo.id, departmentName: activeDepartment })}>
-                            Deny
-                          </Button>
                         </Group>
-                      );
-                    }
-                    return null;
-                  })()}
+                      )}
+                    </Group>
+                  );
+                })()}
+                
+                {/* 🎯 EDIT HERE: Lock the Reply button if the memo was already denied OR already responded to */}
+                {(() => {
+                  // 1. Check kung na-deny na ang draft (galing kay Head)
+                  const isMemoDenied = memo.recipients?.some(r => r.status === 'DENIED');
                   
-                  <Button 
-                    size="xs" variant={disableReply ? "subtle" : "light"} color={disableReply ? "gray" : "blue"} disabled={disableReply}
-                    leftSection={<IconMessageReply size={13} />} onClick={() => handleReplyClick(memo)}
-                  >
-                    Reply
-                  </Button>
-                </Group>
+                  // 2. Check kung nareplyan na ito ng recipient department
+                  const isAlreadyResponded = memo.recipients?.some(r => r.status === 'RESPONDED');
+                  
+                  // Pagsamahin lahat ng conditions para sa pag-disable
+                  const finalDisableReply = disableReply || isMemoDenied || isAlreadyResponded;
+
+                  // Alamin kung anong text ang dapat ipakita sa button
+                  let buttonText = 'Reply';
+                  if (isMemoDenied) buttonText = 'Reply Disabled (Denied)';
+                  if (isAlreadyResponded) buttonText = 'Already Responded';
+
+                  return (
+                    <Button 
+                      size="xs" 
+                      variant={finalDisableReply ? "subtle" : "light"} 
+                      color={finalDisableReply ? "gray" : "blue"} 
+                      disabled={finalDisableReply}
+                      leftSection={<IconMessageReply size={13} />} 
+                      onClick={() => handleReplyClick(memo)}
+                    >
+                      {buttonText}
+                    </Button>
+                  );
+                })()}
               </Group>
-            </Card>
-          );
-        })}
-      </SimpleGrid>
-    );
-  };
+            </Group>
+          </Card>
+                    );
+                  })}
+                </SimpleGrid>
+              );
+            };
 
   return (
     <Container size="xl" py="lg">
@@ -696,42 +844,48 @@ export default function IOMDashboardPage() {
 
           <Tabs.Panel value="all_memos">
             <Alert icon={<IconInfoCircle size={16} />} title="System Administrator Global Ledger View" color="blue" mb="md" radius="md">
-              Authorized view only. Tracks every operational transactional memorandum sequence regardless of origin status blocks.
+              Authorized view only. Tracks every operational transactional memorandum sequence regardless of origin status blocks.<br></br><br></br>
+              Mga otorisadong tao lamang ang maaaring makakita nito. Binabantayan nito ang lahat ng mga memorandum na pumasok sa NCST E-Forms.
             </Alert>
             {renderMemoCards(allMemosLedgerList)}
           </Tabs.Panel>
 
           <Tabs.Panel value="approval">
             <Alert icon={<IconInfoCircle size={16} />} title="Super Editor & Approval Command Queue" color="orange" mb="md" radius="md">
-              Draft documents formulated by department staff. As Department Head, you can click <b><i>Review & Approve</i></b> to modify mistakes or directly finalize contents.
+              Draft memorandum formulated by department staff. As Department Head, you can click <b><i>Review & Approve</i></b> to modify mistakes or directly finalize contents.<br></br><br></br>
+              Makikita rito ang mga memorandum na ginawa ng mga staff sa iyong departamento. Maaaring mong pindutin ang <b><i>Review & Approve</i></b> para may ibahin o ayusin bago tuluyang aprubahan.
             </Alert>
             {renderMemoCards(forApprovalMemos, true)}
           </Tabs.Panel>
 
           <Tabs.Panel value="inbox">
             <Alert icon={<IconInfoCircle size={16} />} title="Incoming External Inbound Queue" color="teal" mb="md" radius="md">
-              Incoming memos routed by external entities. Requires Department Head authentication to acknowledge and shift to the public Action Board.
+              Incoming memorandums routed by external entities. Requires Department Head authentication to acknowledge and shift to the public Action Board.<br></br><br></br>
+              Mga memorandum na galing sa ibang mga departmento na aprubado na ng kanilang Department Head. I-<b><i>Acknowledge</i></b> para mapunta sa Action Board Workspace para aksyunan ng kahit sino sa inyong departamento.
             </Alert>
             {renderMemoCards(incomingMemos)}
           </Tabs.Panel>
 
           <Tabs.Panel value="action_board">
             <Alert icon={<IconInfoCircle size={16} />} title="Departmental Action Board (Public Staff View)" color="indigo" mb="md" radius="md">
-              Documents acknowledged by management. <b><i>Visible to all department members</i></b> to collaborate, process, and address.
+              Memorandums acknowledged by management. <b><i>Visible to all department members</i></b> to collaborate, process, and address.<br></br><br></br>
+              Mga memorandum na tinaggap at kinilala ng Department Head. <b><i>Kita ng lahat ng mga myembro ng departamento</i></b> para ma-proseso o aksyunan. 
             </Alert>
             {renderMemoCards(actionBoardMemos)}
           </Tabs.Panel>
 
           <Tabs.Panel value="sent">
             <Alert icon={<IconInfoCircle size={16} />} title="Dispatched Ledger Log" color="gray" mb="md" radius="md">
-              Historical ledger of all approved and successfully transmitted documents signed from this department node.
+              Historical ledger of all approved and successfully transmitted documents signed from this department node.<br></br><br></br>
+              Talaan ng lahat ng ipinadalang memorandum ng departamentong ito.
             </Alert>
             {renderMemoCards(sentMemos)}
           </Tabs.Panel>
 
           <Tabs.Panel value="resolved">
             <Alert icon={<IconInfoCircle size={16} />} title="Archived Records Directory" color="green" mb="md" radius="md">
-              Archived historical repository containing fully responded operations or structurally denied state documents.
+              Archived historical repository containing fully responded operations or structurally denied state documents.<br></br><br></br>
+              Koleksyon ng lahat ng mga na-respondehan at tinanggihang memorandum.
             </Alert>
             {renderMemoCards(resolvedMemos)}
           </Tabs.Panel>
@@ -742,7 +896,7 @@ export default function IOMDashboardPage() {
       <Modal opened={opened} onClose={close} title={form.values.parentMemoId ? "📝 Write Response Memo" : "📝 Construct New Memorandum"} size="lg" radius="md">
         <form onSubmit={form.onSubmit((values) => triggerActionPasswordCheck('CREATE', values))}>
           <Stack gap="md">
-            <TextInput label="Subject Reference Header" placeholder="e.g., Request for IT Support Assessment" required {...form.getInputProps('subject')} />
+            <TextInput label="Subject Reference Header" placeholder="What will the memorandum be about..." required {...form.getInputProps('subject')} />
             <SimpleGrid cols={2}>
               <Select label="Priority Level Flags" data={['ROUTINE', 'URGENT', 'RUSH']} {...form.getInputProps('priority')} />
               <Select label="Routing Core Purpose" data={['FYI', 'SIGNATURE', 'ACTION', 'COMMENTS', 'APPROVAL', 'REQUEST']} {...form.getInputProps('purpose')} />
@@ -776,10 +930,17 @@ export default function IOMDashboardPage() {
           
           <TextInput label="Subject Reference Header" value={headEditSubject} onChange={(e) => setHeadEditSubject(e.currentTarget.value)} required />
           <Textarea label="Memorandum Body Content" value={headEditContent} onChange={(e) => setHeadEditContent(e.currentTarget.value)} minRows={6} autosize required />
-          
+          <FileInput 
+              label="Optional Attachment Document (Memo/PDF/Image)" 
+              placeholder="Choose file to upload (Optional)" 
+              clearable
+              accept="application/pdf,image/*"
+              {...form.getInputProps('memoFile')}
+            />
+
           <Divider my="xs" label="Digital Verification Signature" labelPosition="center" />
           
-          <PasswordInput label="Your Signature Security Password" placeholder="••••••••" required value={confirmPassword} onChange={(e) => setConfirmPassword(e.currentTarget.value)} error={passError} />
+          <PasswordInput label="Your Signature Security Password" placeholder="Your NCST E-Forms password..." required value={confirmPassword} onChange={(e) => setConfirmPassword(e.currentTarget.value)} error={passError} />
           
           <Group justify="flex-end" mt="md">
             <Button variant="light" color="gray" onClick={closeSuperEditModal}>Cancel</Button>
@@ -794,9 +955,6 @@ export default function IOMDashboardPage() {
       <Modal opened={passModalOpened} onClose={closePassModal} title={<Group gap="xs"><IconLock size={18} color="red" /><Text fw={700}>Security Signature Verification</Text></Group>} centered size="sm" radius="md">
         <Stack gap="sm">
           <Text size="xs" c="dimmed">Confirm transaction authorization status using your cryptography signing phrase key.</Text>
-          {pendingAction?.type === 'DENY' && (
-            <Textarea label="Return Reason (Required)" placeholder="Provide details on why this memo is being returned/denied..." required value={feedbackNote} onChange={(e) => setFeedbackNote(e.currentTarget.value)} />
-          )}
           {pendingAction?.type === 'RESOLVE' && (
             <Textarea label="Resolution Notes / Remarks (Optional)" placeholder="Add closure details or comments..." value={feedbackNote} onChange={(e) => setFeedbackNote(e.currentTarget.value)} />
           )}
@@ -842,7 +1000,7 @@ export default function IOMDashboardPage() {
       </Modal>
 
       {/* EXPAND MEMO CONTENT DETAILS MODAL */}
-      <Modal opened={expandNoteOpened} onClose={closeExpandNoteModal} title="📄 Full Memorandum Document Viewer" size="lg" radius="md">
+      <Modal opened={expandNoteOpened} onClose={closeExpandNoteModal} title={selectedMemoForExpand?.subject} size="lg" radius="md">
         {selectedMemoForExpand && (
           <Stack gap="md">
             <Card withBorder p="md" bg="light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-8))">
@@ -860,7 +1018,7 @@ export default function IOMDashboardPage() {
               
               {selectedMemoForExpand.isRevisedByHead && (
                 <Alert color="grape" p="xs" mt="sm" icon={<IconInfoCircle size={14} />}>
-                  Note: This operational document was modified and fine-tuned directly by the Department Head before final signing.
+                  Note: This memorandum was modified and fine-tuned directly by the Department Head before approval.<br></br><br></br>Paalala: ang memorandum na ito ay direktang binago ng pinanggalingang Department Head bago na-aprubahan.
                 </Alert>
               )}
               

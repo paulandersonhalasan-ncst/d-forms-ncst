@@ -245,6 +245,49 @@ export async function PATCH(request) {
       return NextResponse.json({ success: true, data: approvedMemo }, { status: 200 });
     }
 
+    // 🔥 OPTION C WORKFLOW: DISAPPROVE & AUTO-DENY ALL RECIPIENTS
+    if (action === 'DISAPPROVE') {
+      const targetMemo = await prisma.memo.findUnique({ 
+        where: { id: memoId },
+        include: { recipients: true } // Isama si recipients para makuha natin sila
+      });
+
+      if (!targetMemo) {
+        return NextResponse.json({ success: false, message: "Hindi mahanap ang orihinal na draft memo." }, { status: 404 });
+      }
+
+      // 1. I-update ang Memo status para pumasok sa logs/archive ng sender
+      await prisma.memo.update({
+        where: { id: memoId },
+        data: { status: 'APPROVED' }
+      });
+
+      // 2. 🎯 DAMAY-DAMAY NA: I-update lahat ng recipients ng memo na ito para maging 'DENIED' agad
+      // Para hindi lumitaw sa "Incoming Memos" (Pending) nila!
+      await prisma.memoRecipientStatus.updateMany({
+        where: { memoId: memoId },
+        data: {
+          status: 'DENIED',
+          deniedBy: `System (via Head ${employeeName})`,
+          deniedAt: new Date(),
+          feedbackNote: "Draft disapproved by Sender's Department Head before official release."
+        }
+      });
+
+      // 3. Mag-iwan din ng log para sa sariling departamento ni Head
+      try {
+        await logActivity({
+          req: request,
+          userId: authenticatedUser.id,
+          email: authenticatedUser.email,
+          action: `IOM_DRAFT_DISAPPROVED_AND_CANCELLED`,
+          details: JSON.stringify({ memoId, originalSubject: targetMemo.subject })
+        });
+      } catch (err) { console.error(err); }
+
+      return NextResponse.json({ success: true, message: "Memo draft disapproved. All potential recipient routes cancelled." }, { status: 200 });
+    }
+
     // 🔥 BACKEND HANDLER 2: SENDER OVERRIDE CLOSURE
     // 🚨 SAFEGUARD: Kahit nakalimutan ng frontend i-pasa ang isSenderClosing = true, sasaluhin ito kapag ang action ay RESOLVE at walang departmentName!
     const effectiveIsSenderClosing = isSenderClosing || (action === 'RESOLVE' && !departmentName);
@@ -326,18 +369,89 @@ export async function PATCH(request) {
         };
         break;
 
-      case 'RESOLVE':
-        const recordToResolve = await prisma.memoRecipientStatus.findFirst({
-          where: { memoId, departmentName, status: { in: ['ACKNOWLEDGED', 'PROCESSING', 'PENDING'] } }
+      // 🏁 3. RESOLVE / COMPLETE (KAHIT SINONG STAFF O SI HEAD)
+      case 'RESOLVE': {
+        const targetRecord = await prisma.memoRecipientStatus.findFirst({
+          where: { 
+            memoId, 
+            departmentName, 
+            status: { in: ['ACKNOWLEDGED', 'PROCESSING', 'PENDING'] } 
+          }
         });
-        currentSearchStatus = recordToResolve ? recordToResolve.status : 'ACKNOWLEDGED';
 
-        updateData = {
-          status: 'RESPONDED',
-          respondedAt: new Date(),
-          feedbackNote: feedbackNote || "Resolved standard transaction operations completed."
-        };
-        break;
+        if (!targetRecord) {
+          return NextResponse.json({ success: false, message: "No active inbound record found to mark as complete." }, { status: 404 });
+        }
+
+        // 🎯 SAFE EXTRACTION: Tiyakin natin ang role mula sa authenticated user mo sa backend
+        // Palitan mo ang 'authenticatedUser?.role' kung iba ang pangalan ng user object mo sa taas ng API file (e.g., req.user, session.user)
+        const userBackendRole = (authenticatedUser?.role || "").toUpperCase();
+        const checkIsHead = ['DEPARTMENTHEAD', 'OIC'].includes(userBackendRole);
+
+        // Pagtukoy sa notice gamit ang ligtas na local flag variable natin
+        const resolutionNotice = checkIsHead 
+          ? `Force Completed by Department Head (${employeeName}).`
+          : `Marked Completed by ${employeeName}.`;
+
+        const updatedStatus = await prisma.memoRecipientStatus.update({
+          where: { id: targetRecord.id },
+          data: {
+            status: 'RESPONDED',
+            respondedAt: new Date(),
+            feedbackNote: feedbackNote || targetRecord.feedbackNote || resolutionNotice
+          }
+        });
+
+        try {
+          await logActivity({
+            req: request,
+            userId: authenticatedUser.id,
+            email: authenticatedUser.email,
+            action: checkIsHead ? `IOM_HEAD_FORCE_COMPLETED` : `IOM_SUPER_RESOLVED`,
+            details: JSON.stringify({ memoId, departmentName, resolvedBy: employeeName })
+          });
+        } catch (err) { console.error(err); }
+
+        return NextResponse.json({ success: true, data: updatedStatus });
+      }
+      // 👥 STAFF COLLABORATION: JOIN PROCESSING
+      case 'JOIN_PROCESSING': {
+        // 1. Hanapin ang kasalukuyang record ng departamento para sa memo na ito
+        const existingRecord = await prisma.memoRecipientStatus.findFirst({
+          where: { memoId, departmentName }
+        });
+
+        if (!existingRecord) {
+          return NextResponse.json({ success: false, message: "Record not found." }, { status: 404 });
+        }
+
+        // 2. I-append ang pangalan ng bagong staff sa lumang listahan o string
+        const currentStaffs = existingRecord.processedBy ? existingRecord.processedBy : "";
+        const updatedStaffs = currentStaffs 
+          ? `${currentStaffs}, ${employeeName}` 
+          : employeeName;
+
+        // 3. I-update ang Database (Ito ay ligtas na ngayon sa loob ng curly braces scope)
+        const updatedStatus = await prisma.memoRecipientStatus.update({
+          where: { id: existingRecord.id },
+          data: {
+            processedBy: updatedStaffs,
+            feedbackNote: existingRecord.feedbackNote || `Collaborative processing initiated.`
+          }
+        });
+        // 4. Mag-iwan ng log sa audit trail
+        try {
+          await logActivity({
+            req: request,
+            userId: authenticatedUser.id,
+            email: authenticatedUser.email,
+            action: `IOM_JOINED_PROCESSING`,
+            details: JSON.stringify({ memoId, departmentName, joinedStaff: employeeName })
+          });
+        } catch (err) { console.error(err); }
+
+        return NextResponse.json({ success: true, data: updatedStatus });
+      } // 🗏 laging sarado ang block dito gamit ang curly brace bago ang susunod na kaso
 
       default:
         return NextResponse.json({ success: false, message: "Invalid action sequence requested" }, { status: 400 });
