@@ -167,7 +167,7 @@ export default function Sidebar({ role, email, fname, lname, oic_start, oic_end 
             sidebarBg = "var(--mantine-color-regalNavy-9)"; // Magiging kulay Blue na rin ang Staff kapag aktibong OIC!
             break;
         case "Staff":
-            sidebarBg = "var(--mantine-color-customCreamYellow-4)";
+            sidebarBg = "var(--mantine-color-customCreamYellow-2)";
             break;
         default:
             sidebarBg = "var(--mantine-color-gray-6)";

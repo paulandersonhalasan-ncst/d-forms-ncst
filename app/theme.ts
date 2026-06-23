@@ -16,16 +16,16 @@ const regalNavy: MantineColorsTuple = [
 
 // 10 shades para sa Light/Cream Yellow (fff1d0 ang primary/index 4)
 const customCreamYellow: MantineColorsTuple = [
-  '#fffdf5', // 0: Lightest (maganda sa very subtle backgrounds)
-  '#fffaf0', // 1: Hover state ng subtle backgrounds
-  '#fff6e6', // 2
-  '#fff3dc', // 3
-  '#fff1d0', // 4: Iyong core color (Primary)
-  '#ffe8ab', // 5: Hover state ng primary
-  '#ffde85', // 6: Active state
-  '#ffd55e', // 7
-  '#ffcb38', // 8
-  '#e6b419', // 9: Darkest (maganda sa borders o text contrast)
+  "#fff8e5",
+  "#fff0d0", //main color
+  "#fedf9e",
+  "#fece69",
+  "#febf3e",
+  "#feb625",
+  "#feb118",
+  "#e29b0b",
+  "#c98900",
+  "#af7600"
 ];
 
 export const theme = createTheme({
