@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useForm } from '@mantine/form';
-import { useDisclosure } from '@mantine/hooks';
+import { useDisclosure, useToggle } from '@mantine/hooks';
 import { 
   IconMessageReply, 
   IconPlus, 
@@ -133,6 +133,9 @@ export default function IOMDashboardPage() {
   const [headEditContent, setHeadEditContent] = useState('');
   const [headSelectedMemoId, setHeadSelectedMemoId] = useState('');
 
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortByDate, toggleSortByDate] = useToggle(['NEWEST', 'OLDEST'] as const); // 👈 Ito na ang bagong toggle engine
+
   const form = useForm({
     initialValues: {
       subject: '',
@@ -212,6 +215,25 @@ export default function IOMDashboardPage() {
   
   const isAdminOrSuper = ['ADMIN', 'SUPERUSER', 'Admin', 'SuperUser'].includes(userRole);
   const isDepartmentHead = ['DEPARTMENTHEAD', 'DepartmentHead', 'OIC'].includes(userRole);
+
+  // ⚙️ FILTER & SORT FUNCTION (Para sa panel contents lang)
+  const getFilteredMemos = (list: Memo[]) => {
+    const filtered = list.filter((memo) => {
+      const searchLower = searchTerm.toLowerCase();
+      return (
+        memo.subject?.toLowerCase().includes(searchLower) ||
+        memo.referenceId?.toLowerCase().includes(searchLower) ||
+        memo.content?.toLowerCase().includes(searchLower) ||
+        memo.senderName?.toLowerCase().includes(searchLower)
+      );
+    });
+
+    return [...filtered].sort((a, b) => {
+      const dateA = new Date(a.createdAt).getTime();
+      const dateB = new Date(b.createdAt).getTime();
+      return sortByDate === 'NEWEST' ? dateB - dateA : dateA - dateB;
+    });
+  };
 
   const handlePrintMemo = (memo: Memo) => {
     const printWindow = window.open('', '_blank', 'width=800,height=600');
@@ -809,6 +831,31 @@ export default function IOMDashboardPage() {
           </Button>
         </Group>
 
+        {/* 🛠️ SEARCH & SORT BAR CONTROL PANEL */}
+        <Card withBorder radius="md" mb="md" p="sm" bg="light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-8))">
+          <Group justify="space-between" align="flex-end">
+            <TextInput
+              placeholder="REMINDER: This only filters the selected tab..."
+              label="Search Memorandum"
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.currentTarget.value)}
+              style={{ flex: 1 }}
+            />
+            <Stack gap={4}>
+              <Text size="xs" fw={500}>Sort by Date Created</Text>
+              <Button 
+                variant="light" 
+                color={sortByDate === 'NEWEST' ? 'blue' : 'orange'} 
+                onClick={() => toggleSortByDate()}
+                style={{ width: 180 }}
+              >
+                {sortByDate === 'NEWEST' ? '📅 Newest First' : '⏳ Oldest First'}
+              </Button>
+            </Stack>
+          </Group>
+        </Card>
+
+        {/* 🗂️ ANG IYONG ORIGINAL TABS LAYOUT (WALANG BINAGO SA MGA PANGALAN O COUTERS) */}
         <Tabs defaultValue={isAdminOrSuper ? "all_memos" : (isDepartmentHead ? "approval" : "inbox")} radius="md" variant="outline">
           <Tabs.List mb="lg">
             {isAdminOrSuper && (
@@ -847,7 +894,7 @@ export default function IOMDashboardPage() {
               Authorized view only. Tracks every operational transactional memorandum sequence regardless of origin status blocks.<br></br><br></br>
               Mga otorisadong tao lamang ang maaaring makakita nito. Binabantayan nito ang lahat ng mga memorandum na pumasok sa NCST E-Forms.
             </Alert>
-            {renderMemoCards(allMemosLedgerList)}
+            {renderMemoCards(getFilteredMemos(allMemosLedgerList))}
           </Tabs.Panel>
 
           <Tabs.Panel value="approval">
@@ -855,7 +902,7 @@ export default function IOMDashboardPage() {
               Draft memorandum formulated by department staff. As Department Head, you can click <b><i>Review & Approve</i></b> to modify mistakes or directly finalize contents.<br></br><br></br>
               Makikita rito ang mga memorandum na ginawa ng mga staff sa iyong departamento. Maaaring mong pindutin ang <b><i>Review & Approve</i></b> para may ibahin o ayusin bago tuluyang aprubahan.
             </Alert>
-            {renderMemoCards(forApprovalMemos, true)}
+            {renderMemoCards(getFilteredMemos(forApprovalMemos), true)}
           </Tabs.Panel>
 
           <Tabs.Panel value="inbox">
@@ -863,7 +910,7 @@ export default function IOMDashboardPage() {
               Incoming memorandums routed by external entities. Requires Department Head authentication to acknowledge and shift to the public Action Board.<br></br><br></br>
               Mga memorandum na galing sa ibang mga departmento na aprubado na ng kanilang Department Head. I-<b><i>Acknowledge</i></b> para mapunta sa Action Board Workspace para aksyunan ng kahit sino sa inyong departamento.
             </Alert>
-            {renderMemoCards(incomingMemos)}
+            {renderMemoCards(getFilteredMemos(incomingMemos))}
           </Tabs.Panel>
 
           <Tabs.Panel value="action_board">
@@ -871,7 +918,7 @@ export default function IOMDashboardPage() {
               Memorandums acknowledged by management. <b><i>Visible to all department members</i></b> to collaborate, process, and address.<br></br><br></br>
               Mga memorandum na tinaggap at kinilala ng Department Head. <b><i>Kita ng lahat ng mga myembro ng departamento</i></b> para ma-proseso o aksyunan. 
             </Alert>
-            {renderMemoCards(actionBoardMemos)}
+            {renderMemoCards(getFilteredMemos(actionBoardMemos))}
           </Tabs.Panel>
 
           <Tabs.Panel value="sent">
@@ -879,7 +926,7 @@ export default function IOMDashboardPage() {
               Historical ledger of all approved and successfully transmitted documents signed from this department node.<br></br><br></br>
               Talaan ng lahat ng ipinadalang memorandum ng departamentong ito.
             </Alert>
-            {renderMemoCards(sentMemos)}
+            {renderMemoCards(getFilteredMemos(sentMemos))}
           </Tabs.Panel>
 
           <Tabs.Panel value="resolved">
@@ -887,7 +934,7 @@ export default function IOMDashboardPage() {
               Archived historical repository containing fully responded operations or structurally denied state documents.<br></br><br></br>
               Koleksyon ng lahat ng mga na-respondehan at tinanggihang memorandum.
             </Alert>
-            {renderMemoCards(resolvedMemos)}
+            {renderMemoCards(getFilteredMemos(resolvedMemos))}
           </Tabs.Panel>
         </Tabs>
       </Card>
