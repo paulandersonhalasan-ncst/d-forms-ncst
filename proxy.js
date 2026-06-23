@@ -11,7 +11,7 @@ export async function proxy(request) {
       const secret = new TextEncoder().encode(process.env.JWT_SECRET);
       const { payload } = await jwtVerify(token, secret);
       user = payload; 
-      console.log(`decrypted user info: ${user.email} | Role: ${user.role}`);
+      //console.log(`decrypted user info: ${user.email} | Role: ${user.role}`);
     } catch (error) {
       console.error('❌ Token Error:', error.message);
       const response = NextResponse.redirect(new URL('/', request.url));

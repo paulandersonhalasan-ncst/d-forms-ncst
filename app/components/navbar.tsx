@@ -80,7 +80,7 @@ const schoolMenuData: MenuItem[] = [
 export default function Sidebar({ role, email, fname, lname, oic_start, oic_end }: SidebarProps) {
     const [currentTime, setCurrentTime] = useState<string>("Loading...");
     const [isCurrentlyOIC, setIsCurrentlyOIC] = useState<boolean>(false);
-    const { colorScheme, setColorScheme } = useMantineColorScheme();
+    const { colorScheme, setColorScheme } = useMantineColorScheme({ keepTransitions: true });
 
     const router = useRouter();
     const pathname = usePathname();
@@ -164,7 +164,7 @@ export default function Sidebar({ role, email, fname, lname, oic_start, oic_end 
             break;
         case "OIC":
         case "DepartmentHead":
-            sidebarBg = "var(--mantine-color-regalNavy-9)"; // Magiging kulay Blue na rin ang Staff kapag aktibong OIC!
+            sidebarBg = "var(--mantine-color-regalNavy-9)";
             break;
         case "Staff":
             sidebarBg = "var(--mantine-color-customCreamYellow-2)";

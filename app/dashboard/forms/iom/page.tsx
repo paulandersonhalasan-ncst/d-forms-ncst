@@ -134,7 +134,9 @@ export default function IOMDashboardPage() {
   const [headSelectedMemoId, setHeadSelectedMemoId] = useState('');
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [sortByDate, toggleSortByDate] = useToggle(['NEWEST', 'OLDEST'] as const); // 👈 Ito na ang bagong toggle engine
+  const [sortByDate, toggleSortByDate] = useToggle(['NEWEST', 'OLDEST'] as const);
+
+  const [activeTab, setActiveTab] = useState<string | null>(null);
 
   const form = useForm({
     initialValues: {
@@ -352,6 +354,19 @@ export default function IOMDashboardPage() {
   `);
   printWindow.document.close();
   };
+
+  useEffect(() => {
+    // ⏳ Gumamit ng queueMicrotask o setTimeout para ligtas na i-schedule ang state split screen render
+    queueMicrotask(() => {
+      if (isAdminOrSuper) {
+        setActiveTab("all_memos");
+      } else if (isDepartmentHead) {
+        setActiveTab("approval");
+      } else {
+        setActiveTab("inbox");
+      }
+    });
+  }, [isAdminOrSuper, isDepartmentHead]);
 
   const allMemosLedgerList = isAdminOrSuper ? memos : [];
   const forApprovalMemos = memos.filter((memo) => memo.senderDept === activeDepartment && memo.status === 'FOR_APPROVAL');
@@ -855,8 +870,13 @@ export default function IOMDashboardPage() {
           </Group>
         </Card>
 
-        {/* 🗂️ ANG IYONG ORIGINAL TABS LAYOUT (WALANG BINAGO SA MGA PANGALAN O COUTERS) */}
-        <Tabs defaultValue={isAdminOrSuper ? "all_memos" : (isDepartmentHead ? "approval" : "inbox")} radius="md" variant="outline">
+        {/* 🗂️ CONTROLLED MANTINE TABS DIRECTORY */}
+        <Tabs 
+          value={activeTab} 
+          onChange={setActiveTab} 
+          radius="md" 
+          variant="outline"
+        >
           <Tabs.List mb="lg">
             {isAdminOrSuper && (
               <Tabs.Tab value="all_memos" leftSection={<IconLayersIntersect size={15} />}>
@@ -1005,7 +1025,7 @@ export default function IOMDashboardPage() {
           {pendingAction?.type === 'RESOLVE' && (
             <Textarea label="Resolution Notes / Remarks (Optional)" placeholder="Add closure details or comments..." value={feedbackNote} onChange={(e) => setFeedbackNote(e.currentTarget.value)} />
           )}
-          <PasswordInput label="Signature Security Password" placeholder="••••••••" required value={confirmPassword} onChange={(e) => setConfirmPassword(e.currentTarget.value)} error={passError} />
+          <PasswordInput label="Signature Security Password" placeholder="Your NCST E-Forms Password..." required value={confirmPassword} onChange={(e) => setConfirmPassword(e.currentTarget.value)} error={passError} />
           <Button fullWidth color="red" loading={submitting} onClick={handlePasswordGateVerificationSubmit} mt="xs">
             Confirm Signature Authorization
           </Button>
