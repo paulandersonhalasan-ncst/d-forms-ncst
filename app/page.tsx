@@ -77,19 +77,19 @@ export default function LoginPage() {
             // Kapag matagumpay ang login, i-route batay sa role
             switch (data.user?.role) {
                 case "Staff":
-                    router.push("./dashboard/staff");
+                    router.push("/dashboard/staff");
                     break;
                 case "OIC":
-                    router.push("./dashboard/oic");
+                    router.push("/dashboard/oic");
                     break;
                 case "Admin":
-                    router.push("./dashboard/admin");
+                    router.push("/dashboard/admin");
                     break;
                 case "DepartmentHead":
-                    router.push("./dashboard/dept_head");
+                    router.push("/dashboard/dept_head");
                     break;
                 case "SuperUser":
-                    router.push("./dashboard/superuser");
+                    router.push("/dashboard/superuser");
                     break;
                 case undefined:
                 case null:
