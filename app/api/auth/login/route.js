@@ -148,9 +148,13 @@ export async function POST(request) {
       { status: 200 }
     );
 
+    // response.headers.append(
+    //   "Set-Cookie",
+    //   `session_token=${token}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=${60 * 60 * 24 * 3}` //3 days max-age
+    // );
     response.headers.append(
       "Set-Cookie",
-      `session_token=${token}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=${60 * 60 * 24 * 3}` //3 days max-age
+      `session_token=${token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${60 * 60 * 24 * 3}` //3 days max-age
     );
 
     return response;

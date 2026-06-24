@@ -36,13 +36,13 @@ export async function proxy(request) {
 
   // 🛡️ REUSABLE VALIDATOR HELPER
   const denyIfNotRole = (allowedRoles) => {
-    if (!user) return NextResponse.rewrite(loginURL);
+    if (!user) return NextResponse.redirect(loginURL);
     
     // Custom exception para sa OIC: Kung kasama sa allowed list ang 'OIC' at active ang status niya, LIGTAS!
     if (allowedRoles.includes('OIC') && isCurrentlyOIC) return null;
     
     // Kung hindi, babagsak sa normal na role checking ng database record
-    if (!allowedRoles.includes(role)) return NextResponse.rewrite(unauthorizedURL);
+    if (!allowedRoles.includes(role)) return NextResponse.redirect(unauthorizedURL);
     return null;
   };
 
@@ -96,17 +96,20 @@ export async function proxy(request) {
   // ----------------------------------------------------------------
   // FRONTEND AUTHENTICATED LOGIN REDIRECT HANDLER
   // ----------------------------------------------------------------
+  // 🛠️ Palitan mo ang dulo ng iyong proxy.js (ang redirect handler) gamit ito:
   if (request.nextUrl.pathname === '/' && user) {
-    // 🎯 Safe na ito! Babalik tayo sa standard database-driven routing mo 
-    // para pumasok pa rin siya sa file architecture na nakatadhana sa kanya.
-    if (role === 'SuperUser') return NextResponse.rewrite(new URL('/dashboard/superuser', request.url));
-    if (role === 'DepartmentHead') return NextResponse.rewrite(new URL('/dashboard/dept_head', request.url));
-    if (role === 'Staff') return NextResponse.rewrite(new URL('/dashboard/staff', request.url));
-    if (role === 'Admin') return NextResponse.rewrite(new URL('/dashboard/admin', request.url));
-    if (role === 'OIC') return NextResponse.rewrite(new URL('/dashboard/oic', request.url));
-  }
+    // Gumamit ng request.nextUrl.clone() para manatili sa tamang LAN IP base domain
+    const targetUrl = request.nextUrl.clone();
+    
+    if (role === 'SuperUser') targetUrl.pathname = '/dashboard/superuser';
+    else if (role === 'DepartmentHead') targetUrl.pathname = '/dashboard/dept_head';
+    else if (role === 'Staff') targetUrl.pathname = '/dashboard/staff';
+    else if (role === 'Admin') targetUrl.pathname = '/dashboard/admin';
+    else if (role === 'OIC') targetUrl.pathname = '/dashboard/oic';
+    else return NextResponse.next();
 
-  return NextResponse.next();
+    return NextResponse.redirect(targetUrl);
+  }
 }
 
 export default proxy;

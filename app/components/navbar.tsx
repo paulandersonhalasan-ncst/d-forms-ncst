@@ -9,12 +9,15 @@ import {
     IconSun,
     IconMoon,  
     IconLogs,
-    IconUser
+    IconUser,
+    IconBellRinging
 } from "@tabler/icons-react";
-import { Code, Group, ScrollArea, Text, UnstyledButton, NavLink, useMantineColorScheme, Image, Switch } from "@mantine/core";
+import { Code, Group, ScrollArea, Text, UnstyledButton, NavLink, useMantineColorScheme, Image, Switch, Badge } from "@mantine/core";
+
 import React, { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { TablerIcon } from "@tabler/icons-react";
+import NotificationPopover from "../components/notif_popover";
 
 
 interface SidebarProps {
@@ -30,6 +33,7 @@ interface MenuItem {
     label: string;
     icon: TablerIcon;
     link?: string;
+    isPopover?: boolean; // 🎯 DAGDAG NA TAG: Para malaman kung popover ito
     allowedRoles?: ("SuperUser" | "OIC" | "DepartmentHead" | "Staff" | "Admin")[];
     links?: { 
         label: string; 
@@ -39,6 +43,12 @@ interface MenuItem {
 }
 
 const schoolMenuData: MenuItem[] = [
+    {
+        label: "Notifications",
+        icon: IconBellRinging,
+        link: "/dashboard/notifications", // Fallback URL pa rin para sa SEO/routing
+        isPopover: true // 🎯 SASABIHIN NATIN SA MAP ENGINE NA SPECIAL ITONG ROW NA ITO!
+    },
     { 
         label: "Dashboard", 
         icon: IconGauge, 
@@ -86,6 +96,32 @@ export default function Sidebar({ role, email, fname, lname, oic_start, oic_end 
     const pathname = usePathname();
     const [hoverKey, setHoverKey] = useState<string | null>(null);
     const [mounted, setMounted] = useState(false);
+
+    const [unreadCount, setUnreadCount] = useState<number>(0);
+
+    useEffect(() => {
+        const fetchUnreadCount = async () => {
+            try {
+                // Lalapit sa API endpoint natin para kunin ang pinakahuling bilang
+                const res = await fetch("../api/notifications");
+                if (res.ok) {
+                    const data = await res.json();
+                    setUnreadCount(data.count);
+                }
+            } catch (err) {
+                console.error("Failed fetching notifications count:", err);
+            }
+        };
+
+        // Tatakbo agad sa unang salpak ng Sidebar sa browser
+        fetchUnreadCount();
+
+        // 🕒 REAL-TIME ENGINE: Mag-tsek tuwing 30 segundo para sa mga bagong IOM approval notifications
+        const countInterval = setInterval(fetchUnreadCount, 30000); 
+
+        // Linisin ang timer kapag nag-unmount o umalis sa page para iwas memory leak sa host
+        return () => clearInterval(countInterval);
+    }, [pathname]); // Magre-fetch din awtomatiko tuwing nagbabago ang URL path ng user
 
     // 🎯 TIMEOUT/MOUNT ENGINE AT RUNTIME OIC CHECK INTERVAL
     useEffect(() => {
@@ -188,6 +224,7 @@ export default function Sidebar({ role, email, fname, lname, oic_start, oic_end 
     };
 
     return (
+        
         <nav style={{
             width: 260,
             height: "100vh",
@@ -215,7 +252,7 @@ export default function Sidebar({ role, email, fname, lname, oic_start, oic_end 
                         {currentTime}
                     </Code>
                 </Group>
-                
+
                 <Group justify="space-between" align="center" mt="xs">
                     <Text size="xs" fw={700} style={{ opacity: 0.7 }}>
                         ROLE: {role.toUpperCase()}
@@ -289,43 +326,69 @@ export default function Sidebar({ role, email, fname, lname, oic_start, oic_end 
                             };
 
                             return (
-                                <NavLink
-                                    key={item.label}
-                                    label={item.label}
-                                    leftSection={<item.icon size={18} stroke={1.5} color={textColor} />}
-                                    active={isMainActive}
-                                    onClick={item.links ? undefined : handleMainClick}
-                                    styles={customNavLinkStyles}
-                                    onMouseEnter={() => setHoverKey(item.label)}
-                                    onMouseLeave={() => setHoverKey((k) => (k === item.label ? null : k))}
-                                    style={{ color: textColor, backgroundColor: hoverKey === item.label ? hoverBg : (isMainActive ? activeBg : "transparent") }}
-                                >
-                                    {/* 🛡️ HAKBANG B: I-filter din ang mga SUB-LINKS gamit ang effectiveRole */}
-                                    {item.links
-                                        ?.filter((subItem) => {
-                                            if (!subItem.allowedRoles) return true;
-                                            return subItem.allowedRoles.includes(effectiveRole);
-                                        })
-                                        .map((subItem) => {
-                                            const isSubActive = pathname === subItem.link;
-                                            const subKey = `${item.label}::${subItem.label}`;
-                                            return (
-                                                <NavLink
-                                                    key={subItem.label}
-                                                    label={subItem.label}
-                                                    active={isSubActive}
-                                                    onClick={() => router.push(subItem.link)}
-                                                    onMouseEnter={() => setHoverKey(subKey)}
-                                                    onMouseLeave={() => setHoverKey((k) => (k === subKey ? null : k))}
-                                                    style={{ backgroundColor: hoverKey === subKey ? hoverBg : (isSubActive ? activeBg : "transparent") }}
-                                                    styles={{
-                                                        root: { borderRadius: 6, marginBottom: 2 },
-                                                        label: { color: textColor, fontSize: "13px", fontWeight: isSubActive ? 600 : 400 }
-                                                    }}
-                                                />
-                                            );
-                                        })}
-                                </NavLink>
+                                item.isPopover ? (
+                                    /* 🔔 SPECIAL ROW: I-wrap natin sa Popover Target */
+                                    <NotificationPopover key={item.label} unreadCount={unreadCount}>
+                                        <NavLink
+                                            label={item.label}
+                                            leftSection={<item.icon size={18} stroke={1.5} color={textColor} />}
+                                            active={isMainActive}
+                                            styles={customNavLinkStyles}
+                                            onMouseEnter={() => setHoverKey(item.label)}
+                                            onMouseLeave={() => setHoverKey((k) => (k === item.label ? null : k))}
+                                            style={{ 
+                                                color: textColor, 
+                                                backgroundColor: hoverKey === item.label ? hoverBg : (isMainActive ? activeBg : "transparent"),
+                                                cursor: 'pointer',
+                                            }}
+                                            rightSection={
+                                                unreadCount > 0 && (
+                                                    <Badge color="red" variant="filled" size="sm" circle>
+                                                        {unreadCount}
+                                                    </Badge>
+                                                )
+                                            }
+                                        />
+                                    </NotificationPopover>
+                                ) : (
+                                    /* 🌐 STANDARD ROW: Ito yung dating orihinal na NavLink mo, walang ginalaw */
+                                    <NavLink
+                                        key={item.label}
+                                        label={item.label}
+                                        leftSection={<item.icon size={18} stroke={1.5} color={textColor} />}
+                                        active={isMainActive}
+                                        onClick={item.links ? undefined : handleMainClick}
+                                        styles={customNavLinkStyles}
+                                        onMouseEnter={() => setHoverKey(item.label)}
+                                        onMouseLeave={() => setHoverKey((k) => (k === item.label ? null : k))}
+                                        style={{ color: textColor, transition: "background-color 0.15s ease", backgroundColor: hoverKey === item.label ? hoverBg : (isMainActive ? activeBg : "transparent") }}
+                                    >
+                                        {item.links
+                                            ?.filter((subItem) => {
+                                                if (!subItem.allowedRoles) return true;
+                                                return subItem.allowedRoles.includes(effectiveRole);
+                                            })
+                                            .map((subItem) => {
+                                                const isSubActive = pathname === subItem.link;
+                                                const subKey = `${item.label}::${subItem.label}`;
+                                                return (
+                                                    <NavLink
+                                                        key={subItem.label}
+                                                        label={subItem.label}
+                                                        active={isSubActive}
+                                                        onClick={() => router.push(subItem.link)}
+                                                        onMouseEnter={() => setHoverKey(subKey)}
+                                                        onMouseLeave={() => setHoverKey((k) => (k === subKey ? null : k))}
+                                                        style={{ backgroundColor: hoverKey === subKey ? hoverBg : (isSubActive ? activeBg : "transparent") }}
+                                                        styles={{
+                                                            root: { borderRadius: 6, marginBottom: 2 },
+                                                            label: { color: textColor, fontSize: "13px", fontWeight: isSubActive ? 600 : 400 }
+                                                        }}
+                                                    />
+                                                );
+                                            })}
+                                    </NavLink>
+                                )
                             );
                         })}
                 </div>
@@ -391,10 +454,21 @@ export default function Sidebar({ role, email, fname, lname, oic_start, oic_end 
                         alignItems: "center",
                         padding: "8px 12px",
                         borderRadius: 6,
-                        background: "rgba(255, 0, 0, 0.51)",
-                        color: role === "Staff" ? "#8b0000" : "#ff9b9b",
+                        // 🎯 FIX: Ginawa nating parehas ang default background dito at sa onMouseLeave
+                        backgroundColor: "var(--mantine-color-red-5)", 
+                        color: "var(--mantine-color-red-9)", // Propesyonal na madilim na pula para sa text/icon
                         fontSize: "14px",
-                        fontWeight: 600
+                        fontWeight: 600,
+                        transition: "background-color 0.15s ease", // Para swabe ang pagpula sa hover
+                        width: "100%" // Opsyonal: para sakop ang buong sidebar width kung kailangan
+                    }}
+                    // 🎯 FIX: Kapag tinapat ang mouse, magiging mas matingkad na pink/red background
+                    onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = "var(--mantine-color-red-4)";
+                    }}
+                    // 🎯 FIX: Kapag inalis ang mouse, babalik nang swabe sa default light red/pink base tint
+                    onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = "var(--mantine-color-red-5)";
                     }}
                 >
                     <IconLogout size={16} stroke={2} style={{ marginRight: 8 }} />

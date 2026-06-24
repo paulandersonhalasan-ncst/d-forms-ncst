@@ -631,7 +631,37 @@ export default function IOMDashboardPage() {
           >
             <UnstyledButton 
               onClick={() => handleExpandNoteOpen(memo)} 
-              style={{ display: 'flex', flexDirection: 'column', flex: 1, padding: '20px', textAlign: 'left' }}
+              style={{ 
+                display: 'flex', 
+                flexDirection: 'column', 
+                flex: 1, 
+                padding: '20px', 
+                textAlign: 'left',
+                // 🎯 INITIAL CONFIG AT SMOOTH TRANSITION
+                backgroundColor: 'transparent',
+                borderRadius: '8px', 
+                transition: 'all 0.2s ease',
+                cursor: 'pointer'
+              }}
+              // 🎯 TS-SAFE DARK MODE INTERACTIVE HOVER PARA SA MEMO CARDS
+              onMouseEnter={(e) => {
+                const isDarkMode = document.documentElement.getAttribute('data-mantine-color-scheme') === 'dark';
+                
+                // Magbe-blend sa kulay ng background kahit anong theme ang gamit ng NCST system
+                e.currentTarget.style.backgroundColor = isDarkMode 
+                  ? 'var(--mantine-color-dark-5)' 
+                  : 'var(--mantine-color-gray-0)';
+                
+                // Swabeng pag-angat at micro shadow expansion
+                e.currentTarget.style.transform = 'translateY(-1px)';
+                e.currentTarget.style.boxShadow = 'var(--mantine-shadow-xs)';
+              }}
+              onMouseLeave={(e) => {
+                // 🎯 BALIK SA DEFAULT STATE PAGKAALIS NG MOUSE
+                e.currentTarget.style.backgroundColor = 'transparent';
+                e.currentTarget.style.transform = 'none';
+                e.currentTarget.style.boxShadow = 'none';
+              }}
             >
               <Group justify="space-between" w="100%" mb="xs">
                 <Group gap="xs" onClick={(e) => e.stopPropagation()}> 
@@ -641,11 +671,11 @@ export default function IOMDashboardPage() {
 
                   {memo.attachmentPath && (
                     <Badge color="indigo" variant="filled" size="xs" leftSection={<IconDownload size={12} />}>
-                      FILE ATTACHED
+                      HAS FILE ATTACHED
                     </Badge>
                   )}
 
-                  {amISender && <Badge color="gray" variant="light" size="xs">Ours</Badge>}
+                  {amISender && <Badge color="gray" variant="light" size="xs">CREATED BY YOU</Badge>}
                   {memo.status === 'FOR_APPROVAL' && <Badge color="orange" variant="filled" size="xs">Draft/For Review</Badge>}
                   
                   {/* Tago ang "In Thread" badge kapag mag-isa lang ang memo */}
@@ -654,13 +684,13 @@ export default function IOMDashboardPage() {
                       color="teal" variant="outline" size="xs" leftSection={<IconGitBranch size={10} />} style={{ cursor: 'pointer' }}
                       onClick={(e) => { e.stopPropagation(); handleViewThread(memo); }}
                     >
-                      In Thread
+                      In a Thread
                     </Badge>
                   )}
                 </Group>
                 <Group gap="xs">
-                  <Badge color="cyan" variant="light" size="xs">{memo.purpose}</Badge>
-                  <Badge color={badgeColor} variant="filled" size="xs">{badgeText}</Badge>
+                  <Badge color="cyan" variant="light" size="sm">{memo.purpose}</Badge>
+                  <Badge color={badgeColor} variant="filled" size="sm">{badgeText}</Badge>
                 </Group>
               </Group>
 
