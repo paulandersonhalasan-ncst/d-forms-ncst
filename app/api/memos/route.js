@@ -27,12 +27,11 @@ async function getAuthenticatedUser(request) {
   }
 }
 
-// 📄 1. FIX: GINAWANG LIGTAS AT CASE-INSENSITIVE ANG PAGHAHANAP SA MGA HEADS
 async function getDepartmentUsers(deptCode, roles) {
   return await prisma.user.findMany({
     where: {
       departmentCode: deptCode,
-      role: roles ? { in: roles } : undefined // Strict Enum Array Match
+      role: roles ? { in: roles } : undefined 
     },
     select: { id: true }
   });
@@ -44,7 +43,10 @@ async function getDepartmentUsers(deptCode, roles) {
 export async function GET(request) {
   try {
     const memos = await prisma.memo.findMany({
-      include: { recipients: true },
+      include: { 
+        recipients: true,
+        sender: true 
+      },
       orderBy: { createdAt: 'desc' },
     });
     return NextResponse.json(memos, { status: 200 });
@@ -78,17 +80,27 @@ export async function POST(request) {
       return NextResponse.json({ success: false, message: "Security Verification Failed: Incorrect Signature Password" }, { status: 403 });
     }
 
-    const file = formData.get("memoAttachment");
-    let savedFilePath = null;
+    // 🎯 FIX: MULTIPLE FILES UPLOAD PROCESSING
+    const files = formData.getAll("memoAttachments");
 
-    if (file && file.size > 0) {
-      const bytes = await file.arrayBuffer();
-      const buffer = Buffer.from(bytes);
-      const cleanFilename = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.\-_]/g, "_")}`;
-      const uploadDir = path.join(process.cwd(), "public", "memos");
-      await mkdir(uploadDir, { recursive: true });
-      await writeFile(path.join(uploadDir, cleanFilename), buffer);
-      savedFilePath = `/memos/${cleanFilename}`;
+    console.log("FILES RECEIVED:", files);
+    
+    let savedFilePaths = []; 
+
+    const uploadDir = path.join(process.cwd(), "public", "memos");
+    await mkdir(uploadDir, { recursive: true });
+
+    if (files && files.length > 0) {
+      for (const file of files) {
+        // Kinakailangan ng typeof check dahil kapag walang file, string na empty ang pinapasa minsan ng browser
+        if (file && file.size > 0 && typeof file.arrayBuffer === 'function') {
+          const bytes = await file.arrayBuffer();
+          const buffer = Buffer.from(bytes);
+          const cleanFilename = `${Date.now()}-${Math.floor(Math.random() * 1000)}-${file.name.replace(/[^a-zA-Z0-9.\-_]/g, "_")}`;
+          await writeFile(path.join(uploadDir, cleanFilename), buffer);
+          savedFilePaths.push(`/memos/${cleanFilename}`);
+        }
+      }
     }
 
     const userDept = authenticatedUser.departmentCode || "GEN";
@@ -112,12 +124,13 @@ export async function POST(request) {
 
     const deadlineAt = priority === 'RUSH' ? new Date(Date.now() + 3 * 24 * 60 * 60 * 1000) : null;
 
+    // 🎯 FIX: Ginamit ang 'attachmentPaths' imbes na 'attachmentPath' para sa Prisma data injection
     const newMemo = await prisma.memo.create({
       data: {
         referenceId: refId,
         subject,
         content,
-        attachmentPath: savedFilePath,
+        attachmentPaths: savedFilePaths, // Naka-array of strings na ngayon!
         priority,
         purpose,
         senderId: authenticatedUser.id,
@@ -161,11 +174,10 @@ export async function POST(request) {
     }
 
     // =========================================================
-    // 🎯 NOTIFICATION ENGINE INJECTION (POST)
+    // NOTIFICATION ENGINE INJECTION (POST)
     // =========================================================
     try {
       if (initialMemoStatus === "FOR_APPROVAL") {
-       // ✨ Exact enum definition lang ang ipapasa natin para hindi mag-error si Prisma
         const internalHeads = await getDepartmentUsers(userDept, ['DepartmentHead']);
         
         if (internalHeads.length > 0) {
@@ -178,11 +190,8 @@ export async function POST(request) {
               senderId: authenticatedUser.id
             }))
           });
-        } else {
-          console.warn(`⚠️ Warning: Walang nahanap na Head sa department: ${userDept}`);
         }
 
-        // confirmation para sa nag-submit na staff
         await prisma.notification.create({
           data: {
             title: "Draft Submitted Successfully",
@@ -237,17 +246,36 @@ export async function PATCH(request) {
       return NextResponse.json({ success: false, message: "Not authenticated" }, { status: 401 });
     }
 
-    const body = await request.json();
-    const { 
-      memoId, 
-      departmentName, 
-      password, 
-      action, 
-      feedbackNote, 
-      isSenderClosing,
-      subject, 
-      content  
-    } = body;
+    // 🎯 ATENSIYON: Para ma-support ang file uploads sa PATCH (Super Edit ni Head), 
+    // titignan natin kung FormData ba o normal JSON ang dumarating na body.
+    const contentType = request.headers.get("content-type") || "";
+    
+    let memoId, departmentName, password, action, feedbackNote, isSenderClosing, subject, content;
+    let retainedAttachments = [];
+    let headNewFiles = [];
+
+    if (contentType.includes("multipart/form-data")) {
+      const formData = await request.formData();
+      memoId = formData.get("memoId");
+      action = formData.get("action");
+      password = formData.get("password");
+      subject = formData.get("subject");
+      content = formData.get("content");
+      
+      const retainedRaw = formData.get("retainedAttachments");
+      retainedAttachments = retainedRaw ? JSON.parse(retainedRaw) : [];
+      headNewFiles = formData.getAll("headNewAttachments");
+    } else {
+      const body = await request.json();
+      memoId = body.memoId;
+      departmentName = body.departmentName;
+      password = body.password;
+      action = body.action;
+      feedbackNote = body.feedbackNote;
+      isSenderClosing = body.isSenderClosing;
+      subject = body.subject;
+      content = body.content;
+    }
 
     if (authenticatedUser.password !== password) {
       return NextResponse.json({ success: false, message: "Security Verification Failed: Incorrect Signature Password" }, { status: 403 });
@@ -265,6 +293,32 @@ export async function PATCH(request) {
         return NextResponse.json({ success: false, message: "Hindi mahanap ang orihinal na draft memo." }, { status: 404 });
       }
 
+      // 🎯 FIX: PAG-SAMA NG BAGONG FILES AT LUMANG FILES NI HEAD SA SUPER EDIT
+      // 🎯 FIX: PAG-SAMA NG BAGONG FILES NI HEAD, RETAINED FILES, AT ORIHINAL NA FILES NG STAFF
+      let finalPaths = [];
+
+      if (contentType.includes("multipart/form-data")) {
+        // Kung galing sa Super Edit form, sundin ang setup ni Head (retained + bago)
+        finalPaths = [...retainedAttachments];
+      } else {
+        // Kung simpleng Quick Approve lang (JSON request), panatilihin ang orihinal na files ng staff!
+        finalPaths = [...(targetMemo.attachmentPaths || [])];
+      }
+
+      // Kung may bagong files na idinagdag si Head sa Super Edit, i-upload din natin
+      if (headNewFiles && headNewFiles.length > 0) {
+        const uploadDir = path.join(process.cwd(), "public", "memos");
+        for (const file of headNewFiles) {
+          if (file && file.size > 0 && typeof file.arrayBuffer === 'function') {
+            const bytes = await file.arrayBuffer();
+            const buffer = Buffer.from(bytes);
+            const cleanFilename = `${Date.now()}-head-${file.name.replace(/[^a-zA-Z0-9.\-_]/g, "_")}`;
+            await writeFile(path.join(uploadDir, cleanFilename), buffer);
+            finalPaths.push(`/memos/${cleanFilename}`);
+          }
+        }
+      }
+
       const currentYear = new Date().getFullYear();
       const approvedCount = await prisma.memo.count({
         where: { senderDept: targetMemo.senderDept, status: 'APPROVED' }
@@ -273,8 +327,9 @@ export async function PATCH(request) {
       const officialRefId = `${targetMemo.senderDept}-${currentYear}-${String(approvedCount + 1).padStart(3, '0')}`;
       const hasSubjectChanged = subject && subject !== targetMemo.subject;
       const hasContentChanged = content && content !== targetMemo.content;
-      const isRevised = !!(hasSubjectChanged || hasContentChanged);
+      const isRevised = !!(hasSubjectChanged || hasContentChanged || headNewFiles.length > 0);
 
+      // 🎯 FIX: In-update gamit ang 'attachmentPaths' field
       const approvedMemo = await prisma.memo.update({
         where: { id: memoId },
         data: {
@@ -282,7 +337,8 @@ export async function PATCH(request) {
           referenceId: officialRefId,
           subject: subject || targetMemo.subject,   
           content: content || targetMemo.content,   
-          isRevisedByHead: isRevised                
+          isRevisedByHead: isRevised,
+          attachmentPaths: finalPaths // 🎯 FIX: I-save ang malinis at pinagsamang array ng files
         }
       });
 
@@ -300,7 +356,8 @@ export async function PATCH(request) {
         }
         const destDepartments = targetMemo.recipients.map(r => r.departmentName);
         for (const dept of destDepartments) {
-            const targetHeads = await getDepartmentUsers(dept, ['DepartmentHead']);          if (targetHeads.length > 0) {
+          const targetHeads = await getDepartmentUsers(dept, ['DepartmentHead']);
+          if (targetHeads.length > 0) {
             await prisma.notification.createMany({
               data: targetHeads.map(head => ({
                 title: "Inbound Inter-Office Memo",
@@ -339,7 +396,7 @@ export async function PATCH(request) {
 
       await prisma.memo.update({
         where: { id: memoId },
-        data: { status: 'APPROVED' }
+        data: { status: 'APPROVED' } // Kinukuha ang status logic mo
       });
 
       await prisma.memoRecipientStatus.updateMany({
@@ -348,7 +405,7 @@ export async function PATCH(request) {
           status: 'DENIED',
           deniedBy: `System (via Head ${employeeName})`,
           deniedAt: new Date(),
-          feedbackNote: "Draft disapproved by Sender's Department Head before official release."
+          feedbackNote: feedbackNote
         }
       });
 
@@ -512,7 +569,6 @@ export async function PATCH(request) {
           feedbackNote: feedbackNote || targetRecord.feedbackNote || resolutionNotice
         };
 
-        // 🎯 FIX: Inilipat ang Notification Payload bago mag-break para ma-execute sa labas ng switch
         notificationPayload = {
           recipientId: memoOwnerId,
           title: "Memo Action Completed",
@@ -539,7 +595,6 @@ export async function PATCH(request) {
           feedbackNote: existingRecord.feedbackNote || `Collaborative processing initiated.`
         };
 
-        // 🎯 FIX: Niluto ang head payload para mag-execute sa bottom script flow
         try {
           const localHeads = await getDepartmentUsers(userDept, ['DepartmentHead', 'OIC', 'DEPARTMENTHEAD', 'DEPARTMENT HEAD']);
           if (localHeads.length > 0) {
@@ -561,7 +616,6 @@ export async function PATCH(request) {
         return NextResponse.json({ success: false, message: "Invalid action sequence requested" }, { status: 400 });
     }
 
-    // --- EXECUTE FINAL STATE MODIFICATIONS ---
     const targetRecipientStatus = await prisma.memoRecipientStatus.findFirst({
       where: { memoId, departmentName, status: currentSearchStatus }
     });
@@ -575,9 +629,6 @@ export async function PATCH(request) {
       data: updateData
     });
 
-    // =========================================================
-    // 🎯 TRIGGER FIRED FOR GENERAL SWITCH ROW NOTIFICATIONS
-    // =========================================================
     try {
       if (notificationPayload && notificationPayload.recipientId) {
         await prisma.notification.create({

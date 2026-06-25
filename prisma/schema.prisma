@@ -45,6 +45,9 @@ model User {
   //for oic assignment
   oic_start   String?
   oic_end     String?
+
+  //user created memos
+  memosCreated     Memo[]         @relation("UserMemos")
 }
 
 model Department {
@@ -128,13 +131,16 @@ model Memo {
   content         String                @db.Text
   priority        Priority              @default(ROUTINE) // ROUTINE, URGENT, RUSH
   purpose         Purpose               // FYI, SIGNATURE, ACTION, etc.
+  
   senderId        String
+  sender          User                  @relation("UserMemos", fields: [senderId], references: [id], onDelete: Restrict)
+
   senderName      String                // Staff/Head Name
   senderDept      String                // Department Name
   createdAt       DateTime              @default(now())
   deadlineAt      DateTime?             // +3 days kapag RUSH
 
-  attachmentPath  String?               // Optional PDF/Image link na ise-save sa server disk
+  attachmentPaths String[]  @default([])
 
   status          MemoWorkflowStatus    @default(APPROVED)
   

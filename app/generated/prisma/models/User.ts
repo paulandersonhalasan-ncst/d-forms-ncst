@@ -267,6 +267,7 @@ export type UserWhereInput = {
   sent_notif?: Prisma.NotificationListRelationFilter
   login_logs?: Prisma.LoginLogListRelationFilter
   activity_logs?: Prisma.ActivityLogListRelationFilter
+  memosCreated?: Prisma.MemoListRelationFilter
 }
 
 export type UserOrderByWithRelationInput = {
@@ -290,6 +291,7 @@ export type UserOrderByWithRelationInput = {
   sent_notif?: Prisma.NotificationOrderByRelationAggregateInput
   login_logs?: Prisma.LoginLogOrderByRelationAggregateInput
   activity_logs?: Prisma.ActivityLogOrderByRelationAggregateInput
+  memosCreated?: Prisma.MemoOrderByRelationAggregateInput
 }
 
 export type UserWhereUniqueInput = Prisma.AtLeast<{
@@ -316,6 +318,7 @@ export type UserWhereUniqueInput = Prisma.AtLeast<{
   sent_notif?: Prisma.NotificationListRelationFilter
   login_logs?: Prisma.LoginLogListRelationFilter
   activity_logs?: Prisma.ActivityLogListRelationFilter
+  memosCreated?: Prisma.MemoListRelationFilter
 }, "id" | "email">
 
 export type UserOrderByWithAggregationInput = {
@@ -380,6 +383,7 @@ export type UserCreateInput = {
   sent_notif?: Prisma.NotificationCreateNestedManyWithoutSenderInput
   login_logs?: Prisma.LoginLogCreateNestedManyWithoutUserInput
   activity_logs?: Prisma.ActivityLogCreateNestedManyWithoutUserInput
+  memosCreated?: Prisma.MemoCreateNestedManyWithoutSenderInput
 }
 
 export type UserUncheckedCreateInput = {
@@ -402,6 +406,7 @@ export type UserUncheckedCreateInput = {
   sent_notif?: Prisma.NotificationUncheckedCreateNestedManyWithoutSenderInput
   login_logs?: Prisma.LoginLogUncheckedCreateNestedManyWithoutUserInput
   activity_logs?: Prisma.ActivityLogUncheckedCreateNestedManyWithoutUserInput
+  memosCreated?: Prisma.MemoUncheckedCreateNestedManyWithoutSenderInput
 }
 
 export type UserUpdateInput = {
@@ -424,6 +429,7 @@ export type UserUpdateInput = {
   sent_notif?: Prisma.NotificationUpdateManyWithoutSenderNestedInput
   login_logs?: Prisma.LoginLogUpdateManyWithoutUserNestedInput
   activity_logs?: Prisma.ActivityLogUpdateManyWithoutUserNestedInput
+  memosCreated?: Prisma.MemoUpdateManyWithoutSenderNestedInput
 }
 
 export type UserUncheckedUpdateInput = {
@@ -446,6 +452,7 @@ export type UserUncheckedUpdateInput = {
   sent_notif?: Prisma.NotificationUncheckedUpdateManyWithoutSenderNestedInput
   login_logs?: Prisma.LoginLogUncheckedUpdateManyWithoutUserNestedInput
   activity_logs?: Prisma.ActivityLogUncheckedUpdateManyWithoutUserNestedInput
+  memosCreated?: Prisma.MemoUncheckedUpdateManyWithoutSenderNestedInput
 }
 
 export type UserCreateManyInput = {
@@ -705,6 +712,20 @@ export type UserUpdateOneWithoutLogin_logsNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutLogin_logsInput, Prisma.UserUpdateWithoutLogin_logsInput>, Prisma.UserUncheckedUpdateWithoutLogin_logsInput>
 }
 
+export type UserCreateNestedOneWithoutMemosCreatedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutMemosCreatedInput, Prisma.UserUncheckedCreateWithoutMemosCreatedInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutMemosCreatedInput
+  connect?: Prisma.UserWhereUniqueInput
+}
+
+export type UserUpdateOneRequiredWithoutMemosCreatedNestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutMemosCreatedInput, Prisma.UserUncheckedCreateWithoutMemosCreatedInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutMemosCreatedInput
+  upsert?: Prisma.UserUpsertWithoutMemosCreatedInput
+  connect?: Prisma.UserWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutMemosCreatedInput, Prisma.UserUpdateWithoutMemosCreatedInput>, Prisma.UserUncheckedUpdateWithoutMemosCreatedInput>
+}
+
 export type UserCreateWithoutDepartmentInput = {
   id?: string
   employee_id: string
@@ -724,6 +745,7 @@ export type UserCreateWithoutDepartmentInput = {
   sent_notif?: Prisma.NotificationCreateNestedManyWithoutSenderInput
   login_logs?: Prisma.LoginLogCreateNestedManyWithoutUserInput
   activity_logs?: Prisma.ActivityLogCreateNestedManyWithoutUserInput
+  memosCreated?: Prisma.MemoCreateNestedManyWithoutSenderInput
 }
 
 export type UserUncheckedCreateWithoutDepartmentInput = {
@@ -745,6 +767,7 @@ export type UserUncheckedCreateWithoutDepartmentInput = {
   sent_notif?: Prisma.NotificationUncheckedCreateNestedManyWithoutSenderInput
   login_logs?: Prisma.LoginLogUncheckedCreateNestedManyWithoutUserInput
   activity_logs?: Prisma.ActivityLogUncheckedCreateNestedManyWithoutUserInput
+  memosCreated?: Prisma.MemoUncheckedCreateNestedManyWithoutSenderInput
 }
 
 export type UserCreateOrConnectWithoutDepartmentInput = {
@@ -813,6 +836,7 @@ export type UserCreateWithoutActivity_logsInput = {
   received_notif?: Prisma.NotificationCreateNestedManyWithoutRecipientInput
   sent_notif?: Prisma.NotificationCreateNestedManyWithoutSenderInput
   login_logs?: Prisma.LoginLogCreateNestedManyWithoutUserInput
+  memosCreated?: Prisma.MemoCreateNestedManyWithoutSenderInput
 }
 
 export type UserUncheckedCreateWithoutActivity_logsInput = {
@@ -834,6 +858,7 @@ export type UserUncheckedCreateWithoutActivity_logsInput = {
   received_notif?: Prisma.NotificationUncheckedCreateNestedManyWithoutRecipientInput
   sent_notif?: Prisma.NotificationUncheckedCreateNestedManyWithoutSenderInput
   login_logs?: Prisma.LoginLogUncheckedCreateNestedManyWithoutUserInput
+  memosCreated?: Prisma.MemoUncheckedCreateNestedManyWithoutSenderInput
 }
 
 export type UserCreateOrConnectWithoutActivity_logsInput = {
@@ -871,6 +896,7 @@ export type UserUpdateWithoutActivity_logsInput = {
   received_notif?: Prisma.NotificationUpdateManyWithoutRecipientNestedInput
   sent_notif?: Prisma.NotificationUpdateManyWithoutSenderNestedInput
   login_logs?: Prisma.LoginLogUpdateManyWithoutUserNestedInput
+  memosCreated?: Prisma.MemoUpdateManyWithoutSenderNestedInput
 }
 
 export type UserUncheckedUpdateWithoutActivity_logsInput = {
@@ -892,6 +918,7 @@ export type UserUncheckedUpdateWithoutActivity_logsInput = {
   received_notif?: Prisma.NotificationUncheckedUpdateManyWithoutRecipientNestedInput
   sent_notif?: Prisma.NotificationUncheckedUpdateManyWithoutSenderNestedInput
   login_logs?: Prisma.LoginLogUncheckedUpdateManyWithoutUserNestedInput
+  memosCreated?: Prisma.MemoUncheckedUpdateManyWithoutSenderNestedInput
 }
 
 export type UserCreateWithoutReceived_notifInput = {
@@ -913,6 +940,7 @@ export type UserCreateWithoutReceived_notifInput = {
   sent_notif?: Prisma.NotificationCreateNestedManyWithoutSenderInput
   login_logs?: Prisma.LoginLogCreateNestedManyWithoutUserInput
   activity_logs?: Prisma.ActivityLogCreateNestedManyWithoutUserInput
+  memosCreated?: Prisma.MemoCreateNestedManyWithoutSenderInput
 }
 
 export type UserUncheckedCreateWithoutReceived_notifInput = {
@@ -934,6 +962,7 @@ export type UserUncheckedCreateWithoutReceived_notifInput = {
   sent_notif?: Prisma.NotificationUncheckedCreateNestedManyWithoutSenderInput
   login_logs?: Prisma.LoginLogUncheckedCreateNestedManyWithoutUserInput
   activity_logs?: Prisma.ActivityLogUncheckedCreateNestedManyWithoutUserInput
+  memosCreated?: Prisma.MemoUncheckedCreateNestedManyWithoutSenderInput
 }
 
 export type UserCreateOrConnectWithoutReceived_notifInput = {
@@ -960,6 +989,7 @@ export type UserCreateWithoutSent_notifInput = {
   received_notif?: Prisma.NotificationCreateNestedManyWithoutRecipientInput
   login_logs?: Prisma.LoginLogCreateNestedManyWithoutUserInput
   activity_logs?: Prisma.ActivityLogCreateNestedManyWithoutUserInput
+  memosCreated?: Prisma.MemoCreateNestedManyWithoutSenderInput
 }
 
 export type UserUncheckedCreateWithoutSent_notifInput = {
@@ -981,6 +1011,7 @@ export type UserUncheckedCreateWithoutSent_notifInput = {
   received_notif?: Prisma.NotificationUncheckedCreateNestedManyWithoutRecipientInput
   login_logs?: Prisma.LoginLogUncheckedCreateNestedManyWithoutUserInput
   activity_logs?: Prisma.ActivityLogUncheckedCreateNestedManyWithoutUserInput
+  memosCreated?: Prisma.MemoUncheckedCreateNestedManyWithoutSenderInput
 }
 
 export type UserCreateOrConnectWithoutSent_notifInput = {
@@ -1018,6 +1049,7 @@ export type UserUpdateWithoutReceived_notifInput = {
   sent_notif?: Prisma.NotificationUpdateManyWithoutSenderNestedInput
   login_logs?: Prisma.LoginLogUpdateManyWithoutUserNestedInput
   activity_logs?: Prisma.ActivityLogUpdateManyWithoutUserNestedInput
+  memosCreated?: Prisma.MemoUpdateManyWithoutSenderNestedInput
 }
 
 export type UserUncheckedUpdateWithoutReceived_notifInput = {
@@ -1039,6 +1071,7 @@ export type UserUncheckedUpdateWithoutReceived_notifInput = {
   sent_notif?: Prisma.NotificationUncheckedUpdateManyWithoutSenderNestedInput
   login_logs?: Prisma.LoginLogUncheckedUpdateManyWithoutUserNestedInput
   activity_logs?: Prisma.ActivityLogUncheckedUpdateManyWithoutUserNestedInput
+  memosCreated?: Prisma.MemoUncheckedUpdateManyWithoutSenderNestedInput
 }
 
 export type UserUpsertWithoutSent_notifInput = {
@@ -1071,6 +1104,7 @@ export type UserUpdateWithoutSent_notifInput = {
   received_notif?: Prisma.NotificationUpdateManyWithoutRecipientNestedInput
   login_logs?: Prisma.LoginLogUpdateManyWithoutUserNestedInput
   activity_logs?: Prisma.ActivityLogUpdateManyWithoutUserNestedInput
+  memosCreated?: Prisma.MemoUpdateManyWithoutSenderNestedInput
 }
 
 export type UserUncheckedUpdateWithoutSent_notifInput = {
@@ -1092,6 +1126,7 @@ export type UserUncheckedUpdateWithoutSent_notifInput = {
   received_notif?: Prisma.NotificationUncheckedUpdateManyWithoutRecipientNestedInput
   login_logs?: Prisma.LoginLogUncheckedUpdateManyWithoutUserNestedInput
   activity_logs?: Prisma.ActivityLogUncheckedUpdateManyWithoutUserNestedInput
+  memosCreated?: Prisma.MemoUncheckedUpdateManyWithoutSenderNestedInput
 }
 
 export type UserCreateWithoutLogin_logsInput = {
@@ -1113,6 +1148,7 @@ export type UserCreateWithoutLogin_logsInput = {
   received_notif?: Prisma.NotificationCreateNestedManyWithoutRecipientInput
   sent_notif?: Prisma.NotificationCreateNestedManyWithoutSenderInput
   activity_logs?: Prisma.ActivityLogCreateNestedManyWithoutUserInput
+  memosCreated?: Prisma.MemoCreateNestedManyWithoutSenderInput
 }
 
 export type UserUncheckedCreateWithoutLogin_logsInput = {
@@ -1134,6 +1170,7 @@ export type UserUncheckedCreateWithoutLogin_logsInput = {
   received_notif?: Prisma.NotificationUncheckedCreateNestedManyWithoutRecipientInput
   sent_notif?: Prisma.NotificationUncheckedCreateNestedManyWithoutSenderInput
   activity_logs?: Prisma.ActivityLogUncheckedCreateNestedManyWithoutUserInput
+  memosCreated?: Prisma.MemoUncheckedCreateNestedManyWithoutSenderInput
 }
 
 export type UserCreateOrConnectWithoutLogin_logsInput = {
@@ -1171,6 +1208,7 @@ export type UserUpdateWithoutLogin_logsInput = {
   received_notif?: Prisma.NotificationUpdateManyWithoutRecipientNestedInput
   sent_notif?: Prisma.NotificationUpdateManyWithoutSenderNestedInput
   activity_logs?: Prisma.ActivityLogUpdateManyWithoutUserNestedInput
+  memosCreated?: Prisma.MemoUpdateManyWithoutSenderNestedInput
 }
 
 export type UserUncheckedUpdateWithoutLogin_logsInput = {
@@ -1191,6 +1229,111 @@ export type UserUncheckedUpdateWithoutLogin_logsInput = {
   oic_end?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   received_notif?: Prisma.NotificationUncheckedUpdateManyWithoutRecipientNestedInput
   sent_notif?: Prisma.NotificationUncheckedUpdateManyWithoutSenderNestedInput
+  activity_logs?: Prisma.ActivityLogUncheckedUpdateManyWithoutUserNestedInput
+  memosCreated?: Prisma.MemoUncheckedUpdateManyWithoutSenderNestedInput
+}
+
+export type UserCreateWithoutMemosCreatedInput = {
+  id?: string
+  employee_id: string
+  email: string
+  password: string
+  fname: string
+  lname: string
+  role?: $Enums.Role
+  branch?: $Enums.SystemBranch
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  last_login?: Date | string | null
+  forgot_password?: boolean
+  oic_start?: string | null
+  oic_end?: string | null
+  department: Prisma.DepartmentCreateNestedOneWithoutUsersInput
+  received_notif?: Prisma.NotificationCreateNestedManyWithoutRecipientInput
+  sent_notif?: Prisma.NotificationCreateNestedManyWithoutSenderInput
+  login_logs?: Prisma.LoginLogCreateNestedManyWithoutUserInput
+  activity_logs?: Prisma.ActivityLogCreateNestedManyWithoutUserInput
+}
+
+export type UserUncheckedCreateWithoutMemosCreatedInput = {
+  id?: string
+  employee_id: string
+  email: string
+  password: string
+  fname: string
+  lname: string
+  role?: $Enums.Role
+  branch?: $Enums.SystemBranch
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  departmentCode: string
+  last_login?: Date | string | null
+  forgot_password?: boolean
+  oic_start?: string | null
+  oic_end?: string | null
+  received_notif?: Prisma.NotificationUncheckedCreateNestedManyWithoutRecipientInput
+  sent_notif?: Prisma.NotificationUncheckedCreateNestedManyWithoutSenderInput
+  login_logs?: Prisma.LoginLogUncheckedCreateNestedManyWithoutUserInput
+  activity_logs?: Prisma.ActivityLogUncheckedCreateNestedManyWithoutUserInput
+}
+
+export type UserCreateOrConnectWithoutMemosCreatedInput = {
+  where: Prisma.UserWhereUniqueInput
+  create: Prisma.XOR<Prisma.UserCreateWithoutMemosCreatedInput, Prisma.UserUncheckedCreateWithoutMemosCreatedInput>
+}
+
+export type UserUpsertWithoutMemosCreatedInput = {
+  update: Prisma.XOR<Prisma.UserUpdateWithoutMemosCreatedInput, Prisma.UserUncheckedUpdateWithoutMemosCreatedInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutMemosCreatedInput, Prisma.UserUncheckedCreateWithoutMemosCreatedInput>
+  where?: Prisma.UserWhereInput
+}
+
+export type UserUpdateToOneWithWhereWithoutMemosCreatedInput = {
+  where?: Prisma.UserWhereInput
+  data: Prisma.XOR<Prisma.UserUpdateWithoutMemosCreatedInput, Prisma.UserUncheckedUpdateWithoutMemosCreatedInput>
+}
+
+export type UserUpdateWithoutMemosCreatedInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  employee_id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  password?: Prisma.StringFieldUpdateOperationsInput | string
+  fname?: Prisma.StringFieldUpdateOperationsInput | string
+  lname?: Prisma.StringFieldUpdateOperationsInput | string
+  role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
+  branch?: Prisma.EnumSystemBranchFieldUpdateOperationsInput | $Enums.SystemBranch
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  last_login?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  forgot_password?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  oic_start?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oic_end?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  department?: Prisma.DepartmentUpdateOneRequiredWithoutUsersNestedInput
+  received_notif?: Prisma.NotificationUpdateManyWithoutRecipientNestedInput
+  sent_notif?: Prisma.NotificationUpdateManyWithoutSenderNestedInput
+  login_logs?: Prisma.LoginLogUpdateManyWithoutUserNestedInput
+  activity_logs?: Prisma.ActivityLogUpdateManyWithoutUserNestedInput
+}
+
+export type UserUncheckedUpdateWithoutMemosCreatedInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  employee_id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  password?: Prisma.StringFieldUpdateOperationsInput | string
+  fname?: Prisma.StringFieldUpdateOperationsInput | string
+  lname?: Prisma.StringFieldUpdateOperationsInput | string
+  role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
+  branch?: Prisma.EnumSystemBranchFieldUpdateOperationsInput | $Enums.SystemBranch
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  departmentCode?: Prisma.StringFieldUpdateOperationsInput | string
+  last_login?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  forgot_password?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  oic_start?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oic_end?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  received_notif?: Prisma.NotificationUncheckedUpdateManyWithoutRecipientNestedInput
+  sent_notif?: Prisma.NotificationUncheckedUpdateManyWithoutSenderNestedInput
+  login_logs?: Prisma.LoginLogUncheckedUpdateManyWithoutUserNestedInput
   activity_logs?: Prisma.ActivityLogUncheckedUpdateManyWithoutUserNestedInput
 }
 
@@ -1230,6 +1373,7 @@ export type UserUpdateWithoutDepartmentInput = {
   sent_notif?: Prisma.NotificationUpdateManyWithoutSenderNestedInput
   login_logs?: Prisma.LoginLogUpdateManyWithoutUserNestedInput
   activity_logs?: Prisma.ActivityLogUpdateManyWithoutUserNestedInput
+  memosCreated?: Prisma.MemoUpdateManyWithoutSenderNestedInput
 }
 
 export type UserUncheckedUpdateWithoutDepartmentInput = {
@@ -1251,6 +1395,7 @@ export type UserUncheckedUpdateWithoutDepartmentInput = {
   sent_notif?: Prisma.NotificationUncheckedUpdateManyWithoutSenderNestedInput
   login_logs?: Prisma.LoginLogUncheckedUpdateManyWithoutUserNestedInput
   activity_logs?: Prisma.ActivityLogUncheckedUpdateManyWithoutUserNestedInput
+  memosCreated?: Prisma.MemoUncheckedUpdateManyWithoutSenderNestedInput
 }
 
 export type UserUncheckedUpdateManyWithoutDepartmentInput = {
@@ -1280,6 +1425,7 @@ export type UserCountOutputType = {
   sent_notif: number
   login_logs: number
   activity_logs: number
+  memosCreated: number
 }
 
 export type UserCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -1287,6 +1433,7 @@ export type UserCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.I
   sent_notif?: boolean | UserCountOutputTypeCountSent_notifArgs
   login_logs?: boolean | UserCountOutputTypeCountLogin_logsArgs
   activity_logs?: boolean | UserCountOutputTypeCountActivity_logsArgs
+  memosCreated?: boolean | UserCountOutputTypeCountMemosCreatedArgs
 }
 
 /**
@@ -1327,6 +1474,13 @@ export type UserCountOutputTypeCountActivity_logsArgs<ExtArgs extends runtime.Ty
   where?: Prisma.ActivityLogWhereInput
 }
 
+/**
+ * UserCountOutputType without action
+ */
+export type UserCountOutputTypeCountMemosCreatedArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.MemoWhereInput
+}
+
 
 export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -1349,6 +1503,7 @@ export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   sent_notif?: boolean | Prisma.User$sent_notifArgs<ExtArgs>
   login_logs?: boolean | Prisma.User$login_logsArgs<ExtArgs>
   activity_logs?: boolean | Prisma.User$activity_logsArgs<ExtArgs>
+  memosCreated?: boolean | Prisma.User$memosCreatedArgs<ExtArgs>
   _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["user"]>
 
@@ -1415,6 +1570,7 @@ export type UserInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   sent_notif?: boolean | Prisma.User$sent_notifArgs<ExtArgs>
   login_logs?: boolean | Prisma.User$login_logsArgs<ExtArgs>
   activity_logs?: boolean | Prisma.User$activity_logsArgs<ExtArgs>
+  memosCreated?: boolean | Prisma.User$memosCreatedArgs<ExtArgs>
   _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type UserIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -1432,6 +1588,7 @@ export type $UserPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
     sent_notif: Prisma.$NotificationPayload<ExtArgs>[]
     login_logs: Prisma.$LoginLogPayload<ExtArgs>[]
     activity_logs: Prisma.$ActivityLogPayload<ExtArgs>[]
+    memosCreated: Prisma.$MemoPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -1848,6 +2005,7 @@ export interface Prisma__UserClient<T, Null = never, ExtArgs extends runtime.Typ
   sent_notif<T extends Prisma.User$sent_notifArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$sent_notifArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$NotificationPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   login_logs<T extends Prisma.User$login_logsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$login_logsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$LoginLogPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   activity_logs<T extends Prisma.User$activity_logsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$activity_logsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ActivityLogPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  memosCreated<T extends Prisma.User$memosCreatedArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$memosCreatedArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$MemoPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -2386,6 +2544,30 @@ export type User$activity_logsArgs<ExtArgs extends runtime.Types.Extensions.Inte
   take?: number
   skip?: number
   distinct?: Prisma.ActivityLogScalarFieldEnum | Prisma.ActivityLogScalarFieldEnum[]
+}
+
+/**
+ * User.memosCreated
+ */
+export type User$memosCreatedArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the Memo
+   */
+  select?: Prisma.MemoSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the Memo
+   */
+  omit?: Prisma.MemoOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.MemoInclude<ExtArgs> | null
+  where?: Prisma.MemoWhereInput
+  orderBy?: Prisma.MemoOrderByWithRelationInput | Prisma.MemoOrderByWithRelationInput[]
+  cursor?: Prisma.MemoWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.MemoScalarFieldEnum | Prisma.MemoScalarFieldEnum[]
 }
 
 /**

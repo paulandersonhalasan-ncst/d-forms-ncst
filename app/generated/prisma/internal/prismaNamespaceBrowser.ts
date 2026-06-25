@@ -157,7 +157,7 @@ export const MemoScalarFieldEnum = {
   senderDept: 'senderDept',
   createdAt: 'createdAt',
   deadlineAt: 'deadlineAt',
-  attachmentPath: 'attachmentPath',
+  attachmentPaths: 'attachmentPaths',
   status: 'status',
   parentMemoId: 'parentMemoId',
   rootMemoId: 'rootMemoId',

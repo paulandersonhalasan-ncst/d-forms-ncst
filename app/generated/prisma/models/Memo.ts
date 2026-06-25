@@ -36,7 +36,6 @@ export type MemoMinAggregateOutputType = {
   senderDept: string | null
   createdAt: Date | null
   deadlineAt: Date | null
-  attachmentPath: string | null
   status: $Enums.MemoWorkflowStatus | null
   parentMemoId: string | null
   rootMemoId: string | null
@@ -55,7 +54,6 @@ export type MemoMaxAggregateOutputType = {
   senderDept: string | null
   createdAt: Date | null
   deadlineAt: Date | null
-  attachmentPath: string | null
   status: $Enums.MemoWorkflowStatus | null
   parentMemoId: string | null
   rootMemoId: string | null
@@ -74,7 +72,7 @@ export type MemoCountAggregateOutputType = {
   senderDept: number
   createdAt: number
   deadlineAt: number
-  attachmentPath: number
+  attachmentPaths: number
   status: number
   parentMemoId: number
   rootMemoId: number
@@ -95,7 +93,6 @@ export type MemoMinAggregateInputType = {
   senderDept?: true
   createdAt?: true
   deadlineAt?: true
-  attachmentPath?: true
   status?: true
   parentMemoId?: true
   rootMemoId?: true
@@ -114,7 +111,6 @@ export type MemoMaxAggregateInputType = {
   senderDept?: true
   createdAt?: true
   deadlineAt?: true
-  attachmentPath?: true
   status?: true
   parentMemoId?: true
   rootMemoId?: true
@@ -133,7 +129,7 @@ export type MemoCountAggregateInputType = {
   senderDept?: true
   createdAt?: true
   deadlineAt?: true
-  attachmentPath?: true
+  attachmentPaths?: true
   status?: true
   parentMemoId?: true
   rootMemoId?: true
@@ -225,7 +221,7 @@ export type MemoGroupByOutputType = {
   senderDept: string
   createdAt: Date
   deadlineAt: Date | null
-  attachmentPath: string | null
+  attachmentPaths: string[]
   status: $Enums.MemoWorkflowStatus
   parentMemoId: string | null
   rootMemoId: string | null
@@ -265,11 +261,12 @@ export type MemoWhereInput = {
   senderDept?: Prisma.StringFilter<"Memo"> | string
   createdAt?: Prisma.DateTimeFilter<"Memo"> | Date | string
   deadlineAt?: Prisma.DateTimeNullableFilter<"Memo"> | Date | string | null
-  attachmentPath?: Prisma.StringNullableFilter<"Memo"> | string | null
+  attachmentPaths?: Prisma.StringNullableListFilter<"Memo">
   status?: Prisma.EnumMemoWorkflowStatusFilter<"Memo"> | $Enums.MemoWorkflowStatus
   parentMemoId?: Prisma.StringNullableFilter<"Memo"> | string | null
   rootMemoId?: Prisma.StringNullableFilter<"Memo"> | string | null
   isRevisedByHead?: Prisma.BoolFilter<"Memo"> | boolean
+  sender?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
   parentMemo?: Prisma.XOR<Prisma.MemoNullableScalarRelationFilter, Prisma.MemoWhereInput> | null
   replies?: Prisma.MemoListRelationFilter
   rootMemo?: Prisma.XOR<Prisma.MemoNullableScalarRelationFilter, Prisma.MemoWhereInput> | null
@@ -289,11 +286,12 @@ export type MemoOrderByWithRelationInput = {
   senderDept?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   deadlineAt?: Prisma.SortOrderInput | Prisma.SortOrder
-  attachmentPath?: Prisma.SortOrderInput | Prisma.SortOrder
+  attachmentPaths?: Prisma.SortOrder
   status?: Prisma.SortOrder
   parentMemoId?: Prisma.SortOrderInput | Prisma.SortOrder
   rootMemoId?: Prisma.SortOrderInput | Prisma.SortOrder
   isRevisedByHead?: Prisma.SortOrder
+  sender?: Prisma.UserOrderByWithRelationInput
   parentMemo?: Prisma.MemoOrderByWithRelationInput
   replies?: Prisma.MemoOrderByRelationAggregateInput
   rootMemo?: Prisma.MemoOrderByWithRelationInput
@@ -316,11 +314,12 @@ export type MemoWhereUniqueInput = Prisma.AtLeast<{
   senderDept?: Prisma.StringFilter<"Memo"> | string
   createdAt?: Prisma.DateTimeFilter<"Memo"> | Date | string
   deadlineAt?: Prisma.DateTimeNullableFilter<"Memo"> | Date | string | null
-  attachmentPath?: Prisma.StringNullableFilter<"Memo"> | string | null
+  attachmentPaths?: Prisma.StringNullableListFilter<"Memo">
   status?: Prisma.EnumMemoWorkflowStatusFilter<"Memo"> | $Enums.MemoWorkflowStatus
   parentMemoId?: Prisma.StringNullableFilter<"Memo"> | string | null
   rootMemoId?: Prisma.StringNullableFilter<"Memo"> | string | null
   isRevisedByHead?: Prisma.BoolFilter<"Memo"> | boolean
+  sender?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
   parentMemo?: Prisma.XOR<Prisma.MemoNullableScalarRelationFilter, Prisma.MemoWhereInput> | null
   replies?: Prisma.MemoListRelationFilter
   rootMemo?: Prisma.XOR<Prisma.MemoNullableScalarRelationFilter, Prisma.MemoWhereInput> | null
@@ -340,7 +339,7 @@ export type MemoOrderByWithAggregationInput = {
   senderDept?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   deadlineAt?: Prisma.SortOrderInput | Prisma.SortOrder
-  attachmentPath?: Prisma.SortOrderInput | Prisma.SortOrder
+  attachmentPaths?: Prisma.SortOrder
   status?: Prisma.SortOrder
   parentMemoId?: Prisma.SortOrderInput | Prisma.SortOrder
   rootMemoId?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -365,7 +364,7 @@ export type MemoScalarWhereWithAggregatesInput = {
   senderDept?: Prisma.StringWithAggregatesFilter<"Memo"> | string
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"Memo"> | Date | string
   deadlineAt?: Prisma.DateTimeNullableWithAggregatesFilter<"Memo"> | Date | string | null
-  attachmentPath?: Prisma.StringNullableWithAggregatesFilter<"Memo"> | string | null
+  attachmentPaths?: Prisma.StringNullableListFilter<"Memo">
   status?: Prisma.EnumMemoWorkflowStatusWithAggregatesFilter<"Memo"> | $Enums.MemoWorkflowStatus
   parentMemoId?: Prisma.StringNullableWithAggregatesFilter<"Memo"> | string | null
   rootMemoId?: Prisma.StringNullableWithAggregatesFilter<"Memo"> | string | null
@@ -379,14 +378,14 @@ export type MemoCreateInput = {
   content: string
   priority?: $Enums.Priority
   purpose: $Enums.Purpose
-  senderId: string
   senderName: string
   senderDept: string
   createdAt?: Date | string
   deadlineAt?: Date | string | null
-  attachmentPath?: string | null
+  attachmentPaths?: Prisma.MemoCreateattachmentPathsInput | string[]
   status?: $Enums.MemoWorkflowStatus
   isRevisedByHead?: boolean
+  sender: Prisma.UserCreateNestedOneWithoutMemosCreatedInput
   parentMemo?: Prisma.MemoCreateNestedOneWithoutRepliesInput
   replies?: Prisma.MemoCreateNestedManyWithoutParentMemoInput
   rootMemo?: Prisma.MemoCreateNestedOneWithoutThreadMembersInput
@@ -406,7 +405,7 @@ export type MemoUncheckedCreateInput = {
   senderDept: string
   createdAt?: Date | string
   deadlineAt?: Date | string | null
-  attachmentPath?: string | null
+  attachmentPaths?: Prisma.MemoCreateattachmentPathsInput | string[]
   status?: $Enums.MemoWorkflowStatus
   parentMemoId?: string | null
   rootMemoId?: string | null
@@ -423,14 +422,14 @@ export type MemoUpdateInput = {
   content?: Prisma.StringFieldUpdateOperationsInput | string
   priority?: Prisma.EnumPriorityFieldUpdateOperationsInput | $Enums.Priority
   purpose?: Prisma.EnumPurposeFieldUpdateOperationsInput | $Enums.Purpose
-  senderId?: Prisma.StringFieldUpdateOperationsInput | string
   senderName?: Prisma.StringFieldUpdateOperationsInput | string
   senderDept?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deadlineAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  attachmentPath?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  attachmentPaths?: Prisma.MemoUpdateattachmentPathsInput | string[]
   status?: Prisma.EnumMemoWorkflowStatusFieldUpdateOperationsInput | $Enums.MemoWorkflowStatus
   isRevisedByHead?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  sender?: Prisma.UserUpdateOneRequiredWithoutMemosCreatedNestedInput
   parentMemo?: Prisma.MemoUpdateOneWithoutRepliesNestedInput
   replies?: Prisma.MemoUpdateManyWithoutParentMemoNestedInput
   rootMemo?: Prisma.MemoUpdateOneWithoutThreadMembersNestedInput
@@ -450,7 +449,7 @@ export type MemoUncheckedUpdateInput = {
   senderDept?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deadlineAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  attachmentPath?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  attachmentPaths?: Prisma.MemoUpdateattachmentPathsInput | string[]
   status?: Prisma.EnumMemoWorkflowStatusFieldUpdateOperationsInput | $Enums.MemoWorkflowStatus
   parentMemoId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rootMemoId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -472,7 +471,7 @@ export type MemoCreateManyInput = {
   senderDept: string
   createdAt?: Date | string
   deadlineAt?: Date | string | null
-  attachmentPath?: string | null
+  attachmentPaths?: Prisma.MemoCreateattachmentPathsInput | string[]
   status?: $Enums.MemoWorkflowStatus
   parentMemoId?: string | null
   rootMemoId?: string | null
@@ -486,12 +485,11 @@ export type MemoUpdateManyMutationInput = {
   content?: Prisma.StringFieldUpdateOperationsInput | string
   priority?: Prisma.EnumPriorityFieldUpdateOperationsInput | $Enums.Priority
   purpose?: Prisma.EnumPurposeFieldUpdateOperationsInput | $Enums.Purpose
-  senderId?: Prisma.StringFieldUpdateOperationsInput | string
   senderName?: Prisma.StringFieldUpdateOperationsInput | string
   senderDept?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deadlineAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  attachmentPath?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  attachmentPaths?: Prisma.MemoUpdateattachmentPathsInput | string[]
   status?: Prisma.EnumMemoWorkflowStatusFieldUpdateOperationsInput | $Enums.MemoWorkflowStatus
   isRevisedByHead?: Prisma.BoolFieldUpdateOperationsInput | boolean
 }
@@ -508,16 +506,11 @@ export type MemoUncheckedUpdateManyInput = {
   senderDept?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deadlineAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  attachmentPath?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  attachmentPaths?: Prisma.MemoUpdateattachmentPathsInput | string[]
   status?: Prisma.EnumMemoWorkflowStatusFieldUpdateOperationsInput | $Enums.MemoWorkflowStatus
   parentMemoId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rootMemoId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isRevisedByHead?: Prisma.BoolFieldUpdateOperationsInput | boolean
-}
-
-export type MemoNullableScalarRelationFilter = {
-  is?: Prisma.MemoWhereInput | null
-  isNot?: Prisma.MemoWhereInput | null
 }
 
 export type MemoListRelationFilter = {
@@ -528,6 +521,19 @@ export type MemoListRelationFilter = {
 
 export type MemoOrderByRelationAggregateInput = {
   _count?: Prisma.SortOrder
+}
+
+export type StringNullableListFilter<$PrismaModel = never> = {
+  equals?: string[] | Prisma.ListStringFieldRefInput<$PrismaModel> | null
+  has?: string | Prisma.StringFieldRefInput<$PrismaModel> | null
+  hasEvery?: string[] | Prisma.ListStringFieldRefInput<$PrismaModel>
+  hasSome?: string[] | Prisma.ListStringFieldRefInput<$PrismaModel>
+  isEmpty?: boolean
+}
+
+export type MemoNullableScalarRelationFilter = {
+  is?: Prisma.MemoWhereInput | null
+  isNot?: Prisma.MemoWhereInput | null
 }
 
 export type MemoCountOrderByAggregateInput = {
@@ -542,7 +548,7 @@ export type MemoCountOrderByAggregateInput = {
   senderDept?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   deadlineAt?: Prisma.SortOrder
-  attachmentPath?: Prisma.SortOrder
+  attachmentPaths?: Prisma.SortOrder
   status?: Prisma.SortOrder
   parentMemoId?: Prisma.SortOrder
   rootMemoId?: Prisma.SortOrder
@@ -561,7 +567,6 @@ export type MemoMaxOrderByAggregateInput = {
   senderDept?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   deadlineAt?: Prisma.SortOrder
-  attachmentPath?: Prisma.SortOrder
   status?: Prisma.SortOrder
   parentMemoId?: Prisma.SortOrder
   rootMemoId?: Prisma.SortOrder
@@ -580,7 +585,6 @@ export type MemoMinOrderByAggregateInput = {
   senderDept?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   deadlineAt?: Prisma.SortOrder
-  attachmentPath?: Prisma.SortOrder
   status?: Prisma.SortOrder
   parentMemoId?: Prisma.SortOrder
   rootMemoId?: Prisma.SortOrder
@@ -590,6 +594,52 @@ export type MemoMinOrderByAggregateInput = {
 export type MemoScalarRelationFilter = {
   is?: Prisma.MemoWhereInput
   isNot?: Prisma.MemoWhereInput
+}
+
+export type MemoCreateNestedManyWithoutSenderInput = {
+  create?: Prisma.XOR<Prisma.MemoCreateWithoutSenderInput, Prisma.MemoUncheckedCreateWithoutSenderInput> | Prisma.MemoCreateWithoutSenderInput[] | Prisma.MemoUncheckedCreateWithoutSenderInput[]
+  connectOrCreate?: Prisma.MemoCreateOrConnectWithoutSenderInput | Prisma.MemoCreateOrConnectWithoutSenderInput[]
+  createMany?: Prisma.MemoCreateManySenderInputEnvelope
+  connect?: Prisma.MemoWhereUniqueInput | Prisma.MemoWhereUniqueInput[]
+}
+
+export type MemoUncheckedCreateNestedManyWithoutSenderInput = {
+  create?: Prisma.XOR<Prisma.MemoCreateWithoutSenderInput, Prisma.MemoUncheckedCreateWithoutSenderInput> | Prisma.MemoCreateWithoutSenderInput[] | Prisma.MemoUncheckedCreateWithoutSenderInput[]
+  connectOrCreate?: Prisma.MemoCreateOrConnectWithoutSenderInput | Prisma.MemoCreateOrConnectWithoutSenderInput[]
+  createMany?: Prisma.MemoCreateManySenderInputEnvelope
+  connect?: Prisma.MemoWhereUniqueInput | Prisma.MemoWhereUniqueInput[]
+}
+
+export type MemoUpdateManyWithoutSenderNestedInput = {
+  create?: Prisma.XOR<Prisma.MemoCreateWithoutSenderInput, Prisma.MemoUncheckedCreateWithoutSenderInput> | Prisma.MemoCreateWithoutSenderInput[] | Prisma.MemoUncheckedCreateWithoutSenderInput[]
+  connectOrCreate?: Prisma.MemoCreateOrConnectWithoutSenderInput | Prisma.MemoCreateOrConnectWithoutSenderInput[]
+  upsert?: Prisma.MemoUpsertWithWhereUniqueWithoutSenderInput | Prisma.MemoUpsertWithWhereUniqueWithoutSenderInput[]
+  createMany?: Prisma.MemoCreateManySenderInputEnvelope
+  set?: Prisma.MemoWhereUniqueInput | Prisma.MemoWhereUniqueInput[]
+  disconnect?: Prisma.MemoWhereUniqueInput | Prisma.MemoWhereUniqueInput[]
+  delete?: Prisma.MemoWhereUniqueInput | Prisma.MemoWhereUniqueInput[]
+  connect?: Prisma.MemoWhereUniqueInput | Prisma.MemoWhereUniqueInput[]
+  update?: Prisma.MemoUpdateWithWhereUniqueWithoutSenderInput | Prisma.MemoUpdateWithWhereUniqueWithoutSenderInput[]
+  updateMany?: Prisma.MemoUpdateManyWithWhereWithoutSenderInput | Prisma.MemoUpdateManyWithWhereWithoutSenderInput[]
+  deleteMany?: Prisma.MemoScalarWhereInput | Prisma.MemoScalarWhereInput[]
+}
+
+export type MemoUncheckedUpdateManyWithoutSenderNestedInput = {
+  create?: Prisma.XOR<Prisma.MemoCreateWithoutSenderInput, Prisma.MemoUncheckedCreateWithoutSenderInput> | Prisma.MemoCreateWithoutSenderInput[] | Prisma.MemoUncheckedCreateWithoutSenderInput[]
+  connectOrCreate?: Prisma.MemoCreateOrConnectWithoutSenderInput | Prisma.MemoCreateOrConnectWithoutSenderInput[]
+  upsert?: Prisma.MemoUpsertWithWhereUniqueWithoutSenderInput | Prisma.MemoUpsertWithWhereUniqueWithoutSenderInput[]
+  createMany?: Prisma.MemoCreateManySenderInputEnvelope
+  set?: Prisma.MemoWhereUniqueInput | Prisma.MemoWhereUniqueInput[]
+  disconnect?: Prisma.MemoWhereUniqueInput | Prisma.MemoWhereUniqueInput[]
+  delete?: Prisma.MemoWhereUniqueInput | Prisma.MemoWhereUniqueInput[]
+  connect?: Prisma.MemoWhereUniqueInput | Prisma.MemoWhereUniqueInput[]
+  update?: Prisma.MemoUpdateWithWhereUniqueWithoutSenderInput | Prisma.MemoUpdateWithWhereUniqueWithoutSenderInput[]
+  updateMany?: Prisma.MemoUpdateManyWithWhereWithoutSenderInput | Prisma.MemoUpdateManyWithWhereWithoutSenderInput[]
+  deleteMany?: Prisma.MemoScalarWhereInput | Prisma.MemoScalarWhereInput[]
+}
+
+export type MemoCreateattachmentPathsInput = {
+  set: string[]
 }
 
 export type MemoCreateNestedOneWithoutRepliesInput = {
@@ -638,6 +688,11 @@ export type EnumPriorityFieldUpdateOperationsInput = {
 
 export type EnumPurposeFieldUpdateOperationsInput = {
   set?: $Enums.Purpose
+}
+
+export type MemoUpdateattachmentPathsInput = {
+  set?: string[]
+  push?: string | string[]
 }
 
 export type EnumMemoWorkflowStatusFieldUpdateOperationsInput = {
@@ -734,6 +789,96 @@ export type MemoUpdateOneRequiredWithoutRecipientsNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.MemoUpdateToOneWithWhereWithoutRecipientsInput, Prisma.MemoUpdateWithoutRecipientsInput>, Prisma.MemoUncheckedUpdateWithoutRecipientsInput>
 }
 
+export type MemoCreateWithoutSenderInput = {
+  id?: string
+  referenceId: string
+  subject: string
+  content: string
+  priority?: $Enums.Priority
+  purpose: $Enums.Purpose
+  senderName: string
+  senderDept: string
+  createdAt?: Date | string
+  deadlineAt?: Date | string | null
+  attachmentPaths?: Prisma.MemoCreateattachmentPathsInput | string[]
+  status?: $Enums.MemoWorkflowStatus
+  isRevisedByHead?: boolean
+  parentMemo?: Prisma.MemoCreateNestedOneWithoutRepliesInput
+  replies?: Prisma.MemoCreateNestedManyWithoutParentMemoInput
+  rootMemo?: Prisma.MemoCreateNestedOneWithoutThreadMembersInput
+  threadMembers?: Prisma.MemoCreateNestedManyWithoutRootMemoInput
+  recipients?: Prisma.MemoRecipientStatusCreateNestedManyWithoutMemoInput
+}
+
+export type MemoUncheckedCreateWithoutSenderInput = {
+  id?: string
+  referenceId: string
+  subject: string
+  content: string
+  priority?: $Enums.Priority
+  purpose: $Enums.Purpose
+  senderName: string
+  senderDept: string
+  createdAt?: Date | string
+  deadlineAt?: Date | string | null
+  attachmentPaths?: Prisma.MemoCreateattachmentPathsInput | string[]
+  status?: $Enums.MemoWorkflowStatus
+  parentMemoId?: string | null
+  rootMemoId?: string | null
+  isRevisedByHead?: boolean
+  replies?: Prisma.MemoUncheckedCreateNestedManyWithoutParentMemoInput
+  threadMembers?: Prisma.MemoUncheckedCreateNestedManyWithoutRootMemoInput
+  recipients?: Prisma.MemoRecipientStatusUncheckedCreateNestedManyWithoutMemoInput
+}
+
+export type MemoCreateOrConnectWithoutSenderInput = {
+  where: Prisma.MemoWhereUniqueInput
+  create: Prisma.XOR<Prisma.MemoCreateWithoutSenderInput, Prisma.MemoUncheckedCreateWithoutSenderInput>
+}
+
+export type MemoCreateManySenderInputEnvelope = {
+  data: Prisma.MemoCreateManySenderInput | Prisma.MemoCreateManySenderInput[]
+  skipDuplicates?: boolean
+}
+
+export type MemoUpsertWithWhereUniqueWithoutSenderInput = {
+  where: Prisma.MemoWhereUniqueInput
+  update: Prisma.XOR<Prisma.MemoUpdateWithoutSenderInput, Prisma.MemoUncheckedUpdateWithoutSenderInput>
+  create: Prisma.XOR<Prisma.MemoCreateWithoutSenderInput, Prisma.MemoUncheckedCreateWithoutSenderInput>
+}
+
+export type MemoUpdateWithWhereUniqueWithoutSenderInput = {
+  where: Prisma.MemoWhereUniqueInput
+  data: Prisma.XOR<Prisma.MemoUpdateWithoutSenderInput, Prisma.MemoUncheckedUpdateWithoutSenderInput>
+}
+
+export type MemoUpdateManyWithWhereWithoutSenderInput = {
+  where: Prisma.MemoScalarWhereInput
+  data: Prisma.XOR<Prisma.MemoUpdateManyMutationInput, Prisma.MemoUncheckedUpdateManyWithoutSenderInput>
+}
+
+export type MemoScalarWhereInput = {
+  AND?: Prisma.MemoScalarWhereInput | Prisma.MemoScalarWhereInput[]
+  OR?: Prisma.MemoScalarWhereInput[]
+  NOT?: Prisma.MemoScalarWhereInput | Prisma.MemoScalarWhereInput[]
+  id?: Prisma.StringFilter<"Memo"> | string
+  referenceId?: Prisma.StringFilter<"Memo"> | string
+  subject?: Prisma.StringFilter<"Memo"> | string
+  content?: Prisma.StringFilter<"Memo"> | string
+  priority?: Prisma.EnumPriorityFilter<"Memo"> | $Enums.Priority
+  purpose?: Prisma.EnumPurposeFilter<"Memo"> | $Enums.Purpose
+  senderId?: Prisma.StringFilter<"Memo"> | string
+  senderName?: Prisma.StringFilter<"Memo"> | string
+  senderDept?: Prisma.StringFilter<"Memo"> | string
+  createdAt?: Prisma.DateTimeFilter<"Memo"> | Date | string
+  deadlineAt?: Prisma.DateTimeNullableFilter<"Memo"> | Date | string | null
+  attachmentPaths?: Prisma.StringNullableListFilter<"Memo">
+  status?: Prisma.EnumMemoWorkflowStatusFilter<"Memo"> | $Enums.MemoWorkflowStatus
+  parentMemoId?: Prisma.StringNullableFilter<"Memo"> | string | null
+  rootMemoId?: Prisma.StringNullableFilter<"Memo"> | string | null
+  isRevisedByHead?: Prisma.BoolFilter<"Memo"> | boolean
+}
+
 export type MemoCreateWithoutRepliesInput = {
   id?: string
   referenceId: string
@@ -741,14 +886,14 @@ export type MemoCreateWithoutRepliesInput = {
   content: string
   priority?: $Enums.Priority
   purpose: $Enums.Purpose
-  senderId: string
   senderName: string
   senderDept: string
   createdAt?: Date | string
   deadlineAt?: Date | string | null
-  attachmentPath?: string | null
+  attachmentPaths?: Prisma.MemoCreateattachmentPathsInput | string[]
   status?: $Enums.MemoWorkflowStatus
   isRevisedByHead?: boolean
+  sender: Prisma.UserCreateNestedOneWithoutMemosCreatedInput
   parentMemo?: Prisma.MemoCreateNestedOneWithoutRepliesInput
   rootMemo?: Prisma.MemoCreateNestedOneWithoutThreadMembersInput
   threadMembers?: Prisma.MemoCreateNestedManyWithoutRootMemoInput
@@ -767,7 +912,7 @@ export type MemoUncheckedCreateWithoutRepliesInput = {
   senderDept: string
   createdAt?: Date | string
   deadlineAt?: Date | string | null
-  attachmentPath?: string | null
+  attachmentPaths?: Prisma.MemoCreateattachmentPathsInput | string[]
   status?: $Enums.MemoWorkflowStatus
   parentMemoId?: string | null
   rootMemoId?: string | null
@@ -788,14 +933,14 @@ export type MemoCreateWithoutParentMemoInput = {
   content: string
   priority?: $Enums.Priority
   purpose: $Enums.Purpose
-  senderId: string
   senderName: string
   senderDept: string
   createdAt?: Date | string
   deadlineAt?: Date | string | null
-  attachmentPath?: string | null
+  attachmentPaths?: Prisma.MemoCreateattachmentPathsInput | string[]
   status?: $Enums.MemoWorkflowStatus
   isRevisedByHead?: boolean
+  sender: Prisma.UserCreateNestedOneWithoutMemosCreatedInput
   replies?: Prisma.MemoCreateNestedManyWithoutParentMemoInput
   rootMemo?: Prisma.MemoCreateNestedOneWithoutThreadMembersInput
   threadMembers?: Prisma.MemoCreateNestedManyWithoutRootMemoInput
@@ -814,7 +959,7 @@ export type MemoUncheckedCreateWithoutParentMemoInput = {
   senderDept: string
   createdAt?: Date | string
   deadlineAt?: Date | string | null
-  attachmentPath?: string | null
+  attachmentPaths?: Prisma.MemoCreateattachmentPathsInput | string[]
   status?: $Enums.MemoWorkflowStatus
   rootMemoId?: string | null
   isRevisedByHead?: boolean
@@ -840,14 +985,14 @@ export type MemoCreateWithoutThreadMembersInput = {
   content: string
   priority?: $Enums.Priority
   purpose: $Enums.Purpose
-  senderId: string
   senderName: string
   senderDept: string
   createdAt?: Date | string
   deadlineAt?: Date | string | null
-  attachmentPath?: string | null
+  attachmentPaths?: Prisma.MemoCreateattachmentPathsInput | string[]
   status?: $Enums.MemoWorkflowStatus
   isRevisedByHead?: boolean
+  sender: Prisma.UserCreateNestedOneWithoutMemosCreatedInput
   parentMemo?: Prisma.MemoCreateNestedOneWithoutRepliesInput
   replies?: Prisma.MemoCreateNestedManyWithoutParentMemoInput
   rootMemo?: Prisma.MemoCreateNestedOneWithoutThreadMembersInput
@@ -866,7 +1011,7 @@ export type MemoUncheckedCreateWithoutThreadMembersInput = {
   senderDept: string
   createdAt?: Date | string
   deadlineAt?: Date | string | null
-  attachmentPath?: string | null
+  attachmentPaths?: Prisma.MemoCreateattachmentPathsInput | string[]
   status?: $Enums.MemoWorkflowStatus
   parentMemoId?: string | null
   rootMemoId?: string | null
@@ -887,14 +1032,14 @@ export type MemoCreateWithoutRootMemoInput = {
   content: string
   priority?: $Enums.Priority
   purpose: $Enums.Purpose
-  senderId: string
   senderName: string
   senderDept: string
   createdAt?: Date | string
   deadlineAt?: Date | string | null
-  attachmentPath?: string | null
+  attachmentPaths?: Prisma.MemoCreateattachmentPathsInput | string[]
   status?: $Enums.MemoWorkflowStatus
   isRevisedByHead?: boolean
+  sender: Prisma.UserCreateNestedOneWithoutMemosCreatedInput
   parentMemo?: Prisma.MemoCreateNestedOneWithoutRepliesInput
   replies?: Prisma.MemoCreateNestedManyWithoutParentMemoInput
   threadMembers?: Prisma.MemoCreateNestedManyWithoutRootMemoInput
@@ -913,7 +1058,7 @@ export type MemoUncheckedCreateWithoutRootMemoInput = {
   senderDept: string
   createdAt?: Date | string
   deadlineAt?: Date | string | null
-  attachmentPath?: string | null
+  attachmentPaths?: Prisma.MemoCreateattachmentPathsInput | string[]
   status?: $Enums.MemoWorkflowStatus
   parentMemoId?: string | null
   isRevisedByHead?: boolean
@@ -950,14 +1095,14 @@ export type MemoUpdateWithoutRepliesInput = {
   content?: Prisma.StringFieldUpdateOperationsInput | string
   priority?: Prisma.EnumPriorityFieldUpdateOperationsInput | $Enums.Priority
   purpose?: Prisma.EnumPurposeFieldUpdateOperationsInput | $Enums.Purpose
-  senderId?: Prisma.StringFieldUpdateOperationsInput | string
   senderName?: Prisma.StringFieldUpdateOperationsInput | string
   senderDept?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deadlineAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  attachmentPath?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  attachmentPaths?: Prisma.MemoUpdateattachmentPathsInput | string[]
   status?: Prisma.EnumMemoWorkflowStatusFieldUpdateOperationsInput | $Enums.MemoWorkflowStatus
   isRevisedByHead?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  sender?: Prisma.UserUpdateOneRequiredWithoutMemosCreatedNestedInput
   parentMemo?: Prisma.MemoUpdateOneWithoutRepliesNestedInput
   rootMemo?: Prisma.MemoUpdateOneWithoutThreadMembersNestedInput
   threadMembers?: Prisma.MemoUpdateManyWithoutRootMemoNestedInput
@@ -976,7 +1121,7 @@ export type MemoUncheckedUpdateWithoutRepliesInput = {
   senderDept?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deadlineAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  attachmentPath?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  attachmentPaths?: Prisma.MemoUpdateattachmentPathsInput | string[]
   status?: Prisma.EnumMemoWorkflowStatusFieldUpdateOperationsInput | $Enums.MemoWorkflowStatus
   parentMemoId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rootMemoId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1001,28 +1146,6 @@ export type MemoUpdateManyWithWhereWithoutParentMemoInput = {
   data: Prisma.XOR<Prisma.MemoUpdateManyMutationInput, Prisma.MemoUncheckedUpdateManyWithoutParentMemoInput>
 }
 
-export type MemoScalarWhereInput = {
-  AND?: Prisma.MemoScalarWhereInput | Prisma.MemoScalarWhereInput[]
-  OR?: Prisma.MemoScalarWhereInput[]
-  NOT?: Prisma.MemoScalarWhereInput | Prisma.MemoScalarWhereInput[]
-  id?: Prisma.StringFilter<"Memo"> | string
-  referenceId?: Prisma.StringFilter<"Memo"> | string
-  subject?: Prisma.StringFilter<"Memo"> | string
-  content?: Prisma.StringFilter<"Memo"> | string
-  priority?: Prisma.EnumPriorityFilter<"Memo"> | $Enums.Priority
-  purpose?: Prisma.EnumPurposeFilter<"Memo"> | $Enums.Purpose
-  senderId?: Prisma.StringFilter<"Memo"> | string
-  senderName?: Prisma.StringFilter<"Memo"> | string
-  senderDept?: Prisma.StringFilter<"Memo"> | string
-  createdAt?: Prisma.DateTimeFilter<"Memo"> | Date | string
-  deadlineAt?: Prisma.DateTimeNullableFilter<"Memo"> | Date | string | null
-  attachmentPath?: Prisma.StringNullableFilter<"Memo"> | string | null
-  status?: Prisma.EnumMemoWorkflowStatusFilter<"Memo"> | $Enums.MemoWorkflowStatus
-  parentMemoId?: Prisma.StringNullableFilter<"Memo"> | string | null
-  rootMemoId?: Prisma.StringNullableFilter<"Memo"> | string | null
-  isRevisedByHead?: Prisma.BoolFilter<"Memo"> | boolean
-}
-
 export type MemoUpsertWithoutThreadMembersInput = {
   update: Prisma.XOR<Prisma.MemoUpdateWithoutThreadMembersInput, Prisma.MemoUncheckedUpdateWithoutThreadMembersInput>
   create: Prisma.XOR<Prisma.MemoCreateWithoutThreadMembersInput, Prisma.MemoUncheckedCreateWithoutThreadMembersInput>
@@ -1041,14 +1164,14 @@ export type MemoUpdateWithoutThreadMembersInput = {
   content?: Prisma.StringFieldUpdateOperationsInput | string
   priority?: Prisma.EnumPriorityFieldUpdateOperationsInput | $Enums.Priority
   purpose?: Prisma.EnumPurposeFieldUpdateOperationsInput | $Enums.Purpose
-  senderId?: Prisma.StringFieldUpdateOperationsInput | string
   senderName?: Prisma.StringFieldUpdateOperationsInput | string
   senderDept?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deadlineAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  attachmentPath?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  attachmentPaths?: Prisma.MemoUpdateattachmentPathsInput | string[]
   status?: Prisma.EnumMemoWorkflowStatusFieldUpdateOperationsInput | $Enums.MemoWorkflowStatus
   isRevisedByHead?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  sender?: Prisma.UserUpdateOneRequiredWithoutMemosCreatedNestedInput
   parentMemo?: Prisma.MemoUpdateOneWithoutRepliesNestedInput
   replies?: Prisma.MemoUpdateManyWithoutParentMemoNestedInput
   rootMemo?: Prisma.MemoUpdateOneWithoutThreadMembersNestedInput
@@ -1067,7 +1190,7 @@ export type MemoUncheckedUpdateWithoutThreadMembersInput = {
   senderDept?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deadlineAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  attachmentPath?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  attachmentPaths?: Prisma.MemoUpdateattachmentPathsInput | string[]
   status?: Prisma.EnumMemoWorkflowStatusFieldUpdateOperationsInput | $Enums.MemoWorkflowStatus
   parentMemoId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rootMemoId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1099,14 +1222,14 @@ export type MemoCreateWithoutRecipientsInput = {
   content: string
   priority?: $Enums.Priority
   purpose: $Enums.Purpose
-  senderId: string
   senderName: string
   senderDept: string
   createdAt?: Date | string
   deadlineAt?: Date | string | null
-  attachmentPath?: string | null
+  attachmentPaths?: Prisma.MemoCreateattachmentPathsInput | string[]
   status?: $Enums.MemoWorkflowStatus
   isRevisedByHead?: boolean
+  sender: Prisma.UserCreateNestedOneWithoutMemosCreatedInput
   parentMemo?: Prisma.MemoCreateNestedOneWithoutRepliesInput
   replies?: Prisma.MemoCreateNestedManyWithoutParentMemoInput
   rootMemo?: Prisma.MemoCreateNestedOneWithoutThreadMembersInput
@@ -1125,7 +1248,7 @@ export type MemoUncheckedCreateWithoutRecipientsInput = {
   senderDept: string
   createdAt?: Date | string
   deadlineAt?: Date | string | null
-  attachmentPath?: string | null
+  attachmentPaths?: Prisma.MemoCreateattachmentPathsInput | string[]
   status?: $Enums.MemoWorkflowStatus
   parentMemoId?: string | null
   rootMemoId?: string | null
@@ -1157,14 +1280,14 @@ export type MemoUpdateWithoutRecipientsInput = {
   content?: Prisma.StringFieldUpdateOperationsInput | string
   priority?: Prisma.EnumPriorityFieldUpdateOperationsInput | $Enums.Priority
   purpose?: Prisma.EnumPurposeFieldUpdateOperationsInput | $Enums.Purpose
-  senderId?: Prisma.StringFieldUpdateOperationsInput | string
   senderName?: Prisma.StringFieldUpdateOperationsInput | string
   senderDept?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deadlineAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  attachmentPath?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  attachmentPaths?: Prisma.MemoUpdateattachmentPathsInput | string[]
   status?: Prisma.EnumMemoWorkflowStatusFieldUpdateOperationsInput | $Enums.MemoWorkflowStatus
   isRevisedByHead?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  sender?: Prisma.UserUpdateOneRequiredWithoutMemosCreatedNestedInput
   parentMemo?: Prisma.MemoUpdateOneWithoutRepliesNestedInput
   replies?: Prisma.MemoUpdateManyWithoutParentMemoNestedInput
   rootMemo?: Prisma.MemoUpdateOneWithoutThreadMembersNestedInput
@@ -1183,13 +1306,91 @@ export type MemoUncheckedUpdateWithoutRecipientsInput = {
   senderDept?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deadlineAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  attachmentPath?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  attachmentPaths?: Prisma.MemoUpdateattachmentPathsInput | string[]
   status?: Prisma.EnumMemoWorkflowStatusFieldUpdateOperationsInput | $Enums.MemoWorkflowStatus
   parentMemoId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rootMemoId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isRevisedByHead?: Prisma.BoolFieldUpdateOperationsInput | boolean
   replies?: Prisma.MemoUncheckedUpdateManyWithoutParentMemoNestedInput
   threadMembers?: Prisma.MemoUncheckedUpdateManyWithoutRootMemoNestedInput
+}
+
+export type MemoCreateManySenderInput = {
+  id?: string
+  referenceId: string
+  subject: string
+  content: string
+  priority?: $Enums.Priority
+  purpose: $Enums.Purpose
+  senderName: string
+  senderDept: string
+  createdAt?: Date | string
+  deadlineAt?: Date | string | null
+  attachmentPaths?: Prisma.MemoCreateattachmentPathsInput | string[]
+  status?: $Enums.MemoWorkflowStatus
+  parentMemoId?: string | null
+  rootMemoId?: string | null
+  isRevisedByHead?: boolean
+}
+
+export type MemoUpdateWithoutSenderInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  referenceId?: Prisma.StringFieldUpdateOperationsInput | string
+  subject?: Prisma.StringFieldUpdateOperationsInput | string
+  content?: Prisma.StringFieldUpdateOperationsInput | string
+  priority?: Prisma.EnumPriorityFieldUpdateOperationsInput | $Enums.Priority
+  purpose?: Prisma.EnumPurposeFieldUpdateOperationsInput | $Enums.Purpose
+  senderName?: Prisma.StringFieldUpdateOperationsInput | string
+  senderDept?: Prisma.StringFieldUpdateOperationsInput | string
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  deadlineAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  attachmentPaths?: Prisma.MemoUpdateattachmentPathsInput | string[]
+  status?: Prisma.EnumMemoWorkflowStatusFieldUpdateOperationsInput | $Enums.MemoWorkflowStatus
+  isRevisedByHead?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  parentMemo?: Prisma.MemoUpdateOneWithoutRepliesNestedInput
+  replies?: Prisma.MemoUpdateManyWithoutParentMemoNestedInput
+  rootMemo?: Prisma.MemoUpdateOneWithoutThreadMembersNestedInput
+  threadMembers?: Prisma.MemoUpdateManyWithoutRootMemoNestedInput
+  recipients?: Prisma.MemoRecipientStatusUpdateManyWithoutMemoNestedInput
+}
+
+export type MemoUncheckedUpdateWithoutSenderInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  referenceId?: Prisma.StringFieldUpdateOperationsInput | string
+  subject?: Prisma.StringFieldUpdateOperationsInput | string
+  content?: Prisma.StringFieldUpdateOperationsInput | string
+  priority?: Prisma.EnumPriorityFieldUpdateOperationsInput | $Enums.Priority
+  purpose?: Prisma.EnumPurposeFieldUpdateOperationsInput | $Enums.Purpose
+  senderName?: Prisma.StringFieldUpdateOperationsInput | string
+  senderDept?: Prisma.StringFieldUpdateOperationsInput | string
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  deadlineAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  attachmentPaths?: Prisma.MemoUpdateattachmentPathsInput | string[]
+  status?: Prisma.EnumMemoWorkflowStatusFieldUpdateOperationsInput | $Enums.MemoWorkflowStatus
+  parentMemoId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  rootMemoId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  isRevisedByHead?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  replies?: Prisma.MemoUncheckedUpdateManyWithoutParentMemoNestedInput
+  threadMembers?: Prisma.MemoUncheckedUpdateManyWithoutRootMemoNestedInput
+  recipients?: Prisma.MemoRecipientStatusUncheckedUpdateManyWithoutMemoNestedInput
+}
+
+export type MemoUncheckedUpdateManyWithoutSenderInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  referenceId?: Prisma.StringFieldUpdateOperationsInput | string
+  subject?: Prisma.StringFieldUpdateOperationsInput | string
+  content?: Prisma.StringFieldUpdateOperationsInput | string
+  priority?: Prisma.EnumPriorityFieldUpdateOperationsInput | $Enums.Priority
+  purpose?: Prisma.EnumPurposeFieldUpdateOperationsInput | $Enums.Purpose
+  senderName?: Prisma.StringFieldUpdateOperationsInput | string
+  senderDept?: Prisma.StringFieldUpdateOperationsInput | string
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  deadlineAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  attachmentPaths?: Prisma.MemoUpdateattachmentPathsInput | string[]
+  status?: Prisma.EnumMemoWorkflowStatusFieldUpdateOperationsInput | $Enums.MemoWorkflowStatus
+  parentMemoId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  rootMemoId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  isRevisedByHead?: Prisma.BoolFieldUpdateOperationsInput | boolean
 }
 
 export type MemoCreateManyParentMemoInput = {
@@ -1204,7 +1405,7 @@ export type MemoCreateManyParentMemoInput = {
   senderDept: string
   createdAt?: Date | string
   deadlineAt?: Date | string | null
-  attachmentPath?: string | null
+  attachmentPaths?: Prisma.MemoCreateattachmentPathsInput | string[]
   status?: $Enums.MemoWorkflowStatus
   rootMemoId?: string | null
   isRevisedByHead?: boolean
@@ -1222,7 +1423,7 @@ export type MemoCreateManyRootMemoInput = {
   senderDept: string
   createdAt?: Date | string
   deadlineAt?: Date | string | null
-  attachmentPath?: string | null
+  attachmentPaths?: Prisma.MemoCreateattachmentPathsInput | string[]
   status?: $Enums.MemoWorkflowStatus
   parentMemoId?: string | null
   isRevisedByHead?: boolean
@@ -1235,14 +1436,14 @@ export type MemoUpdateWithoutParentMemoInput = {
   content?: Prisma.StringFieldUpdateOperationsInput | string
   priority?: Prisma.EnumPriorityFieldUpdateOperationsInput | $Enums.Priority
   purpose?: Prisma.EnumPurposeFieldUpdateOperationsInput | $Enums.Purpose
-  senderId?: Prisma.StringFieldUpdateOperationsInput | string
   senderName?: Prisma.StringFieldUpdateOperationsInput | string
   senderDept?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deadlineAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  attachmentPath?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  attachmentPaths?: Prisma.MemoUpdateattachmentPathsInput | string[]
   status?: Prisma.EnumMemoWorkflowStatusFieldUpdateOperationsInput | $Enums.MemoWorkflowStatus
   isRevisedByHead?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  sender?: Prisma.UserUpdateOneRequiredWithoutMemosCreatedNestedInput
   replies?: Prisma.MemoUpdateManyWithoutParentMemoNestedInput
   rootMemo?: Prisma.MemoUpdateOneWithoutThreadMembersNestedInput
   threadMembers?: Prisma.MemoUpdateManyWithoutRootMemoNestedInput
@@ -1261,7 +1462,7 @@ export type MemoUncheckedUpdateWithoutParentMemoInput = {
   senderDept?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deadlineAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  attachmentPath?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  attachmentPaths?: Prisma.MemoUpdateattachmentPathsInput | string[]
   status?: Prisma.EnumMemoWorkflowStatusFieldUpdateOperationsInput | $Enums.MemoWorkflowStatus
   rootMemoId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isRevisedByHead?: Prisma.BoolFieldUpdateOperationsInput | boolean
@@ -1282,7 +1483,7 @@ export type MemoUncheckedUpdateManyWithoutParentMemoInput = {
   senderDept?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deadlineAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  attachmentPath?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  attachmentPaths?: Prisma.MemoUpdateattachmentPathsInput | string[]
   status?: Prisma.EnumMemoWorkflowStatusFieldUpdateOperationsInput | $Enums.MemoWorkflowStatus
   rootMemoId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isRevisedByHead?: Prisma.BoolFieldUpdateOperationsInput | boolean
@@ -1295,14 +1496,14 @@ export type MemoUpdateWithoutRootMemoInput = {
   content?: Prisma.StringFieldUpdateOperationsInput | string
   priority?: Prisma.EnumPriorityFieldUpdateOperationsInput | $Enums.Priority
   purpose?: Prisma.EnumPurposeFieldUpdateOperationsInput | $Enums.Purpose
-  senderId?: Prisma.StringFieldUpdateOperationsInput | string
   senderName?: Prisma.StringFieldUpdateOperationsInput | string
   senderDept?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deadlineAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  attachmentPath?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  attachmentPaths?: Prisma.MemoUpdateattachmentPathsInput | string[]
   status?: Prisma.EnumMemoWorkflowStatusFieldUpdateOperationsInput | $Enums.MemoWorkflowStatus
   isRevisedByHead?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  sender?: Prisma.UserUpdateOneRequiredWithoutMemosCreatedNestedInput
   parentMemo?: Prisma.MemoUpdateOneWithoutRepliesNestedInput
   replies?: Prisma.MemoUpdateManyWithoutParentMemoNestedInput
   threadMembers?: Prisma.MemoUpdateManyWithoutRootMemoNestedInput
@@ -1321,7 +1522,7 @@ export type MemoUncheckedUpdateWithoutRootMemoInput = {
   senderDept?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deadlineAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  attachmentPath?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  attachmentPaths?: Prisma.MemoUpdateattachmentPathsInput | string[]
   status?: Prisma.EnumMemoWorkflowStatusFieldUpdateOperationsInput | $Enums.MemoWorkflowStatus
   parentMemoId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isRevisedByHead?: Prisma.BoolFieldUpdateOperationsInput | boolean
@@ -1342,7 +1543,7 @@ export type MemoUncheckedUpdateManyWithoutRootMemoInput = {
   senderDept?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deadlineAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  attachmentPath?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  attachmentPaths?: Prisma.MemoUpdateattachmentPathsInput | string[]
   status?: Prisma.EnumMemoWorkflowStatusFieldUpdateOperationsInput | $Enums.MemoWorkflowStatus
   parentMemoId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isRevisedByHead?: Prisma.BoolFieldUpdateOperationsInput | boolean
@@ -1409,11 +1610,12 @@ export type MemoSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   senderDept?: boolean
   createdAt?: boolean
   deadlineAt?: boolean
-  attachmentPath?: boolean
+  attachmentPaths?: boolean
   status?: boolean
   parentMemoId?: boolean
   rootMemoId?: boolean
   isRevisedByHead?: boolean
+  sender?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   parentMemo?: boolean | Prisma.Memo$parentMemoArgs<ExtArgs>
   replies?: boolean | Prisma.Memo$repliesArgs<ExtArgs>
   rootMemo?: boolean | Prisma.Memo$rootMemoArgs<ExtArgs>
@@ -1434,11 +1636,12 @@ export type MemoSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensio
   senderDept?: boolean
   createdAt?: boolean
   deadlineAt?: boolean
-  attachmentPath?: boolean
+  attachmentPaths?: boolean
   status?: boolean
   parentMemoId?: boolean
   rootMemoId?: boolean
   isRevisedByHead?: boolean
+  sender?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   parentMemo?: boolean | Prisma.Memo$parentMemoArgs<ExtArgs>
   rootMemo?: boolean | Prisma.Memo$rootMemoArgs<ExtArgs>
 }, ExtArgs["result"]["memo"]>
@@ -1455,11 +1658,12 @@ export type MemoSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensio
   senderDept?: boolean
   createdAt?: boolean
   deadlineAt?: boolean
-  attachmentPath?: boolean
+  attachmentPaths?: boolean
   status?: boolean
   parentMemoId?: boolean
   rootMemoId?: boolean
   isRevisedByHead?: boolean
+  sender?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   parentMemo?: boolean | Prisma.Memo$parentMemoArgs<ExtArgs>
   rootMemo?: boolean | Prisma.Memo$rootMemoArgs<ExtArgs>
 }, ExtArgs["result"]["memo"]>
@@ -1476,15 +1680,16 @@ export type MemoSelectScalar = {
   senderDept?: boolean
   createdAt?: boolean
   deadlineAt?: boolean
-  attachmentPath?: boolean
+  attachmentPaths?: boolean
   status?: boolean
   parentMemoId?: boolean
   rootMemoId?: boolean
   isRevisedByHead?: boolean
 }
 
-export type MemoOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "referenceId" | "subject" | "content" | "priority" | "purpose" | "senderId" | "senderName" | "senderDept" | "createdAt" | "deadlineAt" | "attachmentPath" | "status" | "parentMemoId" | "rootMemoId" | "isRevisedByHead", ExtArgs["result"]["memo"]>
+export type MemoOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "referenceId" | "subject" | "content" | "priority" | "purpose" | "senderId" | "senderName" | "senderDept" | "createdAt" | "deadlineAt" | "attachmentPaths" | "status" | "parentMemoId" | "rootMemoId" | "isRevisedByHead", ExtArgs["result"]["memo"]>
 export type MemoInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  sender?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   parentMemo?: boolean | Prisma.Memo$parentMemoArgs<ExtArgs>
   replies?: boolean | Prisma.Memo$repliesArgs<ExtArgs>
   rootMemo?: boolean | Prisma.Memo$rootMemoArgs<ExtArgs>
@@ -1493,10 +1698,12 @@ export type MemoInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   _count?: boolean | Prisma.MemoCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type MemoIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  sender?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   parentMemo?: boolean | Prisma.Memo$parentMemoArgs<ExtArgs>
   rootMemo?: boolean | Prisma.Memo$rootMemoArgs<ExtArgs>
 }
 export type MemoIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  sender?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   parentMemo?: boolean | Prisma.Memo$parentMemoArgs<ExtArgs>
   rootMemo?: boolean | Prisma.Memo$rootMemoArgs<ExtArgs>
 }
@@ -1504,6 +1711,7 @@ export type MemoIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensi
 export type $MemoPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "Memo"
   objects: {
+    sender: Prisma.$UserPayload<ExtArgs>
     parentMemo: Prisma.$MemoPayload<ExtArgs> | null
     replies: Prisma.$MemoPayload<ExtArgs>[]
     rootMemo: Prisma.$MemoPayload<ExtArgs> | null
@@ -1522,7 +1730,7 @@ export type $MemoPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
     senderDept: string
     createdAt: Date
     deadlineAt: Date | null
-    attachmentPath: string | null
+    attachmentPaths: string[]
     status: $Enums.MemoWorkflowStatus
     parentMemoId: string | null
     rootMemoId: string | null
@@ -1921,6 +2129,7 @@ readonly fields: MemoFieldRefs;
  */
 export interface Prisma__MemoClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
+  sender<T extends Prisma.UserDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.UserDefaultArgs<ExtArgs>>): Prisma.Prisma__UserClient<runtime.Types.Result.GetResult<Prisma.$UserPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   parentMemo<T extends Prisma.Memo$parentMemoArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Memo$parentMemoArgs<ExtArgs>>): Prisma.Prisma__MemoClient<runtime.Types.Result.GetResult<Prisma.$MemoPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   replies<T extends Prisma.Memo$repliesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Memo$repliesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$MemoPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   rootMemo<T extends Prisma.Memo$rootMemoArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Memo$rootMemoArgs<ExtArgs>>): Prisma.Prisma__MemoClient<runtime.Types.Result.GetResult<Prisma.$MemoPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
@@ -1966,7 +2175,7 @@ export interface MemoFieldRefs {
   readonly senderDept: Prisma.FieldRef<"Memo", 'String'>
   readonly createdAt: Prisma.FieldRef<"Memo", 'DateTime'>
   readonly deadlineAt: Prisma.FieldRef<"Memo", 'DateTime'>
-  readonly attachmentPath: Prisma.FieldRef<"Memo", 'String'>
+  readonly attachmentPaths: Prisma.FieldRef<"Memo", 'String[]'>
   readonly status: Prisma.FieldRef<"Memo", 'MemoWorkflowStatus'>
   readonly parentMemoId: Prisma.FieldRef<"Memo", 'String'>
   readonly rootMemoId: Prisma.FieldRef<"Memo", 'String'>

@@ -19,7 +19,11 @@ import {
   IconLock,
   IconInfoCircle,
   IconEdit,
-  IconDownload
+  IconDownload,
+  IconFile,
+  IconTrash,
+  IconFileTypePdf,
+  IconPhoto
 } from '@tabler/icons-react';
 import { 
   TextInput, 
@@ -29,8 +33,7 @@ import {
   Button, 
   Card, 
   Title, 
-  Container, 
-  Stack,
+  Container,
   Group,
   Text,
   Modal,
@@ -44,7 +47,11 @@ import {
   UnstyledButton,
   Box,
   Alert,
-  FileInput
+  FileInput,
+  Paper,
+  ActionIcon,
+  ThemeIcon,
+  Stack
 } from '@mantine/core';
 
 export type Priority = 'ROUTINE' | 'URGENT' | 'RUSH';
@@ -82,9 +89,15 @@ export interface Memo {
   parentMemoId: string | null;
   rootMemoId: string | null;
   isRevisedByHead?: boolean; 
-  attachmentPath?: string | null;
+  attachmentPaths?: string[] | null;
   feedbackNote?: string | null;
   recipients?: MemoRecipientStatus[];
+
+  sender?: {
+    id: string;
+    branch: 'MAIN' | 'IMUS' | 'NASTECH' | 'SHS'; // SystemBranch enum values mo
+    departmentCode: string;
+  };
 }
 
 interface Department {
@@ -133,6 +146,9 @@ export default function IOMDashboardPage() {
   const [headEditContent, setHeadEditContent] = useState('');
   const [headSelectedMemoId, setHeadSelectedMemoId] = useState('');
 
+  const [retainedAttachments, setRetainedAttachments] = useState<string[]>([]);
+  const [headNewAttachments, setHeadNewAttachments] = useState<File[]>([]);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [sortByDate, toggleSortByDate] = useToggle(['NEWEST', 'OLDEST'] as const);
 
@@ -147,7 +163,7 @@ export default function IOMDashboardPage() {
       targetDepts: [] as string[],
       parentMemoId: null as string | null,
       rootMemoId: null as string | null,
-      memoFile: null as File | null, // 🎯 File State
+      memoAttachments: [] as File[], // 🎯 File State
     },
     validate: {
       subject: (value) => (value.length < 2 ? 'Subject header is required' : null),
@@ -226,7 +242,8 @@ export default function IOMDashboardPage() {
         memo.subject?.toLowerCase().includes(searchLower) ||
         memo.referenceId?.toLowerCase().includes(searchLower) ||
         memo.content?.toLowerCase().includes(searchLower) ||
-        memo.senderName?.toLowerCase().includes(searchLower)
+        memo.senderName?.toLowerCase().includes(searchLower) ||
+        memo.sender?.branch.toLowerCase().includes(searchLower)
       );
     });
 
@@ -246,9 +263,51 @@ export default function IOMDashboardPage() {
       ? `<div style="margin-top: 15px; padding: 10px; border: 1px solid #70438a; background-color: #fcf8ff; font-size: 12px; color: #70438a;"><strong>⚠️ AMENDMENT NOTICE:</strong> This draft was officially reviewed, modified, and finalized by the Department Head prior to system broadcast.</div>`
       : '';
 
-    const attachmentNotice = memo.attachmentPath
-      ? `<div style="margin-top: 10px; font-size: 12px; color: #555;"><em>* This document contains a digital attachment in the system.</em></div>`
-      : '';
+    const attachmentNotice =
+      memo.attachmentPaths && memo.attachmentPaths.length > 0
+        ? `
+          <div style="
+            margin-top: 20px;
+            border: 1px solid #000;
+            padding: 12px;
+            page-break-inside: avoid;
+          ">
+            <div style="
+              font-weight: bold;
+              margin-bottom: 10px;
+              text-decoration: underline;
+            ">
+              ATTACHED DOCUMENTS
+            </div>
+
+            <ol style="
+              margin: 0;
+              padding-left: 20px;
+            ">
+              ${memo.attachmentPaths
+                .map((path) => {
+                  const fileName =
+                    path
+                      .split('/')
+                      .pop()
+                      ?.replace(/^\d+-(\d+-)?/, '') ||
+                    'Unnamed Attachment';
+
+                  return `<li style="margin-bottom: 4px;">${fileName}</li>`;
+                })
+                .join('')}
+            </ol>
+
+            <div style="
+              margin-top: 10px;
+              font-size: 11px;
+              color: #555;
+            ">
+              Total Attachments: ${memo.attachmentPaths.length}
+            </div>
+          </div>
+        `
+        : '';
 
     // 📊 1. I-generate ang HTML Rows para sa Dispatch Route Matrix
     // 📊 1. I-generate ang HTML Rows para sa Dispatch Route Matrix (FIXED LONGER REMARKS & DATE)
@@ -403,6 +462,10 @@ export default function IOMDashboardPage() {
     setHeadSelectedMemoId(memo.id);
     setHeadEditSubject(memo.subject);
     setHeadEditContent(memo.content);
+
+    setRetainedAttachments(memo.attachmentPaths || []);
+    setHeadNewAttachments([]);
+
     setConfirmPassword('');
     setPassError('');
     openSuperEditModal();
@@ -426,7 +489,12 @@ export default function IOMDashboardPage() {
         const formData = new FormData();
         
         Object.entries(pendingAction.data).forEach(([key, value]) => {
-          if (key !== 'memoFile' && value !== null && value !== undefined) {
+          if (
+            key !== 'memoFile' &&
+            key !== 'memoAttachments' &&
+            value !== null &&
+            value !== undefined
+          ) {
             if (Array.isArray(value)) {
               value.forEach(v => formData.append(key, v));
             } else {
@@ -436,12 +504,15 @@ export default function IOMDashboardPage() {
         });
 
         formData.append('password', confirmPassword);
+        // 🎯 FIX: Burahin yung lumang fileToUpload logic at palitan nito:
+        const filesToUpload = form.values.memoAttachments;
 
-        // 📂 Optional Attachment
-        const fileToUpload = form.values.memoFile;
-        if (fileToUpload) {
-          formData.append('memoAttachment', fileToUpload);
-        }
+        console.log("FILES:", filesToUpload);
+
+        filesToUpload.forEach((file) => {
+          console.log(file.name);
+          formData.append("memoAttachments", file);
+        });
 
         const response = await fetch('../../../api/memos', {
           method: 'POST',
@@ -506,16 +577,27 @@ export default function IOMDashboardPage() {
     setPassError('');
 
     try {
+      const formData = new FormData();
+
+      formData.append('memoId', headSelectedMemoId);
+      formData.append('action', 'APPROVE');
+      formData.append('password', confirmPassword);
+
+      formData.append('subject', headEditSubject);
+      formData.append('content', headEditContent);
+
+      formData.append(
+        'retainedAttachments',
+        JSON.stringify(retainedAttachments)
+      );
+
+      headNewAttachments.forEach((file) => {
+        formData.append('headNewAttachments', file);
+      });
+
       const response = await fetch('../../../api/memos', {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          memoId: headSelectedMemoId,
-          action: 'APPROVE',
-          password: confirmPassword,
-          subject: headEditSubject,
-          content: headEditContent
-        }),
+        body: formData,
       });
 
       if (response.ok) {
@@ -544,7 +626,7 @@ export default function IOMDashboardPage() {
       targetDepts: [parentMemo.senderDept],
       parentMemoId: parentMemo.id,
       rootMemoId: parentMemo.rootMemoId || parentMemo.id,
-      memoFile: null
+      memoAttachments: [] // 🎯 FIX: Ginawang empty array na para tugma sa bago nating useForm state
     });
     open();
   };
@@ -668,9 +750,9 @@ export default function IOMDashboardPage() {
                     {memo.referenceId || 'DRAFT-DPT'}
                   </Text>
 
-                  {memo.attachmentPath && (
+                  {memo.attachmentPaths && memo.attachmentPaths.length > 0 && (
                     <Badge color="indigo" variant="filled" size="xs" leftSection={<IconDownload size={12} />}>
-                      HAS FILE ATTACHED
+                      HAS {memo.attachmentPaths.length} FILE(S) ATTACHED
                     </Badge>
                   )}
 
@@ -696,7 +778,7 @@ export default function IOMDashboardPage() {
               <Stack gap={4} my="xs" p="xs" w="100%" bg="light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-7))" style={{ borderRadius: '6px' }}>
                 <Text size="xs"><b>TO:</b> {memo.recipients?.map(r => r.departmentName).join(', ')}</Text>
                 <Group gap={6} align="center">
-                  <Text size="xs"><b>FROM:</b> {memo.senderName} ({memo.senderDept})</Text>
+                  <Text size="xs"><b>FROM:</b> {memo.senderName} ({memo.sender?.branch ? `${memo.sender.branch} - ` : ''}{memo.senderDept})</Text>
                   {memo.isRevisedByHead && (
                     <Badge color="grape" variant="light" size="9px" radius="sm">Amended by Head</Badge>
                   )}
@@ -1001,12 +1083,13 @@ export default function IOMDashboardPage() {
             <Textarea label="Memorandum Body Content" placeholder="Type the core message here..." minRows={6} autosize required {...form.getInputProps('content')} />
             
             {/* 🎯 TAMA AT DIRETSAHANG FILE INPUT (WALANG DYNAMIC IMPORT) */}
-            <FileInput 
-              label="Optional Attachment Document" 
-              placeholder="Choose file to upload (Optional)" 
+            <FileInput
+              label="Optional Attachment Document"
+              placeholder="Choose file to upload (Optional)"
               clearable
+              multiple
               accept="application/pdf,image/*"
-              {...form.getInputProps('memoFile')}
+              {...form.getInputProps('memoAttachments')}
             />
 
             <Group justify="flex-end" mt="md">
@@ -1026,13 +1109,89 @@ export default function IOMDashboardPage() {
           
           <TextInput label="Subject Reference Header" value={headEditSubject} onChange={(e) => setHeadEditSubject(e.currentTarget.value)} required />
           <Textarea label="Memorandum Body Content" value={headEditContent} onChange={(e) => setHeadEditContent(e.currentTarget.value)} minRows={6} autosize required />
-          <FileInput 
-              label="Optional Attachment Document (Memo/PDF/Image)" 
-              placeholder="Choose file to upload (Optional)" 
-              clearable
-              accept="application/pdf,image/*"
-              {...form.getInputProps('memoFile')}
+          <Stack>
+            <Text fw={600}>Current Attachments</Text>
+
+            <Stack gap="xs">
+              {retainedAttachments.map((file) => (
+                <Paper
+                  key={file}
+                  component="a"
+                  href={file}
+                  target="_blank"
+                  withBorder
+                  p="sm"
+                  radius="md"
+                  style={{
+                    textDecoration: 'none',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = 'translateY(-2px)';
+                    e.currentTarget.style.boxShadow =
+                      'var(--mantine-shadow-sm)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = '';
+                  }}
+                >
+                  <Group justify="space-between" wrap="nowrap">
+                    <Group gap="sm" wrap="nowrap">
+                      <ThemeIcon
+                        variant="light"
+                        color="blue"
+                        size="lg"
+                      >
+                        <IconFile size={16} />
+                      </ThemeIcon>
+
+                      <div style={{ overflow: 'hidden' }}>
+                        <Text
+                          size="sm"
+                          fw={500}
+                          truncate
+                          c="dark"
+                        >
+                          {file.split('/').pop()}
+                        </Text>
+
+                        <Text size="xs" c="dimmed">
+                          Click to preview attachment
+                        </Text>
+                      </div>
+                    </Group>
+
+                    <ActionIcon
+                      color="red"
+                      variant="subtle"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+
+                        setRetainedAttachments(prev =>
+                          prev.filter(p => p !== file)
+                        );
+                      }}
+                    >
+                      <IconTrash size={16} />
+                    </ActionIcon>
+                  </Group>
+                </Paper>
+              ))}
+            </Stack>
+
+            <FileInput
+              multiple
+              label="Add New Attachments"
+              placeholder="Add Additional File/s if necessary..."
+              value={headNewAttachments}
+              onChange={(files) =>
+                setHeadNewAttachments(files || [])
+              }
             />
+          </Stack>
 
           <Divider my="xs" label="Digital Verification Signature" labelPosition="center" />
           
@@ -1051,10 +1210,28 @@ export default function IOMDashboardPage() {
       <Modal opened={passModalOpened} onClose={closePassModal} title={<Group gap="xs"><IconLock size={18} color="red" /><Text fw={700}>Security Signature Verification</Text></Group>} centered size="sm" radius="md">
         <Stack gap="sm">
           <Text size="xs" c="dimmed">Confirm transaction authorization status using your cryptography signing phrase key.</Text>
-          {pendingAction?.type === 'RESOLVE' && (
-            <Textarea label="Resolution Notes / Remarks (Optional)" placeholder="Add closure details or comments..." value={feedbackNote} onChange={(e) => setFeedbackNote(e.currentTarget.value)} />
+          {(pendingAction?.type === 'DENY' || pendingAction?.type === 'DISAPPROVE_DRAFT') && (
+            <Textarea
+              label="Reason for Denial / Disapproval"
+              placeholder="State the clear reason why this inbound memorandum is rejected..."
+              required
+              value={feedbackNote}
+              onChange={(e) => setFeedbackNote(e.currentTarget.value)}
+              mb="md"
+              rows={3}
+              error={!feedbackNote && passError ? "Feedback note is strictly required for denials." : null}
+            />
           )}
-          <PasswordInput label="Signature Security Password" placeholder="Your NCST E-Forms Password..." required value={confirmPassword} onChange={(e) => setConfirmPassword(e.currentTarget.value)} error={passError} />
+
+          {/* Eto yung kasalukuyang password input mo sa modal, siguraduhing katabi niya yan */}
+          <PasswordInput
+            label="Confirm Security Password / Signature"
+            placeholder="Enter your password to sign"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.currentTarget.value)}
+            error={passError}
+            required
+          />
           <Button fullWidth color="red" loading={submitting} onClick={handlePasswordGateVerificationSubmit} mt="xs">
             Confirm Signature Authorization
           </Button>
@@ -1124,25 +1301,101 @@ export default function IOMDashboardPage() {
                 {selectedMemoForExpand.content}
               </Text>
 
-              {/* 🎯 KUNG MAY ATTACHMENT YUNG MEMO, LILITAW ITONG DOWNLOAD BUTTON */}
-              {selectedMemoForExpand.attachmentPath && (
-                <>
-                  <Divider my="md" />
-                  <Text size="sm" fw={700} mb="xs">ATTACHED FILE:</Text>
-                  <Button 
-                    component="a" 
-                    href={selectedMemoForExpand.attachmentPath} 
-                    target="_blank" 
-                    download
-                    variant="light" 
-                    color="blue" 
-                    leftSection={<IconDownload size={16} />}
+              <Stack gap="xs" mt="md">
+              <Text size="sm" fw={700}>
+                📎 Attachments
+              </Text>
+
+              {(selectedMemoForExpand?.attachmentPaths ?? []).map((pathString, index) => {
+                const fileName =
+                  pathString
+                    .split('/')
+                    .pop()
+                    ?.replace(/^\d+-(\d+-)?/, '') || `Attachment ${index + 1}`;
+
+                const lowerName = fileName.toLowerCase();
+
+                const isPdf = lowerName.endsWith('.pdf');
+
+                const isImage =
+                  lowerName.endsWith('.png') ||
+                  lowerName.endsWith('.jpg') ||
+                  lowerName.endsWith('.jpeg') ||
+                  lowerName.endsWith('.webp');
+
+                return (
+                  <Paper
+                    key={index}
+                    component="a"
+                    href={pathString}
+                    target="_blank"
+                    withBorder
+                    p="sm"
+                    radius="md"
+                    style={{
+                      textDecoration: 'none',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.transform = 'translateY(-2px)';
+                      e.currentTarget.style.boxShadow =
+                        'var(--mantine-shadow-sm)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = 'translateY(0)';
+                      e.currentTarget.style.boxShadow = '';
+                    }}
                   >
-                    {/* Kukunin nito yung dulo ng path. Ex: /memos/file.pdf -> file.pdf */}
-                    {selectedMemoForExpand.attachmentPath.split('/').pop()}
-                  </Button>
-                </>
-              )}
+                    <Group justify="space-between" wrap="nowrap">
+                      <Group gap="sm" wrap="nowrap">
+                        <ThemeIcon
+                          variant="light"
+                          color={
+                            isPdf
+                              ? 'red'
+                              : isImage
+                              ? 'green'
+                              : 'blue'
+                          }
+                          size="lg"
+                        >
+                          {isPdf ? (
+                            <IconFileTypePdf size={16} />
+                          ) : isImage ? (
+                            <IconPhoto size={16} />
+                          ) : (
+                            <IconFile size={16} />
+                          )}
+                        </ThemeIcon>
+
+                        <div style={{ overflow: 'hidden' }}>
+                          <Text
+                            size="sm"
+                            fw={500}
+                            truncate
+                            c="dark"
+                          >
+                            {fileName}
+                          </Text>
+
+                          <Text size="xs" c="dimmed">
+                            Click to view or download
+                          </Text>
+                        </div>
+                      </Group>
+
+                      <ThemeIcon
+                        variant="light"
+                        color="blue"
+                      >
+                        <IconDownload size={14} />
+                      </ThemeIcon>
+                    </Group>
+                  </Paper>
+                );
+              })}
+            </Stack>
             </Card>
 
             <Text size="xs" fw={700}>Route Recipients Dispatch Logs Matrix:</Text>
