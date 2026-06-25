@@ -140,21 +140,16 @@ export default function LoginPage() {
                             {error}
                         </Alert>
                     )}
-
-                    <TextInput
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        placeholder="NCST Email"
-                        variant="filled"
-                        required
-                    />
-
                     <div>
+                        <TextInput
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            placeholder="NCST Email"
+                            variant="filled"
+                            required
+                        />
                         <Group justify="space-between" mb={5}>
                             <Text size="sm" fw={500} style={{ visibility: 'hidden' }}>Password</Text>
-                            <Anchor href="#" onClick={(event) => event.preventDefault()} fw={500} fz="xs">
-                                Forgot your password?
-                            </Anchor>
                         </Group>
                         <PasswordInput
                             placeholder="Your password"
@@ -163,6 +158,9 @@ export default function LoginPage() {
                             variant="filled"
                             required
                         />
+                        <Anchor href="#" onClick={(event) => event.preventDefault()} fw={500} fz="xs">
+                            Forgot your password?
+                        </Anchor>
                     </div>
 
                     <Button 
