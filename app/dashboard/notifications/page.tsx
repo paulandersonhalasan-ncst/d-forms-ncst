@@ -24,7 +24,7 @@ export default function NotificationPage() {
 
     async function loadData() {
       try {
-        const res = await fetch('/api/notifications');
+        const res = await fetch('../../api/notifications');
         if (res.ok && isMounted) {
           const data = await res.json();
           setNotifications(data);
@@ -48,7 +48,7 @@ export default function NotificationPage() {
           prev.map((n) => n.id === id ? { ...n, isRead: true } : n)
         );
 
-        await fetch('/api/notifications', {
+        await fetch('../../api/notifications', {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ notificationId: id })
@@ -68,7 +68,7 @@ export default function NotificationPage() {
     try {
       setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
       
-      await fetch('/api/notifications', {
+      await fetch('../../api/notifications', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ markAll: true }) 
@@ -88,7 +88,7 @@ export default function NotificationPage() {
       setNotifications([]);
 
       // 2. Fire and forget sa API para burahin na sa tables ng database niyo
-      await fetch('/api/notifications', {
+      await fetch('../../api/notifications', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' }
       });
@@ -102,7 +102,6 @@ export default function NotificationPage() {
       <Group justify="space-between" mb="lg">
         <Stack gap={2}>
           <Text size="xl" fw={700}>Notification Center</Text>
-          <Text size="sm" c="dimmed">Tingnan at pamahalaan ang mga e-forms approval updates mo.</Text>
         </Stack>
         
         <Group gap="xs">
