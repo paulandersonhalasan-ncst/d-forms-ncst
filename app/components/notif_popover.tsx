@@ -11,7 +11,15 @@ interface PopoverNotification {
   isRead: boolean;
 }
 
-export default function NotificationPopover({ children, unreadCount }: { children: React.ReactNode, unreadCount: number }) {
+export default function NotificationPopover({
+  children,
+  unreadCount,
+  onNotificationRead,
+}: {
+  children: React.ReactNode;
+  unreadCount: number;
+  onNotificationRead?: () => void;
+}) {
   const router = useRouter();
   const [opened, setOpened] = useState(false);
   const [notifications, setNotifications] = useState<PopoverNotification[]>([]);
@@ -21,7 +29,7 @@ export default function NotificationPopover({ children, unreadCount }: { childre
     if (opened) {
       async function fetchMiniNotifications() {
         try {
-          const res = await fetch('/api/notifications');
+          const res = await fetch('../api/notifications');
           if (res.ok) {
             const data: PopoverNotification[] = await res.json();
             
@@ -43,12 +51,19 @@ export default function NotificationPopover({ children, unreadCount }: { childre
       if (!isRead) {
         await fetch('../api/notifications', {
           method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ notificationId: id })
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            notificationId: id,
+          }),
         });
-        
-        // Alisin agad sa popover view kapag na-click na para real-time na mabawasan ang unread list
-        setNotifications((prev) => prev.filter((n) => n.id !== id));
+
+        setNotifications((prev) =>
+          prev.filter((n) => n.id !== id)
+        );
+
+        onNotificationRead?.();
       }
 
       const refMatch = messageText.match(/(?:DRAFT-)?[A-Z]+-\d{4}-\d+(?:-\d+)?/);
