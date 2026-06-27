@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Table, Badge, Card, Text, Group, Stack, Code, ScrollArea, TextInput, UnstyledButton, Button } from "@mantine/core";
+import { Table, Badge, Card, Text, Group, Stack, Code, ScrollArea, TextInput, UnstyledButton, Button, LoadingOverlay } from "@mantine/core";
 import { IconSearch, IconTerminal2, IconChevronDown, IconChevronUp, IconSelector, IconDownload } from "@tabler/icons-react";
 
 interface AuditLog {
@@ -303,7 +303,19 @@ export default function AuditLogsTable() {
   ));
 
   return (
-    <Card withBorder shadow="sm" radius="md" p="md">
+    <Card
+      withBorder
+      shadow="sm"
+      radius="md"
+      p="md"
+      pos="relative"
+    >
+      <LoadingOverlay
+        visible={loading}
+        zIndex={100}
+        overlayProps={{ blur: 2 }}
+        loaderProps={{ size: "lg" }}
+      />
       <Stack gap="md">
         <Group justify="space-between" align="center">
           <div>
@@ -369,12 +381,16 @@ export default function AuditLogsTable() {
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
-              {loading ? (
-                <Table.Tr><Table.Td colSpan={5} style={{ textAlign: "center" }}><Text c="dimmed" size="sm" my="md">Loading system records...</Text></Table.Td></Table.Tr>
-              ) : rows.length > 0 ? (
+              {rows.length > 0 ? (
                 rows
               ) : (
-                <Table.Tr><Table.Td colSpan={5} style={{ textAlign: "center" }}><Text c="dimmed" size="sm" my="md">No logs found.</Text></Table.Td></Table.Tr>
+                <Table.Tr>
+                  <Table.Td colSpan={5} style={{ textAlign: "center" }}>
+                    <Text c="dimmed" size="sm" my="md">
+                      No logs found.
+                    </Text>
+                  </Table.Td>
+                </Table.Tr>
               )}
             </Table.Tbody>
           </Table>

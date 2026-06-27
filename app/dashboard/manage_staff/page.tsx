@@ -13,7 +13,8 @@ import {
   Card,
   UnstyledButton,
   TextInput,
-  Alert
+  Alert,
+  LoadingOverlay
 } from "@mantine/core";
 import { DatePickerInput } from "@mantine/dates";
 import {
@@ -103,56 +104,72 @@ export default function OicManagementTable() {
   // Ito ang benchmark string ng kasalukuyang araw ("YYYY-MM-DD")
   const todayStr = toManilaString(new Date());
 
-  const refreshStaffList = async () => {
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [tableLoading, setTableLoading] = useState(false);
+
+  const refreshStaffList = async (showLoader = true) => {
+    if (showLoader) {
+      setTableLoading(true);
+    }
+
     try {
       const res = await fetch("../../api/user/get?sameDepartment=true");
       const json = await res.json();
-      if (json && json.success) setUsers(json.data || json.users || []);
+
+      if (json.success) {
+        setUsers(json.data || json.users || []);
+      }
     } catch (e) {
       console.error("Error refreshing staff:", e);
+    } finally {
+      if (showLoader) {
+        setTableLoading(false);
+      }
     }
   };
 
 	useEffect(() => {
-	async function initPageData() {
-		try {
-		// 1. Refresh ang staff list
-		await refreshStaffList();
+    async function initPageData() {
+      setInitialLoading(true);
 
-		// 2. Kunin ang session ng kasalukuyang naka-login
-		const userRes = await fetch("../../api/auth/me"); 
-		const userJson = await userRes.json();
-		
-		// 🎯 DIRETSO SA userJson.data DAHIL ITO ANG STRUCT NG API MO
-		if (userJson && userJson.success && userJson.data) {
-			const user = userJson.data; // <--- Dito binago mula sa '.user' patungong '.data'
-			setCurrentUser(user);
+      try {
+        await refreshStaffList(false);
 
-			// Kunin ang mga gagamiting strings para sa comparison
-			const userStartStr = toManilaString(user.oic_start);
-			const userEndStr = toManilaString(user.oic_end);
+        const userRes = await fetch("../../api/auth/me");
+        const userJson = await userRes.json();
 
-			// UNIFIED STRING EVALUATION
-			if (
-			user.role === "Staff" && 
-			user.oic_start && 
-			user.oic_end && 
-			user.oic_start !== "null" && 
-			user.oic_end !== "null"
-			) {
-			const checkCondition = todayStr >= userStartStr && todayStr <= userEndStr;
-			setIsOicActive(checkCondition); 
-			} else {
-			setIsOicActive(false); 
-			}
-		}
-		} catch (e) {
-		console.error("Initialization Error:", e);
-		}
-	}
+        if (userJson?.success && userJson.data) {
+          const user = userJson.data;
 
-	initPageData();
-	}, [todayStr]);
+          setCurrentUser(user);
+
+          const userStartStr = toManilaString(user.oic_start);
+          const userEndStr = toManilaString(user.oic_end);
+
+          if (
+            user.role === "Staff" &&
+            user.oic_start &&
+            user.oic_end &&
+            user.oic_start !== "null" &&
+            user.oic_end !== "null"
+          ) {
+            setIsOicActive(
+              todayStr >= userStartStr &&
+              todayStr <= userEndStr
+            );
+          } else {
+            setIsOicActive(false);
+          }
+        }
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setInitialLoading(false);
+      }
+    }
+
+    initPageData();
+  }, [todayStr]);
 
   // --- API HANDLERS ---
   async function handleAssignSubmit(e: React.FormEvent) {
@@ -260,7 +277,19 @@ export default function OicManagementTable() {
   });
 
   return (
-    <Card withBorder shadow="sm" radius="md" p="md">
+    <Card
+      withBorder
+      shadow="sm"
+      radius="md"
+      p="md"
+      pos="relative"
+    >
+      <LoadingOverlay
+        visible={initialLoading}
+        zIndex={100}
+        overlayProps={{ blur: 2 }}
+        loaderProps={{ size: "lg" }}
+      />
       <Stack gap="md">
         
         {/* Banner Alert Warning */}
@@ -294,21 +323,29 @@ export default function OicManagementTable() {
           />
         </Group>
 
-        <ScrollArea h={isOicActive ? "calc(100vh - 380px)" : "calc(100vh - 280px)"}>
-          <Table highlightOnHover striped withColumnBorders verticalSpacing="sm" stickyHeader horizontalSpacing="md" withTableBorder>
-            <Table.Thead>
-              <Table.Tr>
-                <Table.Th style={{ width: "15%" }}><SortableHeader sorted={sortField === "employee_id"} reversed={reverseSortDirection} onSort={() => setSorting("employee_id")}>Employee ID</SortableHeader></Table.Th>
-                <Table.Th style={{ width: "25%" }}><SortableHeader sorted={sortField === "fname"} reversed={reverseSortDirection} onSort={() => setSorting("fname")}>Full Name</SortableHeader></Table.Th>
-                <Table.Th style={{ width: "25%" }}><SortableHeader sorted={sortField === "email"} reversed={reverseSortDirection} onSort={() => setSorting("email")}>Email Address</SortableHeader></Table.Th>
-                <Table.Th style={{ width: "20%" }}><SortableHeader sorted={sortField === "oic_start"} reversed={reverseSortDirection} onSort={() => setSorting("oic_start")}>OIC Duration Status</SortableHeader></Table.Th>
-                <Table.Th style={{ width: "15%" }}>Actions</Table.Th>
-              </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>{rows.length > 0 ? rows : <Table.Tr><Table.Td colSpan={5} style={{ textAlign: "center" }}><Text c="dimmed" size="sm" my="md">Walang nahanap na staff sa departamentong ito.</Text></Table.Td></Table.Tr>}</Table.Tbody>
-          </Table>
-        </ScrollArea>
-      </Stack>
+          <div style={{ position: "relative" }}>
+          <LoadingOverlay
+              visible={tableLoading}
+              zIndex={10}
+              overlayProps={{ blur: 1 }}
+          />
+          <ScrollArea h={isOicActive ? "calc(100vh - 380px)" : "calc(100vh - 280px)"}>
+            <Table highlightOnHover striped withColumnBorders verticalSpacing="sm" stickyHeader horizontalSpacing="md" withTableBorder>
+              <Table.Thead>
+                <Table.Tr>
+                  <Table.Th style={{ width: "15%" }}><SortableHeader sorted={sortField === "employee_id"} reversed={reverseSortDirection} onSort={() => setSorting("employee_id")}>Employee ID</SortableHeader></Table.Th>
+                  <Table.Th style={{ width: "25%" }}><SortableHeader sorted={sortField === "fname"} reversed={reverseSortDirection} onSort={() => setSorting("fname")}>Full Name</SortableHeader></Table.Th>
+                  <Table.Th style={{ width: "25%" }}><SortableHeader sorted={sortField === "email"} reversed={reverseSortDirection} onSort={() => setSorting("email")}>Email Address</SortableHeader></Table.Th>
+                  <Table.Th style={{ width: "20%" }}><SortableHeader sorted={sortField === "oic_start"} reversed={reverseSortDirection} onSort={() => setSorting("oic_start")}>OIC Duration Status</SortableHeader></Table.Th>
+                  <Table.Th style={{ width: "15%" }}>Actions</Table.Th>
+                </Table.Tr>
+              </Table.Thead>
+              <Table.Tbody>{rows.length > 0 ? rows : <Table.Tr><Table.Td colSpan={5} style={{ textAlign: "center" }}><Text c="dimmed" size="sm" my="md">Walang nahanap na staff sa departamentong ito.</Text></Table.Td></Table.Tr>}</Table.Tbody>
+            </Table>
+          </ScrollArea>
+          </div>
+        </Stack>
+
 
       {/* --- MODAL ASSIGN --- */}
       <Modal opened={assignOpen} onClose={() => setAssignOpen(false)} title={<Text fw={700}>Assign {selectedUser?.fname} {selectedUser?.lname} as OIC </Text>} centered radius="md">

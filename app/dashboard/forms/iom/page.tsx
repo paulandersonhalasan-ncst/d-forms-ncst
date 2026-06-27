@@ -51,7 +51,8 @@ import {
   Paper,
   ActionIcon,
   ThemeIcon,
-  Stack
+  Stack,
+  LoadingOverlay
 } from '@mantine/core';
 
 export type Priority = 'ROUTINE' | 'URGENT' | 'RUSH';
@@ -154,6 +155,8 @@ export default function IOMDashboardPage() {
 
   const [activeTab, setActiveTab] = useState<string | null>(null);
 
+  const [pageLoading, setPageLoading] = useState(true);
+
   const form = useForm({
     initialValues: {
       subject: '',
@@ -172,51 +175,59 @@ export default function IOMDashboardPage() {
     },
   });
 
-  const fetchMemos = () => {
-    fetch('../../../api/memos')
-      .then((res) => res.json())
-      .then((data) => setMemos(data || []))
-      .catch((err) => console.error('Failed to load memos:', err))
-      .finally(() => setLoadingMemos(false));
+  const fetchMemos = async () => {
+    try {
+      const res = await fetch('../../../api/memos');
+      const data = await res.json();
+      setMemos(data || []);
+    } catch (err) {
+      console.error('Failed to load memos:', err);
+    }
   };
 
   useEffect(() => {
     const initializeDashboard = async () => {
-      try {
-        const authRes = await fetch('../../../api/auth/me');
-        const authData = await authRes.json();
+  try {
+    const authRes = await fetch('../../../api/auth/me');
+    const authData = await authRes.json();
 
-        let userDeptCode = '';
+    let userDeptCode = '';
 
-        if (authData.success) {
-          setCurrentUser(authData.data);
-          userDeptCode = authData.data.departmentCode;
+    if (authData.success) {
+      setCurrentUser(authData.data);
+      userDeptCode = authData.data.departmentCode;
+    }
 
-        }
+    const deptRes = await fetch('../../../api/department/get');
+    const deptData = await deptRes.json();
 
-        const deptRes = await fetch('../../../api/department/get');
-        const deptData = await deptRes.json();
-        if (deptData.success && Array.isArray(deptData.data)) {
-        const mappedDepts = deptData.data
-          .filter((dept: Department) => dept.code !== userDeptCode)
-          .map((dept: Department) => ({
-            value: dept.code,
-            label: dept.name
-              ? `${dept.code} - ${dept.name}`
-              : dept.code,
-          }));
+    if (deptData.success && Array.isArray(deptData.data)) {
+      const mappedDepts = deptData.data
+        .filter((dept: Department) => dept.code !== userDeptCode)
+        .map((dept: Department) => ({
+          value: dept.code,
+          label: dept.name
+            ? `${dept.code} - ${dept.name}`
+            : dept.code,
+        }));
 
-        setDepartments(mappedDepts);
-      }
-      } catch (err) {
-        console.error('Initialization error:', err);
-      } finally {
-        setLoadingDepts(false);
-      }
-    };
+      setDepartments(mappedDepts);
+    }
 
-    initializeDashboard();
-    fetchMemos();
+    setPageLoading(true);
+    await fetchMemos();
+    setPageLoading(false);
+
+  } catch (err) {
+    console.error(err);
+  } finally {
+    setLoadingDepts(false);
+    setLoadingMemos(false);
+    setPageLoading(false);
+  }
+};
+
+initializeDashboard();
   }, []);
 
   const isCurrentlyOIC = () => {
@@ -521,7 +532,9 @@ export default function IOMDashboardPage() {
 
         if (response.ok) {
           alert(isDepartmentHead || isAdminOrSuper ? 'Memo generated and dispatched to recipients!' : 'Draft memorandum passed to Department Head for approval!');
-          form.reset(); close(); closePassModal(); fetchMemos();
+          form.reset(); close(); closePassModal(); setPageLoading(true);
+          await fetchMemos();
+          setPageLoading(false);
         } else {
           const resData = await response.json(); 
           setPassError(resData.message || 'Incorrect credentials.');
@@ -554,7 +567,9 @@ export default function IOMDashboardPage() {
         if (response.ok) { 
           alert('State Transition Document Saved!'); 
           closePassModal(); 
-          fetchMemos(); 
+          setPageLoading(true);
+          await fetchMemos();
+          setPageLoading(false);
         } else { 
           const resData = await response.json();
           setPassError(resData.message || 'Security signature failed.'); 
@@ -940,7 +955,15 @@ export default function IOMDashboardPage() {
             };
 
   return (
-    <Container size="xl" py="lg">
+    <Container
+      size="xl"
+      py="lg"
+      pos="relative"
+    >
+      <LoadingOverlay
+        visible={pageLoading}
+        zIndex={1000} overlayProps={{ radius: "sm", blur: 2 }}
+      />
       <Card withBorder radius="lg" p="xl" shadow="sm">
         <Group justify="space-between" align="center" mb="xl">
           <Stack gap={2}>

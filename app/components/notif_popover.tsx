@@ -69,6 +69,7 @@ export default function NotificationPopover({
         shadow="md" 
         trapFocus={false} 
         offset={12}
+        zIndex={5000}   
       >
         <Popover.Target>
           <div onClick={() => setOpened((o) => !o)} style={{ width: '100%', cursor: 'pointer' }}>

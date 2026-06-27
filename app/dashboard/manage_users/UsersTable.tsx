@@ -14,7 +14,8 @@ import {
   Stack,
   PasswordInput,
   UnstyledButton,
-  Card
+  Card,
+  LoadingOverlay
 } from "@mantine/core";
 import { IconChevronDown, IconChevronUp, IconSearch, IconSelector } from "@tabler/icons-react";
 
@@ -99,6 +100,7 @@ export default function UsersTable() {
     departmentCode: "",
     branch: "MAIN",
   };
+  const [loading, setLoading] = useState(true);
 
   const [form, setForm] = useState(initialForm);
   useEffect(() => {
@@ -107,12 +109,19 @@ export default function UsersTable() {
   }, []);
 
   async function fetchAll() {
+    setLoading(true);
+
     try {
       const res = await fetch("../../../api/user/get");
       const json = await res.json();
-      if (json && json.success) setUsers(json.data || json.users || json.data);
+
+      if (json?.success) {
+        setUsers(json.data || json.users || []);
+      }
     } catch (e) {
       console.error(e);
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -341,7 +350,19 @@ export default function UsersTable() {
 
   return (
     <div>
-      <Card withBorder shadow="sm" radius="md" p="md">
+      <Card
+        withBorder
+        shadow="sm"
+        radius="md"
+        p="md"
+        pos="relative"
+      >
+        <LoadingOverlay
+          visible={loading}
+          zIndex={100}
+          overlayProps={{ blur: 2 }}
+          loaderProps={{ size: "lg" }}
+        />
       <Group style={{ justifyContent: "space-between", marginBottom: 16 }} justify="flex-end" mb="md">
           <Group>
             <Button onClick={() => { fetchDept(); setForm(initialForm); setAddOpen(true); }}>Add User</Button>
@@ -439,7 +460,19 @@ export default function UsersTable() {
                 <Table.Th>Actions</Table.Th>
                 </Table.Tr>
             </Table.Thead>
-            <Table.Tbody>{rows}</Table.Tbody>
+            <Table.Tbody>
+              {!loading && rows.length === 0 ? (
+                <Table.Tr>
+                  <Table.Td colSpan={10}>
+                    <Text ta="center" c="dimmed" py="lg">
+                      No users found.
+                    </Text>
+                  </Table.Td>
+                </Table.Tr>
+              ) : (
+                rows
+              )}
+            </Table.Tbody>
             </Table>
       </ScrollArea>
 
