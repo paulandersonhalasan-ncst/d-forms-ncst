@@ -14,10 +14,11 @@ import {
 } from "@tabler/icons-react";
 import { Code, Group, ScrollArea, Text, UnstyledButton, NavLink, useMantineColorScheme, Image, Switch, Badge } from "@mantine/core";
 
-import React, { useState, useEffect } from "react";
+import React, { useCallback, useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { TablerIcon } from "@tabler/icons-react";
 import NotificationPopover from "../components/notif_popover";
+import Clock from "./clock";
 
 
 interface SidebarProps {
@@ -87,82 +88,91 @@ const schoolMenuData: MenuItem[] = [
     }
 ];
 
+//pang notification
+interface MiniNotification {
+    id: string;
+    title: string;
+    message: string;
+    isRead: boolean;
+}
+
 export default function Sidebar({ role, email, fname, lname, oic_start, oic_end }: SidebarProps) {
-    const [currentTime, setCurrentTime] = useState<string>("Loading...");
     const [isCurrentlyOIC, setIsCurrentlyOIC] = useState<boolean>(false);
     const { colorScheme, setColorScheme } = useMantineColorScheme({ keepTransitions: true });
+
+    const [notifications, setNotifications] = useState<MiniNotification[]>([]);
+    const [unreadCount, setUnreadCount] = useState(0);
 
     const router = useRouter();
     const pathname = usePathname();
     const [hoverKey, setHoverKey] = useState<string | null>(null);
     const [mounted, setMounted] = useState(false);
 
-    const [unreadCount, setUnreadCount] = useState<number>(0);
+    // 🎯 FIX: Ginamitan ng useCallback para hindi mag-paikot ikot ang reference dependencies ng React
+    const fetchNotifications = useCallback(async () => {
+    try {
+        const res = await fetch("../api/notifications", {
+            cache: "no-store",
+            });
 
-    useEffect(() => {
-        const fetchUnreadCount = async () => {
-            try {
-                // Lalapit sa API endpoint natin para kunin ang pinakahuling bilang
-                const res = await fetch("../api/notifications");
-                if (res.ok) {
-                    const data = await res.json();
-                    setUnreadCount(data.count);
-                }
+            if (!res.ok) return;
+
+            const data = await res.json();
+
+            const unreadOnly = data.notifications.filter(
+                (n: MiniNotification) => !n.isRead
+            );
+
+            setNotifications(unreadOnly.slice(0, 5));
+            setUnreadCount(unreadOnly.length);
             } catch (err) {
-                console.error("Failed fetching notifications count:", err);
+                console.error(err);
             }
+        }, []);
+
+    // 🎯 FIX: Idineklara nang maayos si handleNotificationRead na ligtas tawagin kahit saan
+    const handleNotificationRead = useCallback(() => {
+        fetchNotifications();
+    }, [fetchNotifications]);
+
+    // 🎯 GLOBAL SYNC ENGINE: Nakikinig sa mga pagbabago nang walang cascading renders
+    useEffect(() => {
+        const load = () => {
+            fetchNotifications();
         };
 
-        // Tatakbo agad sa unang salpak ng Sidebar sa browser
-        fetchUnreadCount();
+        load();
 
-        // 🕒 REAL-TIME ENGINE: Mag-tsek tuwing 30 segundo para sa mga bagong IOM approval notifications
-        const countInterval = setInterval(fetchUnreadCount, 30000); 
+        window.addEventListener("notifications-updated", load);
 
-        // Linisin ang timer kapag nag-unmount o umalis sa page para iwas memory leak sa host
-        return () => clearInterval(countInterval);
-    }, [pathname]); // Magre-fetch din awtomatiko tuwing nagbabago ang URL path ng user
+        return () => {
+            window.removeEventListener("notifications-updated", load);
+        };
+    }, [fetchNotifications]);
 
     // 🎯 TIMEOUT/MOUNT ENGINE AT RUNTIME OIC CHECK INTERVAL
     useEffect(() => {
-    const id = window.setTimeout(() => setMounted(true), 0);
+        const id = window.setTimeout(() => setMounted(true), 0);
 
-    const updateTimeAndStatus = () => {
-        const options: Intl.DateTimeFormatOptions = {
-            timeZone: "Asia/Manila",
-            hour: "2-digit",
-            minute: "2-digit",
-            second: "2-digit",
-            hour12: true
-        };
-        
-        const timeString = new Date().toLocaleTimeString("en-US", options);
-        setCurrentTime(timeString);
+        const updateTimeAndStatus = () => {
+            if (oic_start && oic_end && oic_start !== "null" && oic_end !== "null") {
+                const ngayon = new Date();
+                const simula = new Date(oic_start);
+                simula.setHours(0, 0, 0, 0);
 
-        // 🎯 STAGE 1: Siguraduhing may valid na data talaga
-        if (oic_start && oic_end && oic_start !== "null" && oic_end !== "null") {
-            
-            // Kunin ang kasalukuyang petsa at oras sa Pilipinas
-            const ngayon = new Date();
+                const tapos = new Date(oic_end);
+                tapos.setHours(23, 59, 59, 999);
 
-            // I-parse ang simula at tapos na petsa (Tanggalin ang timezone bias sa pamamagitan ng pag-set ng oras)
-            const simula = new Date(oic_start);
-            simula.setHours(0, 0, 0, 0); // Unang segundo ng araw ng simula
+                const checkCondition = ngayon >= simula && ngayon <= tapos;
 
-            const tapos = new Date(oic_end);
-            tapos.setHours(23, 59, 59, 999); // Huling segundo ng araw ng pagtatapos
-
-            const checkCondition = ngayon >= simula && ngayon <= tapos;
-
-            setIsCurrentlyOIC(checkCondition);
-        } else {
-            // Kung walang oic_start o oic_end, siguradong hinde sya OIC
-            setIsCurrentlyOIC(false);
-        }
+                setIsCurrentlyOIC(prev => prev === checkCondition ? prev : checkCondition);
+            } else {
+                setIsCurrentlyOIC(false);
+            }
         };
 
         updateTimeAndStatus();
-        const timer = setInterval(updateTimeAndStatus, 1000);
+        const timer = setInterval(updateTimeAndStatus, 300000);
 
         return () => {
             window.clearTimeout(id);
@@ -170,27 +180,14 @@ export default function Sidebar({ role, email, fname, lname, oic_start, oic_end 
         };
     }, [oic_start, oic_end, email]);
 
-    // DYNAMIC COLORS BASE SA ROLE
-    // let sidebarBg = "";
-    // const textColor = "#242424";
-    // const hoverBg = "var(--mantine-color-customCreamYellow-5)"; //"rgba(0, 0, 0, 0.1)";
-    // const activeBg = "var(--mantine-color-customCreamYellow-6)";
-
-    // 🔄 Epektibong Role para sa Rendering at Permissions
-    // Kung ang DB role ay Staff pero aktibong OIC ngayon, ituring siyang "OIC"
     const effectiveRole = (role === "Staff" && isCurrentlyOIC) ? "OIC" : role;
 
-    // DYNAMIC COLORS BASE SA ROLE
     let sidebarBg = "";
-    
-    // 🎯 DITO NA YUNG LOGIC PARA SA TEXT COLOR
-    // Kung Staff, yung gray. Para sa lahat ng iba (OIC, DeptHead, Admin, SuperUser), white.
     const textColor = effectiveRole === "Staff" ? "#242424" : "#ffffff"; 
 
     const hoverBg = "rgba(0, 0, 0, 0.1)";
     const activeBg = "rgba(0, 0, 0, 0.2)";
 
-    // Palitan ang 'role' ng 'effectiveRole' dito para mag-iba ang kulay ng bar kung OIC siya
     switch (effectiveRole) {
         case "SuperUser":
             sidebarBg = "var(--mantine-color-dark-8)";
@@ -224,7 +221,6 @@ export default function Sidebar({ role, email, fname, lname, oic_start, oic_end 
     };
 
     return (
-        
         <nav style={{
             width: 260,
             height: "100vh",
@@ -245,12 +241,10 @@ export default function Sidebar({ role, email, fname, lname, oic_start, oic_end 
                         <Image src="/favicon.ico" alt="NCST logo" style={{ width: 24, height: 24, borderRadius: 4 }} />
                         <Text fw={800} size="xl">NCST E-FORMS</Text>
                     </Group>
-                    <Code fw={700} style={{ 
-                        background: effectiveRole === "Staff" ? "rgba(0,0,0,0.1)" : "rgba(255,255,255,0.15)",
-                        color: textColor 
-                    }}>
-                        {currentTime}
-                    </Code>
+                    <Clock
+                        background={effectiveRole === "Staff" ? "rgba(0,0,0,0.1)" : "rgba(255,255,255,0.15)"}
+                        color={textColor}
+                    />
                 </Group>
 
                 <Group justify="space-between" align="center" mt="xs">
@@ -258,12 +252,11 @@ export default function Sidebar({ role, email, fname, lname, oic_start, oic_end 
                         ROLE: {role.toUpperCase()}
                     </Text>
 
-                    {/* ANG GRAPHICAL INDICATOR / TAG */}
                     {isCurrentlyOIC && (
                         <Code 
                             fw={800} 
                             style={{ 
-                                background: "#2f9e44", // Magandang Berde (Success Color)
+                                background: "#2f9e44", 
                                 color: "#ffffff", 
                                 fontSize: "10px", 
                                 padding: "2px 6px",
@@ -281,13 +274,11 @@ export default function Sidebar({ role, email, fname, lname, oic_start, oic_end 
             <ScrollArea style={{ flex: 1, padding: "16px 0" }}>
                 <div style={{ paddingLeft: 12, paddingRight: 12 }}>
                     {schoolMenuData
-                        // 🛡️ HAKBANG A: I-filter ang mga MAIN MENU items base sa epektibong role ng user
                         .filter((item) => {
-                            if (!item.allowedRoles) return true; // Kung walang limitasyon, ipakita sa lahat
-                            return item.allowedRoles.includes(effectiveRole); // Ipakita lang kung kasama ang role ng user
+                            if (!item.allowedRoles) return true;
+                            return item.allowedRoles.includes(effectiveRole);
                         })
                         .map((item) => {
-                            // DYNAMIC ACTIVE DETECTION
                             let isMainActive = false;
                             if (item.label === "Dashboard") {
                                 if (pathname && pathname !== "/") {
@@ -327,8 +318,12 @@ export default function Sidebar({ role, email, fname, lname, oic_start, oic_end 
 
                             return (
                                 item.isPopover ? (
-                                    /* 🔔 SPECIAL ROW: I-wrap natin sa Popover Target */
-                                    <NotificationPopover key={item.label} unreadCount={unreadCount}>
+                                    <NotificationPopover
+                                        key={item.label}
+                                        unreadCount={unreadCount}
+                                        notifications={notifications}
+                                        onNotificationRead={handleNotificationRead}
+                                    >
                                         <NavLink
                                             label={item.label}
                                             leftSection={<item.icon size={18} stroke={1.5} color={textColor} />}
@@ -351,7 +346,6 @@ export default function Sidebar({ role, email, fname, lname, oic_start, oic_end 
                                         />
                                     </NotificationPopover>
                                 ) : (
-                                    /* 🌐 STANDARD ROW: Ito yung dating orihinal na NavLink mo, walang ginalaw */
                                     <NavLink
                                         key={item.label}
                                         label={item.label}
@@ -411,7 +405,7 @@ export default function Sidebar({ role, email, fname, lname, oic_start, oic_end 
                     style={{
                         display: "flex",
                         alignItems: "center",
-                        justifyContent: "space-between", // 🎯 Itutulak nito ang Switch sa dulong kanan
+                        justifyContent: "space-between",
                         padding: "8px 12px",
                         borderRadius: 6,
                         background: "rgba(0, 0, 0, 0.2)",
@@ -421,7 +415,6 @@ export default function Sidebar({ role, email, fname, lname, oic_start, oic_end 
                     onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "rgba(0, 0, 0, 0.1)"}
                     onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "rgba(0, 0, 0, 0.2)"}
                 >
-                    {/* LEFT SIDE: Icon at Text */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         {mounted ? (
                             colorScheme === 'dark' ? (
@@ -437,13 +430,12 @@ export default function Sidebar({ role, email, fname, lname, oic_start, oic_end 
                         </span>
                     </div>
 
-                    {/* RIGHT SIDE: Ang Mantine Switch */}
                     <Switch
                         checked={mounted ? colorScheme === 'dark' : false}
                         onChange={() => setColorScheme(colorScheme === 'dark' ? 'light' : 'dark')}
                         size="sm"
                         color="violet"
-                        style={{ pointerEvents: 'none' }} // 🎯 Pinipigilan ang double-click bug dahil buong row ay clickable na
+                        style={{ pointerEvents: 'none' }}
                     />
                 </UnstyledButton>
 
@@ -454,19 +446,16 @@ export default function Sidebar({ role, email, fname, lname, oic_start, oic_end 
                         alignItems: "center",
                         padding: "8px 12px",
                         borderRadius: 6,
-                        // 🎯 FIX: Ginawa nating parehas ang default background dito at sa onMouseLeave
                         backgroundColor: "var(--mantine-color-red-5)", 
-                        color: "var(--mantine-color-red-9)", // Propesyonal na madilim na pula para sa text/icon
+                        color: "var(--mantine-color-red-9)",
                         fontSize: "14px",
                         fontWeight: 600,
-                        transition: "background-color 0.15s ease", // Para swabe ang pagpula sa hover
-                        width: "100%" // Opsyonal: para sakop ang buong sidebar width kung kailangan
+                        transition: "background-color 0.15s ease",
+                        width: "100%"
                     }}
-                    // 🎯 FIX: Kapag tinapat ang mouse, magiging mas matingkad na pink/red background
                     onMouseEnter={(e) => {
                         e.currentTarget.style.backgroundColor = "var(--mantine-color-red-4)";
                     }}
-                    // 🎯 FIX: Kapag inalis ang mouse, babalik nang swabe sa default light red/pink base tint
                     onMouseLeave={(e) => {
                         e.currentTarget.style.backgroundColor = "var(--mantine-color-red-5)";
                     }}

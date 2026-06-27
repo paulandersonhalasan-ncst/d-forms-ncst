@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { Container, Text, Tabs, Card, Group, Avatar, Stack, Badge, Indicator, Button } from '@mantine/core';
+import { Container, Text, Tabs, Card, Group, Avatar, Stack, Badge, Indicator, Button, Box, LoadingOverlay } from '@mantine/core';
 import { IconBell, IconMailOpened, IconFileText, IconAlertTriangle, IconCheck, IconTrash } from '@tabler/icons-react';
 import { useRouter } from 'next/navigation';
 
@@ -19,18 +19,28 @@ export default function NotificationPage() {
   const router = useRouter();
   const [notifications, setNotifications] = useState<NotificationType[]>([]);
 
+  //loading state
+  const [loading, setLoading] = useState(true);
+
   useEffect(() => {
     let isMounted = true;
 
     async function loadData() {
+      setLoading(true);
+
       try {
         const res = await fetch('../../api/notifications');
+
         if (res.ok && isMounted) {
           const data = await res.json();
-          setNotifications(data);
+          setNotifications(data.notifications);
         }
       } catch (err) {
         console.error("Error loading notifications:", err);
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     }
 
@@ -43,6 +53,7 @@ export default function NotificationPage() {
 
   const handleNotifClick = async (id: string, messageText: string, currentIsRead: boolean) => {
     try {
+      setLoading(true);
       if (!currentIsRead) {
         setNotifications((prev) => 
           prev.map((n) => n.id === id ? { ...n, isRead: true } : n)
@@ -50,9 +61,15 @@ export default function NotificationPage() {
 
         await fetch('../../api/notifications', {
           method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ notificationId: id })
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            notificationId: id
+          })
         });
+
+        window.dispatchEvent(new Event("notifications-updated"));
       }
 
       const refMatch = messageText.match(/(?:DRAFT-)?[A-Z]+-\d{4}-\d+(?:-\d+)?/);
@@ -61,20 +78,35 @@ export default function NotificationPage() {
       }
     } catch (err) {
       console.error(err);
+    } finally {
+        setLoading(false);
+
     }
   };
 
   const handleMarkAll = async () => {
     try {
-      setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
-      
-      await fetch('../../api/notifications', {
+      setLoading(true);
+
+      setNotifications((prev) =>
+        prev.map((n) => ({ ...n, isRead: true }))
+      );
+
+      const res = await fetch('../../api/notifications', {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ markAll: true }) 
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          markAll: true,
+        }),
       });
-    } catch (err) {
-      console.error(err);
+
+      if (res.ok) {
+        window.dispatchEvent(new Event("notifications-updated"));
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -84,6 +116,7 @@ export default function NotificationPage() {
     if (!confirmClear) return;
 
     try {
+      setLoading(true);
       // 1. Instant UI update para ramdam agad ng user ang bilis
       setNotifications([]);
 
@@ -92,13 +125,27 @@ export default function NotificationPage() {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' }
       });
+
+      window.dispatchEvent(new Event("notifications-updated"));
     } catch (err) {
       console.error("Failed to clear notifications:", err);
+    } finally {
+      setLoading(false);
     }
   };
 
-  return (
-    <Container size="md" py="xl">
+    return (
+    <Box pos="relative">
+      <LoadingOverlay
+        visible={loading}
+        zIndex={1000}
+        overlayProps={{
+          blur: 2,
+          radius: "sm",
+        }}
+      />
+
+      <Container size="md" py="xl">
       <Group justify="space-between" mb="lg">
         <Stack gap={2}>
           <Text size="xl" fw={700}>Notification Center</Text>
@@ -262,5 +309,6 @@ export default function NotificationPage() {
         </Tabs.Panel>
       </Tabs>
     </Container>
+    </Box>
   );
 }

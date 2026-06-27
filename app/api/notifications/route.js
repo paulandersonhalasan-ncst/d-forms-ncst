@@ -39,7 +39,15 @@ export async function GET(request) {
       orderBy: { createdAt: 'desc' },
     });
 
-    return NextResponse.json(notifications, { status: 200 });
+      const unreadCount = notifications.filter((n) => !n.isRead).length;
+
+  return NextResponse.json(
+    {
+      notifications,
+      count: unreadCount,
+    },
+    { status: 200 }
+  );
   } catch (error) {
     return NextResponse.json({ success: false, message: error.message }, { status: 500 });
   }
@@ -56,19 +64,40 @@ export async function PATCH(request) {
     }
 
     const body = await request.json();
-    const { notificationId } = body;
+    const { notificationId, markAll } = body;
 
-    if (!notificationId) {
-      return NextResponse.json({ success: false, message: "Notification ID is required" }, { status: 400 });
+    // MARK ALL
+    if (markAll) {
+      await prisma.notification.updateMany({
+        where: {
+          recipientId: userId,
+          isRead: false,
+        },
+        data: {
+          isRead: true,
+        },
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: "All notifications marked as read",
+      });
     }
 
-    // 🚨 SECURITY CHECK: Siguraduhin na ang nag-ma-mark as read ay ang may-ari ng notif (recipientId == userId)
-    // Pangontra ito para hindi pwedeng pakialaman ng ibang user ang alert ng iba sa API level.
+    // SINGLE NOTIFICATION
+    if (!notificationId) {
+      return NextResponse.json(
+        { success: false, message: "Notification ID is required" },
+        { status: 400 }
+      );
+    }
+
+    // 🎯 FIX: Kailangan muna nating hanapin si targetNotif sa database!
     const targetNotif = await prisma.notification.findFirst({
       where: {
         id: notificationId,
-        recipientId: userId
-      }
+        recipientId: userId, // Siguraduhing kanya talaga ito
+      },
     });
 
     if (!targetNotif) {
