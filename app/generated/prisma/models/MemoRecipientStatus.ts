@@ -29,13 +29,33 @@ export type MemoRecipientStatusMinAggregateOutputType = {
   memoId: string | null
   departmentName: string | null
   status: $Enums.Status | null
-  acknowledgedBy: string | null
-  processedBy: string | null
-  processedAt: Date | null
-  deniedBy: string | null
-  deniedAt: Date | null
-  feedbackNote: string | null
+  acknowledgedById: string | null
+  acknowledgedByName: string | null
   acknowledgedAt: Date | null
+  processedAt: Date | null
+  completedById: string | null
+  completedByName: string | null
+  completedAt: Date | null
+  feedbackNote: string | null
+  senderConfirmationNote: string | null
+  recipientConfirmationNote: string | null
+  processedById: string | null
+  processedByName: string | null
+  deniedById: string | null
+  deniedByName: string | null
+  deniedAt: Date | null
+  senderConfirmedById: string | null
+  senderConfirmedByName: string | null
+  senderConfirmedAt: Date | null
+  recipientConfirmedById: string | null
+  recipientConfirmedByName: string | null
+  recipientConfirmedAt: Date | null
+  closedById: string | null
+  closedByName: string | null
+  closedAt: Date | null
+  updatedAt: Date | null
+  lastActivityAt: Date | null
+  isSenderClosing: boolean | null
   respondedAt: Date | null
 }
 
@@ -44,13 +64,33 @@ export type MemoRecipientStatusMaxAggregateOutputType = {
   memoId: string | null
   departmentName: string | null
   status: $Enums.Status | null
-  acknowledgedBy: string | null
-  processedBy: string | null
-  processedAt: Date | null
-  deniedBy: string | null
-  deniedAt: Date | null
-  feedbackNote: string | null
+  acknowledgedById: string | null
+  acknowledgedByName: string | null
   acknowledgedAt: Date | null
+  processedAt: Date | null
+  completedById: string | null
+  completedByName: string | null
+  completedAt: Date | null
+  feedbackNote: string | null
+  senderConfirmationNote: string | null
+  recipientConfirmationNote: string | null
+  processedById: string | null
+  processedByName: string | null
+  deniedById: string | null
+  deniedByName: string | null
+  deniedAt: Date | null
+  senderConfirmedById: string | null
+  senderConfirmedByName: string | null
+  senderConfirmedAt: Date | null
+  recipientConfirmedById: string | null
+  recipientConfirmedByName: string | null
+  recipientConfirmedAt: Date | null
+  closedById: string | null
+  closedByName: string | null
+  closedAt: Date | null
+  updatedAt: Date | null
+  lastActivityAt: Date | null
+  isSenderClosing: boolean | null
   respondedAt: Date | null
 }
 
@@ -59,13 +99,34 @@ export type MemoRecipientStatusCountAggregateOutputType = {
   memoId: number
   departmentName: number
   status: number
-  acknowledgedBy: number
-  processedBy: number
-  processedAt: number
-  deniedBy: number
-  deniedAt: number
-  feedbackNote: number
+  acknowledgedById: number
+  acknowledgedByName: number
   acknowledgedAt: number
+  processedAt: number
+  completedById: number
+  completedByName: number
+  completedAt: number
+  feedbackNote: number
+  senderConfirmationNote: number
+  recipientConfirmationNote: number
+  processedById: number
+  processedByName: number
+  deniedById: number
+  deniedByName: number
+  deniedAt: number
+  senderConfirmedById: number
+  senderConfirmedByName: number
+  senderConfirmedAt: number
+  recipientConfirmedById: number
+  recipientConfirmedByName: number
+  recipientConfirmedAt: number
+  closedById: number
+  closedByName: number
+  closedAt: number
+  updatedAt: number
+  lastActivityAt: number
+  isSenderClosing: number
+  attachmentPaths: number
   respondedAt: number
   _all: number
 }
@@ -76,13 +137,33 @@ export type MemoRecipientStatusMinAggregateInputType = {
   memoId?: true
   departmentName?: true
   status?: true
-  acknowledgedBy?: true
-  processedBy?: true
-  processedAt?: true
-  deniedBy?: true
-  deniedAt?: true
-  feedbackNote?: true
+  acknowledgedById?: true
+  acknowledgedByName?: true
   acknowledgedAt?: true
+  processedAt?: true
+  completedById?: true
+  completedByName?: true
+  completedAt?: true
+  feedbackNote?: true
+  senderConfirmationNote?: true
+  recipientConfirmationNote?: true
+  processedById?: true
+  processedByName?: true
+  deniedById?: true
+  deniedByName?: true
+  deniedAt?: true
+  senderConfirmedById?: true
+  senderConfirmedByName?: true
+  senderConfirmedAt?: true
+  recipientConfirmedById?: true
+  recipientConfirmedByName?: true
+  recipientConfirmedAt?: true
+  closedById?: true
+  closedByName?: true
+  closedAt?: true
+  updatedAt?: true
+  lastActivityAt?: true
+  isSenderClosing?: true
   respondedAt?: true
 }
 
@@ -91,13 +172,33 @@ export type MemoRecipientStatusMaxAggregateInputType = {
   memoId?: true
   departmentName?: true
   status?: true
-  acknowledgedBy?: true
-  processedBy?: true
-  processedAt?: true
-  deniedBy?: true
-  deniedAt?: true
-  feedbackNote?: true
+  acknowledgedById?: true
+  acknowledgedByName?: true
   acknowledgedAt?: true
+  processedAt?: true
+  completedById?: true
+  completedByName?: true
+  completedAt?: true
+  feedbackNote?: true
+  senderConfirmationNote?: true
+  recipientConfirmationNote?: true
+  processedById?: true
+  processedByName?: true
+  deniedById?: true
+  deniedByName?: true
+  deniedAt?: true
+  senderConfirmedById?: true
+  senderConfirmedByName?: true
+  senderConfirmedAt?: true
+  recipientConfirmedById?: true
+  recipientConfirmedByName?: true
+  recipientConfirmedAt?: true
+  closedById?: true
+  closedByName?: true
+  closedAt?: true
+  updatedAt?: true
+  lastActivityAt?: true
+  isSenderClosing?: true
   respondedAt?: true
 }
 
@@ -106,13 +207,34 @@ export type MemoRecipientStatusCountAggregateInputType = {
   memoId?: true
   departmentName?: true
   status?: true
-  acknowledgedBy?: true
-  processedBy?: true
-  processedAt?: true
-  deniedBy?: true
-  deniedAt?: true
-  feedbackNote?: true
+  acknowledgedById?: true
+  acknowledgedByName?: true
   acknowledgedAt?: true
+  processedAt?: true
+  completedById?: true
+  completedByName?: true
+  completedAt?: true
+  feedbackNote?: true
+  senderConfirmationNote?: true
+  recipientConfirmationNote?: true
+  processedById?: true
+  processedByName?: true
+  deniedById?: true
+  deniedByName?: true
+  deniedAt?: true
+  senderConfirmedById?: true
+  senderConfirmedByName?: true
+  senderConfirmedAt?: true
+  recipientConfirmedById?: true
+  recipientConfirmedByName?: true
+  recipientConfirmedAt?: true
+  closedById?: true
+  closedByName?: true
+  closedAt?: true
+  updatedAt?: true
+  lastActivityAt?: true
+  isSenderClosing?: true
+  attachmentPaths?: true
   respondedAt?: true
   _all?: true
 }
@@ -194,13 +316,34 @@ export type MemoRecipientStatusGroupByOutputType = {
   memoId: string
   departmentName: string
   status: $Enums.Status
-  acknowledgedBy: string | null
-  processedBy: string | null
-  processedAt: Date | null
-  deniedBy: string | null
-  deniedAt: Date | null
-  feedbackNote: string | null
+  acknowledgedById: string | null
+  acknowledgedByName: string | null
   acknowledgedAt: Date | null
+  processedAt: Date | null
+  completedById: string | null
+  completedByName: string | null
+  completedAt: Date | null
+  feedbackNote: string | null
+  senderConfirmationNote: string | null
+  recipientConfirmationNote: string | null
+  processedById: string | null
+  processedByName: string | null
+  deniedById: string | null
+  deniedByName: string | null
+  deniedAt: Date | null
+  senderConfirmedById: string | null
+  senderConfirmedByName: string | null
+  senderConfirmedAt: Date | null
+  recipientConfirmedById: string | null
+  recipientConfirmedByName: string | null
+  recipientConfirmedAt: Date | null
+  closedById: string | null
+  closedByName: string | null
+  closedAt: Date | null
+  updatedAt: Date
+  lastActivityAt: Date
+  isSenderClosing: boolean
+  attachmentPaths: string[]
   respondedAt: Date | null
   _count: MemoRecipientStatusCountAggregateOutputType | null
   _min: MemoRecipientStatusMinAggregateOutputType | null
@@ -230,13 +373,34 @@ export type MemoRecipientStatusWhereInput = {
   memoId?: Prisma.StringFilter<"MemoRecipientStatus"> | string
   departmentName?: Prisma.StringFilter<"MemoRecipientStatus"> | string
   status?: Prisma.EnumStatusFilter<"MemoRecipientStatus"> | $Enums.Status
-  acknowledgedBy?: Prisma.StringNullableFilter<"MemoRecipientStatus"> | string | null
-  processedBy?: Prisma.StringNullableFilter<"MemoRecipientStatus"> | string | null
-  processedAt?: Prisma.DateTimeNullableFilter<"MemoRecipientStatus"> | Date | string | null
-  deniedBy?: Prisma.StringNullableFilter<"MemoRecipientStatus"> | string | null
-  deniedAt?: Prisma.DateTimeNullableFilter<"MemoRecipientStatus"> | Date | string | null
-  feedbackNote?: Prisma.StringNullableFilter<"MemoRecipientStatus"> | string | null
+  acknowledgedById?: Prisma.StringNullableFilter<"MemoRecipientStatus"> | string | null
+  acknowledgedByName?: Prisma.StringNullableFilter<"MemoRecipientStatus"> | string | null
   acknowledgedAt?: Prisma.DateTimeNullableFilter<"MemoRecipientStatus"> | Date | string | null
+  processedAt?: Prisma.DateTimeNullableFilter<"MemoRecipientStatus"> | Date | string | null
+  completedById?: Prisma.StringNullableFilter<"MemoRecipientStatus"> | string | null
+  completedByName?: Prisma.StringNullableFilter<"MemoRecipientStatus"> | string | null
+  completedAt?: Prisma.DateTimeNullableFilter<"MemoRecipientStatus"> | Date | string | null
+  feedbackNote?: Prisma.StringNullableFilter<"MemoRecipientStatus"> | string | null
+  senderConfirmationNote?: Prisma.StringNullableFilter<"MemoRecipientStatus"> | string | null
+  recipientConfirmationNote?: Prisma.StringNullableFilter<"MemoRecipientStatus"> | string | null
+  processedById?: Prisma.StringNullableFilter<"MemoRecipientStatus"> | string | null
+  processedByName?: Prisma.StringNullableFilter<"MemoRecipientStatus"> | string | null
+  deniedById?: Prisma.StringNullableFilter<"MemoRecipientStatus"> | string | null
+  deniedByName?: Prisma.StringNullableFilter<"MemoRecipientStatus"> | string | null
+  deniedAt?: Prisma.DateTimeNullableFilter<"MemoRecipientStatus"> | Date | string | null
+  senderConfirmedById?: Prisma.StringNullableFilter<"MemoRecipientStatus"> | string | null
+  senderConfirmedByName?: Prisma.StringNullableFilter<"MemoRecipientStatus"> | string | null
+  senderConfirmedAt?: Prisma.DateTimeNullableFilter<"MemoRecipientStatus"> | Date | string | null
+  recipientConfirmedById?: Prisma.StringNullableFilter<"MemoRecipientStatus"> | string | null
+  recipientConfirmedByName?: Prisma.StringNullableFilter<"MemoRecipientStatus"> | string | null
+  recipientConfirmedAt?: Prisma.DateTimeNullableFilter<"MemoRecipientStatus"> | Date | string | null
+  closedById?: Prisma.StringNullableFilter<"MemoRecipientStatus"> | string | null
+  closedByName?: Prisma.StringNullableFilter<"MemoRecipientStatus"> | string | null
+  closedAt?: Prisma.DateTimeNullableFilter<"MemoRecipientStatus"> | Date | string | null
+  updatedAt?: Prisma.DateTimeFilter<"MemoRecipientStatus"> | Date | string
+  lastActivityAt?: Prisma.DateTimeFilter<"MemoRecipientStatus"> | Date | string
+  isSenderClosing?: Prisma.BoolFilter<"MemoRecipientStatus"> | boolean
+  attachmentPaths?: Prisma.StringNullableListFilter<"MemoRecipientStatus">
   respondedAt?: Prisma.DateTimeNullableFilter<"MemoRecipientStatus"> | Date | string | null
   memo?: Prisma.XOR<Prisma.MemoScalarRelationFilter, Prisma.MemoWhereInput>
 }
@@ -246,48 +410,112 @@ export type MemoRecipientStatusOrderByWithRelationInput = {
   memoId?: Prisma.SortOrder
   departmentName?: Prisma.SortOrder
   status?: Prisma.SortOrder
-  acknowledgedBy?: Prisma.SortOrderInput | Prisma.SortOrder
-  processedBy?: Prisma.SortOrderInput | Prisma.SortOrder
-  processedAt?: Prisma.SortOrderInput | Prisma.SortOrder
-  deniedBy?: Prisma.SortOrderInput | Prisma.SortOrder
-  deniedAt?: Prisma.SortOrderInput | Prisma.SortOrder
-  feedbackNote?: Prisma.SortOrderInput | Prisma.SortOrder
+  acknowledgedById?: Prisma.SortOrderInput | Prisma.SortOrder
+  acknowledgedByName?: Prisma.SortOrderInput | Prisma.SortOrder
   acknowledgedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  processedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  completedById?: Prisma.SortOrderInput | Prisma.SortOrder
+  completedByName?: Prisma.SortOrderInput | Prisma.SortOrder
+  completedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  feedbackNote?: Prisma.SortOrderInput | Prisma.SortOrder
+  senderConfirmationNote?: Prisma.SortOrderInput | Prisma.SortOrder
+  recipientConfirmationNote?: Prisma.SortOrderInput | Prisma.SortOrder
+  processedById?: Prisma.SortOrderInput | Prisma.SortOrder
+  processedByName?: Prisma.SortOrderInput | Prisma.SortOrder
+  deniedById?: Prisma.SortOrderInput | Prisma.SortOrder
+  deniedByName?: Prisma.SortOrderInput | Prisma.SortOrder
+  deniedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  senderConfirmedById?: Prisma.SortOrderInput | Prisma.SortOrder
+  senderConfirmedByName?: Prisma.SortOrderInput | Prisma.SortOrder
+  senderConfirmedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  recipientConfirmedById?: Prisma.SortOrderInput | Prisma.SortOrder
+  recipientConfirmedByName?: Prisma.SortOrderInput | Prisma.SortOrder
+  recipientConfirmedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  closedById?: Prisma.SortOrderInput | Prisma.SortOrder
+  closedByName?: Prisma.SortOrderInput | Prisma.SortOrder
+  closedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  updatedAt?: Prisma.SortOrder
+  lastActivityAt?: Prisma.SortOrder
+  isSenderClosing?: Prisma.SortOrder
+  attachmentPaths?: Prisma.SortOrder
   respondedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   memo?: Prisma.MemoOrderByWithRelationInput
 }
 
 export type MemoRecipientStatusWhereUniqueInput = Prisma.AtLeast<{
   id?: string
+  memoId_departmentName?: Prisma.MemoRecipientStatusMemoIdDepartmentNameCompoundUniqueInput
   AND?: Prisma.MemoRecipientStatusWhereInput | Prisma.MemoRecipientStatusWhereInput[]
   OR?: Prisma.MemoRecipientStatusWhereInput[]
   NOT?: Prisma.MemoRecipientStatusWhereInput | Prisma.MemoRecipientStatusWhereInput[]
   memoId?: Prisma.StringFilter<"MemoRecipientStatus"> | string
   departmentName?: Prisma.StringFilter<"MemoRecipientStatus"> | string
   status?: Prisma.EnumStatusFilter<"MemoRecipientStatus"> | $Enums.Status
-  acknowledgedBy?: Prisma.StringNullableFilter<"MemoRecipientStatus"> | string | null
-  processedBy?: Prisma.StringNullableFilter<"MemoRecipientStatus"> | string | null
-  processedAt?: Prisma.DateTimeNullableFilter<"MemoRecipientStatus"> | Date | string | null
-  deniedBy?: Prisma.StringNullableFilter<"MemoRecipientStatus"> | string | null
-  deniedAt?: Prisma.DateTimeNullableFilter<"MemoRecipientStatus"> | Date | string | null
-  feedbackNote?: Prisma.StringNullableFilter<"MemoRecipientStatus"> | string | null
+  acknowledgedById?: Prisma.StringNullableFilter<"MemoRecipientStatus"> | string | null
+  acknowledgedByName?: Prisma.StringNullableFilter<"MemoRecipientStatus"> | string | null
   acknowledgedAt?: Prisma.DateTimeNullableFilter<"MemoRecipientStatus"> | Date | string | null
+  processedAt?: Prisma.DateTimeNullableFilter<"MemoRecipientStatus"> | Date | string | null
+  completedById?: Prisma.StringNullableFilter<"MemoRecipientStatus"> | string | null
+  completedByName?: Prisma.StringNullableFilter<"MemoRecipientStatus"> | string | null
+  completedAt?: Prisma.DateTimeNullableFilter<"MemoRecipientStatus"> | Date | string | null
+  feedbackNote?: Prisma.StringNullableFilter<"MemoRecipientStatus"> | string | null
+  senderConfirmationNote?: Prisma.StringNullableFilter<"MemoRecipientStatus"> | string | null
+  recipientConfirmationNote?: Prisma.StringNullableFilter<"MemoRecipientStatus"> | string | null
+  processedById?: Prisma.StringNullableFilter<"MemoRecipientStatus"> | string | null
+  processedByName?: Prisma.StringNullableFilter<"MemoRecipientStatus"> | string | null
+  deniedById?: Prisma.StringNullableFilter<"MemoRecipientStatus"> | string | null
+  deniedByName?: Prisma.StringNullableFilter<"MemoRecipientStatus"> | string | null
+  deniedAt?: Prisma.DateTimeNullableFilter<"MemoRecipientStatus"> | Date | string | null
+  senderConfirmedById?: Prisma.StringNullableFilter<"MemoRecipientStatus"> | string | null
+  senderConfirmedByName?: Prisma.StringNullableFilter<"MemoRecipientStatus"> | string | null
+  senderConfirmedAt?: Prisma.DateTimeNullableFilter<"MemoRecipientStatus"> | Date | string | null
+  recipientConfirmedById?: Prisma.StringNullableFilter<"MemoRecipientStatus"> | string | null
+  recipientConfirmedByName?: Prisma.StringNullableFilter<"MemoRecipientStatus"> | string | null
+  recipientConfirmedAt?: Prisma.DateTimeNullableFilter<"MemoRecipientStatus"> | Date | string | null
+  closedById?: Prisma.StringNullableFilter<"MemoRecipientStatus"> | string | null
+  closedByName?: Prisma.StringNullableFilter<"MemoRecipientStatus"> | string | null
+  closedAt?: Prisma.DateTimeNullableFilter<"MemoRecipientStatus"> | Date | string | null
+  updatedAt?: Prisma.DateTimeFilter<"MemoRecipientStatus"> | Date | string
+  lastActivityAt?: Prisma.DateTimeFilter<"MemoRecipientStatus"> | Date | string
+  isSenderClosing?: Prisma.BoolFilter<"MemoRecipientStatus"> | boolean
+  attachmentPaths?: Prisma.StringNullableListFilter<"MemoRecipientStatus">
   respondedAt?: Prisma.DateTimeNullableFilter<"MemoRecipientStatus"> | Date | string | null
   memo?: Prisma.XOR<Prisma.MemoScalarRelationFilter, Prisma.MemoWhereInput>
-}, "id">
+}, "id" | "memoId_departmentName">
 
 export type MemoRecipientStatusOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
   memoId?: Prisma.SortOrder
   departmentName?: Prisma.SortOrder
   status?: Prisma.SortOrder
-  acknowledgedBy?: Prisma.SortOrderInput | Prisma.SortOrder
-  processedBy?: Prisma.SortOrderInput | Prisma.SortOrder
-  processedAt?: Prisma.SortOrderInput | Prisma.SortOrder
-  deniedBy?: Prisma.SortOrderInput | Prisma.SortOrder
-  deniedAt?: Prisma.SortOrderInput | Prisma.SortOrder
-  feedbackNote?: Prisma.SortOrderInput | Prisma.SortOrder
+  acknowledgedById?: Prisma.SortOrderInput | Prisma.SortOrder
+  acknowledgedByName?: Prisma.SortOrderInput | Prisma.SortOrder
   acknowledgedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  processedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  completedById?: Prisma.SortOrderInput | Prisma.SortOrder
+  completedByName?: Prisma.SortOrderInput | Prisma.SortOrder
+  completedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  feedbackNote?: Prisma.SortOrderInput | Prisma.SortOrder
+  senderConfirmationNote?: Prisma.SortOrderInput | Prisma.SortOrder
+  recipientConfirmationNote?: Prisma.SortOrderInput | Prisma.SortOrder
+  processedById?: Prisma.SortOrderInput | Prisma.SortOrder
+  processedByName?: Prisma.SortOrderInput | Prisma.SortOrder
+  deniedById?: Prisma.SortOrderInput | Prisma.SortOrder
+  deniedByName?: Prisma.SortOrderInput | Prisma.SortOrder
+  deniedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  senderConfirmedById?: Prisma.SortOrderInput | Prisma.SortOrder
+  senderConfirmedByName?: Prisma.SortOrderInput | Prisma.SortOrder
+  senderConfirmedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  recipientConfirmedById?: Prisma.SortOrderInput | Prisma.SortOrder
+  recipientConfirmedByName?: Prisma.SortOrderInput | Prisma.SortOrder
+  recipientConfirmedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  closedById?: Prisma.SortOrderInput | Prisma.SortOrder
+  closedByName?: Prisma.SortOrderInput | Prisma.SortOrder
+  closedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  updatedAt?: Prisma.SortOrder
+  lastActivityAt?: Prisma.SortOrder
+  isSenderClosing?: Prisma.SortOrder
+  attachmentPaths?: Prisma.SortOrder
   respondedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   _count?: Prisma.MemoRecipientStatusCountOrderByAggregateInput
   _max?: Prisma.MemoRecipientStatusMaxOrderByAggregateInput
@@ -302,13 +530,34 @@ export type MemoRecipientStatusScalarWhereWithAggregatesInput = {
   memoId?: Prisma.StringWithAggregatesFilter<"MemoRecipientStatus"> | string
   departmentName?: Prisma.StringWithAggregatesFilter<"MemoRecipientStatus"> | string
   status?: Prisma.EnumStatusWithAggregatesFilter<"MemoRecipientStatus"> | $Enums.Status
-  acknowledgedBy?: Prisma.StringNullableWithAggregatesFilter<"MemoRecipientStatus"> | string | null
-  processedBy?: Prisma.StringNullableWithAggregatesFilter<"MemoRecipientStatus"> | string | null
-  processedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"MemoRecipientStatus"> | Date | string | null
-  deniedBy?: Prisma.StringNullableWithAggregatesFilter<"MemoRecipientStatus"> | string | null
-  deniedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"MemoRecipientStatus"> | Date | string | null
-  feedbackNote?: Prisma.StringNullableWithAggregatesFilter<"MemoRecipientStatus"> | string | null
+  acknowledgedById?: Prisma.StringNullableWithAggregatesFilter<"MemoRecipientStatus"> | string | null
+  acknowledgedByName?: Prisma.StringNullableWithAggregatesFilter<"MemoRecipientStatus"> | string | null
   acknowledgedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"MemoRecipientStatus"> | Date | string | null
+  processedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"MemoRecipientStatus"> | Date | string | null
+  completedById?: Prisma.StringNullableWithAggregatesFilter<"MemoRecipientStatus"> | string | null
+  completedByName?: Prisma.StringNullableWithAggregatesFilter<"MemoRecipientStatus"> | string | null
+  completedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"MemoRecipientStatus"> | Date | string | null
+  feedbackNote?: Prisma.StringNullableWithAggregatesFilter<"MemoRecipientStatus"> | string | null
+  senderConfirmationNote?: Prisma.StringNullableWithAggregatesFilter<"MemoRecipientStatus"> | string | null
+  recipientConfirmationNote?: Prisma.StringNullableWithAggregatesFilter<"MemoRecipientStatus"> | string | null
+  processedById?: Prisma.StringNullableWithAggregatesFilter<"MemoRecipientStatus"> | string | null
+  processedByName?: Prisma.StringNullableWithAggregatesFilter<"MemoRecipientStatus"> | string | null
+  deniedById?: Prisma.StringNullableWithAggregatesFilter<"MemoRecipientStatus"> | string | null
+  deniedByName?: Prisma.StringNullableWithAggregatesFilter<"MemoRecipientStatus"> | string | null
+  deniedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"MemoRecipientStatus"> | Date | string | null
+  senderConfirmedById?: Prisma.StringNullableWithAggregatesFilter<"MemoRecipientStatus"> | string | null
+  senderConfirmedByName?: Prisma.StringNullableWithAggregatesFilter<"MemoRecipientStatus"> | string | null
+  senderConfirmedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"MemoRecipientStatus"> | Date | string | null
+  recipientConfirmedById?: Prisma.StringNullableWithAggregatesFilter<"MemoRecipientStatus"> | string | null
+  recipientConfirmedByName?: Prisma.StringNullableWithAggregatesFilter<"MemoRecipientStatus"> | string | null
+  recipientConfirmedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"MemoRecipientStatus"> | Date | string | null
+  closedById?: Prisma.StringNullableWithAggregatesFilter<"MemoRecipientStatus"> | string | null
+  closedByName?: Prisma.StringNullableWithAggregatesFilter<"MemoRecipientStatus"> | string | null
+  closedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"MemoRecipientStatus"> | Date | string | null
+  updatedAt?: Prisma.DateTimeWithAggregatesFilter<"MemoRecipientStatus"> | Date | string
+  lastActivityAt?: Prisma.DateTimeWithAggregatesFilter<"MemoRecipientStatus"> | Date | string
+  isSenderClosing?: Prisma.BoolWithAggregatesFilter<"MemoRecipientStatus"> | boolean
+  attachmentPaths?: Prisma.StringNullableListFilter<"MemoRecipientStatus">
   respondedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"MemoRecipientStatus"> | Date | string | null
 }
 
@@ -316,13 +565,34 @@ export type MemoRecipientStatusCreateInput = {
   id?: string
   departmentName: string
   status?: $Enums.Status
-  acknowledgedBy?: string | null
-  processedBy?: string | null
-  processedAt?: Date | string | null
-  deniedBy?: string | null
-  deniedAt?: Date | string | null
-  feedbackNote?: string | null
+  acknowledgedById?: string | null
+  acknowledgedByName?: string | null
   acknowledgedAt?: Date | string | null
+  processedAt?: Date | string | null
+  completedById?: string | null
+  completedByName?: string | null
+  completedAt?: Date | string | null
+  feedbackNote?: string | null
+  senderConfirmationNote?: string | null
+  recipientConfirmationNote?: string | null
+  processedById?: string | null
+  processedByName?: string | null
+  deniedById?: string | null
+  deniedByName?: string | null
+  deniedAt?: Date | string | null
+  senderConfirmedById?: string | null
+  senderConfirmedByName?: string | null
+  senderConfirmedAt?: Date | string | null
+  recipientConfirmedById?: string | null
+  recipientConfirmedByName?: string | null
+  recipientConfirmedAt?: Date | string | null
+  closedById?: string | null
+  closedByName?: string | null
+  closedAt?: Date | string | null
+  updatedAt?: Date | string
+  lastActivityAt?: Date | string
+  isSenderClosing?: boolean
+  attachmentPaths?: Prisma.MemoRecipientStatusCreateattachmentPathsInput | string[]
   respondedAt?: Date | string | null
   memo: Prisma.MemoCreateNestedOneWithoutRecipientsInput
 }
@@ -332,13 +602,34 @@ export type MemoRecipientStatusUncheckedCreateInput = {
   memoId: string
   departmentName: string
   status?: $Enums.Status
-  acknowledgedBy?: string | null
-  processedBy?: string | null
-  processedAt?: Date | string | null
-  deniedBy?: string | null
-  deniedAt?: Date | string | null
-  feedbackNote?: string | null
+  acknowledgedById?: string | null
+  acknowledgedByName?: string | null
   acknowledgedAt?: Date | string | null
+  processedAt?: Date | string | null
+  completedById?: string | null
+  completedByName?: string | null
+  completedAt?: Date | string | null
+  feedbackNote?: string | null
+  senderConfirmationNote?: string | null
+  recipientConfirmationNote?: string | null
+  processedById?: string | null
+  processedByName?: string | null
+  deniedById?: string | null
+  deniedByName?: string | null
+  deniedAt?: Date | string | null
+  senderConfirmedById?: string | null
+  senderConfirmedByName?: string | null
+  senderConfirmedAt?: Date | string | null
+  recipientConfirmedById?: string | null
+  recipientConfirmedByName?: string | null
+  recipientConfirmedAt?: Date | string | null
+  closedById?: string | null
+  closedByName?: string | null
+  closedAt?: Date | string | null
+  updatedAt?: Date | string
+  lastActivityAt?: Date | string
+  isSenderClosing?: boolean
+  attachmentPaths?: Prisma.MemoRecipientStatusCreateattachmentPathsInput | string[]
   respondedAt?: Date | string | null
 }
 
@@ -346,13 +637,34 @@ export type MemoRecipientStatusUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   departmentName?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumStatusFieldUpdateOperationsInput | $Enums.Status
-  acknowledgedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  processedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  processedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  deniedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  deniedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  feedbackNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  acknowledgedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  acknowledgedByName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   acknowledgedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  processedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  completedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  completedByName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  feedbackNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  senderConfirmationNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  recipientConfirmationNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  processedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  processedByName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  deniedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  deniedByName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  deniedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  senderConfirmedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  senderConfirmedByName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  senderConfirmedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  recipientConfirmedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  recipientConfirmedByName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  recipientConfirmedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  closedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  closedByName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  closedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastActivityAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  isSenderClosing?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  attachmentPaths?: Prisma.MemoRecipientStatusUpdateattachmentPathsInput | string[]
   respondedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   memo?: Prisma.MemoUpdateOneRequiredWithoutRecipientsNestedInput
 }
@@ -362,13 +674,34 @@ export type MemoRecipientStatusUncheckedUpdateInput = {
   memoId?: Prisma.StringFieldUpdateOperationsInput | string
   departmentName?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumStatusFieldUpdateOperationsInput | $Enums.Status
-  acknowledgedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  processedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  processedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  deniedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  deniedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  feedbackNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  acknowledgedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  acknowledgedByName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   acknowledgedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  processedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  completedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  completedByName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  feedbackNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  senderConfirmationNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  recipientConfirmationNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  processedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  processedByName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  deniedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  deniedByName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  deniedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  senderConfirmedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  senderConfirmedByName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  senderConfirmedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  recipientConfirmedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  recipientConfirmedByName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  recipientConfirmedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  closedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  closedByName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  closedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastActivityAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  isSenderClosing?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  attachmentPaths?: Prisma.MemoRecipientStatusUpdateattachmentPathsInput | string[]
   respondedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
 
@@ -377,13 +710,34 @@ export type MemoRecipientStatusCreateManyInput = {
   memoId: string
   departmentName: string
   status?: $Enums.Status
-  acknowledgedBy?: string | null
-  processedBy?: string | null
-  processedAt?: Date | string | null
-  deniedBy?: string | null
-  deniedAt?: Date | string | null
-  feedbackNote?: string | null
+  acknowledgedById?: string | null
+  acknowledgedByName?: string | null
   acknowledgedAt?: Date | string | null
+  processedAt?: Date | string | null
+  completedById?: string | null
+  completedByName?: string | null
+  completedAt?: Date | string | null
+  feedbackNote?: string | null
+  senderConfirmationNote?: string | null
+  recipientConfirmationNote?: string | null
+  processedById?: string | null
+  processedByName?: string | null
+  deniedById?: string | null
+  deniedByName?: string | null
+  deniedAt?: Date | string | null
+  senderConfirmedById?: string | null
+  senderConfirmedByName?: string | null
+  senderConfirmedAt?: Date | string | null
+  recipientConfirmedById?: string | null
+  recipientConfirmedByName?: string | null
+  recipientConfirmedAt?: Date | string | null
+  closedById?: string | null
+  closedByName?: string | null
+  closedAt?: Date | string | null
+  updatedAt?: Date | string
+  lastActivityAt?: Date | string
+  isSenderClosing?: boolean
+  attachmentPaths?: Prisma.MemoRecipientStatusCreateattachmentPathsInput | string[]
   respondedAt?: Date | string | null
 }
 
@@ -391,13 +745,34 @@ export type MemoRecipientStatusUpdateManyMutationInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   departmentName?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumStatusFieldUpdateOperationsInput | $Enums.Status
-  acknowledgedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  processedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  processedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  deniedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  deniedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  feedbackNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  acknowledgedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  acknowledgedByName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   acknowledgedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  processedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  completedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  completedByName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  feedbackNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  senderConfirmationNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  recipientConfirmationNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  processedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  processedByName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  deniedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  deniedByName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  deniedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  senderConfirmedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  senderConfirmedByName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  senderConfirmedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  recipientConfirmedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  recipientConfirmedByName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  recipientConfirmedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  closedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  closedByName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  closedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastActivityAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  isSenderClosing?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  attachmentPaths?: Prisma.MemoRecipientStatusUpdateattachmentPathsInput | string[]
   respondedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
 
@@ -406,13 +781,34 @@ export type MemoRecipientStatusUncheckedUpdateManyInput = {
   memoId?: Prisma.StringFieldUpdateOperationsInput | string
   departmentName?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumStatusFieldUpdateOperationsInput | $Enums.Status
-  acknowledgedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  processedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  processedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  deniedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  deniedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  feedbackNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  acknowledgedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  acknowledgedByName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   acknowledgedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  processedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  completedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  completedByName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  feedbackNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  senderConfirmationNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  recipientConfirmationNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  processedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  processedByName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  deniedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  deniedByName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  deniedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  senderConfirmedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  senderConfirmedByName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  senderConfirmedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  recipientConfirmedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  recipientConfirmedByName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  recipientConfirmedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  closedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  closedByName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  closedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastActivityAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  isSenderClosing?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  attachmentPaths?: Prisma.MemoRecipientStatusUpdateattachmentPathsInput | string[]
   respondedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
 
@@ -426,18 +822,44 @@ export type MemoRecipientStatusOrderByRelationAggregateInput = {
   _count?: Prisma.SortOrder
 }
 
+export type MemoRecipientStatusMemoIdDepartmentNameCompoundUniqueInput = {
+  memoId: string
+  departmentName: string
+}
+
 export type MemoRecipientStatusCountOrderByAggregateInput = {
   id?: Prisma.SortOrder
   memoId?: Prisma.SortOrder
   departmentName?: Prisma.SortOrder
   status?: Prisma.SortOrder
-  acknowledgedBy?: Prisma.SortOrder
-  processedBy?: Prisma.SortOrder
-  processedAt?: Prisma.SortOrder
-  deniedBy?: Prisma.SortOrder
-  deniedAt?: Prisma.SortOrder
-  feedbackNote?: Prisma.SortOrder
+  acknowledgedById?: Prisma.SortOrder
+  acknowledgedByName?: Prisma.SortOrder
   acknowledgedAt?: Prisma.SortOrder
+  processedAt?: Prisma.SortOrder
+  completedById?: Prisma.SortOrder
+  completedByName?: Prisma.SortOrder
+  completedAt?: Prisma.SortOrder
+  feedbackNote?: Prisma.SortOrder
+  senderConfirmationNote?: Prisma.SortOrder
+  recipientConfirmationNote?: Prisma.SortOrder
+  processedById?: Prisma.SortOrder
+  processedByName?: Prisma.SortOrder
+  deniedById?: Prisma.SortOrder
+  deniedByName?: Prisma.SortOrder
+  deniedAt?: Prisma.SortOrder
+  senderConfirmedById?: Prisma.SortOrder
+  senderConfirmedByName?: Prisma.SortOrder
+  senderConfirmedAt?: Prisma.SortOrder
+  recipientConfirmedById?: Prisma.SortOrder
+  recipientConfirmedByName?: Prisma.SortOrder
+  recipientConfirmedAt?: Prisma.SortOrder
+  closedById?: Prisma.SortOrder
+  closedByName?: Prisma.SortOrder
+  closedAt?: Prisma.SortOrder
+  updatedAt?: Prisma.SortOrder
+  lastActivityAt?: Prisma.SortOrder
+  isSenderClosing?: Prisma.SortOrder
+  attachmentPaths?: Prisma.SortOrder
   respondedAt?: Prisma.SortOrder
 }
 
@@ -446,13 +868,33 @@ export type MemoRecipientStatusMaxOrderByAggregateInput = {
   memoId?: Prisma.SortOrder
   departmentName?: Prisma.SortOrder
   status?: Prisma.SortOrder
-  acknowledgedBy?: Prisma.SortOrder
-  processedBy?: Prisma.SortOrder
-  processedAt?: Prisma.SortOrder
-  deniedBy?: Prisma.SortOrder
-  deniedAt?: Prisma.SortOrder
-  feedbackNote?: Prisma.SortOrder
+  acknowledgedById?: Prisma.SortOrder
+  acknowledgedByName?: Prisma.SortOrder
   acknowledgedAt?: Prisma.SortOrder
+  processedAt?: Prisma.SortOrder
+  completedById?: Prisma.SortOrder
+  completedByName?: Prisma.SortOrder
+  completedAt?: Prisma.SortOrder
+  feedbackNote?: Prisma.SortOrder
+  senderConfirmationNote?: Prisma.SortOrder
+  recipientConfirmationNote?: Prisma.SortOrder
+  processedById?: Prisma.SortOrder
+  processedByName?: Prisma.SortOrder
+  deniedById?: Prisma.SortOrder
+  deniedByName?: Prisma.SortOrder
+  deniedAt?: Prisma.SortOrder
+  senderConfirmedById?: Prisma.SortOrder
+  senderConfirmedByName?: Prisma.SortOrder
+  senderConfirmedAt?: Prisma.SortOrder
+  recipientConfirmedById?: Prisma.SortOrder
+  recipientConfirmedByName?: Prisma.SortOrder
+  recipientConfirmedAt?: Prisma.SortOrder
+  closedById?: Prisma.SortOrder
+  closedByName?: Prisma.SortOrder
+  closedAt?: Prisma.SortOrder
+  updatedAt?: Prisma.SortOrder
+  lastActivityAt?: Prisma.SortOrder
+  isSenderClosing?: Prisma.SortOrder
   respondedAt?: Prisma.SortOrder
 }
 
@@ -461,13 +903,33 @@ export type MemoRecipientStatusMinOrderByAggregateInput = {
   memoId?: Prisma.SortOrder
   departmentName?: Prisma.SortOrder
   status?: Prisma.SortOrder
-  acknowledgedBy?: Prisma.SortOrder
-  processedBy?: Prisma.SortOrder
-  processedAt?: Prisma.SortOrder
-  deniedBy?: Prisma.SortOrder
-  deniedAt?: Prisma.SortOrder
-  feedbackNote?: Prisma.SortOrder
+  acknowledgedById?: Prisma.SortOrder
+  acknowledgedByName?: Prisma.SortOrder
   acknowledgedAt?: Prisma.SortOrder
+  processedAt?: Prisma.SortOrder
+  completedById?: Prisma.SortOrder
+  completedByName?: Prisma.SortOrder
+  completedAt?: Prisma.SortOrder
+  feedbackNote?: Prisma.SortOrder
+  senderConfirmationNote?: Prisma.SortOrder
+  recipientConfirmationNote?: Prisma.SortOrder
+  processedById?: Prisma.SortOrder
+  processedByName?: Prisma.SortOrder
+  deniedById?: Prisma.SortOrder
+  deniedByName?: Prisma.SortOrder
+  deniedAt?: Prisma.SortOrder
+  senderConfirmedById?: Prisma.SortOrder
+  senderConfirmedByName?: Prisma.SortOrder
+  senderConfirmedAt?: Prisma.SortOrder
+  recipientConfirmedById?: Prisma.SortOrder
+  recipientConfirmedByName?: Prisma.SortOrder
+  recipientConfirmedAt?: Prisma.SortOrder
+  closedById?: Prisma.SortOrder
+  closedByName?: Prisma.SortOrder
+  closedAt?: Prisma.SortOrder
+  updatedAt?: Prisma.SortOrder
+  lastActivityAt?: Prisma.SortOrder
+  isSenderClosing?: Prisma.SortOrder
   respondedAt?: Prisma.SortOrder
 }
 
@@ -513,21 +975,51 @@ export type MemoRecipientStatusUncheckedUpdateManyWithoutMemoNestedInput = {
   deleteMany?: Prisma.MemoRecipientStatusScalarWhereInput | Prisma.MemoRecipientStatusScalarWhereInput[]
 }
 
+export type MemoRecipientStatusCreateattachmentPathsInput = {
+  set: string[]
+}
+
 export type EnumStatusFieldUpdateOperationsInput = {
   set?: $Enums.Status
+}
+
+export type MemoRecipientStatusUpdateattachmentPathsInput = {
+  set?: string[]
+  push?: string | string[]
 }
 
 export type MemoRecipientStatusCreateWithoutMemoInput = {
   id?: string
   departmentName: string
   status?: $Enums.Status
-  acknowledgedBy?: string | null
-  processedBy?: string | null
-  processedAt?: Date | string | null
-  deniedBy?: string | null
-  deniedAt?: Date | string | null
-  feedbackNote?: string | null
+  acknowledgedById?: string | null
+  acknowledgedByName?: string | null
   acknowledgedAt?: Date | string | null
+  processedAt?: Date | string | null
+  completedById?: string | null
+  completedByName?: string | null
+  completedAt?: Date | string | null
+  feedbackNote?: string | null
+  senderConfirmationNote?: string | null
+  recipientConfirmationNote?: string | null
+  processedById?: string | null
+  processedByName?: string | null
+  deniedById?: string | null
+  deniedByName?: string | null
+  deniedAt?: Date | string | null
+  senderConfirmedById?: string | null
+  senderConfirmedByName?: string | null
+  senderConfirmedAt?: Date | string | null
+  recipientConfirmedById?: string | null
+  recipientConfirmedByName?: string | null
+  recipientConfirmedAt?: Date | string | null
+  closedById?: string | null
+  closedByName?: string | null
+  closedAt?: Date | string | null
+  updatedAt?: Date | string
+  lastActivityAt?: Date | string
+  isSenderClosing?: boolean
+  attachmentPaths?: Prisma.MemoRecipientStatusCreateattachmentPathsInput | string[]
   respondedAt?: Date | string | null
 }
 
@@ -535,13 +1027,34 @@ export type MemoRecipientStatusUncheckedCreateWithoutMemoInput = {
   id?: string
   departmentName: string
   status?: $Enums.Status
-  acknowledgedBy?: string | null
-  processedBy?: string | null
-  processedAt?: Date | string | null
-  deniedBy?: string | null
-  deniedAt?: Date | string | null
-  feedbackNote?: string | null
+  acknowledgedById?: string | null
+  acknowledgedByName?: string | null
   acknowledgedAt?: Date | string | null
+  processedAt?: Date | string | null
+  completedById?: string | null
+  completedByName?: string | null
+  completedAt?: Date | string | null
+  feedbackNote?: string | null
+  senderConfirmationNote?: string | null
+  recipientConfirmationNote?: string | null
+  processedById?: string | null
+  processedByName?: string | null
+  deniedById?: string | null
+  deniedByName?: string | null
+  deniedAt?: Date | string | null
+  senderConfirmedById?: string | null
+  senderConfirmedByName?: string | null
+  senderConfirmedAt?: Date | string | null
+  recipientConfirmedById?: string | null
+  recipientConfirmedByName?: string | null
+  recipientConfirmedAt?: Date | string | null
+  closedById?: string | null
+  closedByName?: string | null
+  closedAt?: Date | string | null
+  updatedAt?: Date | string
+  lastActivityAt?: Date | string
+  isSenderClosing?: boolean
+  attachmentPaths?: Prisma.MemoRecipientStatusCreateattachmentPathsInput | string[]
   respondedAt?: Date | string | null
 }
 
@@ -579,13 +1092,34 @@ export type MemoRecipientStatusScalarWhereInput = {
   memoId?: Prisma.StringFilter<"MemoRecipientStatus"> | string
   departmentName?: Prisma.StringFilter<"MemoRecipientStatus"> | string
   status?: Prisma.EnumStatusFilter<"MemoRecipientStatus"> | $Enums.Status
-  acknowledgedBy?: Prisma.StringNullableFilter<"MemoRecipientStatus"> | string | null
-  processedBy?: Prisma.StringNullableFilter<"MemoRecipientStatus"> | string | null
-  processedAt?: Prisma.DateTimeNullableFilter<"MemoRecipientStatus"> | Date | string | null
-  deniedBy?: Prisma.StringNullableFilter<"MemoRecipientStatus"> | string | null
-  deniedAt?: Prisma.DateTimeNullableFilter<"MemoRecipientStatus"> | Date | string | null
-  feedbackNote?: Prisma.StringNullableFilter<"MemoRecipientStatus"> | string | null
+  acknowledgedById?: Prisma.StringNullableFilter<"MemoRecipientStatus"> | string | null
+  acknowledgedByName?: Prisma.StringNullableFilter<"MemoRecipientStatus"> | string | null
   acknowledgedAt?: Prisma.DateTimeNullableFilter<"MemoRecipientStatus"> | Date | string | null
+  processedAt?: Prisma.DateTimeNullableFilter<"MemoRecipientStatus"> | Date | string | null
+  completedById?: Prisma.StringNullableFilter<"MemoRecipientStatus"> | string | null
+  completedByName?: Prisma.StringNullableFilter<"MemoRecipientStatus"> | string | null
+  completedAt?: Prisma.DateTimeNullableFilter<"MemoRecipientStatus"> | Date | string | null
+  feedbackNote?: Prisma.StringNullableFilter<"MemoRecipientStatus"> | string | null
+  senderConfirmationNote?: Prisma.StringNullableFilter<"MemoRecipientStatus"> | string | null
+  recipientConfirmationNote?: Prisma.StringNullableFilter<"MemoRecipientStatus"> | string | null
+  processedById?: Prisma.StringNullableFilter<"MemoRecipientStatus"> | string | null
+  processedByName?: Prisma.StringNullableFilter<"MemoRecipientStatus"> | string | null
+  deniedById?: Prisma.StringNullableFilter<"MemoRecipientStatus"> | string | null
+  deniedByName?: Prisma.StringNullableFilter<"MemoRecipientStatus"> | string | null
+  deniedAt?: Prisma.DateTimeNullableFilter<"MemoRecipientStatus"> | Date | string | null
+  senderConfirmedById?: Prisma.StringNullableFilter<"MemoRecipientStatus"> | string | null
+  senderConfirmedByName?: Prisma.StringNullableFilter<"MemoRecipientStatus"> | string | null
+  senderConfirmedAt?: Prisma.DateTimeNullableFilter<"MemoRecipientStatus"> | Date | string | null
+  recipientConfirmedById?: Prisma.StringNullableFilter<"MemoRecipientStatus"> | string | null
+  recipientConfirmedByName?: Prisma.StringNullableFilter<"MemoRecipientStatus"> | string | null
+  recipientConfirmedAt?: Prisma.DateTimeNullableFilter<"MemoRecipientStatus"> | Date | string | null
+  closedById?: Prisma.StringNullableFilter<"MemoRecipientStatus"> | string | null
+  closedByName?: Prisma.StringNullableFilter<"MemoRecipientStatus"> | string | null
+  closedAt?: Prisma.DateTimeNullableFilter<"MemoRecipientStatus"> | Date | string | null
+  updatedAt?: Prisma.DateTimeFilter<"MemoRecipientStatus"> | Date | string
+  lastActivityAt?: Prisma.DateTimeFilter<"MemoRecipientStatus"> | Date | string
+  isSenderClosing?: Prisma.BoolFilter<"MemoRecipientStatus"> | boolean
+  attachmentPaths?: Prisma.StringNullableListFilter<"MemoRecipientStatus">
   respondedAt?: Prisma.DateTimeNullableFilter<"MemoRecipientStatus"> | Date | string | null
 }
 
@@ -593,13 +1127,34 @@ export type MemoRecipientStatusCreateManyMemoInput = {
   id?: string
   departmentName: string
   status?: $Enums.Status
-  acknowledgedBy?: string | null
-  processedBy?: string | null
-  processedAt?: Date | string | null
-  deniedBy?: string | null
-  deniedAt?: Date | string | null
-  feedbackNote?: string | null
+  acknowledgedById?: string | null
+  acknowledgedByName?: string | null
   acknowledgedAt?: Date | string | null
+  processedAt?: Date | string | null
+  completedById?: string | null
+  completedByName?: string | null
+  completedAt?: Date | string | null
+  feedbackNote?: string | null
+  senderConfirmationNote?: string | null
+  recipientConfirmationNote?: string | null
+  processedById?: string | null
+  processedByName?: string | null
+  deniedById?: string | null
+  deniedByName?: string | null
+  deniedAt?: Date | string | null
+  senderConfirmedById?: string | null
+  senderConfirmedByName?: string | null
+  senderConfirmedAt?: Date | string | null
+  recipientConfirmedById?: string | null
+  recipientConfirmedByName?: string | null
+  recipientConfirmedAt?: Date | string | null
+  closedById?: string | null
+  closedByName?: string | null
+  closedAt?: Date | string | null
+  updatedAt?: Date | string
+  lastActivityAt?: Date | string
+  isSenderClosing?: boolean
+  attachmentPaths?: Prisma.MemoRecipientStatusCreateattachmentPathsInput | string[]
   respondedAt?: Date | string | null
 }
 
@@ -607,13 +1162,34 @@ export type MemoRecipientStatusUpdateWithoutMemoInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   departmentName?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumStatusFieldUpdateOperationsInput | $Enums.Status
-  acknowledgedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  processedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  processedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  deniedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  deniedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  feedbackNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  acknowledgedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  acknowledgedByName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   acknowledgedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  processedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  completedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  completedByName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  feedbackNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  senderConfirmationNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  recipientConfirmationNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  processedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  processedByName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  deniedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  deniedByName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  deniedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  senderConfirmedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  senderConfirmedByName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  senderConfirmedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  recipientConfirmedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  recipientConfirmedByName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  recipientConfirmedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  closedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  closedByName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  closedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastActivityAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  isSenderClosing?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  attachmentPaths?: Prisma.MemoRecipientStatusUpdateattachmentPathsInput | string[]
   respondedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
 
@@ -621,13 +1197,34 @@ export type MemoRecipientStatusUncheckedUpdateWithoutMemoInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   departmentName?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumStatusFieldUpdateOperationsInput | $Enums.Status
-  acknowledgedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  processedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  processedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  deniedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  deniedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  feedbackNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  acknowledgedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  acknowledgedByName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   acknowledgedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  processedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  completedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  completedByName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  feedbackNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  senderConfirmationNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  recipientConfirmationNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  processedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  processedByName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  deniedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  deniedByName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  deniedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  senderConfirmedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  senderConfirmedByName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  senderConfirmedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  recipientConfirmedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  recipientConfirmedByName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  recipientConfirmedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  closedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  closedByName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  closedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastActivityAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  isSenderClosing?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  attachmentPaths?: Prisma.MemoRecipientStatusUpdateattachmentPathsInput | string[]
   respondedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
 
@@ -635,13 +1232,34 @@ export type MemoRecipientStatusUncheckedUpdateManyWithoutMemoInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   departmentName?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumStatusFieldUpdateOperationsInput | $Enums.Status
-  acknowledgedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  processedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  processedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  deniedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  deniedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  feedbackNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  acknowledgedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  acknowledgedByName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   acknowledgedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  processedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  completedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  completedByName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  feedbackNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  senderConfirmationNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  recipientConfirmationNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  processedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  processedByName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  deniedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  deniedByName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  deniedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  senderConfirmedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  senderConfirmedByName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  senderConfirmedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  recipientConfirmedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  recipientConfirmedByName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  recipientConfirmedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  closedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  closedByName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  closedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastActivityAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  isSenderClosing?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  attachmentPaths?: Prisma.MemoRecipientStatusUpdateattachmentPathsInput | string[]
   respondedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
 
@@ -652,13 +1270,34 @@ export type MemoRecipientStatusSelect<ExtArgs extends runtime.Types.Extensions.I
   memoId?: boolean
   departmentName?: boolean
   status?: boolean
-  acknowledgedBy?: boolean
-  processedBy?: boolean
-  processedAt?: boolean
-  deniedBy?: boolean
-  deniedAt?: boolean
-  feedbackNote?: boolean
+  acknowledgedById?: boolean
+  acknowledgedByName?: boolean
   acknowledgedAt?: boolean
+  processedAt?: boolean
+  completedById?: boolean
+  completedByName?: boolean
+  completedAt?: boolean
+  feedbackNote?: boolean
+  senderConfirmationNote?: boolean
+  recipientConfirmationNote?: boolean
+  processedById?: boolean
+  processedByName?: boolean
+  deniedById?: boolean
+  deniedByName?: boolean
+  deniedAt?: boolean
+  senderConfirmedById?: boolean
+  senderConfirmedByName?: boolean
+  senderConfirmedAt?: boolean
+  recipientConfirmedById?: boolean
+  recipientConfirmedByName?: boolean
+  recipientConfirmedAt?: boolean
+  closedById?: boolean
+  closedByName?: boolean
+  closedAt?: boolean
+  updatedAt?: boolean
+  lastActivityAt?: boolean
+  isSenderClosing?: boolean
+  attachmentPaths?: boolean
   respondedAt?: boolean
   memo?: boolean | Prisma.MemoDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["memoRecipientStatus"]>
@@ -668,13 +1307,34 @@ export type MemoRecipientStatusSelectCreateManyAndReturn<ExtArgs extends runtime
   memoId?: boolean
   departmentName?: boolean
   status?: boolean
-  acknowledgedBy?: boolean
-  processedBy?: boolean
-  processedAt?: boolean
-  deniedBy?: boolean
-  deniedAt?: boolean
-  feedbackNote?: boolean
+  acknowledgedById?: boolean
+  acknowledgedByName?: boolean
   acknowledgedAt?: boolean
+  processedAt?: boolean
+  completedById?: boolean
+  completedByName?: boolean
+  completedAt?: boolean
+  feedbackNote?: boolean
+  senderConfirmationNote?: boolean
+  recipientConfirmationNote?: boolean
+  processedById?: boolean
+  processedByName?: boolean
+  deniedById?: boolean
+  deniedByName?: boolean
+  deniedAt?: boolean
+  senderConfirmedById?: boolean
+  senderConfirmedByName?: boolean
+  senderConfirmedAt?: boolean
+  recipientConfirmedById?: boolean
+  recipientConfirmedByName?: boolean
+  recipientConfirmedAt?: boolean
+  closedById?: boolean
+  closedByName?: boolean
+  closedAt?: boolean
+  updatedAt?: boolean
+  lastActivityAt?: boolean
+  isSenderClosing?: boolean
+  attachmentPaths?: boolean
   respondedAt?: boolean
   memo?: boolean | Prisma.MemoDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["memoRecipientStatus"]>
@@ -684,13 +1344,34 @@ export type MemoRecipientStatusSelectUpdateManyAndReturn<ExtArgs extends runtime
   memoId?: boolean
   departmentName?: boolean
   status?: boolean
-  acknowledgedBy?: boolean
-  processedBy?: boolean
-  processedAt?: boolean
-  deniedBy?: boolean
-  deniedAt?: boolean
-  feedbackNote?: boolean
+  acknowledgedById?: boolean
+  acknowledgedByName?: boolean
   acknowledgedAt?: boolean
+  processedAt?: boolean
+  completedById?: boolean
+  completedByName?: boolean
+  completedAt?: boolean
+  feedbackNote?: boolean
+  senderConfirmationNote?: boolean
+  recipientConfirmationNote?: boolean
+  processedById?: boolean
+  processedByName?: boolean
+  deniedById?: boolean
+  deniedByName?: boolean
+  deniedAt?: boolean
+  senderConfirmedById?: boolean
+  senderConfirmedByName?: boolean
+  senderConfirmedAt?: boolean
+  recipientConfirmedById?: boolean
+  recipientConfirmedByName?: boolean
+  recipientConfirmedAt?: boolean
+  closedById?: boolean
+  closedByName?: boolean
+  closedAt?: boolean
+  updatedAt?: boolean
+  lastActivityAt?: boolean
+  isSenderClosing?: boolean
+  attachmentPaths?: boolean
   respondedAt?: boolean
   memo?: boolean | Prisma.MemoDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["memoRecipientStatus"]>
@@ -700,17 +1381,38 @@ export type MemoRecipientStatusSelectScalar = {
   memoId?: boolean
   departmentName?: boolean
   status?: boolean
-  acknowledgedBy?: boolean
-  processedBy?: boolean
-  processedAt?: boolean
-  deniedBy?: boolean
-  deniedAt?: boolean
-  feedbackNote?: boolean
+  acknowledgedById?: boolean
+  acknowledgedByName?: boolean
   acknowledgedAt?: boolean
+  processedAt?: boolean
+  completedById?: boolean
+  completedByName?: boolean
+  completedAt?: boolean
+  feedbackNote?: boolean
+  senderConfirmationNote?: boolean
+  recipientConfirmationNote?: boolean
+  processedById?: boolean
+  processedByName?: boolean
+  deniedById?: boolean
+  deniedByName?: boolean
+  deniedAt?: boolean
+  senderConfirmedById?: boolean
+  senderConfirmedByName?: boolean
+  senderConfirmedAt?: boolean
+  recipientConfirmedById?: boolean
+  recipientConfirmedByName?: boolean
+  recipientConfirmedAt?: boolean
+  closedById?: boolean
+  closedByName?: boolean
+  closedAt?: boolean
+  updatedAt?: boolean
+  lastActivityAt?: boolean
+  isSenderClosing?: boolean
+  attachmentPaths?: boolean
   respondedAt?: boolean
 }
 
-export type MemoRecipientStatusOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "memoId" | "departmentName" | "status" | "acknowledgedBy" | "processedBy" | "processedAt" | "deniedBy" | "deniedAt" | "feedbackNote" | "acknowledgedAt" | "respondedAt", ExtArgs["result"]["memoRecipientStatus"]>
+export type MemoRecipientStatusOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "memoId" | "departmentName" | "status" | "acknowledgedById" | "acknowledgedByName" | "acknowledgedAt" | "processedAt" | "completedById" | "completedByName" | "completedAt" | "feedbackNote" | "senderConfirmationNote" | "recipientConfirmationNote" | "processedById" | "processedByName" | "deniedById" | "deniedByName" | "deniedAt" | "senderConfirmedById" | "senderConfirmedByName" | "senderConfirmedAt" | "recipientConfirmedById" | "recipientConfirmedByName" | "recipientConfirmedAt" | "closedById" | "closedByName" | "closedAt" | "updatedAt" | "lastActivityAt" | "isSenderClosing" | "attachmentPaths" | "respondedAt", ExtArgs["result"]["memoRecipientStatus"]>
 export type MemoRecipientStatusInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   memo?: boolean | Prisma.MemoDefaultArgs<ExtArgs>
 }
@@ -731,13 +1433,34 @@ export type $MemoRecipientStatusPayload<ExtArgs extends runtime.Types.Extensions
     memoId: string
     departmentName: string
     status: $Enums.Status
-    acknowledgedBy: string | null
-    processedBy: string | null
-    processedAt: Date | null
-    deniedBy: string | null
-    deniedAt: Date | null
-    feedbackNote: string | null
+    acknowledgedById: string | null
+    acknowledgedByName: string | null
     acknowledgedAt: Date | null
+    processedAt: Date | null
+    completedById: string | null
+    completedByName: string | null
+    completedAt: Date | null
+    feedbackNote: string | null
+    senderConfirmationNote: string | null
+    recipientConfirmationNote: string | null
+    processedById: string | null
+    processedByName: string | null
+    deniedById: string | null
+    deniedByName: string | null
+    deniedAt: Date | null
+    senderConfirmedById: string | null
+    senderConfirmedByName: string | null
+    senderConfirmedAt: Date | null
+    recipientConfirmedById: string | null
+    recipientConfirmedByName: string | null
+    recipientConfirmedAt: Date | null
+    closedById: string | null
+    closedByName: string | null
+    closedAt: Date | null
+    updatedAt: Date
+    lastActivityAt: Date
+    isSenderClosing: boolean
+    attachmentPaths: string[]
     respondedAt: Date | null
   }, ExtArgs["result"]["memoRecipientStatus"]>
   composites: {}
@@ -1167,13 +1890,34 @@ export interface MemoRecipientStatusFieldRefs {
   readonly memoId: Prisma.FieldRef<"MemoRecipientStatus", 'String'>
   readonly departmentName: Prisma.FieldRef<"MemoRecipientStatus", 'String'>
   readonly status: Prisma.FieldRef<"MemoRecipientStatus", 'Status'>
-  readonly acknowledgedBy: Prisma.FieldRef<"MemoRecipientStatus", 'String'>
-  readonly processedBy: Prisma.FieldRef<"MemoRecipientStatus", 'String'>
-  readonly processedAt: Prisma.FieldRef<"MemoRecipientStatus", 'DateTime'>
-  readonly deniedBy: Prisma.FieldRef<"MemoRecipientStatus", 'String'>
-  readonly deniedAt: Prisma.FieldRef<"MemoRecipientStatus", 'DateTime'>
-  readonly feedbackNote: Prisma.FieldRef<"MemoRecipientStatus", 'String'>
+  readonly acknowledgedById: Prisma.FieldRef<"MemoRecipientStatus", 'String'>
+  readonly acknowledgedByName: Prisma.FieldRef<"MemoRecipientStatus", 'String'>
   readonly acknowledgedAt: Prisma.FieldRef<"MemoRecipientStatus", 'DateTime'>
+  readonly processedAt: Prisma.FieldRef<"MemoRecipientStatus", 'DateTime'>
+  readonly completedById: Prisma.FieldRef<"MemoRecipientStatus", 'String'>
+  readonly completedByName: Prisma.FieldRef<"MemoRecipientStatus", 'String'>
+  readonly completedAt: Prisma.FieldRef<"MemoRecipientStatus", 'DateTime'>
+  readonly feedbackNote: Prisma.FieldRef<"MemoRecipientStatus", 'String'>
+  readonly senderConfirmationNote: Prisma.FieldRef<"MemoRecipientStatus", 'String'>
+  readonly recipientConfirmationNote: Prisma.FieldRef<"MemoRecipientStatus", 'String'>
+  readonly processedById: Prisma.FieldRef<"MemoRecipientStatus", 'String'>
+  readonly processedByName: Prisma.FieldRef<"MemoRecipientStatus", 'String'>
+  readonly deniedById: Prisma.FieldRef<"MemoRecipientStatus", 'String'>
+  readonly deniedByName: Prisma.FieldRef<"MemoRecipientStatus", 'String'>
+  readonly deniedAt: Prisma.FieldRef<"MemoRecipientStatus", 'DateTime'>
+  readonly senderConfirmedById: Prisma.FieldRef<"MemoRecipientStatus", 'String'>
+  readonly senderConfirmedByName: Prisma.FieldRef<"MemoRecipientStatus", 'String'>
+  readonly senderConfirmedAt: Prisma.FieldRef<"MemoRecipientStatus", 'DateTime'>
+  readonly recipientConfirmedById: Prisma.FieldRef<"MemoRecipientStatus", 'String'>
+  readonly recipientConfirmedByName: Prisma.FieldRef<"MemoRecipientStatus", 'String'>
+  readonly recipientConfirmedAt: Prisma.FieldRef<"MemoRecipientStatus", 'DateTime'>
+  readonly closedById: Prisma.FieldRef<"MemoRecipientStatus", 'String'>
+  readonly closedByName: Prisma.FieldRef<"MemoRecipientStatus", 'String'>
+  readonly closedAt: Prisma.FieldRef<"MemoRecipientStatus", 'DateTime'>
+  readonly updatedAt: Prisma.FieldRef<"MemoRecipientStatus", 'DateTime'>
+  readonly lastActivityAt: Prisma.FieldRef<"MemoRecipientStatus", 'DateTime'>
+  readonly isSenderClosing: Prisma.FieldRef<"MemoRecipientStatus", 'Boolean'>
+  readonly attachmentPaths: Prisma.FieldRef<"MemoRecipientStatus", 'String[]'>
   readonly respondedAt: Prisma.FieldRef<"MemoRecipientStatus", 'DateTime'>
 }
     

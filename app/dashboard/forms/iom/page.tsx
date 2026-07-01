@@ -1,162 +1,98 @@
+// app/page.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useForm } from '@mantine/form';
 import { useDisclosure, useToggle } from '@mantine/hooks';
-import { 
-  IconMessageReply, 
-  IconPlus, 
-  IconInbox, 
-  IconCircleCheck, 
-  IconCheck,
-  IconSend,
-  IconGitBranch,
-  IconFileCheck,
-  IconThumbUp,
-  IconPrinter,
-  IconLayersIntersect,
-  IconPlayerPlay,
-  IconLock,
-  IconInfoCircle,
-  IconEdit,
-  IconDownload,
-  IconFile,
-  IconTrash,
-  IconFileTypePdf,
-  IconPhoto
-} from '@tabler/icons-react';
-import { 
-  TextInput, 
-  Textarea, 
-  Select, 
-  MultiSelect, 
-  Button, 
-  Card, 
-  Title, 
+import {
   Container,
+  Card,
+  Title,
   Group,
   Text,
-  Modal,
-  SimpleGrid,
+  Button,
   Badge,
   Tabs,
-  Loader,
-  Divider,
-  PasswordInput,
-  Timeline,
-  UnstyledButton,
-  Box,
-  Alert,
-  FileInput,
-  Paper,
-  ActionIcon,
-  ThemeIcon,
   Stack,
-  LoadingOverlay
+  Alert,
+  TextInput,
+  LoadingOverlay,
+  Modal,
+  Timeline,
+  Box,
+  Loader,
+  UnstyledButton,
+  SimpleGrid
 } from '@mantine/core';
+import {
+  IconPlus,
+  IconInbox,
+  IconPlayerPlay,
+  IconSend,
+  IconCircleCheck,
+  IconLayersIntersect,
+  IconThumbUp,
+  IconInfoCircle,
+  IconMessageReply,
+  IconGitBranch,
+} from '@tabler/icons-react';
 
-export type Priority = 'ROUTINE' | 'URGENT' | 'RUSH';
-export type Purpose = 'FYI' | 'SIGNATURE' | 'ACTION' | 'COMMENTS' | 'APPROVAL' | 'REQUEST';
-export type MemoStatus = 'FOR_APPROVAL' | 'PENDING' | 'ACKNOWLEDGED' | 'PROCESSING' | 'DENIED' | 'RESPONDED';
-
-export interface MemoRecipientStatus {
-  id: string;
-  memoId: string;
-  departmentName: string;
-  status: MemoStatus;
-  acknowledgedBy: string | null;
-  acknowledgedAt: string | Date | null;
-  processedBy?: string | null;
-  processedAt?: string | Date | null;
-  deniedBy?: string | null;
-  deniedAt?: string | Date | null;
-  respondedAt: string | Date | null;
-  feedbackNote?: string | null;
-}
-
-export interface Memo {
-  id: string;
-  referenceId: string | null;
-  subject: string;
-  content: string;
-  priority: Priority;
-  purpose: Purpose;
-  senderId: string;
-  senderName: string;
-  senderDept: string;
-  status: 'FOR_APPROVAL' | 'APPROVED';
-  createdAt: string | Date;
-  deadlineAt: string | Date | null;
-  parentMemoId: string | null;
-  rootMemoId: string | null;
-  isRevisedByHead?: boolean; 
-  attachmentPaths?: string[] | null;
-  feedbackNote?: string | null;
-  recipients?: MemoRecipientStatus[];
-
-  sender?: {
-    id: string;
-    branch: 'MAIN' | 'IMUS' | 'NASTECH' | 'SHS'; // SystemBranch enum values mo
-    departmentCode: string;
-  };
-}
-
-interface Department {
-  id: string;
-  code: string;
-  name?: string;
-}
-
-interface UserContext {
-  id: string;
-  email: string;
-  fname: string;
-  lname: string;
-  role: string; 
-  departmentCode: string;
-  branch: string;
-  oic_start: string | null;
-  oic_end: string | null;
-}
+// Import shared types
+import { Priority, Purpose, Memo, UserContext, Department } from './component/types';
+// Import components
+import MemoCard from './component/memoCard';
+import CreateMemoModal from './component/createMemoModal';
+import ViewMemoModal from './component/viewMemoModal';
+import PasswordGateModal from './component/passwordGateModal';
+import SuperEditModal from './component/superEditModal';
 
 export default function IOMDashboardPage() {
+  // ---- Disclosure hooks ----
   const [opened, { open, close }] = useDisclosure(false);
   const [passModalOpened, { open: openPassModal, close: closePassModal }] = useDisclosure(false);
   const [threadModalOpened, { open: openThreadModal, close: closeThreadModal }] = useDisclosure(false);
   const [expandNoteOpened, { open: openExpandNoteModal, close: closeExpandNoteModal }] = useDisclosure(false);
   const [superEditOpened, { open: openSuperEditModal, close: closeSuperEditModal }] = useDisclosure(false);
-  
+
+  // ---- State ----
   const [submitting, setSubmitting] = useState(false);
   const [departments, setDepartments] = useState<{ value: string; label: string }[]>([]);
   const [loadingDepts, setLoadingDepts] = useState(true);
   const [memos, setMemos] = useState<Memo[]>([]);
   const [loadingMemos, setLoadingMemos] = useState(true);
   const [currentUser, setCurrentUser] = useState<UserContext | null>(null);
+  const [pageLoading, setPageLoading] = useState(true);
 
-  const [pendingAction, setPendingAction] = useState<{ 
-    type: 'CREATE' | 'ACKNOWLEDGE' | 'START_PROCESSING' | 'DENY' | 'RESOLVE' | 'APPROVE_MEMO' | 'DISAPPROVE_DRAFT' | 'JOIN_PROCESSING'; // 👈 Idinagdag dito
-    data: Record<string, unknown> 
+  const [pendingAction, setPendingAction] = useState<{
+    type:
+      | 'CREATE'
+      | 'ACKNOWLEDGE'
+      | 'START_PROCESSING'
+      | 'DENY'
+      | 'CLOSED'
+      | 'APPROVE_MEMO'
+      | 'DISAPPROVE_DRAFT'
+      | 'JOIN_PROCESSING';
+    data: Record<string, unknown>;
   } | null>(null);
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passError, setPassError] = useState('');
-  const [activeThreadMemos, setActiveThreadMemos] = useState<Memo[]>([]);
   const [feedbackNote, setFeedbackNote] = useState('');
+  const [actionAttachment, setActionAttachment] = useState<File | null>(null);
+
+  const [activeThreadMemos, setActiveThreadMemos] = useState<Memo[]>([]);
   const [selectedMemoForExpand, setSelectedMemoForExpand] = useState<Memo | null>(null);
 
   const [headEditSubject, setHeadEditSubject] = useState('');
   const [headEditContent, setHeadEditContent] = useState('');
   const [headSelectedMemoId, setHeadSelectedMemoId] = useState('');
-
   const [retainedAttachments, setRetainedAttachments] = useState<string[]>([]);
   const [headNewAttachments, setHeadNewAttachments] = useState<File[]>([]);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [sortByDate, toggleSortByDate] = useToggle(['NEWEST', 'OLDEST'] as const);
 
-  const [activeTab, setActiveTab] = useState<string | null>(null);
-
-  const [pageLoading, setPageLoading] = useState(true);
-
+  // ---- Form for creating memo ----
   const form = useForm({
     initialValues: {
       subject: '',
@@ -166,7 +102,7 @@ export default function IOMDashboardPage() {
       targetDepts: [] as string[],
       parentMemoId: null as string | null,
       rootMemoId: null as string | null,
-      memoAttachments: [] as File[], // 🎯 File State
+      memoAttachments: [] as File[],
     },
     validate: {
       subject: (value) => (value.length < 2 ? 'Subject header is required' : null),
@@ -175,6 +111,7 @@ export default function IOMDashboardPage() {
     },
   });
 
+  // ---- Data fetching ----
   const fetchMemos = async () => {
     try {
       const res = await fetch('../../../api/memos');
@@ -187,49 +124,42 @@ export default function IOMDashboardPage() {
 
   useEffect(() => {
     const initializeDashboard = async () => {
-  try {
-    const authRes = await fetch('../../../api/auth/me');
-    const authData = await authRes.json();
+      try {
+        const authRes = await fetch('../../../api/auth/me');
+        const authData = await authRes.json();
+        let userDeptCode = '';
+        if (authData.success) {
+          setCurrentUser(authData.data);
+          userDeptCode = authData.data.departmentCode;
+        }
 
-    let userDeptCode = '';
+        const deptRes = await fetch('../../../api/department/get');
+        const deptData = await deptRes.json();
+        if (deptData.success && Array.isArray(deptData.data)) {
+          const mappedDepts = deptData.data
+            .filter((dept: Department) => dept.code !== userDeptCode)
+            .map((dept: Department) => ({
+              value: dept.code,
+              label: dept.name ? `${dept.code} - ${dept.name}` : dept.code,
+            }));
+          setDepartments(mappedDepts);
+        }
 
-    if (authData.success) {
-      setCurrentUser(authData.data);
-      userDeptCode = authData.data.departmentCode;
-    }
-
-    const deptRes = await fetch('../../../api/department/get');
-    const deptData = await deptRes.json();
-
-    if (deptData.success && Array.isArray(deptData.data)) {
-      const mappedDepts = deptData.data
-        .filter((dept: Department) => dept.code !== userDeptCode)
-        .map((dept: Department) => ({
-          value: dept.code,
-          label: dept.name
-            ? `${dept.code} - ${dept.name}`
-            : dept.code,
-        }));
-
-      setDepartments(mappedDepts);
-    }
-
-    setPageLoading(true);
-    await fetchMemos();
-    setPageLoading(false);
-
-  } catch (err) {
-    console.error(err);
-  } finally {
-    setLoadingDepts(false);
-    setLoadingMemos(false);
-    setPageLoading(false);
-  }
-};
-
-initializeDashboard();
+        setPageLoading(true);
+        await fetchMemos();
+        setPageLoading(false);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoadingDepts(false);
+        setLoadingMemos(false);
+        setPageLoading(false);
+      }
+    };
+    initializeDashboard();
   }, []);
 
+  // ---- Helper functions ----
   const isCurrentlyOIC = () => {
     if (!currentUser?.oic_start || !currentUser?.oic_end) return false;
     const now = new Date().getTime();
@@ -238,14 +168,45 @@ initializeDashboard();
     return now >= start && now <= end;
   };
 
-  const activeDepartment = currentUser?.departmentCode || "";
+  const activeDepartment = currentUser?.departmentCode || '';
   const processOICAllowance = isCurrentlyOIC();
-  const userRole = currentUser?.role?.toUpperCase() || "";
-  
+  const userRole = currentUser?.role?.toUpperCase() || '';
   const isAdminOrSuper = ['ADMIN', 'SUPERUSER', 'Admin', 'SuperUser'].includes(userRole);
   const isDepartmentHead = ['DEPARTMENTHEAD', 'DepartmentHead', 'OIC'].includes(userRole);
 
-  // ⚙️ FILTER & SORT FUNCTION (Para sa panel contents lang)
+  // ---- Ngayon, pwede na nating gamitin ang roles sa useState ----
+  const [activeTab, setActiveTab] = useState<string | null>(() => {
+    if (isAdminOrSuper) return 'all_memos';
+    if (isDepartmentHead) return 'approval';
+    return 'inbox';
+  });
+
+  // ---- Ref para malaman kung nag-manual change ang user ----
+  const userChangedTab = useRef(false);
+
+  // ---- Effect para i-auto-set ang tab kapag nagbago ang roles (pero hindi kung nag-manual na) ----
+  useEffect(() => {
+    if (!userChangedTab.current) {
+      let desired: string | null = null;
+      if (isAdminOrSuper) desired = 'all_memos';
+      else if (isDepartmentHead) desired = 'approval';
+      else desired = 'inbox';
+
+      if (desired && activeTab !== desired) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setActiveTab(desired);
+      }
+    }
+  }, [isAdminOrSuper, isDepartmentHead, activeTab]);
+
+  // ---- Handler para sa pag-click ng tab ----
+  const handleTabChange = (value: string | null) => {
+    userChangedTab.current = true;
+    setActiveTab(value);
+  };
+
+
+  // ---- Filter & sort ----
   const getFilteredMemos = (list: Memo[]) => {
     const filtered = list.filter((memo) => {
       const searchLower = searchTerm.toLowerCase();
@@ -257,7 +218,6 @@ initializeDashboard();
         memo.sender?.branch.toLowerCase().includes(searchLower)
       );
     });
-
     return [...filtered].sort((a, b) => {
       const dateA = new Date(a.createdAt).getTime();
       const dateB = new Date(b.createdAt).getTime();
@@ -265,221 +225,66 @@ initializeDashboard();
     });
   };
 
-  const handlePrintMemo = (memo: Memo) => {
-    const printWindow = window.open('', '_blank', 'width=800,height=600');
-    if (!printWindow) return;
-    const recipientDepts = memo.recipients?.map(r => `${r.departmentName} [${r.status}]`).join(', ') || 'None';
-    
-    const revisionNotice = memo.isRevisedByHead 
-      ? `<div style="margin-top: 15px; padding: 10px; border: 1px solid #70438a; background-color: #fcf8ff; font-size: 12px; color: #70438a;"><strong>⚠️ AMENDMENT NOTICE:</strong> This draft was officially reviewed, modified, and finalized by the Department Head prior to system broadcast.</div>`
-      : '';
-
-    const attachmentNotice =
-      memo.attachmentPaths && memo.attachmentPaths.length > 0
-        ? `
-          <div style="
-            margin-top: 20px;
-            border: 1px solid #000;
-            padding: 12px;
-            page-break-inside: avoid;
-          ">
-            <div style="
-              font-weight: bold;
-              margin-bottom: 10px;
-              text-decoration: underline;
-            ">
-              ATTACHED DOCUMENTS
-            </div>
-
-            <ol style="
-              margin: 0;
-              padding-left: 20px;
-            ">
-              ${memo.attachmentPaths
-                .map((path) => {
-                  const fileName =
-                    path
-                      .split('/')
-                      .pop()
-                      ?.replace(/^\d+-(\d+-)?/, '') ||
-                    'Unnamed Attachment';
-
-                  return `<li style="margin-bottom: 4px;">${fileName}</li>`;
-                })
-                .join('')}
-            </ol>
-
-            <div style="
-              margin-top: 10px;
-              font-size: 11px;
-              color: #555;
-            ">
-              Total Attachments: ${memo.attachmentPaths.length}
-            </div>
-          </div>
-        `
-        : '';
-
-    // 📊 1. I-generate ang HTML Rows para sa Dispatch Route Matrix
-    // 📊 1. I-generate ang HTML Rows para sa Dispatch Route Matrix (FIXED LONGER REMARKS & DATE)
-  // 📊 1. I-generate ang HTML Rows para sa Dispatch Route Matrix (TypeScript & Null Safe)
-  const dispatchMatrixRows = memo.recipients && memo.recipients.length > 0
-    ? memo.recipients.map(rec => {
-        // 🎯 Kumuha ng valid na petsa mula sa mga opsyonal na fields
-        const rawDate = rec.respondedAt || rec.deniedAt || rec.acknowledgedAt || rec.processedAt;
-        
-        // ⏰ Siguraduhing may valid na date bago i-parse, kung wala ay gawing walang laman
-        const formattedTimestamp = rawDate 
-          ? new Date(rawDate).toLocaleString() 
-          : null;
-
-        return `
-        <tr style="border-bottom: 1px dashed #000; page-break-inside: avoid;">
-          <td style="padding: 10px 4px; font-weight: bold; vertical-align: top;">${rec.departmentName}</td>
-          <td style="padding: 10px 4px; vertical-align: top;">
-            <span style="padding: 2px 6px; border: 1px solid #000; font-size: 12px; font-weight: bold; display: inline-block;">
-              ${rec.status}
-            </span>
-          </td>
-          <td style="padding: 10px 4px; font-size: 13px; vertical-align: top; word-break: break-word;">
-            <div style="font-weight: 500; margin-bottom: 6px; white-space: pre-wrap;">
-              ${rec.feedbackNote || '--'}
-            </div>
-            
-            ${formattedTimestamp ? `
-              <div style="font-size: 11px; color: #444; margin-top: 4px; border-left: 2px solid #000; padding-left: 5px;">
-                <b>TIMESTAMP:</b> ${formattedTimestamp}
-              </div>
-            ` : ''}
-          </td>
-        </tr>
-        `;
-      }).join('')
-    : `<tr><td colspan="3" style="text-align: center; padding: 15px; color: #000; border-bottom: 1px dashed #000;">No recipient records found.</td></tr>`;
-
-  // 📋 2. I-assemble ang buong Matrix Table Component
-  const dispatchMatrixTable = `
-    <div style="margin-top: 40px; page-break-inside: avoid;">
-      <div style="font-weight: bold; margin-bottom: 10px; text-decoration: underline; font-size: 14px;">DISPATCH ROUTE TRACKING MATRIX</div>
-      <table style="width: 100%; border-collapse: collapse; font-size: 13px; text-align: left; font-family: monospace; table-layout: fixed;">
-        <thead>
-          <tr style="border-bottom: 2px solid #000; font-weight: bold;">
-            <th style="padding: 6px 4px; width: 20%;">DEPARTMENT</th>
-            <th style="padding: 6px 4px; width: 18%;">STATUS</th>
-            <th style="padding: 6px 4px; width: 62%;">REMARKS & TRANSACTION TIMESTAMP</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${dispatchMatrixRows}
-        </tbody>
-      </table>
-    </div>
-  `;
-
-  // 🖨️ 3. Isalang na sa Document Write para sa Print Window
-  printWindow.document.write(`
-    <html>
-      <head>
-        <title>Print Memo - ${memo.referenceId || 'DRAFT'}</title>
-        <style>
-          body { font-family: monospace; line-height: 1.6; padding: 40px; color: #000; font-size: 14px; }
-          .header { text-align: center; margin-bottom: 30px; font-weight: bold; font-size: 18px; letter-spacing: 1px; }
-          .meta-table { width: 100%; border-collapse: collapse; margin-bottom: 25px; }
-          .meta-table td { padding: 6px 0; vertical-align: top; }
-          .meta-label { width: 140px; font-weight: bold; }
-          .content-box { border-top: 2px dashed #000; border-bottom: 2px dashed #000; padding: 25px 0; margin-bottom: 30px; white-space: pre-wrap; font-size: 15px; }
-          @media print {
-            tr { page-break-inside: avoid !important; }
-          }
-        </style>
-      </head>
-      <body>
-        <div class="header">INTERNAL OFFICE MEMORANDUM<br>==========================</div>
-        <table class="meta-table">
-          <tr><td class="meta-label">REF ID:</td><td><strong>${memo.referenceId || 'DRAFT (PENDING APPROVAL)'}</strong></td></tr>
-          <tr><td class="meta-label">DATE CREATED:</td><td>${new Date(memo.createdAt).toLocaleString()}</td></tr>
-          <tr><td class="meta-label">FROM (SENDER):</td><td>${memo.senderName} (${memo.senderDept}) ${memo.isRevisedByHead ? '[Amended by Head]' : ''}</td></tr>
-          <tr><td class="meta-label">TO (TARGET):</td><td>${recipientDepts}</td></tr>
-          <tr><td class="meta-label">PRIORITY:</td><td>[${memo.priority}]</td></tr>
-          <tr><td class="meta-label">PURPOSE:</td><td>${memo.purpose || 'N/A'}</td></tr>
-          <tr><td class="meta-label">SUBJECT:</td><td><strong>${memo.subject}</strong></td></tr>
-        </table>
-        
-        ${revisionNotice}
-        
-        <div class="content-box">${memo.content.replace(/\n/g, '<br>')}</div>
-        
-        ${attachmentNotice}
-        
-        ${dispatchMatrixTable}
-        
-        <div style="margin-top: 60px; font-size: 11px; text-align: center; color: #555;">-- System Generated Document --</div>
-        
-        <script>
-          window.onload = function() { window.print(); };
-          window.onafterprint = function() { window.close(); };
-        </script>
-      </body>
-    </html>
-  `);
-  printWindow.document.close();
-  };
-
-  useEffect(() => {
-    // ⏳ Gumamit ng queueMicrotask o setTimeout para ligtas na i-schedule ang state split screen render
-    queueMicrotask(() => {
-      if (isAdminOrSuper) {
-        setActiveTab("all_memos");
-      } else if (isDepartmentHead) {
-        setActiveTab("approval");
-      } else {
-        setActiveTab("inbox");
-      }
-    });
-  }, [isAdminOrSuper, isDepartmentHead]);
-
+  // ---- Derived memo lists ----
   const allMemosLedgerList = isAdminOrSuper ? memos : [];
-  const forApprovalMemos = memos.filter((memo) => memo.senderDept === activeDepartment && memo.status === 'FOR_APPROVAL');
+  const forApprovalMemos = memos.filter(
+    (memo) => memo.senderDept === activeDepartment && memo.status === 'FOR_APPROVAL'
+  );
   const incomingMemos = memos.filter((memo) => {
-    if (memo.status === 'FOR_APPROVAL') return false; 
-    return memo.recipients?.some((r) => (r.departmentName === activeDepartment || processOICAllowance) && r.status === 'PENDING');
+    if (memo.status === 'FOR_APPROVAL') return false;
+    return memo.recipients?.some(
+      (r) => (r.departmentName === activeDepartment || processOICAllowance) && r.status === 'PENDING'
+    );
   });
   const actionBoardMemos = memos.filter((memo) => {
     if (memo.status === 'FOR_APPROVAL') return false;
-    return memo.recipients?.some((r) => (r.departmentName === activeDepartment || processOICAllowance) && ['ACKNOWLEDGED', 'PROCESSING'].includes(r.status));
+    return memo.recipients?.some(
+      (r) =>
+        (r.departmentName === activeDepartment || processOICAllowance) &&
+        ['ACKNOWLEDGED', 'PROCESSING'].includes(r.status)
+    );
   });
-  const sentMemos = memos.filter((memo) => memo.senderDept === activeDepartment && memo.status === 'APPROVED');
+  const sentMemos = memos.filter(
+    (memo) => memo.senderDept === activeDepartment && memo.status === 'APPROVED'
+  );
   const resolvedMemos = memos.filter((memo) => {
     if (isAdminOrSuper) {
-      return memo.recipients?.some((r) => ['RESPONDED', 'DENIED'].includes(r.status));
+      return memo.recipients?.some((r) => 
+        ['COMPLETED', 'RESPONDED', 'DENIED', 'CLOSED'].includes(r.status)
+      );
     }
-    const isRecipientResolved = memo.recipients?.some((r) => 
-      (r.departmentName === activeDepartment || processOICAllowance) && ['RESPONDED', 'DENIED'].includes(r.status)
+    const isRecipientResolved = memo.recipients?.some(
+      (r) =>
+        (r.departmentName === activeDepartment || processOICAllowance) &&
+        ['COMPLETED', 'RESPONDED', 'DENIED', 'CLOSED'].includes(r.status)
     );
-    const isSenderResolved = memo.senderDept === activeDepartment && 
-      memo.recipients?.every((r) => ['RESPONDED', 'DENIED'].includes(r.status));
+    const isSenderResolved =
+      memo.senderDept === activeDepartment &&
+      memo.recipients?.every((r) => 
+        ['COMPLETED', 'RESPONDED', 'DENIED', 'CLOSED'].includes(r.status)
+      );
     return isRecipientResolved || isSenderResolved;
   });
 
-  const triggerActionPasswordCheck = (type: 'CREATE' | 'ACKNOWLEDGE' | 'START_PROCESSING' | 'DENY' | 'RESOLVE' | 'APPROVE_MEMO' | 'DISAPPROVE_DRAFT' | 'JOIN_PROCESSING', data: Record<string, unknown>) => {
+  // ---- Handlers ----
+  const triggerActionPasswordCheck = (
+    type:
+      | 'CREATE'
+      | 'ACKNOWLEDGE'
+      | 'START_PROCESSING'
+      | 'DENY'
+      | 'CLOSED'
+      | 'APPROVE_MEMO'
+      | 'DISAPPROVE_DRAFT'
+      | 'JOIN_PROCESSING',
+    data: Record<string, unknown>
+  ) => {
     setConfirmPassword('');
     setPassError('');
     setFeedbackNote('');
+    setActionAttachment(null);
     setPendingAction({ type, data });
     openPassModal();
-  };
-
-  const triggerSuperEditReview = (memo: Memo) => {
-    setHeadSelectedMemoId(memo.id);
-    setHeadEditSubject(memo.subject);
-    setHeadEditContent(memo.content);
-
-    setRetainedAttachments(memo.attachmentPaths || []);
-    setHeadNewAttachments([]);
-
-    setConfirmPassword('');
-    setPassError('');
-    openSuperEditModal();
   };
 
   const handlePasswordGateVerificationSubmit = async () => {
@@ -487,100 +292,85 @@ initializeDashboard();
       setPassError('Password is required.');
       return;
     }
-    if ((pendingAction?.type === 'DENY' || pendingAction?.type === 'DISAPPROVE_DRAFT') && (!feedbackNote || feedbackNote.trim() === "")) {
-      setPassError('Please include a reason or feedback notes.');
-      return;
-    }
-
     setSubmitting(true);
-    setPassError('');
-
     try {
-      if (pendingAction?.type === 'CREATE') {
-        const formData = new FormData();
-        
-        Object.entries(pendingAction.data).forEach(([key, value]) => {
-          if (
-            key !== 'memoFile' &&
-            key !== 'memoAttachments' &&
-            value !== null &&
-            value !== undefined
-          ) {
-            if (Array.isArray(value)) {
-              value.forEach(v => formData.append(key, v));
-            } else {
-              formData.append(key, String(value));
+      const formData = new FormData();
+      if (pendingAction?.data?.memoId) {
+        formData.append('memoId', String(pendingAction.data.memoId));
+      }
+      formData.append('departmentName', (pendingAction?.data?.departmentName as string) || '');
+      formData.append('action', pendingAction?.type || '');
+      formData.append('password', confirmPassword);
+      if (feedbackNote) {
+        formData.append('feedbackNote', feedbackNote);
+      }
+      const isSenderClosing = pendingAction?.data?.isSenderClosing ? 'true' : 'false';
+      formData.append('isSenderClosing', isSenderClosing);
+
+      if (pendingAction?.type === 'CREATE' && pendingAction?.data) {
+        formData.append('subject', String(pendingAction.data.subject || ''));
+        formData.append('content', String(pendingAction.data.content || ''));
+        formData.append('priority', String(pendingAction.data.priority || 'ROUTINE'));
+        formData.append('purpose', String(pendingAction.data.purpose || 'FYI'));
+        const targetDepts = pendingAction.data.targetDepts as string[];
+        if (Array.isArray(targetDepts)) {
+          targetDepts.forEach((dept) => formData.append('targetDepts', dept));
+        }
+
+        // 🟢 IDAGDAG ANG MGA ATTACHMENTS
+        const memoAttachments = pendingAction.data.memoAttachments as File[] | undefined;
+        if (memoAttachments && Array.isArray(memoAttachments)) {
+          for (const file of memoAttachments) {
+            if (file instanceof File && file.size > 0) {
+              formData.append('memoAttachments', file);
             }
           }
-        });
-
-        formData.append('password', confirmPassword);
-        // 🎯 FIX: Burahin yung lumang fileToUpload logic at palitan nito:
-        const filesToUpload = form.values.memoAttachments;
-
-        console.log("FILES:", filesToUpload);
-
-        filesToUpload.forEach((file) => {
-          console.log(file.name);
-          formData.append("memoAttachments", file);
-        });
-
-        const response = await fetch('../../../api/memos', {
-          method: 'POST',
-          body: formData, 
-        });
-
-        if (response.ok) {
-          alert(isDepartmentHead || isAdminOrSuper ? 'Memo generated and dispatched to recipients!' : 'Draft memorandum passed to Department Head for approval!');
-          form.reset(); close(); closePassModal(); setPageLoading(true);
-          await fetchMemos();
-          setPageLoading(false);
-        } else {
-          const resData = await response.json(); 
-          setPassError(resData.message || 'Incorrect credentials.');
-        }
-      } else {
-        // 🎯 FIXED ACTION MAP: Kasama na si JOIN_PROCESSING para tugma sa backend schema actions mo
-        const actionMap: Record<string, string> = {
-          'ACKNOWLEDGE': 'ACKNOWLEDGE',
-          'START_PROCESSING': 'START_PROCESSING',
-          'JOIN_PROCESSING': 'JOIN_PROCESSING', // 👈 Eto ang salarin kaya ayaw gumalaw!
-          'RESOLVE': 'RESOLVE',
-          'DENY': 'DENY',
-          'APPROVE_MEMO': 'APPROVE',
-          'DISAPPROVE_DRAFT': 'DISAPPROVE'
-        };
-
-        const response = await fetch('../../../api/memos', {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            memoId: pendingAction?.data?.memoId, 
-            departmentName: pendingAction?.data?.departmentName || null,
-            action: actionMap[pendingAction?.type || ''], // Mapapasa na ngayon nang tama si 'JOIN_PROCESSING'
-            password: confirmPassword, 
-            feedbackNote,
-            isSenderClosing: pendingAction?.data?.isSenderClosing || false
-          }),
-        });
-
-        if (response.ok) { 
-          alert('State Transition Document Saved!'); 
-          closePassModal(); 
-          setPageLoading(true);
-          await fetchMemos();
-          setPageLoading(false);
-        } else { 
-          const resData = await response.json();
-          setPassError(resData.message || 'Security signature failed.'); 
         }
       }
-    } catch (err) {
-      console.error(err);
-      setPassError('System infrastructure timeout.');
+
+      if (actionAttachment) {
+        formData.append('attachments', actionAttachment);
+      }
+
+      const fetchMethod = pendingAction?.type === 'CREATE' ? 'POST' : 'PATCH';
+      const response = await fetch('../../../api/memos', {
+        method: fetchMethod,
+        body: formData,
+      });
+      const result = await response.json();
+
+      if (result.success) {
+        closePassModal();
+        setConfirmPassword('');
+        setFeedbackNote('');
+        setActionAttachment(null);
+        if (pendingAction?.type === 'CREATE') {
+          close();
+          form.reset();
+        }
+        fetchMemos();
+        window.dispatchEvent(new Event('refresh-notifications'));
+        alert(`Success! Memo has been ${pendingAction?.type === 'CREATE' ? 'created' : 'processed'}.`);
+      } else {
+        setPassError(result.message || 'Something went wrong.');
+      }
+    } catch (error) {
+      console.error('Error submitting action:', error);
+      setPassError('Internal server error occurred.');
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const triggerSuperEditReview = (memo: Memo) => {
+    setHeadSelectedMemoId(memo.id);
+    setHeadEditSubject(memo.subject);
+    setHeadEditContent(memo.content);
+    setRetainedAttachments(memo.attachmentPaths || []);
+    setHeadNewAttachments([]);
+    setConfirmPassword('');
+    setPassError('');
+    openSuperEditModal();
   };
 
   const handleSuperEditAndApproveSubmit = async () => {
@@ -590,22 +380,14 @@ initializeDashboard();
     }
     setSubmitting(true);
     setPassError('');
-
     try {
       const formData = new FormData();
-
       formData.append('memoId', headSelectedMemoId);
       formData.append('action', 'APPROVE');
       formData.append('password', confirmPassword);
-
       formData.append('subject', headEditSubject);
       formData.append('content', headEditContent);
-
-      formData.append(
-        'retainedAttachments',
-        JSON.stringify(retainedAttachments)
-      );
-
+      formData.append('retainedAttachments', JSON.stringify(retainedAttachments));
       headNewAttachments.forEach((file) => {
         formData.append('headNewAttachments', file);
       });
@@ -614,7 +396,6 @@ initializeDashboard();
         method: 'PATCH',
         body: formData,
       });
-
       if (response.ok) {
         alert('Memorandum reviewed, signed, and broadcasted successfully!');
         closeSuperEditModal();
@@ -641,15 +422,17 @@ initializeDashboard();
       targetDepts: [parentMemo.senderDept],
       parentMemoId: parentMemo.id,
       rootMemoId: parentMemo.rootMemoId || parentMemo.id,
-      memoAttachments: [] // 🎯 FIX: Ginawang empty array na para tugma sa bago nating useForm state
+      memoAttachments: [],
     });
     open();
   };
 
   const handleViewThread = (selectedMemo: Memo) => {
     const rootId = selectedMemo.rootMemoId || selectedMemo.id;
-    const filtered = memos.filter(m => m.rootMemoId === rootId || m.id === rootId);
-    const sortedThread = [...filtered].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    const filtered = memos.filter((m) => m.rootMemoId === rootId || m.id === rootId);
+    const sortedThread = [...filtered].sort(
+      (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+    );
     setActiveThreadMemos(sortedThread);
     openThreadModal();
   };
@@ -659,328 +442,171 @@ initializeDashboard();
     openExpandNoteModal();
   };
 
+  const handlePrintMemo = (memo: Memo) => {
+    // Original print logic unchanged (kept as is)
+    const printWindow = window.open('', '_blank', 'width=800,height=600');
+    if (!printWindow) return;
+    const recipientDepts =
+      memo.recipients?.map((r) => `${r.departmentName} [${r.status}]`).join(', ') || 'None';
+    const revisionNotice = memo.isRevisedByHead
+      ? `<div style="margin-top:15px;padding:10px;border:1px solid #70438a;background-color:#fcf8ff;font-size:12px;color:#70438a;"><strong>⚠️ AMENDMENT NOTICE:</strong> This draft was officially reviewed, modified, and finalized by the Department Head prior to system broadcast.</div>`
+      : '';
+    const attachmentNotice =
+      memo.attachmentPaths && memo.attachmentPaths.length > 0
+        ? `
+          <div style="margin-top:20px;border:1px solid #000;padding:12px;page-break-inside:avoid;">
+            <div style="font-weight:bold;margin-bottom:10px;text-decoration:underline;">ATTACHED DOCUMENTS</div>
+            <ol style="margin:0;padding-left:20px;">
+              ${memo.attachmentPaths
+                .map((path) => {
+                  const fileName =
+                    path.split('/').pop()?.replace(/^\d+-(\d+-)?/, '') || 'Unnamed Attachment';
+                  return `<li style="margin-bottom:4px;">${fileName}</li>`;
+                })
+                .join('')}
+            </ol>
+            <div style="margin-top:10px;font-size:11px;color:#555;">Total Attachments: ${memo.attachmentPaths.length}</div>
+          </div>
+        `
+        : '';
+
+    // Build dispatch matrix rows
+    const dispatchMatrixRows =
+      memo.recipients && memo.recipients.length > 0
+        ? memo.recipients
+            .map((rec) => {
+              const rawDate =
+                rec.respondedAt || rec.deniedAt || rec.acknowledgedAt || rec.processedAt;
+              const formattedTimestamp = rawDate ? new Date(rawDate).toLocaleString() : null;
+              return `
+              <tr style="border-bottom:1px dashed #000;page-break-inside:avoid;">
+                <td style="padding:10px 4px;font-weight:bold;vertical-align:top;">${rec.departmentName}</td>
+                <td style="padding:10px 4px;vertical-align:top;">
+                  <span style="padding:2px 6px;border:1px solid #000;font-size:12px;font-weight:bold;display:inline-block;">${rec.status}</span>
+                </td>
+                <td style="padding:10px 4px;font-size:13px;vertical-align:top;word-break:break-word;">
+                  <div style="font-weight:500;margin-bottom:6px;white-space:pre-wrap;">${rec.feedbackNote || '--'}</div>
+                  ${formattedTimestamp ? `<div style="font-size:11px;color:#444;margin-top:4px;border-left:2px solid #000;padding-left:5px;"><b>TIMESTAMP:</b> ${formattedTimestamp}</div>` : ''}
+                </td>
+              </tr>
+            `;
+            })
+            .join('')
+        : `<tr><td colspan="3" style="text-align:center;padding:15px;color:#000;border-bottom:1px dashed #000;">No recipient records found.</td></tr>`;
+
+    const dispatchMatrixTable = `
+      <div style="margin-top:40px;page-break-inside:avoid;">
+        <div style="font-weight:bold;margin-bottom:10px;text-decoration:underline;font-size:14px;">DISPATCH ROUTE TRACKING MATRIX</div>
+        <table style="width:100%;border-collapse:collapse;font-size:13px;text-align:left;font-family:monospace;table-layout:fixed;">
+          <thead>
+            <tr style="border-bottom:2px solid #000;font-weight:bold;">
+              <th style="padding:6px 4px;width:20%;">DEPARTMENT</th>
+              <th style="padding:6px 4px;width:18%;">STATUS</th>
+              <th style="padding:6px 4px;width:62%;">REMARKS & TRANSACTION TIMESTAMP</th>
+            </tr>
+          </thead>
+          <tbody>${dispatchMatrixRows}</tbody>
+        </table>
+      </div>
+    `;
+
+    printWindow.document.write(`
+      <html>
+        <head><title>Print Memo - ${memo.referenceId || 'DRAFT'}</title>
+        <style>
+          body { font-family: monospace; line-height: 1.6; padding: 40px; color: #000; font-size: 14px; }
+          .header { text-align: center; margin-bottom: 30px; font-weight: bold; font-size: 18px; letter-spacing: 1px; }
+          .meta-table { width: 100%; border-collapse: collapse; margin-bottom: 25px; }
+          .meta-table td { padding: 6px 0; vertical-align: top; }
+          .meta-label { width: 140px; font-weight: bold; }
+          .content-box { border-top: 2px dashed #000; border-bottom: 2px dashed #000; padding: 25px 0; margin-bottom: 30px; white-space: pre-wrap; font-size: 15px; }
+          @media print { tr { page-break-inside: avoid !important; } }
+        </style>
+        </head>
+        <body>
+          <div class="header">INTERNAL OFFICE MEMORANDUM<br>==========================</div>
+          <table class="meta-table">
+            <tr><td class="meta-label">REF ID:</td><td><strong>${memo.referenceId || 'DRAFT (PENDING APPROVAL)'}</strong></td></tr>
+            <tr><td class="meta-label">DATE CREATED:</td><td>${new Date(memo.createdAt).toLocaleString()}</td></tr>
+            <tr><td class="meta-label">FROM (SENDER):</td><td>${memo.senderName} (${memo.senderDept}) ${memo.isRevisedByHead ? '[Amended by Head]' : ''}</td></tr>
+            <tr><td class="meta-label">TO (TARGET):</td><td>${recipientDepts}</td></tr>
+            <tr><td class="meta-label">PRIORITY:</td><td>[${memo.priority}]</td></tr>
+            <tr><td class="meta-label">PURPOSE:</td><td>${memo.purpose || 'N/A'}</td></tr>
+            <tr><td class="meta-label">SUBJECT:</td><td><strong>${memo.subject}</strong></td></tr>
+          </table>
+          ${revisionNotice}
+          <div class="content-box">${memo.content.replace(/\n/g, '<br>')}</div>
+          ${attachmentNotice}
+          ${dispatchMatrixTable}
+          <div style="margin-top:60px;font-size:11px;text-align:center;color:#555;">-- System Generated Document --</div>
+          <script>
+            window.onload = function() { window.print(); };
+            window.onafterprint = function() { window.close(); };
+          <\/script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
+  // ---- Render helper for memo cards ----
   const renderMemoCards = (memoList: Memo[], isApprovalTab = false) => {
     if (memoList.length === 0) {
       return <Text c="dimmed" ta="center" py="xl" w="100%">No documents logged.</Text>;
     }
-
     return (
       <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="lg">
-        {memoList.map((memo: Memo) => {
-          const amISender = memo.senderId === currentUser?.id;
-          const myRecipientInfo = memo.recipients?.find(r => r.departmentName === activeDepartment);
-          
-          const processingRecipients = memo.recipients?.filter(r => r.status === 'PROCESSING') || [];
-          const isBeingProcessed = processingRecipients.length > 0; 
-          
-          const isMemoResolvedForMe = ['RESPONDED', 'DENIED'].includes(myRecipientInfo?.status || '');
-          const isAllResolved = memo.senderId === currentUser?.id && memo.recipients?.every(r => ['RESPONDED', 'DENIED'].includes(r.status));
-          const disableReply = !isAdminOrSuper && (isMemoResolvedForMe || isAllResolved || memo.status === 'FOR_APPROVAL');
-          
-          let badgeText: string = memo.priority;
-          let badgeColor = 'blue';
-          if (memo.priority === 'RUSH' && memo.deadlineAt && !isMemoResolvedForMe && !isAllResolved) {
-            const diffTime = new Date(memo.deadlineAt).getTime() - Date.now();
-            const MathCeilDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-            if (MathCeilDays < 0) {
-              badgeText = 'OVERDUE';
-              badgeColor = 'red';
-            } else if (MathCeilDays === 0 || MathCeilDays === 1) { 
-              // 🎯 Kapag 0 o 1 day na lang ang natitira, markahan natin na Due Today at gawing matingkad na pula/orange
-              badgeText = 'DUE TODAY';
-              badgeColor = 'red'; // Pwede rin 'orange' kung gusto mong i-reserve ang red para sa Overdue lang talaga
-            } else {
-              badgeText = `${MathCeilDays} days left`;
-              badgeColor = 'orange';
-            }
-          } else if (memo.priority === 'RUSH') { 
-            badgeText = 'RUSH'; 
-            badgeColor = 'gray'; 
-          } else if (memo.priority === 'URGENT') { 
-            badgeColor = (isMemoResolvedForMe || isAllResolved) ? 'gray' : 'pink'; 
-          }
-
-          const rootIdForThread = memo.rootMemoId || memo.id;
-          const threadCount = memos.filter(m => m.rootMemoId === rootIdForThread || m.id === rootIdForThread).length;
-          const hasThread = threadCount > 1; // Lalabas lang kapag may 2 or more memos na sa thread
-
+        {memoList.map((memo) => {
+          const rootId = memo.rootMemoId || memo.id;
+          const threadCount = memos.filter((m) => m.rootMemoId === rootId || m.id === rootId).length;
           return (
-            <Card 
-            key={memo.id} 
-            withBorder={!isBeingProcessed} 
-            radius="md" 
-            shadow={isBeingProcessed ? "md" : "sm"}
-            style={{
-              border: isBeingProcessed 
-                ? '2px solid var(--mantine-color-orange-filled)' 
-                : '1px solid light-dark(var(--mantine-color-gray-3), var(--mantine-color-dark-4))',
-              boxShadow: isBeingProcessed 
-                ? '0 0 12px rgba(255, 165, 0, 0.4)' 
-                : undefined,
-              display: 'flex',
-              flexDirection: 'column',
-              minHeight: '420px',
-              padding: 0,
-              transition: 'all 0.2s ease',
-            }}
-          >
-            <UnstyledButton 
-              onClick={() => handleExpandNoteOpen(memo)} 
-              style={{ 
-                display: 'flex', 
-                flexDirection: 'column', 
-                flex: 1, 
-                padding: '20px', 
-                textAlign: 'left',
-                // 🎯 INITIAL CONFIG AT SMOOTH TRANSITION
-                backgroundColor: 'transparent',
-                borderRadius: '8px', 
-                transition: 'all 0.2s ease',
-                cursor: 'pointer'
-              }}
-              // 🎯 TS-SAFE DARK MODE INTERACTIVE HOVER PARA SA MEMO CARDS
-              onMouseEnter={(e) => {
-                const isDarkMode = document.documentElement.getAttribute('data-mantine-color-scheme') === 'dark';
-                
-                // Magbe-blend sa kulay ng background kahit anong theme ang gamit ng NCST system
-                e.currentTarget.style.backgroundColor = isDarkMode 
-                  ? 'var(--mantine-color-dark-5)' 
-                  : 'var(--mantine-color-gray-0)';
-                
-                // Swabeng pag-angat at micro shadow expansion
-                e.currentTarget.style.transform = 'translateY(-1px)';
-                e.currentTarget.style.boxShadow = 'var(--mantine-shadow-xs)';
-              }}
-              onMouseLeave={(e) => {
-                // 🎯 BALIK SA DEFAULT STATE PAGKAALIS NG MOUSE
-                e.currentTarget.style.backgroundColor = 'transparent';
-                e.currentTarget.style.transform = 'none';
-                e.currentTarget.style.boxShadow = 'none';
-              }}
-            >
-              <Group justify="space-between" w="100%" mb="xs">
-                <Group gap="xs" onClick={(e) => e.stopPropagation()}> 
-                  <Text ff="monospace" fw={700} c="blue" size="sm">
-                    {memo.referenceId || 'DRAFT-DPT'}
-                  </Text>
+            <MemoCard
+              key={memo.id}
+              memo={memo}
+              isApprovalTab={isApprovalTab}
+              currentUser={currentUser}
+              activeDepartment={activeDepartment}
+              isAdminOrSuper={isAdminOrSuper}
+              isDepartmentHead={isDepartmentHead}
+              processOICAllowance={processOICAllowance}
+              threadCount={threadCount}
+              onReply={handleReplyClick}
+              onPrint={handlePrintMemo}
+              onViewThread={handleViewThread}
+              onExpand={handleExpandNoteOpen}
+              onSuperEdit={triggerSuperEditReview}
+              triggerActionPasswordCheck={triggerActionPasswordCheck}
+              allMemos={memos}
+            />
+          );
+        })}
+      </SimpleGrid>
+    );
+  };
 
-                  {memo.attachmentPaths && memo.attachmentPaths.length > 0 && (
-                    <Badge color="indigo" variant="filled" size="xs" leftSection={<IconDownload size={12} />}>
-                      HAS {memo.attachmentPaths.length} FILE(S) ATTACHED
-                    </Badge>
-                  )}
-
-                  {amISender && <Badge color="gray" variant="light" size="xs">CREATED BY YOU</Badge>}
-                  {memo.status === 'FOR_APPROVAL' && <Badge color="orange" variant="filled" size="xs">Draft/For Review</Badge>}
-                  
-                  {/* Tago ang "In Thread" badge kapag mag-isa lang ang memo */}
-                  {hasThread && (
-                    <Badge 
-                      color="teal" variant="outline" size="xs" leftSection={<IconGitBranch size={10} />} style={{ cursor: 'pointer' }}
-                      onClick={(e) => { e.stopPropagation(); handleViewThread(memo); }}
-                    >
-                      In a Thread
-                    </Badge>
-                  )}
-                </Group>
-                <Group gap="xs">
-                  <Badge color="cyan" variant="light" size="sm">{memo.purpose}</Badge>
-                  <Badge color={badgeColor} variant="filled" size="sm">{badgeText}</Badge>
-                </Group>
-              </Group>
-
-              <Stack gap={4} my="xs" p="xs" w="100%" bg="light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-7))" style={{ borderRadius: '6px' }}>
-                <Text size="xs"><b>TO:</b> {memo.recipients?.map(r => r.departmentName).join(', ')}</Text>
-                <Group gap={6} align="center">
-                  <Text size="xs"><b>FROM:</b> {memo.senderName} ({memo.sender?.branch ? `${memo.sender.branch} - ` : ''}{memo.senderDept})</Text>
-                  {memo.isRevisedByHead && (
-                    <Badge color="grape" variant="light" size="9px" radius="sm">Amended by Head</Badge>
-                  )}
-                </Group>
-                <Text size="10px" c="dimmed"><b>DATE:</b> {new Date(memo.createdAt).toLocaleString()}</Text>
-
-                {isBeingProcessed && processingRecipients.map((pr) => pr.processedBy && (
-                  <Group gap={4} mt={2} key={pr.id}>
-                    <Badge color="orange" variant="light" size="xs" style={{ textTransform: 'none', letterSpacing: 0 }}>
-                      ⚙️ {pr.departmentName} processing by: <b>{pr.processedBy}</b>
-                    </Badge>
-                  </Group>
-                ))}
-              </Stack>
-
-              <Text fz="sm" fw={700} mt="xs" w="100%" lineClamp={1}>
-                SUBJECT: {memo.subject}
-              </Text>
-              
-              <Divider my="xs" w="100%" style={{ opacity: 0.5 }} />
-              <Text fz="sm" c="dimmed" lineClamp={4} style={{ whiteSpace: 'pre-wrap' }}>
-                {memo.content}
-              </Text>
-            </UnstyledButton>
-
-            <Group 
-              justify="space-between" p="md" 
-              style={{ 
-                borderTop: '1px solid light-dark(var(--mantine-color-gray-2), var(--mantine-color-dark-5))',
-                backgroundColor: 'light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-8))',
-                marginTop: 'auto'
-              }}
-            >
-              <Group gap="xs">
-                {/* Tago rin ang button na 'History Thread' kapag wala pang karugtong */}
-                {hasThread && (
-                  <Button size="xs" variant="outline" color="teal" leftSection={<IconGitBranch size={13} />} onClick={() => handleViewThread(memo)}>
-                    History Thread
-                  </Button>
-                )}
-                <Button size="xs" variant="outline" color="gray" leftSection={<IconPrinter size={13} />} onClick={() => handlePrintMemo(memo)}>
-                  Print
-                </Button>
-              </Group>
-
-              <Group gap="xs">
-                {/* 🎯 EDIT DITO: Nilagyan ng Disapprove button sa tabi ng Review & Approve */}
-                {isApprovalTab && (isDepartmentHead || isAdminOrSuper) && (
-                  <Group gap={4}>
-                    <Button size="xs" color="indigo" leftSection={<IconEdit size={13} />} onClick={() => triggerSuperEditReview(memo)}>
-                      Review & Approve
-                    </Button>
-                    <Button size="xs" color="red" onClick={() => triggerActionPasswordCheck('DISAPPROVE_DRAFT', { memoId: memo.id })}>
-                      Disapprove
-                    </Button>
-                  </Group>
-                )}
-                
-                {isDepartmentHead && myRecipientInfo?.status === 'PENDING' && !isApprovalTab && (
-                  <Group gap={4}>
-                    <Button size="xs" color="green" leftSection={<IconCheck size={13} />} onClick={() => triggerActionPasswordCheck('ACKNOWLEDGE', { memoId: memo.id, departmentName: activeDepartment })}>
-                      Acknowledge
-                    </Button>
-                    <Button size="xs" color="red" onClick={() => triggerActionPasswordCheck('DENY', { memoId: memo.id, departmentName: activeDepartment })}>
-                      Deny Inbound
-                    </Button>
-                  </Group>
-                )}
-                {myRecipientInfo?.status === 'ACKNOWLEDGED' && (
-                  <Button size="xs" color="orange" leftSection={<IconPlayerPlay size={13} />} onClick={() => triggerActionPasswordCheck('START_PROCESSING', { memoId: memo.id, departmentName: activeDepartment })}>
-                    Process
-                  </Button>
-                )}
-
-                {amISender && !isAllResolved && memo.status !== 'FOR_APPROVAL' && (
-                  <Button size="xs" color="teal" leftSection={<IconFileCheck size={13} />} onClick={() => triggerActionPasswordCheck('RESOLVE', { memoId: memo.id, isSenderClosing: true })}>
-                    Resolve & Close
-                  </Button>
-                )}
-                
-                {/* 🎯 ADVANCED COLLABORATION & OVERRIDE BLOCK */}
-                {(() => {
-                  const isUnderProcessing = myRecipientInfo?.status === 'PROCESSING';
-                  const isAcknowledged = myRecipientInfo?.status === 'ACKNOWLEDGED';
-                  const currentUserName = `${currentUser?.fname} ${currentUser?.lname}`;
-                  
-                  // I-tsek kung kasama na ba ang kasalukuyang user sa listahan ng mga nagpo-process
-                  const amIAlreadyProcessing = myRecipientInfo?.processedBy?.includes(currentUserName);
-
-                  return (
-                    <Group gap={4}>
-                      {/* 1. HEAD OVERRIDE & DELEGATION CONTROLS */}
-                      {isDepartmentHead && (isUnderProcessing || isAcknowledged) && (
-                        <Group gap={4}>
-                          {/* Force Complete button para kay Head */}
-                          <Button size="xs" color="teal" variant="filled" onClick={() => triggerActionPasswordCheck('RESOLVE', { memoId: memo.id, departmentName: activeDepartment })}>
-                            Head Force Complete
-                          </Button>
-                          {/* Dito mo pwedeng isunod o isalpak 'yung dropdown/select component para sa Delegation ng staff balang araw */}
-                        </Group>
-                      )}
-
-                      {/* 2. STAFF COLLABORATION CONTROLS */}
-                      {isUnderProcessing && !isDepartmentHead && (
-                        <Group gap={4}>
-                          {/* Kung processing na pero HINDI pa kasali si kasalukuyang staff, bigyan ng opsyon sumalo */}
-                          {!amIAlreadyProcessing && (
-                            <Button size="xs" color="indigo" variant="light" onClick={() => triggerActionPasswordCheck('JOIN_PROCESSING', { memoId: memo.id, departmentName: activeDepartment })}>
-                              Join Process
-                            </Button>
-                          )}
-                          
-                          {/* Kahit sinong staff sa dept ay pwedeng mag-complete ng trabaho */}
-                          <Button size="xs" color="green" onClick={() => triggerActionPasswordCheck('RESOLVE', { memoId: memo.id, departmentName: activeDepartment })}>
-                            Complete
-                          </Button>
-                        </Group>
-                      )}
-                    </Group>
-                  );
-                })()}
-                
-                {/* 🎯 EDIT HERE: Lock the Reply button if the memo was already denied OR already responded to */}
-                {(() => {
-                  // 1. Check kung na-deny na ang draft (galing kay Head)
-                  const isMemoDenied = memo.recipients?.some(r => r.status === 'DENIED');
-                  
-                  // 2. Check kung nareplyan na ito ng recipient department
-                  const isAlreadyResponded = memo.recipients?.some(r => r.status === 'RESPONDED');
-                  
-                  // Pagsamahin lahat ng conditions para sa pag-disable
-                  const finalDisableReply = disableReply || isMemoDenied || isAlreadyResponded;
-
-                  // Alamin kung anong text ang dapat ipakita sa button
-                  let buttonText = 'Reply';
-                  if (isMemoDenied) buttonText = 'Reply Disabled (Denied)';
-                  if (isAlreadyResponded) buttonText = 'Already Responded';
-
-                  return (
-                    <Button 
-                      size="xs" 
-                      variant={finalDisableReply ? "subtle" : "light"} 
-                      color={finalDisableReply ? "gray" : "blue"} 
-                      disabled={finalDisableReply}
-                      leftSection={<IconMessageReply size={13} />} 
-                      onClick={() => handleReplyClick(memo)}
-                    >
-                      {buttonText}
-                    </Button>
-                  );
-                })()}
-              </Group>
-            </Group>
-          </Card>
-                    );
-                  })}
-                </SimpleGrid>
-              );
-            };
-
+  // ---- Main render ----
   return (
-    <Container
-      size="xl"
-      py="lg"
-      pos="relative"
-    >
-      <LoadingOverlay
-        visible={pageLoading}
-        zIndex={1000} overlayProps={{ radius: "sm", blur: 2 }}
-      />
+    <Container size="xl" py="lg" pos="relative">
+      <LoadingOverlay visible={pageLoading} zIndex={1000} overlayProps={{ radius: 'sm', blur: 2 }} />
+
       <Card withBorder radius="lg" p="xl" shadow="sm">
         <Group justify="space-between" align="center" mb="xl">
           <Stack gap={2}>
-            <Title order={2} fw={800} lts="-0.5px">Inter-office Memorandum Workspace</Title>
+            <Title order={2} fw={800} lts="-0.5px">
+              Inter-office Memorandum Workspace
+            </Title>
             <Group gap={6}>
               <Text size="xs" c="dimmed">Active Department Code:</Text>
               <Badge color="blue" variant="light" size="sm">{activeDepartment || 'SYSTEM'}</Badge>
               <Badge color="gray" variant="light" size="sm">{userRole}</Badge>
             </Group>
           </Stack>
-
           <Button leftSection={<IconPlus size={16} />} onClick={() => { form.reset(); open(); }} radius="md">
             Create New Memo
           </Button>
         </Group>
 
-        {/* 🛠️ SEARCH & SORT BAR CONTROL PANEL */}
+        {/* Search & Sort */}
         <Card withBorder radius="md" mb="md" p="sm" bg="light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-8))">
           <Group justify="space-between" align="flex-end">
             <TextInput
@@ -992,9 +618,9 @@ initializeDashboard();
             />
             <Stack gap={4}>
               <Text size="xs" fw={500}>Sort by Date Created</Text>
-              <Button 
-                variant="light" 
-                color={sortByDate === 'NEWEST' ? 'blue' : 'orange'} 
+              <Button
+                variant="light"
+                color={sortByDate === 'NEWEST' ? 'blue' : 'orange'}
                 onClick={() => toggleSortByDate()}
                 style={{ width: 180 }}
               >
@@ -1004,48 +630,47 @@ initializeDashboard();
           </Group>
         </Card>
 
-        {/* 🗂️ CONTROLLED MANTINE TABS DIRECTORY */}
-        <Tabs 
-          value={activeTab} 
-          onChange={setActiveTab} 
-          radius="md" 
-          variant="outline"
-        >
+        {/* Tabs */}
+        <Tabs value={activeTab} onChange={handleTabChange} radius="md" variant="outline">
           <Tabs.List mb="lg">
             {isAdminOrSuper && (
               <Tabs.Tab value="all_memos" leftSection={<IconLayersIntersect size={15} />}>
-                All System Memos Ledger <Badge size="xs" variant="light" ml={6}>{allMemosLedgerList.length}</Badge>
+                All System Memos Ledger{' '}
+                <Badge size="xs" variant="light" ml={6}>{allMemosLedgerList.length}</Badge>
               </Tabs.Tab>
             )}
-
             {isDepartmentHead && (
               <Tabs.Tab value="approval" leftSection={<IconThumbUp size={15} />}>
-                For Approval (Staff Drafts) <Badge size="xs" variant="light" ml={6}>{forApprovalMemos.length}</Badge>
+                For Approval (Staff Drafts){' '}
+                <Badge size="xs" variant="light" ml={6}>{forApprovalMemos.length}</Badge>
               </Tabs.Tab>
             )}
-
             {!isAdminOrSuper && (
               <>
                 <Tabs.Tab value="inbox" leftSection={<IconInbox size={15} />}>
-                  Incoming Memos <Badge size="xs" variant="light" ml={6}>{incomingMemos.length}</Badge>
+                  Incoming Memos{' '}
+                  <Badge size="xs" variant="light" ml={6}>{incomingMemos.length}</Badge>
                 </Tabs.Tab>
                 <Tabs.Tab value="action_board" leftSection={<IconPlayerPlay size={15} />}>
-                  Action Board Workspace <Badge size="xs" variant="light" ml={6}>{actionBoardMemos.length}</Badge>
+                  Action Board Workspace{' '}
+                  <Badge size="xs" variant="light" ml={6}>{actionBoardMemos.length}</Badge>
                 </Tabs.Tab>
                 <Tabs.Tab value="sent" leftSection={<IconSend size={15} />}>
-                  Sent Ledger <Badge size="xs" variant="light" ml={6}>{sentMemos.length}</Badge>
+                  Sent Ledger{' '}
+                  <Badge size="xs" variant="light" ml={6}>{sentMemos.length}</Badge>
                 </Tabs.Tab>
               </>
             )}
-
-            <Tabs.Tab value="resolved" leftSection={<IconCircleCheck size={15} />}>
-              Archive / Resolved Logs <Badge size="xs" variant="light" ml={6}>{resolvedMemos.length}</Badge>
+            <Tabs.Tab value="closed" leftSection={<IconCircleCheck size={15} />}>
+              Archive / Resolved Logs{' '}
+              <Badge size="xs" variant="light" ml={6}>{resolvedMemos.length}</Badge>
             </Tabs.Tab>
           </Tabs.List>
 
           <Tabs.Panel value="all_memos">
             <Alert icon={<IconInfoCircle size={16} />} title="System Administrator Global Ledger View" color="blue" mb="md" radius="md">
-              Authorized view only. Tracks every operational transactional memorandum sequence regardless of origin status blocks.<br></br><br></br>
+              Authorized view only. Tracks every operational transactional memorandum sequence regardless of origin status blocks.
+              <br /><br />
               Mga otorisadong tao lamang ang maaaring makakita nito. Binabantayan nito ang lahat ng mga memorandum na pumasok sa NCST E-Forms.
             </Alert>
             {renderMemoCards(getFilteredMemos(allMemosLedgerList))}
@@ -1053,7 +678,8 @@ initializeDashboard();
 
           <Tabs.Panel value="approval">
             <Alert icon={<IconInfoCircle size={16} />} title="Super Editor & Approval Command Queue" color="orange" mb="md" radius="md">
-              Draft memorandum formulated by department staff. As Department Head, you can click <b><i>Review & Approve</i></b> to modify mistakes or directly finalize contents.<br></br><br></br>
+              Draft memorandum formulated by department staff. As Department Head, you can click <b><i>Review & Approve</i></b> to modify mistakes or directly finalize contents.
+              <br /><br />
               Makikita rito ang mga memorandum na ginawa ng mga staff sa iyong departamento. Maaaring mong pindutin ang <b><i>Review & Approve</i></b> para may ibahin o ayusin bago tuluyang aprubahan.
             </Alert>
             {renderMemoCards(getFilteredMemos(forApprovalMemos), true)}
@@ -1061,7 +687,8 @@ initializeDashboard();
 
           <Tabs.Panel value="inbox">
             <Alert icon={<IconInfoCircle size={16} />} title="Incoming External Inbound Queue" color="teal" mb="md" radius="md">
-              Incoming memorandums routed by external entities. Requires Department Head authentication to acknowledge and shift to the public Action Board.<br></br><br></br>
+              Incoming memorandums routed by external entities. Requires Department Head authentication to acknowledge and shift to the public Action Board.
+              <br /><br />
               Mga memorandum na galing sa ibang mga departmento na aprubado na ng kanilang Department Head. I-<b><i>Acknowledge</i></b> para mapunta sa Action Board Workspace para aksyunan ng kahit sino sa inyong departamento.
             </Alert>
             {renderMemoCards(getFilteredMemos(incomingMemos))}
@@ -1069,23 +696,26 @@ initializeDashboard();
 
           <Tabs.Panel value="action_board">
             <Alert icon={<IconInfoCircle size={16} />} title="Departmental Action Board (Public Staff View)" color="indigo" mb="md" radius="md">
-              Memorandums acknowledged by management. <b><i>Visible to all department members</i></b> to collaborate, process, and address.<br></br><br></br>
-              Mga memorandum na tinaggap at kinilala ng Department Head. <b><i>Kita ng lahat ng mga myembro ng departamento</i></b> para ma-proseso o aksyunan. 
+              Memorandums acknowledged by management. <b><i>Visible to all department members</i></b> to collaborate, process, and address.
+              <br /><br />
+              Mga memorandum na tinaggap at kinilala ng Department Head. <b><i>Kita ng lahat ng mga myembro ng departamento</i></b> para ma-proseso o aksyunan.
             </Alert>
             {renderMemoCards(getFilteredMemos(actionBoardMemos))}
           </Tabs.Panel>
 
           <Tabs.Panel value="sent">
             <Alert icon={<IconInfoCircle size={16} />} title="Dispatched Ledger Log" color="gray" mb="md" radius="md">
-              Historical ledger of all approved and successfully transmitted documents signed from this department node.<br></br><br></br>
+              Historical ledger of all approved and successfully transmitted documents signed from this department node.
+              <br /><br />
               Talaan ng lahat ng ipinadalang memorandum ng departamentong ito.
             </Alert>
             {renderMemoCards(getFilteredMemos(sentMemos))}
           </Tabs.Panel>
 
-          <Tabs.Panel value="resolved">
+          <Tabs.Panel value="closed">
             <Alert icon={<IconInfoCircle size={16} />} title="Archived Records Directory" color="green" mb="md" radius="md">
-              Archived historical repository containing fully responded operations or structurally denied state documents.<br></br><br></br>
+              Archived historical repository containing fully responded operations or structurally denied state documents.
+              <br /><br />
               Koleksyon ng lahat ng mga na-respondehan at tinanggihang memorandum.
             </Alert>
             {renderMemoCards(getFilteredMemos(resolvedMemos))}
@@ -1093,199 +723,112 @@ initializeDashboard();
         </Tabs>
       </Card>
 
-      {/* CREATE MEMO MODAL */}
-      <Modal opened={opened} onClose={close} title={form.values.parentMemoId ? "📝 Write Response Memo" : "📝 Construct New Memorandum"} size="lg" radius="md">
-        <form onSubmit={form.onSubmit((values) => triggerActionPasswordCheck('CREATE', values))}>
-          <Stack gap="md">
-            <TextInput label="Subject Reference Header" placeholder="What will the memorandum be about..." required {...form.getInputProps('subject')} />
-            <SimpleGrid cols={2}>
-              <Select label="Priority Level Flags" data={['ROUTINE', 'URGENT', 'RUSH']} {...form.getInputProps('priority')} />
-              <Select label="Routing Core Purpose" data={['FYI', 'SIGNATURE', 'ACTION', 'COMMENTS', 'APPROVAL', 'REQUEST']} {...form.getInputProps('purpose')} />
-            </SimpleGrid>
-            <MultiSelect label="Target Recipient Departments" data={departments} placeholder="Select one or more departments" required disabled={!!form.values.parentMemoId} {...form.getInputProps('targetDepts')} />
-            <Textarea label="Memorandum Body Content" placeholder="Type the core message here..." minRows={6} autosize required {...form.getInputProps('content')} />
-            
-            {/* 🎯 TAMA AT DIRETSAHANG FILE INPUT (WALANG DYNAMIC IMPORT) */}
-            <FileInput
-              label="Optional Attachment Document"
-              placeholder="Choose file to upload (Optional)"
-              clearable
-              multiple
-              accept="application/pdf,image/*"
-              {...form.getInputProps('memoAttachments')}
-            />
+      {/* ---- Modals ---- */}
+      <CreateMemoModal
+        opened={opened}
+        onClose={close}
+        form={form}
+        departments={departments}
+        submitting={submitting}
+        onSubmit={(values) => triggerActionPasswordCheck('CREATE', values)}
+        isReply={!!form.values.parentMemoId}
+      />
 
-            <Group justify="flex-end" mt="md">
-              <Button variant="light" color="gray" onClick={close}>Cancel</Button>
-              <Button type="submit" loading={submitting} leftSection={<IconSend size={16} />}>Authorize & Transmit</Button>
-            </Group>
-          </Stack>
-        </form>
-      </Modal>
+      <ViewMemoModal
+        opened={expandNoteOpened}
+        onClose={closeExpandNoteModal}
+        memo={selectedMemoForExpand}
+        currentUser={currentUser}
+        activeDepartment={activeDepartment}
+        isAdminOrSuper={isAdminOrSuper}
+        isDepartmentHead={isDepartmentHead}
+        processOICAllowance={processOICAllowance}
+        onPrint={handlePrintMemo}
+        triggerActionPasswordCheck={triggerActionPasswordCheck}
+      />
 
-      {/* OPTION B: SUPER EDITOR MODAL FOR DEPT HEAD */}
-      <Modal opened={superEditOpened} onClose={closeSuperEditModal} title={<Group gap="xs"><IconEdit size={18} color="indigo" /><Text fw={700}>Review, Edit & Authorize Dispatch</Text></Group>} size="lg" radius="md">
-        <Stack gap="md">
-          <Alert icon={<IconInfoCircle size={16} />} title="Super Editor System Control" color="indigo" radius="md">
-            As Department Head, any inline edits made to the original subject or text below will flag the finalized memo as <Badge color="grape" size="xs" variant="filled">Amended by Head</Badge> across recipient trackers.
-          </Alert>
-          
-          <TextInput label="Subject Reference Header" value={headEditSubject} onChange={(e) => setHeadEditSubject(e.currentTarget.value)} required />
-          <Textarea label="Memorandum Body Content" value={headEditContent} onChange={(e) => setHeadEditContent(e.currentTarget.value)} minRows={6} autosize required />
-          <Stack>
-            <Text fw={600}>Current Attachments</Text>
+      <PasswordGateModal
+        opened={passModalOpened}
+        onClose={closePassModal}
+        pendingAction={pendingAction}
+        confirmPassword={confirmPassword}
+        setConfirmPassword={setConfirmPassword}
+        passError={passError}
+        feedbackNote={feedbackNote}
+        setFeedbackNote={setFeedbackNote}
+        actionAttachment={actionAttachment}
+        setActionAttachment={setActionAttachment}
+        submitting={submitting}
+        onSubmit={handlePasswordGateVerificationSubmit}
+        zIndex={1000}
+      />
 
-            <Stack gap="xs">
-              {retainedAttachments.map((file) => (
-                <Paper
-                  key={file}
-                  component="a"
-                  href={file}
-                  target="_blank"
-                  withBorder
-                  p="sm"
-                  radius="md"
-                  style={{
-                    textDecoration: 'none',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.transform = 'translateY(-2px)';
-                    e.currentTarget.style.boxShadow =
-                      'var(--mantine-shadow-sm)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.transform = 'translateY(0)';
-                    e.currentTarget.style.boxShadow = '';
-                  }}
-                >
-                  <Group justify="space-between" wrap="nowrap">
-                    <Group gap="sm" wrap="nowrap">
-                      <ThemeIcon
-                        variant="light"
-                        color="blue"
-                        size="lg"
-                      >
-                        <IconFile size={16} />
-                      </ThemeIcon>
+      <SuperEditModal
+        opened={superEditOpened}
+        onClose={closeSuperEditModal}
+        subject={headEditSubject}
+        setSubject={setHeadEditSubject}
+        content={headEditContent}
+        setContent={setHeadEditContent}
+        retainedAttachments={retainedAttachments}
+        setRetainedAttachments={setRetainedAttachments}
+        newAttachments={headNewAttachments}
+        setNewAttachments={setHeadNewAttachments}
+        confirmPassword={confirmPassword}
+        setConfirmPassword={setConfirmPassword}
+        passError={passError}
+        submitting={submitting}
+        onSubmit={handleSuperEditAndApproveSubmit}
+      />
 
-                      <div style={{ overflow: 'hidden' }}>
-                        <Text
-                          size="sm"
-                          fw={500}
-                          truncate
-                          c="dark"
-                        >
-                          {file.split('/').pop()}
-                        </Text>
-
-                        <Text size="xs" c="dimmed">
-                          Click to preview attachment
-                        </Text>
-                      </div>
-                    </Group>
-
-                    <ActionIcon
-                      color="red"
-                      variant="subtle"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-
-                        setRetainedAttachments(prev =>
-                          prev.filter(p => p !== file)
-                        );
-                      }}
-                    >
-                      <IconTrash size={16} />
-                    </ActionIcon>
-                  </Group>
-                </Paper>
-              ))}
-            </Stack>
-
-            <FileInput
-              multiple
-              label="Add New Attachments"
-              placeholder="Add Additional File/s if necessary..."
-              value={headNewAttachments}
-              onChange={(files) =>
-                setHeadNewAttachments(files || [])
-              }
-            />
-          </Stack>
-
-          <Divider my="xs" label="Digital Verification Signature" labelPosition="center" />
-          
-          <PasswordInput label="Your Signature Security Password" placeholder="Your NCST E-Forms password..." required value={confirmPassword} onChange={(e) => setConfirmPassword(e.currentTarget.value)} error={passError} />
-          
-          <Group justify="flex-end" mt="md">
-            <Button variant="light" color="gray" onClick={closeSuperEditModal}>Cancel</Button>
-            <Button color="indigo" loading={submitting} leftSection={<IconThumbUp size={16} />} onClick={handleSuperEditAndApproveSubmit}>
-              Approve, Sign & Dispatch
-            </Button>
-          </Group>
-        </Stack>
-      </Modal>
-
-      {/* PASSWORD INTEGRITY SIGNATURE GATE MODAL */}
-      <Modal opened={passModalOpened} onClose={closePassModal} title={<Group gap="xs"><IconLock size={18} color="red" /><Text fw={700}>Security Signature Verification</Text></Group>} centered size="sm" radius="md">
-        <Stack gap="sm">
-          <Text size="xs" c="dimmed">Confirm transaction authorization status using your cryptography signing phrase key.</Text>
-          {(pendingAction?.type === 'DENY' || pendingAction?.type === 'DISAPPROVE_DRAFT') && (
-            <Textarea
-              label="Reason for Denial / Disapproval"
-              placeholder="State the clear reason why this inbound memorandum is rejected..."
-              required
-              value={feedbackNote}
-              onChange={(e) => setFeedbackNote(e.currentTarget.value)}
-              mb="md"
-              rows={3}
-              error={!feedbackNote && passError ? "Feedback note is strictly required for denials." : null}
-            />
-          )}
-
-          {/* Eto yung kasalukuyang password input mo sa modal, siguraduhing katabi niya yan */}
-          <PasswordInput
-            label="Confirm Security Password / Signature"
-            placeholder="Enter your password to sign"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.currentTarget.value)}
-            error={passError}
-            required
-          />
-          <Button fullWidth color="red" loading={submitting} onClick={handlePasswordGateVerificationSubmit} mt="xs">
-            Confirm Signature Authorization
-          </Button>
-        </Stack>
-      </Modal>
-
-      {/* HISTORICAL THREAD TIMELINE MODAL */}
+      {/* Thread Timeline Modal (kept inline) */}
       <Modal opened={threadModalOpened} onClose={closeThreadModal} title="📜 Inter-office Document Thread History" size="lg" radius="md">
         <Box p="md">
           {activeThreadMemos.length === 0 ? (
             <Loader size="sm" />
           ) : (
             <Timeline active={activeThreadMemos.length - 1} bulletSize={24} lineWidth={2}>
-              {activeThreadMemos.map((tMemo: Memo) => (
-                <Timeline.Item key={tMemo.id} bullet={<IconMessageReply size={12} />} title={
-                  <Group justify="space-between" w="100%">
-                    <Group gap="xs">
-                      <Text size="sm" fw={700}>{tMemo.referenceId || "DRAFT"} - {tMemo.subject}</Text>
-                      {tMemo.isRevisedByHead && <Badge color="grape" size="9px" radius="xs" variant="light">Amended</Badge>}
+              {activeThreadMemos.map((tMemo) => (
+                <Timeline.Item
+                  key={tMemo.id}
+                  bullet={<IconMessageReply size={12} />}
+                  title={
+                    <Group justify="space-between" w="100%">
+                      <Group gap="xs">
+                        <Text size="sm" fw={700}>
+                          {tMemo.referenceId || 'DRAFT'} - {tMemo.subject}
+                        </Text>
+                        {tMemo.isRevisedByHead && (
+                          <Badge color="grape" size="9px" radius="xs" variant="light">
+                            Amended
+                          </Badge>
+                        )}
+                      </Group>
+                      <Badge size="xs" variant="light">{tMemo.priority}</Badge>
                     </Group>
-                    <Badge size="xs" variant="light">{tMemo.priority}</Badge>
-                  </Group>
-                }>
-                  <Text size="xs" c="dimmed" mt={2}>Sent by <b>{tMemo.senderName} ({tMemo.senderDept})</b> on {new Date(tMemo.createdAt).toLocaleString()}</Text>
-                  
-                  <UnstyledButton onClick={() => handleExpandNoteOpen(tMemo)} style={{ width: '100%', textAlign: 'left', marginTop: '8px' }}>
-                    <Card withBorder p="sm" bg="light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-7))" radius="sm" style={{ cursor: 'pointer' }}>
+                  }
+                >
+                  <Text size="xs" c="dimmed" mt={2}>
+                    Sent by <b>{tMemo.senderName} ({tMemo.senderDept})</b> on{' '}
+                    {new Date(tMemo.createdAt).toLocaleString()}
+                  </Text>
+                  <UnstyledButton
+                    onClick={() => handleExpandNoteOpen(tMemo)}
+                    style={{ width: '100%', textAlign: 'left', marginTop: '8px' }}
+                  >
+                    <Card
+                      withBorder
+                      p="sm"
+                      bg="light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-7))"
+                      radius="sm"
+                      style={{ cursor: 'pointer' }}
+                    >
                       <Text size="xs" lineClamp={3}>
                         {tMemo.content}
                       </Text>
-                      <Text size="10px" color="blue" mt={4} ta="right">Click to view full content</Text>
+                      <Text size="10px" color="blue" mt={4} ta="right">
+                        Click to view full content
+                      </Text>
                     </Card>
                   </UnstyledButton>
                 </Timeline.Item>
@@ -1293,159 +836,6 @@ initializeDashboard();
             </Timeline>
           )}
         </Box>
-      </Modal>
-
-      {/* EXPAND MEMO CONTENT DETAILS MODAL */}
-      <Modal opened={expandNoteOpened} onClose={closeExpandNoteModal} title={selectedMemoForExpand?.subject} size="lg" radius="md">
-        {selectedMemoForExpand && (
-          <Stack gap="md">
-            <Card withBorder p="md" bg="light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-8))">
-              <SimpleGrid cols={2} spacing="xs">
-                <Text size="xs"><b>Reference ID:</b> {selectedMemoForExpand.referenceId || 'DRAFT (Review Queue)'}</Text>
-                <Text size="xs"><b>Date:</b> {new Date(selectedMemoForExpand.createdAt).toLocaleString()}</Text>
-                <Group gap={6} align="center">
-                  <Text size="xs"><b>From:</b> {selectedMemoForExpand.senderName} ({selectedMemoForExpand.senderDept})</Text>
-                  {selectedMemoForExpand.isRevisedByHead && (
-                    <Badge color="grape" size="xs" variant="light">Amended by Head</Badge>
-                  )}
-                </Group>
-                <Text size="xs"><b>Purpose:</b> {selectedMemoForExpand.purpose}</Text>
-              </SimpleGrid>
-              
-              {selectedMemoForExpand.isRevisedByHead && (
-                <Alert color="grape" p="xs" mt="sm" icon={<IconInfoCircle size={14} />}>
-                  Note: This memorandum was modified and fine-tuned directly by the Department Head before approval.<br></br><br></br>Paalala: ang memorandum na ito ay direktang binago ng pinanggalingang Department Head bago na-aprubahan.
-                </Alert>
-              )}
-              
-              <Divider my="sm" />
-              <Text size="sm" fw={700} mb="xs">SUBJECT: {selectedMemoForExpand.subject}</Text>
-              <Text size="sm" style={{ whiteSpace: 'pre-wrap' }} c="dimmed">
-                {selectedMemoForExpand.content}
-              </Text>
-
-              <Stack gap="xs" mt="md">
-              <Text size="sm" fw={700}>
-                📎 Attachments
-              </Text>
-
-              {(selectedMemoForExpand?.attachmentPaths ?? []).map((pathString, index) => {
-                const fileName =
-                  pathString
-                    .split('/')
-                    .pop()
-                    ?.replace(/^\d+-(\d+-)?/, '') || `Attachment ${index + 1}`;
-
-                const lowerName = fileName.toLowerCase();
-
-                const isPdf = lowerName.endsWith('.pdf');
-
-                const isImage =
-                  lowerName.endsWith('.png') ||
-                  lowerName.endsWith('.jpg') ||
-                  lowerName.endsWith('.jpeg') ||
-                  lowerName.endsWith('.webp');
-
-                return (
-                  <Paper
-                    key={index}
-                    component="a"
-                    href={pathString}
-                    target="_blank"
-                    withBorder
-                    p="sm"
-                    radius="md"
-                    style={{
-                      textDecoration: 'none',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s ease',
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.transform = 'translateY(-2px)';
-                      e.currentTarget.style.boxShadow =
-                        'var(--mantine-shadow-sm)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.transform = 'translateY(0)';
-                      e.currentTarget.style.boxShadow = '';
-                    }}
-                  >
-                    <Group justify="space-between" wrap="nowrap">
-                      <Group gap="sm" wrap="nowrap">
-                        <ThemeIcon
-                          variant="light"
-                          color={
-                            isPdf
-                              ? 'red'
-                              : isImage
-                              ? 'green'
-                              : 'blue'
-                          }
-                          size="lg"
-                        >
-                          {isPdf ? (
-                            <IconFileTypePdf size={16} />
-                          ) : isImage ? (
-                            <IconPhoto size={16} />
-                          ) : (
-                            <IconFile size={16} />
-                          )}
-                        </ThemeIcon>
-
-                        <div style={{ overflow: 'hidden' }}>
-                          <Text
-                            size="sm"
-                            fw={500}
-                            truncate
-                            c="dark"
-                          >
-                            {fileName}
-                          </Text>
-
-                          <Text size="xs" c="dimmed">
-                            Click to view or download
-                          </Text>
-                        </div>
-                      </Group>
-
-                      <ThemeIcon
-                        variant="light"
-                        color="blue"
-                      >
-                        <IconDownload size={14} />
-                      </ThemeIcon>
-                    </Group>
-                  </Paper>
-                );
-              })}
-            </Stack>
-            </Card>
-
-            <Text size="xs" fw={700}>Route Recipients Dispatch Logs Matrix:</Text>
-            <Stack gap={6}>
-              {selectedMemoForExpand.recipients?.map((rec) => (
-                <Group key={rec.id} justify="space-between" p="xs" style={{ border: '1px solid var(--mantine-color-gray-3)', borderRadius: '6px' }}>
-                  <Stack gap={2}>
-                    <Text size="xs" fw={700}>{rec.departmentName}</Text>
-                    {rec.feedbackNote && <Text size="11px" c="orange">Remarks: {rec.feedbackNote}</Text>}
-                  </Stack>
-                  <Badge 
-                    color={rec.status === 'RESPONDED' ? 'green' : rec.status === 'DENIED' ? 'red' : rec.status === 'PROCESSING' ? 'orange' : 'gray'} 
-                    variant="filled" 
-                    size="xs"
-                  >
-                    {rec.status}
-                  </Badge>
-                </Group>
-              ))}
-            </Stack>
-
-            <Group justify="flex-end" mt="md">
-              <Button size="xs" variant="outline" color="gray" leftSection={<IconPrinter size={13} />} onClick={() => handlePrintMemo(selectedMemoForExpand)}>Print Document</Button>
-              <Button size="xs" onClick={closeExpandNoteModal}>Close Window</Button>
-            </Group>
-          </Stack>
-        )}
       </Modal>
     </Container>
   );

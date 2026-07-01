@@ -120,8 +120,10 @@ enum LoginStatus {
 }
 
 enum MemoWorkflowStatus {
+  DRAFT
   FOR_APPROVAL
   APPROVED
+  CLOSED
 }
 
 model Memo {
@@ -155,50 +157,154 @@ model Memo {
   // Tracking per department
   recipients      MemoRecipientStatus[]
 
-  isRevisedByHead Boolean @default(false) // Ito ang indicator natin
+  isRevisedByHead Boolean @default(false)
+  
+  resolutionMode ResolutionMode @default(NONE)
+  
+  history MemoHistory[]
+
+  lastActivityAt DateTime @default(now())
+
+  @@index([senderId])
+  @@index([createdAt])
+  @@index([lastActivityAt])
+  @@index([status])
+}
+
+enum ResolutionMode {
+  NONE
+  CONFIRMATION
+}
+
+enum Status {
+    PENDING
+    ACKNOWLEDGED
+    COMPLETED
+    PROCESSING
+    DENIED
+    CLOSED
+    RESPONDED
 }
 
 model MemoRecipientStatus {
-  id              String    @id @default(uuid())
-  memoId          String
-  memo            Memo      @relation(fields: [memoId], references: [id], onDelete: Cascade)
-  departmentName  String    // e.g., "REGISTRAR", "CASHIER"
-  status          Status    @default(PENDING) // PENDING, ACKNOWLEDGED, RESPONDED
-  acknowledgedBy  String?   // Pangalan ng Head
 
-  // 🎯 Mga Bagong Field para sa Workflow Extensions
-  processedBy     String?   // Pangalan ng staff/head na nag-set sa In Progress
-  processedAt     DateTime?
-  
-  deniedBy        String?   // Kung sino ang nag-deny
-  deniedAt        DateTime?
-  
-  // 🎯 Dito natin ilalagay ang dahilan ng Denied o Karagdagang Note
-  feedbackNote    String?   @db.Text // Pwedeng Return Reason o Resolution Note
+  id String @id @default(uuid())
 
-  acknowledgedAt  DateTime?
-  respondedAt     DateTime?
-}
+  memoId String 
+
+  memo Memo @relation(fields:[memoId], references:[id], onDelete:Cascade)
+
+  departmentName String
+
+  status Status @default(PENDING)
+
+  acknowledgedById String?
+  acknowledgedByName String?
+  acknowledgedAt DateTime?
+
+  processedAt DateTime?
+
+  completedById String?
+  completedByName String?
+  completedAt DateTime?
+
+  feedbackNote String? @db.Text
+
+  senderConfirmationNote String?
+  recipientConfirmationNote String?
+
+  processedById String?
+  processedByName String?
+
+  deniedById String?
+  deniedByName String?
+  deniedAt DateTime?
+
+  senderConfirmedById String?
+  senderConfirmedByName String?
+  senderConfirmedAt DateTime?
+
+  recipientConfirmedById String?
+  recipientConfirmedByName String?
+  recipientConfirmedAt DateTime?
+
+  closedById String?
+  closedByName String?
+  closedAt DateTime?
+
+  updatedAt DateTime @updatedAt
+
+  lastActivityAt DateTime @default(now())
+
+  isSenderClosing Boolean  @default(false)
+  attachmentPaths String[] // Gagamitin para ma-save ang array ng file paths
+
+  respondedAt DateTime?
+
+
+  @@unique([memoId, departmentName])
+
+  @@index([departmentName])
+  @@index([status])
+  }
 
 enum Priority {
    ROUTINE
    URGENT
-   RUSH 
+   RUSH
 }
 
-enum Purpose { 
+enum Purpose {
   FYI
   SIGNATURE
   ACTION
   COMMENTS
   APPROVAL
-  REQUEST 
+  REQUEST
 }
 
-enum Status {
-   PENDING
-   ACKNOWLEDGED
-   RESPONDED
-   PROCESSING
-   DENIED
+model MemoHistory {
+
+    id String @id @default(uuid())
+
+    memoId String
+    memo Memo @relation(fields:[memoId], references:[id], onDelete:Cascade)
+    
+    departmentName String?
+
+    performedById String
+    performedByName String
+
+    actorRole MemoActorRole
+    action MemoHistoryAction
+
+    remarks String? @db.Text
+
+    createdAt DateTime @default(now())
+
+    @@index([memoId])
+    @@index([createdAt])
+}
+
+enum MemoActorRole {
+    SENDER
+    RECIPIENT
+    ADMIN
+    SYSTEM
+}
+
+enum MemoHistoryAction {
+    CREATED
+    APPROVED
+    DISAPPROVED
+    ACKNOWLEDGED
+    PROCESSING_STARTED
+    PROCESSING_JOINED
+    COMPLETED
+    DENIED
+    SENDER_CONFIRMED
+    RECIPIENT_CONFIRMED
+    CLOSED
+    REPLIED
+    REVISED_BY_HEAD
 }

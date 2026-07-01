@@ -90,7 +90,7 @@ export default function NotificationPopover({
           <Group justify="space-between" p="xs" style={{ borderBottom: '1px solid var(--mantine-color-gray-2)' }}>
             <Text fw={700} size="sm">Unread Notifications</Text>
             <Badge>
-                {unreadList.length} new
+                {unreadCount} new
             </Badge>
           </Group>
 

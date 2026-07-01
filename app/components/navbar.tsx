@@ -111,7 +111,7 @@ export default function Sidebar({ role, email, fname, lname, oic_start, oic_end 
     // 🎯 FIX: Ginamitan ng useCallback para hindi mag-paikot ikot ang reference dependencies ng React
     const fetchNotifications = useCallback(async () => {
     try {
-        const res = await fetch("../api/notifications", {
+        const res = await fetch(`${window.location.origin}/api/notifications`, {
             cache: "no-store",
             });
 
@@ -179,6 +179,22 @@ export default function Sidebar({ role, email, fname, lname, oic_start, oic_end 
             clearInterval(timer);
         };
     }, [oic_start, oic_end, email]);
+
+    // Idagdag ito sa loob ng NotificationPopover component mo (notif_popover.tsx)
+    useEffect(() => {
+        // 1. Gagawa tayo ng function para tawagin yung API fetcher mo
+        const handleRefresh = () => {
+        fetchNotifications(); // ⚠️ PALITAN ITO ng eksaktong pangalan ng fetch function mo diyan
+        };
+
+        // 2. Makikinig siya sa isinigaw ni page.tsx
+        window.addEventListener('refresh-notifications', handleRefresh);
+
+        // 3. Importante: Linisin ang listener kapag nag-close ang component para iwas memory leak
+        return () => {
+        window.removeEventListener('refresh-notifications', handleRefresh);
+        };
+    }, []); // Empty dependency array para isang beses lang i-mount
 
     const effectiveRole = (role === "Staff" && isCurrentlyOIC) ? "OIC" : role;
 

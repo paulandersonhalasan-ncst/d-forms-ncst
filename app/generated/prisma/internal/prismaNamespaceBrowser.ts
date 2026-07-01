@@ -57,7 +57,8 @@ export const ModelName = {
   Notification: 'Notification',
   LoginLog: 'LoginLog',
   Memo: 'Memo',
-  MemoRecipientStatus: 'MemoRecipientStatus'
+  MemoRecipientStatus: 'MemoRecipientStatus',
+  MemoHistory: 'MemoHistory'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -161,7 +162,9 @@ export const MemoScalarFieldEnum = {
   status: 'status',
   parentMemoId: 'parentMemoId',
   rootMemoId: 'rootMemoId',
-  isRevisedByHead: 'isRevisedByHead'
+  isRevisedByHead: 'isRevisedByHead',
+  resolutionMode: 'resolutionMode',
+  lastActivityAt: 'lastActivityAt'
 } as const
 
 export type MemoScalarFieldEnum = (typeof MemoScalarFieldEnum)[keyof typeof MemoScalarFieldEnum]
@@ -172,17 +175,53 @@ export const MemoRecipientStatusScalarFieldEnum = {
   memoId: 'memoId',
   departmentName: 'departmentName',
   status: 'status',
-  acknowledgedBy: 'acknowledgedBy',
-  processedBy: 'processedBy',
-  processedAt: 'processedAt',
-  deniedBy: 'deniedBy',
-  deniedAt: 'deniedAt',
-  feedbackNote: 'feedbackNote',
+  acknowledgedById: 'acknowledgedById',
+  acknowledgedByName: 'acknowledgedByName',
   acknowledgedAt: 'acknowledgedAt',
+  processedAt: 'processedAt',
+  completedById: 'completedById',
+  completedByName: 'completedByName',
+  completedAt: 'completedAt',
+  feedbackNote: 'feedbackNote',
+  senderConfirmationNote: 'senderConfirmationNote',
+  recipientConfirmationNote: 'recipientConfirmationNote',
+  processedById: 'processedById',
+  processedByName: 'processedByName',
+  deniedById: 'deniedById',
+  deniedByName: 'deniedByName',
+  deniedAt: 'deniedAt',
+  senderConfirmedById: 'senderConfirmedById',
+  senderConfirmedByName: 'senderConfirmedByName',
+  senderConfirmedAt: 'senderConfirmedAt',
+  recipientConfirmedById: 'recipientConfirmedById',
+  recipientConfirmedByName: 'recipientConfirmedByName',
+  recipientConfirmedAt: 'recipientConfirmedAt',
+  closedById: 'closedById',
+  closedByName: 'closedByName',
+  closedAt: 'closedAt',
+  updatedAt: 'updatedAt',
+  lastActivityAt: 'lastActivityAt',
+  isSenderClosing: 'isSenderClosing',
+  attachmentPaths: 'attachmentPaths',
   respondedAt: 'respondedAt'
 } as const
 
 export type MemoRecipientStatusScalarFieldEnum = (typeof MemoRecipientStatusScalarFieldEnum)[keyof typeof MemoRecipientStatusScalarFieldEnum]
+
+
+export const MemoHistoryScalarFieldEnum = {
+  id: 'id',
+  memoId: 'memoId',
+  departmentName: 'departmentName',
+  performedById: 'performedById',
+  performedByName: 'performedByName',
+  actorRole: 'actorRole',
+  action: 'action',
+  remarks: 'remarks',
+  createdAt: 'createdAt'
+} as const
+
+export type MemoHistoryScalarFieldEnum = (typeof MemoHistoryScalarFieldEnum)[keyof typeof MemoHistoryScalarFieldEnum]
 
 
 export const SortOrder = {

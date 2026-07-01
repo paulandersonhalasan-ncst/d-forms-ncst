@@ -390,7 +390,8 @@ export const ModelName = {
   Notification: 'Notification',
   LoginLog: 'LoginLog',
   Memo: 'Memo',
-  MemoRecipientStatus: 'MemoRecipientStatus'
+  MemoRecipientStatus: 'MemoRecipientStatus',
+  MemoHistory: 'MemoHistory'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -406,7 +407,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "user" | "department" | "activityLog" | "notification" | "loginLog" | "memo" | "memoRecipientStatus"
+    modelProps: "user" | "department" | "activityLog" | "notification" | "loginLog" | "memo" | "memoRecipientStatus" | "memoHistory"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -928,6 +929,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    MemoHistory: {
+      payload: Prisma.$MemoHistoryPayload<ExtArgs>
+      fields: Prisma.MemoHistoryFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.MemoHistoryFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MemoHistoryPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.MemoHistoryFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MemoHistoryPayload>
+        }
+        findFirst: {
+          args: Prisma.MemoHistoryFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MemoHistoryPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.MemoHistoryFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MemoHistoryPayload>
+        }
+        findMany: {
+          args: Prisma.MemoHistoryFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MemoHistoryPayload>[]
+        }
+        create: {
+          args: Prisma.MemoHistoryCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MemoHistoryPayload>
+        }
+        createMany: {
+          args: Prisma.MemoHistoryCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.MemoHistoryCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MemoHistoryPayload>[]
+        }
+        delete: {
+          args: Prisma.MemoHistoryDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MemoHistoryPayload>
+        }
+        update: {
+          args: Prisma.MemoHistoryUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MemoHistoryPayload>
+        }
+        deleteMany: {
+          args: Prisma.MemoHistoryDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.MemoHistoryUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.MemoHistoryUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MemoHistoryPayload>[]
+        }
+        upsert: {
+          args: Prisma.MemoHistoryUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MemoHistoryPayload>
+        }
+        aggregate: {
+          args: Prisma.MemoHistoryAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateMemoHistory>
+        }
+        groupBy: {
+          args: Prisma.MemoHistoryGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.MemoHistoryGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.MemoHistoryCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.MemoHistoryCountAggregateOutputType> | number
+        }
+      }
+    }
   }
 } & {
   other: {
@@ -1052,7 +1127,9 @@ export const MemoScalarFieldEnum = {
   status: 'status',
   parentMemoId: 'parentMemoId',
   rootMemoId: 'rootMemoId',
-  isRevisedByHead: 'isRevisedByHead'
+  isRevisedByHead: 'isRevisedByHead',
+  resolutionMode: 'resolutionMode',
+  lastActivityAt: 'lastActivityAt'
 } as const
 
 export type MemoScalarFieldEnum = (typeof MemoScalarFieldEnum)[keyof typeof MemoScalarFieldEnum]
@@ -1063,17 +1140,53 @@ export const MemoRecipientStatusScalarFieldEnum = {
   memoId: 'memoId',
   departmentName: 'departmentName',
   status: 'status',
-  acknowledgedBy: 'acknowledgedBy',
-  processedBy: 'processedBy',
-  processedAt: 'processedAt',
-  deniedBy: 'deniedBy',
-  deniedAt: 'deniedAt',
-  feedbackNote: 'feedbackNote',
+  acknowledgedById: 'acknowledgedById',
+  acknowledgedByName: 'acknowledgedByName',
   acknowledgedAt: 'acknowledgedAt',
+  processedAt: 'processedAt',
+  completedById: 'completedById',
+  completedByName: 'completedByName',
+  completedAt: 'completedAt',
+  feedbackNote: 'feedbackNote',
+  senderConfirmationNote: 'senderConfirmationNote',
+  recipientConfirmationNote: 'recipientConfirmationNote',
+  processedById: 'processedById',
+  processedByName: 'processedByName',
+  deniedById: 'deniedById',
+  deniedByName: 'deniedByName',
+  deniedAt: 'deniedAt',
+  senderConfirmedById: 'senderConfirmedById',
+  senderConfirmedByName: 'senderConfirmedByName',
+  senderConfirmedAt: 'senderConfirmedAt',
+  recipientConfirmedById: 'recipientConfirmedById',
+  recipientConfirmedByName: 'recipientConfirmedByName',
+  recipientConfirmedAt: 'recipientConfirmedAt',
+  closedById: 'closedById',
+  closedByName: 'closedByName',
+  closedAt: 'closedAt',
+  updatedAt: 'updatedAt',
+  lastActivityAt: 'lastActivityAt',
+  isSenderClosing: 'isSenderClosing',
+  attachmentPaths: 'attachmentPaths',
   respondedAt: 'respondedAt'
 } as const
 
 export type MemoRecipientStatusScalarFieldEnum = (typeof MemoRecipientStatusScalarFieldEnum)[keyof typeof MemoRecipientStatusScalarFieldEnum]
+
+
+export const MemoHistoryScalarFieldEnum = {
+  id: 'id',
+  memoId: 'memoId',
+  departmentName: 'departmentName',
+  performedById: 'performedById',
+  performedByName: 'performedByName',
+  actorRole: 'actorRole',
+  action: 'action',
+  remarks: 'remarks',
+  createdAt: 'createdAt'
+} as const
+
+export type MemoHistoryScalarFieldEnum = (typeof MemoHistoryScalarFieldEnum)[keyof typeof MemoHistoryScalarFieldEnum]
 
 
 export const SortOrder = {
@@ -1240,6 +1353,20 @@ export type ListEnumMemoWorkflowStatusFieldRefInput<$PrismaModel> = FieldRefInpu
 
 
 /**
+ * Reference to a field of type 'ResolutionMode'
+ */
+export type EnumResolutionModeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ResolutionMode'>
+    
+
+
+/**
+ * Reference to a field of type 'ResolutionMode[]'
+ */
+export type ListEnumResolutionModeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ResolutionMode[]'>
+    
+
+
+/**
  * Reference to a field of type 'Status'
  */
 export type EnumStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Status'>
@@ -1250,6 +1377,34 @@ export type EnumStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaMod
  * Reference to a field of type 'Status[]'
  */
 export type ListEnumStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Status[]'>
+    
+
+
+/**
+ * Reference to a field of type 'MemoActorRole'
+ */
+export type EnumMemoActorRoleFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'MemoActorRole'>
+    
+
+
+/**
+ * Reference to a field of type 'MemoActorRole[]'
+ */
+export type ListEnumMemoActorRoleFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'MemoActorRole[]'>
+    
+
+
+/**
+ * Reference to a field of type 'MemoHistoryAction'
+ */
+export type EnumMemoHistoryActionFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'MemoHistoryAction'>
+    
+
+
+/**
+ * Reference to a field of type 'MemoHistoryAction[]'
+ */
+export type ListEnumMemoHistoryActionFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'MemoHistoryAction[]'>
     
 
 
@@ -1383,6 +1538,7 @@ export type GlobalOmitConfig = {
   loginLog?: Prisma.LoginLogOmit
   memo?: Prisma.MemoOmit
   memoRecipientStatus?: Prisma.MemoRecipientStatusOmit
+  memoHistory?: Prisma.MemoHistoryOmit
 }
 
 /* Types for Logging */

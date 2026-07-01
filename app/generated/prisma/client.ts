@@ -76,3 +76,8 @@ export type Memo = Prisma.MemoModel
  * 
  */
 export type MemoRecipientStatus = Prisma.MemoRecipientStatusModel
+/**
+ * Model MemoHistory
+ * 
+ */
+export type MemoHistory = Prisma.MemoHistoryModel

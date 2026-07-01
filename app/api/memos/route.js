@@ -107,9 +107,9 @@ export async function POST(request) {
     const senderFullName = `${authenticatedUser.fname} ${authenticatedUser.lname}`;
     const databaseUserRole = authenticatedUser.role ? authenticatedUser.role.toUpperCase() : "STAFF";
 
-    let initialMemoStatus = "APPROVED";
+    let initialMemoStatus = "APPROVED"; // ✅ Valid
     if ((databaseUserRole === "STAFF" || databaseUserRole === "USER") && !parentMemoId) {
-      initialMemoStatus = "FOR_APPROVAL";
+      initialMemoStatus = "FOR_APPROVAL"; // ✅ Valid
     }
 
     const currentYear = new Date().getFullYear();
@@ -124,22 +124,29 @@ export async function POST(request) {
 
     const deadlineAt = priority === 'RUSH' ? new Date(Date.now() + 3 * 24 * 60 * 60 * 1000) : null;
 
-    // 🎯 FIX: Ginamit ang 'attachmentPaths' imbes na 'attachmentPath' para sa Prisma data injection
+    // 🎯 FIX: Ginamit ang 'attachmentPaths' at inayos ang Prisma Sender Relation
     const newMemo = await prisma.memo.create({
       data: {
         referenceId: refId,
         subject,
         content,
-        attachmentPaths: savedFilePaths, // Naka-array of strings na ngayon!
+        attachmentPaths: savedFilePaths, 
         priority,
         purpose,
-        senderId: authenticatedUser.id,
+        
+        // 🛠️ FIX PRISMA RELATION ERROR DITO:
+        sender: {
+          connect: { id: authenticatedUser.id }
+        },
+
         senderName: senderFullName,
         senderDept: userDept,
         status: initialMemoStatus, 
         deadlineAt,
-        parentMemoId: parentMemoId || null,
-        rootMemoId: rootMemoId || null,
+
+        ...(parentMemoId ? { parentMemo: { connect: { id: parentMemoId } } } : {}),
+        ...(rootMemoId ? { rootMemo: { connect: { id: rootMemoId } } } : {}),
+        
         isRevisedByHead: false,
         recipients: {
           create: targetDepts.map(dept => ({
@@ -243,125 +250,144 @@ export async function PATCH(request) {
   try {
     const authenticatedUser = await getAuthenticatedUser(request);
     if (!authenticatedUser) {
-      return NextResponse.json({ success: false, message: "Not authenticated" }, { status: 401 });
+      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
     }
 
-    // 🎯 ATENSIYON: Para ma-support ang file uploads sa PATCH (Super Edit ni Head), 
-    // titignan natin kung FormData ba o normal JSON ang dumarating na body.
     const contentType = request.headers.get("content-type") || "";
     
-    let memoId, departmentName, password, action, feedbackNote, isSenderClosing, subject, content;
-    let retainedAttachments = [];
-    let headNewFiles = [];
+    let memoId, departmentName, action, password, feedbackNote, delegatedStaffId, isSenderClosing;
+    let attachmentPaths = [];
+    let newSubject, newContent, retainedAttachments;
 
+    // =================================================================================
+    // 📎 FILE UPLOAD & FORMDATA PROCESSING
+    // =================================================================================
     if (contentType.includes("multipart/form-data")) {
       const formData = await request.formData();
       memoId = formData.get("memoId");
+      departmentName = formData.get("departmentName");
       action = formData.get("action");
       password = formData.get("password");
-      subject = formData.get("subject");
-      content = formData.get("content");
+      feedbackNote = formData.get("feedbackNote");
+      delegatedStaffId = formData.get("delegatedStaffId");
+      isSenderClosing = formData.get("isSenderClosing") === "true";
       
-      const retainedRaw = formData.get("retainedAttachments");
-      retainedAttachments = retainedRaw ? JSON.parse(retainedRaw) : [];
-      headNewFiles = formData.getAll("headNewAttachments");
+      // Para sa APPROVE action
+      newSubject = formData.get("subject");
+      newContent = formData.get("content");
+      retainedAttachments = formData.get("retainedAttachments") ? JSON.parse(formData.get("retainedAttachments")) : [];
+
+      // Process attachments (recipient resolve)
+      const files = formData.getAll("attachments");
+      if (files && files.length > 0 && files[0] instanceof File) {
+        const uploadDir = path.join(process.cwd(), "public", "uploads", "memos");
+        await mkdir(uploadDir, { recursive: true });
+        for (const file of files) {
+          if (file.size === 0) continue;
+          const buffer = Buffer.from(await file.arrayBuffer());
+          const uniquePrefix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+          const cleanFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
+          const finalFileName = `${uniquePrefix}-${cleanFileName}`;
+          const filePath = path.join(uploadDir, finalFileName);
+          await writeFile(filePath, buffer);
+          attachmentPaths.push(`/uploads/memos/${finalFileName}`);
+        }
+      }
+
+      // Process headNewAttachments (from SuperEditModal)
+      const headNewAttachments = formData.getAll("headNewAttachments");
+      if (headNewAttachments && headNewAttachments.length > 0) {
+        const uploadDir = path.join(process.cwd(), "public", "memos");
+        await mkdir(uploadDir, { recursive: true });
+        for (const file of headNewAttachments) {
+          if (file instanceof File && file.size > 0 && typeof file.arrayBuffer === 'function') {
+            const bytes = await file.arrayBuffer();
+            const buffer = Buffer.from(bytes);
+            const cleanFilename = `${Date.now()}-${Math.floor(Math.random() * 1000)}-${file.name.replace(/[^a-zA-Z0-9.\-_]/g, "_")}`;
+            await writeFile(path.join(uploadDir, cleanFilename), buffer);
+            attachmentPaths.push(`/memos/${cleanFilename}`);
+          }
+        }
+      }
     } else {
       const body = await request.json();
       memoId = body.memoId;
       departmentName = body.departmentName;
-      password = body.password;
       action = body.action;
+      password = body.password;
       feedbackNote = body.feedbackNote;
-      isSenderClosing = body.isSenderClosing;
-      subject = body.subject;
-      content = body.content;
+      delegatedStaffId = body.delegatedStaffId;
+      isSenderClosing = body.isSenderClosing || false;
     }
 
-    if (authenticatedUser.password !== password) {
-      return NextResponse.json({ success: false, message: "Security Verification Failed: Incorrect Signature Password" }, { status: 403 });
+    // Common validations
+    if (!password) {
+      return NextResponse.json({ success: false, message: "Password signature required" }, { status: 400 });
+    }
+
+    const passwordMatch = (password === authenticatedUser.password);
+    if (!passwordMatch) {
+      return NextResponse.json({ success: false, message: "Security signature password invalid" }, { status: 403 });
+    }
+
+    const currentMemo = await prisma.memo.findUnique({
+      where: { id: memoId },
+      include: { recipients: true }
+    });
+
+    if (!currentMemo) {
+      return NextResponse.json({ success: false, message: "Memo not found" }, { status: 404 });
     }
 
     const employeeName = `${authenticatedUser.fname} ${authenticatedUser.lname}`;
-    const userDept = authenticatedUser.departmentCode || "GEN";
+    const userDept = authenticatedUser.departmentCode;
+    const now = new Date();
 
-    if (action === 'APPROVE') {
-      const targetMemo = await prisma.memo.findUnique({ 
-        where: { id: memoId },
-        include: { recipients: true }
-      });
-      if (!targetMemo) {
-        return NextResponse.json({ success: false, message: "Hindi mahanap ang orihinal na draft memo." }, { status: 404 });
-      }
+    let recipientUpdateData = {};
+    let memoUpdateData = {};
+    let historyActionType = action;
 
-      // 🎯 FIX: PAG-SAMA NG BAGONG FILES AT LUMANG FILES NI HEAD SA SUPER EDIT
-      // 🎯 FIX: PAG-SAMA NG BAGONG FILES NI HEAD, RETAINED FILES, AT ORIHINAL NA FILES NG STAFF
-      let finalPaths = [];
+    const targetRecipient = currentMemo.recipients.find(r => r.departmentName === departmentName);
 
-      if (contentType.includes("multipart/form-data")) {
-        // Kung galing sa Super Edit form, sundin ang setup ni Head (retained + bago)
-        finalPaths = [...retainedAttachments];
-      } else {
-        // Kung simpleng Quick Approve lang (JSON request), panatilihin ang orihinal na files ng staff!
-        finalPaths = [...(targetMemo.attachmentPaths || [])];
-      }
-
-      // Kung may bagong files na idinagdag si Head sa Super Edit, i-upload din natin
-      if (headNewFiles && headNewFiles.length > 0) {
-        const uploadDir = path.join(process.cwd(), "public", "memos");
-        for (const file of headNewFiles) {
-          if (file && file.size > 0 && typeof file.arrayBuffer === 'function') {
-            const bytes = await file.arrayBuffer();
-            const buffer = Buffer.from(bytes);
-            const cleanFilename = `${Date.now()}-head-${file.name.replace(/[^a-zA-Z0-9.\-_]/g, "_")}`;
-            await writeFile(path.join(uploadDir, cleanFilename), buffer);
-            finalPaths.push(`/memos/${cleanFilename}`);
-          }
-        }
-      }
-
-      const currentYear = new Date().getFullYear();
-      const approvedCount = await prisma.memo.count({
-        where: { senderDept: targetMemo.senderDept, status: 'APPROVED' }
-      });
+    // =================================================================================
+    // ⚙️ WORKFLOW LOGIC ENGINE
+    // =================================================================================
+    if (action === 'CREATE') {
+      // Draft creation defaults
+    } else if (action === 'DISAPPROVE') {
+        memoUpdateData = { status: 'DRAFT' }; // ✅ Valid na ngayon
+        historyActionType = "DISAPPROVE";
+    } else if (action === 'APPROVE') {
+      // 🟢 DEPARTMENT HEAD APPROVAL
+      const finalSubject = newSubject || currentMemo.subject;
+      const finalContent = newContent || currentMemo.content;
+      const isRevised = finalSubject !== currentMemo.subject || finalContent !== currentMemo.content;
       
-      const officialRefId = `${targetMemo.senderDept}-${currentYear}-${String(approvedCount + 1).padStart(3, '0')}`;
-      const hasSubjectChanged = subject && subject !== targetMemo.subject;
-      const hasContentChanged = content && content !== targetMemo.content;
-      const isRevised = !!(hasSubjectChanged || hasContentChanged || headNewFiles.length > 0);
+      // Pagsamahin ang retained at bagong attachments
+      const retained = retainedAttachments || [];
+      const allAttachments = [...retained, ...attachmentPaths];
+      
+      memoUpdateData = {
+        status: 'APPROVED',
+        subject: finalSubject,
+        content: finalContent,
+        isRevisedByHead: isRevised,
+        attachmentPaths: allAttachments
+      };
+      historyActionType = "APPROVED";
 
-      // 🎯 FIX: In-update gamit ang 'attachmentPaths' field
-      const approvedMemo = await prisma.memo.update({
-        where: { id: memoId },
-        data: {
-          status: 'APPROVED', 
-          referenceId: officialRefId,
-          subject: subject || targetMemo.subject,   
-          content: content || targetMemo.content,   
-          isRevisedByHead: isRevised,
-          attachmentPaths: finalPaths // 🎯 FIX: I-save ang malinis at pinagsamang array ng files
-        }
-      });
-
+      // 🆕 MAGDAGDAG NG NOTIFICATION PARA SA MGA RECIPIENT DEPARTMENTS
       try {
-        if (targetMemo.senderId !== authenticatedUser.id) {
-          await prisma.notification.create({
-            data: {
-              title: "Draft Approved & Released",
-              message: `Your draft memo has been signed and officially released by Head ${employeeName} as Ref: ${officialRefId}.`,
-              isRead: false,
-              recipientId: targetMemo.senderId,
-              senderId: authenticatedUser.id
-            }
-          });
-        }
-        const destDepartments = targetMemo.recipients.map(r => r.departmentName);
-        for (const dept of destDepartments) {
+        // Kunin ang mga target departments mula sa currentMemo.recipients
+        const targetDepts = currentMemo.recipients.map(r => r.departmentName);
+        
+        for (const dept of targetDepts) {
           const targetHeads = await getDepartmentUsers(dept, ['DepartmentHead']);
           if (targetHeads.length > 0) {
             await prisma.notification.createMany({
               data: targetHeads.map(head => ({
                 title: "Inbound Inter-Office Memo",
-                message: `Official memo routing from ${targetMemo.senderDept} approved by Head. Ref: ${officialRefId}`,
+                message: `New official memo released from ${currentMemo.senderDept} department. Subject: ${finalSubject}. Ref: ${currentMemo.referenceId}`,
                 isRead: false,
                 recipientId: head.id,
                 senderId: authenticatedUser.id
@@ -369,268 +395,169 @@ export async function PATCH(request) {
             });
           }
         }
-      } catch (err) { console.error(err); }
 
-      try {
-        await logActivity({
-          req: request,
-          userId: authenticatedUser.id,
-          email: authenticatedUser.email,
-          action: `IOM_DRAFT_APPROVAL_SUCCESS`,
-          details: JSON.stringify({ memoId, officialRefId, revisedByHead: isRevised })
+        // Notify the sender (Department Head na nag-approve) na na-broadcast na
+        await prisma.notification.create({
+          data: {
+            title: "Memo Approved & Broadcasted",
+            message: `Your memo "${finalSubject}" (Ref: ${currentMemo.referenceId}) has been approved and sent to all recipients.`,
+            isRead: false,
+            recipientId: authenticatedUser.id,
+            senderId: authenticatedUser.id
+          }
         });
-      } catch (err) { console.error(err); }
-
-      return NextResponse.json({ success: true, data: approvedMemo }, { status: 200 });
-    }
-
-    if (action === 'DISAPPROVE') {
-      const targetMemo = await prisma.memo.findUnique({ 
-        where: { id: memoId },
-        include: { recipients: true } 
-      });
-
-      if (!targetMemo) {
-        return NextResponse.json({ success: false, message: "Hindi mahanap ang orihinal na draft memo." }, { status: 404 });
+      } catch (notifErr) {
+        console.error("❌ Notification Generation Failed (APPROVE):", notifErr);
+      }
+    } else {
+      // Regular workflow for ACKNOWLEDGE, START_PROCESSING, RESOLVE, DENY
+      if (!targetRecipient) {
+        return NextResponse.json({ success: false, message: "Department mapping routing mismatch" }, { status: 400 });
       }
 
-      await prisma.memo.update({
-        where: { id: memoId },
-        data: { status: 'APPROVED' } // Kinukuha ang status logic mo
-      });
-
-      await prisma.memoRecipientStatus.updateMany({
-        where: { memoId: memoId },
-        data: {
-          status: 'DENIED',
-          deniedBy: `System (via Head ${employeeName})`,
-          deniedAt: new Date(),
-          feedbackNote: feedbackNote
+      if (currentMemo.purpose === 'FYI') {
+        if (action === 'ACKNOWLEDGE') {
+          recipientUpdateData = {
+            status: 'CLOSED',
+            feedbackNote: feedbackNote || "Acknowledged FYI Document",
+            respondedAt: now,
+            closedAt: now,
+            closedById: authenticatedUser.id,
+            closedByName: employeeName,
+            attachmentPaths: attachmentPaths.length > 0 ? attachmentPaths : undefined
+          };
+          historyActionType = "CLOSED";
         }
-      });
+      } else if (currentMemo.purpose !== 'FYI') {
+        if (action === 'ACKNOWLEDGE') {
+          recipientUpdateData = {
+            status: 'PROCESSING',
+            respondedAt: now,
+            processedById: authenticatedUser.id,
+            processedByName: employeeName,
+            processedAt: now
+          };
+        } else if (action === 'START_PROCESSING') {
+          recipientUpdateData = {
+            status: 'PROCESSING',
+            processedAt: now,
+            processedById: delegatedStaffId || authenticatedUser.id,
+            processedByName: delegatedStaffId ? "Delegated Staff" : employeeName
+          };
+        } else if (action === 'CLOSED') { // ← CLOSED (dati RESOLVE)
+          if (isSenderClosing) {
+            // SENDER LOCK
+            recipientUpdateData = {
+              senderConfirmedById: authenticatedUser.id,
+              senderConfirmedByName: employeeName,
+              senderConfirmedAt: now,
+              feedbackNote: feedbackNote || targetRecipient.feedbackNote
+            };
+          } else {
+            // RECIPIENT LOCK
+            recipientUpdateData = {
+              recipientConfirmedById: authenticatedUser.id,
+              recipientConfirmedByName: employeeName,
+              recipientConfirmedAt: now,
+              feedbackNote: feedbackNote,
+              attachmentPaths: attachmentPaths.length > 0 ? attachmentPaths : undefined
+            };
+          }
 
-      try {
-        if (targetMemo.senderId !== authenticatedUser.id) {
-          await prisma.notification.create({
-            data: {
-              title: "Draft Memo Disapproved",
-              message: `Your draft memo "${targetMemo.subject}" was denied approval by Head ${employeeName} and routing has been terminated.`,
-              isRead: false,
-              recipientId: targetMemo.senderId,
-              senderId: authenticatedUser.id
-            }
-          });
+          // 2-Way Handshake Checker
+          const hasSenderSigned = recipientUpdateData.senderConfirmedAt || targetRecipient.senderConfirmedAt;
+          const hasRecipientSigned = recipientUpdateData.recipientConfirmedAt || targetRecipient.recipientConfirmedAt;
+
+          if (hasSenderSigned && hasRecipientSigned) {
+            recipientUpdateData.status = 'CLOSED';
+            recipientUpdateData.closedAt = now;
+            recipientUpdateData.closedById = authenticatedUser.id;
+            recipientUpdateData.closedByName = employeeName;
+          } else {
+            recipientUpdateData.status = 'PROCESSING';
+          }
+        } else if (action === 'DENY') {
+          recipientUpdateData = {
+            status: 'DENIED',
+            deniedById: authenticatedUser.id,
+            deniedByName: employeeName,
+            deniedAt: now,
+            feedbackNote: feedbackNote
+          };
         }
-      } catch (err) { console.error(err); }
-
-      try {
-        await logActivity({
-          req: request,
-          userId: authenticatedUser.id,
-          email: authenticatedUser.email,
-          action: `IOM_DRAFT_DISAPPROVED_AND_CANCELLED`,
-          details: JSON.stringify({ memoId, originalSubject: targetMemo.subject })
-        });
-      } catch (err) { console.error(err); }
-
-      return NextResponse.json({ success: true, message: "Memo draft disapproved. All potential recipient routes cancelled." }, { status: 200 });
+      }
     }
 
-    const effectiveIsSenderClosing = isSenderClosing || (action === 'RESOLVE' && !departmentName);
-
-    if (effectiveIsSenderClosing) {
-      await prisma.memoRecipientStatus.updateMany({
-        where: { 
-          memoId: memoId,
-          status: { in: ['PENDING', 'ACKNOWLEDGED', 'PROCESSING'] }
+    // =================================================================================
+    // 3. DATABASE TRANSACTIONS
+    // =================================================================================
+    let updatedStatus = null;
+    if (action !== 'DISAPPROVE' && action !== 'APPROVE') {
+      updatedStatus = await prisma.memoRecipientStatus.update({
+        where: {
+          memoId_departmentName: { memoId, departmentName }
         },
         data: {
-          status: 'RESPONDED',
-          respondedAt: new Date(),
-          feedbackNote: feedbackNote || `Force Closed & Resolved by Sender Head (${employeeName})`
+          ...recipientUpdateData,
+          lastActivityAt: now
         }
       });
-
-      try {
-        const targetMemo = await prisma.memo.findUnique({ where: { id: memoId } });
-        if (targetMemo && targetMemo.senderId !== authenticatedUser.id) {
-          await prisma.notification.create({
-            data: {
-              title: "Memo Closed by Origin Head",
-              message: `The transaction workflow for Ref: ${targetMemo.referenceId} was forcefully closed and resolved by your Department Head.`,
-              isRead: false,
-              recipientId: targetMemo.senderId,
-              senderId: authenticatedUser.id
-            }
-          });
-        }
-      } catch (err) { console.error(err); }
-
-      try {
-        await logActivity({
-          req: request,
-          userId: authenticatedUser.id,
-          email: authenticatedUser.email,
-          action: `IOM_SENDER_GLOBAL_RESOLVE_SUCCESS`,
-          details: JSON.stringify({ memoId })
-        });
-      } catch (err) { console.error(err); }
-
-      return NextResponse.json({ success: true, message: "Buong memo tracker logs ay matagumpay na naisara." }, { status: 200 });
     }
 
-    if (!departmentName) {
-      return NextResponse.json({ success: false, message: "System Error: Missing Department Name for this action." }, { status: 400 });
-    }
+    // Update Memo status kung APPROVE, DISAPPROVE, o kung sarado na lahat
+    if (action === 'APPROVE' || action === 'DISAPPROVE') {
+      await prisma.memo.update({
+        where: { id: memoId },
+        data: memoUpdateData
+      });
+    } else {
+      const allRecipients = await prisma.memoRecipientStatus.findMany({
+        where: { memoId: memoId }
+      });
 
-    let currentSearchStatus;
-    let updateData = {};
-    let notificationPayload = null; 
+      const checkAllClosed = allRecipients.every(r => 
+        r.status === 'CLOSED' || r.status === 'DENIED' || r.status === 'COMPLETED'
+      );
 
-    const parentMemoData = await prisma.memo.findUnique({ where: { id: memoId } });
-    const memoRefString = parentMemoData ? parentMemoData.referenceId : "Unknown-Ref";
-    const memoOwnerId = parentMemoData ? parentMemoData.senderId : null;
-
-    switch (action) {
-      case 'ACKNOWLEDGE':
-        currentSearchStatus = 'PENDING';
-        updateData = {
-          status: 'ACKNOWLEDGED',
-          acknowledgedBy: employeeName,
-          acknowledgedAt: new Date()
-        };
-        notificationPayload = {
-          recipientId: memoOwnerId,
-          title: "Memo Acknowledged",
-          message: `Your memo (${memoRefString}) has been opened and acknowledged by the ${departmentName} department.`
-        };
-        break;
-
-      case 'START_PROCESSING':
-        const currentRecord = await prisma.memoRecipientStatus.findFirst({
-          where: { memoId, departmentName, status: { in: ['PENDING', 'ACKNOWLEDGED'] } }
+      if (checkAllClosed) {
+        await prisma.memo.update({
+          where: { id: memoId },
+          data: { status: 'CLOSED', lastActivityAt: now } // ✅ Valid na ngayon
         });
-        currentSearchStatus = currentRecord ? currentRecord.status : 'ACKNOWLEDGED';
-        
-        updateData = {
-          status: 'PROCESSING',
-          processedBy: employeeName,
-          processedAt: new Date()
-        };
-        notificationPayload = {
-          recipientId: memoOwnerId,
-          title: "Memo Under Processing",
-          message: `The ${departmentName} department has updated your memo (${memoRefString}) status to PROCESSING.`
-        };
-        break;
-
-      case 'DENY':
-        const recordToDeny = await prisma.memoRecipientStatus.findFirst({
-          where: { memoId, departmentName, status: { in: ['PENDING', 'ACKNOWLEDGED', 'PROCESSING'] } }
-        });
-        currentSearchStatus = recordToDeny ? recordToDeny.status : 'PENDING';
-        
-        if (!feedbackNote || feedbackNote.trim() === "") {
-          return NextResponse.json({ success: false, message: "Kailangan ng Return Reason kapag magre-reject." }, { status: 400 });
-        }
-
-        updateData = {
-          status: 'DENIED',
-          deniedBy: employeeName,
-          deniedAt: new Date(),
-          feedbackNote: feedbackNote
-        };
-        notificationPayload = {
-          recipientId: memoOwnerId,
-          title: "Memo Returned / Denied",
-          message: `ALERT: Your memo (${memoRefString}) was returned by ${departmentName}. Reason: "${feedbackNote}"`
-        };
-        break;
-
-      case 'RESOLVE': {
-        const targetRecord = await prisma.memoRecipientStatus.findFirst({
-          where: { memoId, departmentName, status: { in: ['ACKNOWLEDGED', 'PROCESSING', 'PENDING'] } }
-        });
-
-        if (!targetRecord) {
-          return NextResponse.json({ success: false, message: "No active inbound record found to mark as complete." }, { status: 404 });
-        }
-
-        const userBackendRole = (authenticatedUser?.role || "").toUpperCase();
-        const checkIsHead = ['DEPARTMENTHEAD', 'OIC'].includes(userBackendRole);
-        const resolutionNotice = checkIsHead 
-          ? `Force Completed by Department Head (${employeeName}).`
-          : `Marked Completed by ${employeeName}.`;
-
-        currentSearchStatus = targetRecord.status;
-        updateData = {
-          status: 'RESPONDED',
-          respondedAt: new Date(),
-          feedbackNote: feedbackNote || targetRecord.feedbackNote || resolutionNotice
-        };
-
-        notificationPayload = {
-          recipientId: memoOwnerId,
-          title: "Memo Action Completed",
-          message: `The transaction for memo ${memoRefString} was marked COMPLETED by ${departmentName}.`
-        };
-        break;
       }
-
-      case 'JOIN_PROCESSING': {
-        const existingRecord = await prisma.memoRecipientStatus.findFirst({
-          where: { memoId, departmentName }
-        });
-
-        if (!existingRecord) {
-          return NextResponse.json({ success: false, message: "Record not found." }, { status: 404 });
-        }
-
-        const currentStaffs = existingRecord.processedBy ? existingRecord.processedBy : "";
-        const updatedStaffs = currentStaffs ? `${currentStaffs}, ${employeeName}` : employeeName;
-
-        currentSearchStatus = existingRecord.status;
-        updateData = {
-          processedBy: updatedStaffs,
-          feedbackNote: existingRecord.feedbackNote || `Collaborative processing initiated.`
-        };
-
-        try {
-          const localHeads = await getDepartmentUsers(userDept, ['DepartmentHead', 'OIC', 'DEPARTMENTHEAD', 'DEPARTMENT HEAD']);
-          if (localHeads.length > 0) {
-            await prisma.notification.createMany({
-              data: localHeads.map(head => ({
-                title: "Staff Collaboration Update",
-                message: `${employeeName} joined collaborative processing on inbound memo ${memoRefString}.`,
-                isRead: false,
-                recipientId: head.id,
-                senderId: authenticatedUser.id
-              }))
-            });
-          }
-        } catch (err) { console.error(err); }
-        break;
-      }
-
-      default:
-        return NextResponse.json({ success: false, message: "Invalid action sequence requested" }, { status: 400 });
     }
 
-    const targetRecipientStatus = await prisma.memoRecipientStatus.findFirst({
-      where: { memoId, departmentName, status: currentSearchStatus }
+    // =================================================================================
+    // 4. AUDIT TRAIL & NOTIFICATIONS
+    // =================================================================================
+    const memoRefString = currentMemo.referenceId || currentMemo.id.substring(0, 8).toUpperCase();
+    await prisma.memoHistory.create({
+      data: {
+        memoId: memoId,
+        departmentName: userDept,
+        performedById: authenticatedUser.id,
+        performedByName: employeeName,
+        actorRole: userDept === currentMemo.senderDept ? 'SENDER' : 'RECIPIENT',
+        action: historyActionType,
+        remarks: feedbackNote || `State system routing update trigger: ${action}`
+      }
     });
 
-    if (!targetRecipientStatus) {
-      return NextResponse.json({ success: false, message: "Hindi mahanap ang memo ledger element para sa aksyong ito." }, { status: 404 });
-    }
-
-    const updatedStatus = await prisma.memoRecipientStatus.update({
-      where: { id: targetRecipientStatus.id },
-      data: updateData
-    });
-
+    // Notifications (para sa ibang actions)
     try {
-      if (notificationPayload && notificationPayload.recipientId) {
+      let notificationPayload = { recipientId: currentMemo.senderId, title: "", message: "" };
+      if (action === 'ACKNOWLEDGE') {
+        notificationPayload.title = "Document Acknowledged";
+        notificationPayload.message = `Department ${departmentName} acknowledged memo ${memoRefString}.`;
+      } else if (action === 'CLOSED') {
+        notificationPayload.title = "Action Item Confirmed";
+        notificationPayload.message = `Signature confirmation for memo ${memoRefString} under ${departmentName}.`;
+      } else if (action === 'DENY') {
+        notificationPayload.title = "Inbound Transaction Denied";
+        notificationPayload.message = `Memo ${memoRefString} denied by ${departmentName}.`;
+      }
+
+      if (notificationPayload.title) {
         await prisma.notification.create({
           data: {
             title: notificationPayload.title,
@@ -640,23 +567,10 @@ export async function PATCH(request) {
             senderId: authenticatedUser.id
           }
         });
-
-        if (action === 'DENY') {
-          const internalHeads = await getDepartmentUsers(userDept, ['DepartmentHead', 'OIC', 'DEPARTMENTHEAD', 'DEPARTMENT HEAD']);
-          if (internalHeads.length > 0) {
-            await prisma.notification.createMany({
-              data: internalHeads.map(head => ({
-                title: "Inbound Document Disapproved",
-                message: `Your staff member ${employeeName} returned memo ${memoRefString} back to sender. Note: ${feedbackNote}`,
-                isRead: false,
-                recipientId: head.id,
-                senderId: authenticatedUser.id
-              }))
-            });
-          }
-        }
       }
-    } catch (err) { console.error("Switch Case Async Notification Injection Failed:", err); }
+    } catch (err) {
+      console.error("Notification Failed:", err);
+    }
 
     try {
       await logActivity({
@@ -666,11 +580,13 @@ export async function PATCH(request) {
         action: `IOM_${action}_SUCCESS`,
         details: JSON.stringify({ memoId, departmentName, note: feedbackNote })
       });
-    } catch (err) { console.error(err); }
+    } catch (err) {
+      console.error(err);
+    }
 
     return NextResponse.json({ success: true, data: updatedStatus }, { status: 200 });
   } catch (error) {
     console.error("Critical Matrix Failure:", error);
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, message: "Internal server pipeline error." }, { status: 500 });
   }
 }

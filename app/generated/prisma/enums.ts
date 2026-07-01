@@ -38,11 +38,34 @@ export type LoginStatus = (typeof LoginStatus)[keyof typeof LoginStatus]
 
 
 export const MemoWorkflowStatus = {
+  DRAFT: 'DRAFT',
   FOR_APPROVAL: 'FOR_APPROVAL',
-  APPROVED: 'APPROVED'
+  APPROVED: 'APPROVED',
+  CLOSED: 'CLOSED'
 } as const
 
 export type MemoWorkflowStatus = (typeof MemoWorkflowStatus)[keyof typeof MemoWorkflowStatus]
+
+
+export const ResolutionMode = {
+  NONE: 'NONE',
+  CONFIRMATION: 'CONFIRMATION'
+} as const
+
+export type ResolutionMode = (typeof ResolutionMode)[keyof typeof ResolutionMode]
+
+
+export const Status = {
+  PENDING: 'PENDING',
+  ACKNOWLEDGED: 'ACKNOWLEDGED',
+  COMPLETED: 'COMPLETED',
+  PROCESSING: 'PROCESSING',
+  DENIED: 'DENIED',
+  CLOSED: 'CLOSED',
+  RESPONDED: 'RESPONDED'
+} as const
+
+export type Status = (typeof Status)[keyof typeof Status]
 
 
 export const Priority = {
@@ -66,12 +89,30 @@ export const Purpose = {
 export type Purpose = (typeof Purpose)[keyof typeof Purpose]
 
 
-export const Status = {
-  PENDING: 'PENDING',
-  ACKNOWLEDGED: 'ACKNOWLEDGED',
-  RESPONDED: 'RESPONDED',
-  PROCESSING: 'PROCESSING',
-  DENIED: 'DENIED'
+export const MemoActorRole = {
+  SENDER: 'SENDER',
+  RECIPIENT: 'RECIPIENT',
+  ADMIN: 'ADMIN',
+  SYSTEM: 'SYSTEM'
 } as const
 
-export type Status = (typeof Status)[keyof typeof Status]
+export type MemoActorRole = (typeof MemoActorRole)[keyof typeof MemoActorRole]
+
+
+export const MemoHistoryAction = {
+  CREATED: 'CREATED',
+  APPROVED: 'APPROVED',
+  DISAPPROVED: 'DISAPPROVED',
+  ACKNOWLEDGED: 'ACKNOWLEDGED',
+  PROCESSING_STARTED: 'PROCESSING_STARTED',
+  PROCESSING_JOINED: 'PROCESSING_JOINED',
+  COMPLETED: 'COMPLETED',
+  DENIED: 'DENIED',
+  SENDER_CONFIRMED: 'SENDER_CONFIRMED',
+  RECIPIENT_CONFIRMED: 'RECIPIENT_CONFIRMED',
+  CLOSED: 'CLOSED',
+  REPLIED: 'REPLIED',
+  REVISED_BY_HEAD: 'REVISED_BY_HEAD'
+} as const
+
+export type MemoHistoryAction = (typeof MemoHistoryAction)[keyof typeof MemoHistoryAction]
