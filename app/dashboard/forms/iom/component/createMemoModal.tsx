@@ -43,6 +43,8 @@ export default function CreateMemoModal({
       title={isReply ? '📝 Write Response Memo' : '📝 Construct New Memorandum'}
       size="lg"
       radius="md"
+      centered
+      closeOnClickOutside={false}
     >
       <form onSubmit={form.onSubmit(onSubmit)}>
         <Stack gap="md">

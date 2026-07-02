@@ -201,16 +201,6 @@ export default function MemoCard({
           <Text size="xs">
             <b>TO:</b> {memo.recipients?.map((r) => r.departmentName).join(', ')}
           </Text>
-          {/* 🆕 Closed by information */}
-          {memo.recipients?.some(r => r.status === 'CLOSED') && (
-            <Text size="xs" c="dimmed">
-              <b>Closed by:</b>{' '}
-              {memo.recipients
-                ?.filter(r => r.status === 'CLOSED')
-                .map(r => `${r.departmentName} (${r.closedByName || 'Unknown'})`)
-                .join(', ')}
-            </Text>
-          )}
           <Group gap={6} align="center">
             <Text size="xs">
               <b>FROM:</b> {memo.senderName} ({memo.sender?.branch ? `${memo.sender.branch} - ` : ''}
@@ -222,7 +212,16 @@ export default function MemoCard({
               </Badge>
             )}
           </Group>
-          <Text size="10px" c="dimmed">
+          {memo.recipients?.some(r => r.status === 'CLOSED') && (
+            <Text size="xs" c="dimmed">
+              <b>CLOSED BY:</b>{' '}
+              {memo.recipients
+                ?.filter(r => r.status === 'CLOSED')
+                .map(r => `${r.departmentName} (${r.closedByName || 'Unknown'})`)
+                .join(', ')}
+            </Text>
+          )}
+          <Text size="xs" c="dimmed">
             <b>DATE:</b> {new Date(memo.createdAt).toLocaleString()}
           </Text>
 

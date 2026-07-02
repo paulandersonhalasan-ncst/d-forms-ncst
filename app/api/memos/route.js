@@ -406,7 +406,11 @@ export async function PATCH(request) {
         console.error("❌ Notification Generation Failed (APPROVE):", notifErr);
       }
     } else {
-      // Regular workflow for other actions
+      // ============================================================
+      // 🟡 WORKFLOW PARA SA MGA ACTION (ACKNOWLEDGE, START_PROCESSING, CLOSED, DENY)
+      // ============================================================
+
+      // 🆕 I-check kung FYI o Non-FYI
       if (currentMemo.purpose === 'FYI') {
         // ========== FYI WORKFLOW ==========
         if (action === 'ACKNOWLEDGE') {
@@ -423,11 +427,7 @@ export async function PATCH(request) {
             attachmentPaths: attachmentPaths.length > 0 ? attachmentPaths : undefined
           };
           historyActionType = "CLOSED";
-          // Auto-close memo status
-          memoUpdateData = {
-            status: 'CLOSED',
-            lastActivityAt: now
-          };
+          // ✅ HINDI na nagsasara ang memo dito – hintayin ang lahat ng recipients
         } else if (action === 'DENY') {
           if (!targetRecipient) {
             return NextResponse.json({ success: false, message: "Department not a recipient" }, { status: 400 });
@@ -468,7 +468,6 @@ export async function PATCH(request) {
         } else if (action === 'CLOSED') {
           if (isSenderClosing) {
             // ===== SENDER CLOSING =====
-            // Check if all recipients are closed or denied
             const allDone = currentMemo.recipients.every(r => 
               r.status === 'CLOSED' || r.status === 'DENIED' || r.status === 'COMPLETED'
             );
@@ -478,7 +477,6 @@ export async function PATCH(request) {
                 message: "Cannot close: some recipients have not completed or denied" 
               }, { status: 400 });
             }
-            // Update memo status
             memoUpdateData = {
               status: 'CLOSED',
               lastActivityAt: now
@@ -490,7 +488,6 @@ export async function PATCH(request) {
             if (!targetRecipient) {
               return NextResponse.json({ success: false, message: "Department not a recipient" }, { status: 400 });
             }
-            // Update recipient status
             recipientUpdateData = {
               recipientConfirmedById: authenticatedUser.id,
               recipientConfirmedByName: employeeName,
@@ -498,7 +495,6 @@ export async function PATCH(request) {
               feedbackNote: feedbackNote,
               attachmentPaths: attachmentPaths.length > 0 ? attachmentPaths : undefined
             };
-            // Check if sender already confirmed
             if (targetRecipient.senderConfirmedAt) {
               recipientUpdateData.status = 'CLOSED';
               recipientUpdateData.closedAt = now;
@@ -544,26 +540,31 @@ export async function PATCH(request) {
       });
     }
 
+    // 🆕 Check if all recipients are now closed (for both FYI and Non-FYI)
+    // Pero kung skipRecipientUpdate (sender closing), hindi na natin kailangan i-check ulit
+    if (!skipRecipientUpdate) {
+      const allRecipients = await prisma.memoRecipientStatus.findMany({
+        where: { memoId: memoId }
+      });
+
+      const allClosed = allRecipients.every(r => 
+        r.status === 'CLOSED' || r.status === 'DENIED' || r.status === 'COMPLETED'
+      );
+
+      if (allClosed) {
+        memoUpdateData = {
+          status: 'CLOSED',
+          lastActivityAt: now
+        };
+      }
+    }
+
     // Update memo status if needed
     if (Object.keys(memoUpdateData).length > 0) {
       await prisma.memo.update({
         where: { id: memoId },
         data: memoUpdateData
       });
-    } else if (!skipRecipientUpdate && Object.keys(recipientUpdateData).length > 0) {
-      // Check if all recipients are now closed (for recipient closing)
-      const allRecipients = await prisma.memoRecipientStatus.findMany({
-        where: { memoId: memoId }
-      });
-      const allClosed = allRecipients.every(r => 
-        r.status === 'CLOSED' || r.status === 'DENIED' || r.status === 'COMPLETED'
-      );
-      if (allClosed) {
-        await prisma.memo.update({
-          where: { id: memoId },
-          data: { status: 'CLOSED', lastActivityAt: now }
-        });
-      }
     }
 
     // =================================================================================
