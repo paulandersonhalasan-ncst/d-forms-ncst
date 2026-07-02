@@ -189,7 +189,7 @@ export default function ViewMemoModal({
 
         {/* Recipient matrix */}
         <Text size="xs" fw={700}>
-          Route Recipients Dispatch Logs Matrix:
+          Recipients Status:
         </Text>
         <Stack gap={6}>
           {memo.recipients?.map((rec) => (
@@ -208,6 +208,12 @@ export default function ViewMemoModal({
                     Remarks: {rec.feedbackNote}
                   </Text>
                 )}
+                {/* 🆕 Closed by information */}
+                {rec.status === 'CLOSED' && rec.closedByName && (
+                  <Text size="10px" c="dimmed">
+                    Closed by: {rec.closedByName}
+                  </Text>
+                )}
               </Stack>
               <Badge
                 color={
@@ -217,6 +223,8 @@ export default function ViewMemoModal({
                     ? 'red'
                     : rec.status === 'PROCESSING'
                     ? 'orange'
+                    : rec.status === 'CLOSED'
+                    ? 'blue'
                     : 'gray'
                 }
                 variant="filled"
@@ -243,7 +251,7 @@ export default function ViewMemoModal({
           <Group gap="xs">
             {memo && memo.status !== 'CLOSED' && memo.status !== 'DENIED' && (
               <>
-                {memo.purpose === 'FYI' && !hasResponded && (
+                {memo.purpose === 'FYI' && recipientRow && !hasResponded && (
                   <Button
                     size="xs"
                     color="blue"
@@ -284,7 +292,7 @@ export default function ViewMemoModal({
                           color="green"
                           leftSection={<IconCircleCheck size={13} />}
                           onClick={() =>
-                            triggerActionPasswordCheck('CLOSED', { // ← CLOSED
+                            triggerActionPasswordCheck('CLOSED', {
                               memoId: memo.id,
                               departmentName: recipientRow.departmentName,
                               isSenderClosing: false,
@@ -324,7 +332,7 @@ export default function ViewMemoModal({
                       color="purple"
                       leftSection={<IconUserCheck size={13} />}
                       onClick={() =>
-                        triggerActionPasswordCheck('CLOSED', { // ← CLOSED
+                        triggerActionPasswordCheck('CLOSED', {
                           memoId: memo.id,
                           departmentName: recipientRow.departmentName,
                           isSenderClosing: true,

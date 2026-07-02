@@ -231,13 +231,13 @@ export default function IOMDashboardPage() {
     (memo) => memo.senderDept === activeDepartment && memo.status === 'FOR_APPROVAL'
   );
   const incomingMemos = memos.filter((memo) => {
-    if (memo.status === 'FOR_APPROVAL') return false;
+    if (memo.status === 'FOR_APPROVAL' || memo.status === 'CLOSED' || memo.status === 'DENIED') return false;
     return memo.recipients?.some(
       (r) => (r.departmentName === activeDepartment || processOICAllowance) && r.status === 'PENDING'
     );
   });
   const actionBoardMemos = memos.filter((memo) => {
-    if (memo.status === 'FOR_APPROVAL') return false;
+    if (memo.status === 'FOR_APPROVAL' || memo.status === 'CLOSED' || memo.status === 'DENIED') return false;
     return memo.recipients?.some(
       (r) =>
         (r.departmentName === activeDepartment || processOICAllowance) &&
@@ -443,14 +443,16 @@ export default function IOMDashboardPage() {
   };
 
   const handlePrintMemo = (memo: Memo) => {
-    // Original print logic unchanged (kept as is)
     const printWindow = window.open('', '_blank', 'width=800,height=600');
     if (!printWindow) return;
+    
     const recipientDepts =
       memo.recipients?.map((r) => `${r.departmentName} [${r.status}]`).join(', ') || 'None';
+    
     const revisionNotice = memo.isRevisedByHead
       ? `<div style="margin-top:15px;padding:10px;border:1px solid #70438a;background-color:#fcf8ff;font-size:12px;color:#70438a;"><strong>⚠️ AMENDMENT NOTICE:</strong> This draft was officially reviewed, modified, and finalized by the Department Head prior to system broadcast.</div>`
       : '';
+
     const attachmentNotice =
       memo.attachmentPaths && memo.attachmentPaths.length > 0
         ? `
@@ -470,23 +472,30 @@ export default function IOMDashboardPage() {
         `
         : '';
 
-    // Build dispatch matrix rows
+    // 📋 Dispatch Matrix Rows with Closed By info
     const dispatchMatrixRows =
       memo.recipients && memo.recipients.length > 0
         ? memo.recipients
             .map((rec) => {
               const rawDate =
-                rec.respondedAt || rec.deniedAt || rec.acknowledgedAt || rec.processedAt;
+                rec.respondedAt || rec.deniedAt || rec.acknowledgedAt || rec.processedAt || rec.closedAt;
               const formattedTimestamp = rawDate ? new Date(rawDate).toLocaleString() : null;
+              
+              // 🆕 Closed by information
+              const closedByInfo = rec.status === 'CLOSED' && rec.closedByName
+                ? `<div style="font-size:10px;color:#666;margin-top:2px;border-left:2px solid #666;padding-left:5px;"><b>CLOSED BY:</b> ${rec.closedByName}</div>`
+                : '';
+              
               return `
               <tr style="border-bottom:1px dashed #000;page-break-inside:avoid;">
                 <td style="padding:10px 4px;font-weight:bold;vertical-align:top;">${rec.departmentName}</td>
                 <td style="padding:10px 4px;vertical-align:top;">
-                  <span style="padding:2px 6px;border:1px solid #000;font-size:12px;font-weight:bold;display:inline-block;">${rec.status}</span>
+                  <span style="padding:2px 6px;border:1px solid #000;font-size:12px;font-weight:bold;display:inline-block;background-color:${rec.status === 'CLOSED' ? '#e6f7e6' : rec.status === 'DENIED' ? '#ffe6e6' : 'transparent'};">${rec.status}</span>
                 </td>
                 <td style="padding:10px 4px;font-size:13px;vertical-align:top;word-break:break-word;">
                   <div style="font-weight:500;margin-bottom:6px;white-space:pre-wrap;">${rec.feedbackNote || '--'}</div>
                   ${formattedTimestamp ? `<div style="font-size:11px;color:#444;margin-top:4px;border-left:2px solid #000;padding-left:5px;"><b>TIMESTAMP:</b> ${formattedTimestamp}</div>` : ''}
+                  ${closedByInfo}
                 </td>
               </tr>
             `;
@@ -505,23 +514,28 @@ export default function IOMDashboardPage() {
               <th style="padding:6px 4px;width:62%;">REMARKS & TRANSACTION TIMESTAMP</th>
             </tr>
           </thead>
-          <tbody>${dispatchMatrixRows}</tbody>
+          <tbody>
+            ${dispatchMatrixRows}
+          </tbody>
         </table>
       </div>
     `;
 
     printWindow.document.write(`
       <html>
-        <head><title>Print Memo - ${memo.referenceId || 'DRAFT'}</title>
-        <style>
-          body { font-family: monospace; line-height: 1.6; padding: 40px; color: #000; font-size: 14px; }
-          .header { text-align: center; margin-bottom: 30px; font-weight: bold; font-size: 18px; letter-spacing: 1px; }
-          .meta-table { width: 100%; border-collapse: collapse; margin-bottom: 25px; }
-          .meta-table td { padding: 6px 0; vertical-align: top; }
-          .meta-label { width: 140px; font-weight: bold; }
-          .content-box { border-top: 2px dashed #000; border-bottom: 2px dashed #000; padding: 25px 0; margin-bottom: 30px; white-space: pre-wrap; font-size: 15px; }
-          @media print { tr { page-break-inside: avoid !important; } }
-        </style>
+        <head>
+          <title>Print Memo - ${memo.referenceId || 'DRAFT'}</title>
+          <style>
+            body { font-family: monospace; line-height: 1.6; padding: 40px; color: #000; font-size: 14px; }
+            .header { text-align: center; margin-bottom: 30px; font-weight: bold; font-size: 18px; letter-spacing: 1px; }
+            .meta-table { width: 100%; border-collapse: collapse; margin-bottom: 25px; }
+            .meta-table td { padding: 6px 0; vertical-align: top; }
+            .meta-label { width: 140px; font-weight: bold; }
+            .content-box { border-top: 2px dashed #000; border-bottom: 2px dashed #000; padding: 25px 0; margin-bottom: 30px; white-space: pre-wrap; font-size: 15px; }
+            @media print {
+              tr { page-break-inside: avoid !important; }
+            }
+          </style>
         </head>
         <body>
           <div class="header">INTERNAL OFFICE MEMORANDUM<br>==========================</div>
@@ -534,11 +548,17 @@ export default function IOMDashboardPage() {
             <tr><td class="meta-label">PURPOSE:</td><td>${memo.purpose || 'N/A'}</td></tr>
             <tr><td class="meta-label">SUBJECT:</td><td><strong>${memo.subject}</strong></td></tr>
           </table>
+          
           ${revisionNotice}
+          
           <div class="content-box">${memo.content.replace(/\n/g, '<br>')}</div>
+          
           ${attachmentNotice}
+          
           ${dispatchMatrixTable}
+          
           <div style="margin-top:60px;font-size:11px;text-align:center;color:#555;">-- System Generated Document --</div>
+          
           <script>
             window.onload = function() { window.print(); };
             window.onafterprint = function() { window.close(); };

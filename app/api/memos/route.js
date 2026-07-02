@@ -272,7 +272,6 @@ export async function PATCH(request) {
       delegatedStaffId = formData.get("delegatedStaffId");
       isSenderClosing = formData.get("isSenderClosing") === "true";
       
-      // Para sa APPROVE action
       newSubject = formData.get("subject");
       newContent = formData.get("content");
       retainedAttachments = formData.get("retainedAttachments") ? JSON.parse(formData.get("retainedAttachments")) : [];
@@ -346,6 +345,7 @@ export async function PATCH(request) {
     let recipientUpdateData = {};
     let memoUpdateData = {};
     let historyActionType = action;
+    let skipRecipientUpdate = false;
 
     const targetRecipient = currentMemo.recipients.find(r => r.departmentName === departmentName);
 
@@ -355,15 +355,14 @@ export async function PATCH(request) {
     if (action === 'CREATE') {
       // Draft creation defaults
     } else if (action === 'DISAPPROVE') {
-        memoUpdateData = { status: 'DRAFT' }; // ✅ Valid na ngayon
-        historyActionType = "DISAPPROVE";
+      memoUpdateData = { status: 'DRAFT' };
+      historyActionType = "DISAPPROVE";
     } else if (action === 'APPROVE') {
       // 🟢 DEPARTMENT HEAD APPROVAL
       const finalSubject = newSubject || currentMemo.subject;
       const finalContent = newContent || currentMemo.content;
       const isRevised = finalSubject !== currentMemo.subject || finalContent !== currentMemo.content;
       
-      // Pagsamahin ang retained at bagong attachments
       const retained = retainedAttachments || [];
       const allAttachments = [...retained, ...attachmentPaths];
       
@@ -376,11 +375,9 @@ export async function PATCH(request) {
       };
       historyActionType = "APPROVED";
 
-      // 🆕 MAGDAGDAG NG NOTIFICATION PARA SA MGA RECIPIENT DEPARTMENTS
+      // Notifications for recipients
       try {
-        // Kunin ang mga target departments mula sa currentMemo.recipients
         const targetDepts = currentMemo.recipients.map(r => r.departmentName);
-        
         for (const dept of targetDepts) {
           const targetHeads = await getDepartmentUsers(dept, ['DepartmentHead']);
           if (targetHeads.length > 0) {
@@ -396,7 +393,6 @@ export async function PATCH(request) {
           }
         }
 
-        // Notify the sender (Department Head na nag-approve) na na-broadcast na
         await prisma.notification.create({
           data: {
             title: "Memo Approved & Broadcasted",
@@ -410,26 +406,48 @@ export async function PATCH(request) {
         console.error("❌ Notification Generation Failed (APPROVE):", notifErr);
       }
     } else {
-      // Regular workflow for ACKNOWLEDGE, START_PROCESSING, RESOLVE, DENY
-      if (!targetRecipient) {
-        return NextResponse.json({ success: false, message: "Department mapping routing mismatch" }, { status: 400 });
-      }
-
+      // Regular workflow for other actions
       if (currentMemo.purpose === 'FYI') {
+        // ========== FYI WORKFLOW ==========
         if (action === 'ACKNOWLEDGE') {
+          if (!targetRecipient) {
+            return NextResponse.json({ success: false, message: "Department not a recipient" }, { status: 400 });
+          }
           recipientUpdateData = {
             status: 'CLOSED',
             feedbackNote: feedbackNote || "Acknowledged FYI Document",
             respondedAt: now,
             closedAt: now,
             closedById: authenticatedUser.id,
-            closedByName: employeeName,
+            closedByName: `${employeeName} (${authenticatedUser.role})`,
             attachmentPaths: attachmentPaths.length > 0 ? attachmentPaths : undefined
           };
           historyActionType = "CLOSED";
+          // Auto-close memo status
+          memoUpdateData = {
+            status: 'CLOSED',
+            lastActivityAt: now
+          };
+        } else if (action === 'DENY') {
+          if (!targetRecipient) {
+            return NextResponse.json({ success: false, message: "Department not a recipient" }, { status: 400 });
+          }
+          recipientUpdateData = {
+            status: 'DENIED',
+            deniedById: authenticatedUser.id,
+            deniedByName: employeeName,
+            deniedAt: now,
+            feedbackNote: feedbackNote
+          };
+        } else {
+          return NextResponse.json({ success: false, message: `Action "${action}" not allowed for FYI memos` }, { status: 400 });
         }
-      } else if (currentMemo.purpose !== 'FYI') {
+      } else {
+        // ========== NON-FYI WORKFLOW ==========
         if (action === 'ACKNOWLEDGE') {
+          if (!targetRecipient) {
+            return NextResponse.json({ success: false, message: "Department not a recipient" }, { status: 400 });
+          }
           recipientUpdateData = {
             status: 'PROCESSING',
             respondedAt: now,
@@ -438,23 +456,41 @@ export async function PATCH(request) {
             processedAt: now
           };
         } else if (action === 'START_PROCESSING') {
+          if (!targetRecipient) {
+            return NextResponse.json({ success: false, message: "Department not a recipient" }, { status: 400 });
+          }
           recipientUpdateData = {
             status: 'PROCESSING',
             processedAt: now,
             processedById: delegatedStaffId || authenticatedUser.id,
             processedByName: delegatedStaffId ? "Delegated Staff" : employeeName
           };
-        } else if (action === 'CLOSED') { // ← CLOSED (dati RESOLVE)
+        } else if (action === 'CLOSED') {
           if (isSenderClosing) {
-            // SENDER LOCK
-            recipientUpdateData = {
-              senderConfirmedById: authenticatedUser.id,
-              senderConfirmedByName: employeeName,
-              senderConfirmedAt: now,
-              feedbackNote: feedbackNote || targetRecipient.feedbackNote
+            // ===== SENDER CLOSING =====
+            // Check if all recipients are closed or denied
+            const allDone = currentMemo.recipients.every(r => 
+              r.status === 'CLOSED' || r.status === 'DENIED' || r.status === 'COMPLETED'
+            );
+            if (!allDone) {
+              return NextResponse.json({ 
+                success: false, 
+                message: "Cannot close: some recipients have not completed or denied" 
+              }, { status: 400 });
+            }
+            // Update memo status
+            memoUpdateData = {
+              status: 'CLOSED',
+              lastActivityAt: now
             };
+            historyActionType = "CLOSED_BY_SENDER";
+            skipRecipientUpdate = true;
           } else {
-            // RECIPIENT LOCK
+            // ===== RECIPIENT CLOSING =====
+            if (!targetRecipient) {
+              return NextResponse.json({ success: false, message: "Department not a recipient" }, { status: 400 });
+            }
+            // Update recipient status
             recipientUpdateData = {
               recipientConfirmedById: authenticatedUser.id,
               recipientConfirmedByName: employeeName,
@@ -462,21 +498,21 @@ export async function PATCH(request) {
               feedbackNote: feedbackNote,
               attachmentPaths: attachmentPaths.length > 0 ? attachmentPaths : undefined
             };
-          }
-
-          // 2-Way Handshake Checker
-          const hasSenderSigned = recipientUpdateData.senderConfirmedAt || targetRecipient.senderConfirmedAt;
-          const hasRecipientSigned = recipientUpdateData.recipientConfirmedAt || targetRecipient.recipientConfirmedAt;
-
-          if (hasSenderSigned && hasRecipientSigned) {
-            recipientUpdateData.status = 'CLOSED';
-            recipientUpdateData.closedAt = now;
-            recipientUpdateData.closedById = authenticatedUser.id;
-            recipientUpdateData.closedByName = employeeName;
-          } else {
-            recipientUpdateData.status = 'PROCESSING';
+            // Check if sender already confirmed
+            if (targetRecipient.senderConfirmedAt) {
+              recipientUpdateData.status = 'CLOSED';
+              recipientUpdateData.closedAt = now;
+              recipientUpdateData.closedById = authenticatedUser.id;
+              recipientUpdateData.closedByName = `${employeeName} (${authenticatedUser.role})`;
+            } else {
+              recipientUpdateData.status = 'PROCESSING';
+            }
+            historyActionType = "CLOSED_BY_RECIPIENT";
           }
         } else if (action === 'DENY') {
+          if (!targetRecipient) {
+            return NextResponse.json({ success: false, message: "Department not a recipient" }, { status: 400 });
+          }
           recipientUpdateData = {
             status: 'DENIED',
             deniedById: authenticatedUser.id,
@@ -484,6 +520,8 @@ export async function PATCH(request) {
             deniedAt: now,
             feedbackNote: feedbackNote
           };
+        } else {
+          return NextResponse.json({ success: false, message: `Unknown action: ${action}` }, { status: 400 });
         }
       }
     }
@@ -492,7 +530,9 @@ export async function PATCH(request) {
     // 3. DATABASE TRANSACTIONS
     // =================================================================================
     let updatedStatus = null;
-    if (action !== 'DISAPPROVE' && action !== 'APPROVE') {
+
+    // Update recipient status if needed
+    if (Object.keys(recipientUpdateData).length > 0 && !skipRecipientUpdate) {
       updatedStatus = await prisma.memoRecipientStatus.update({
         where: {
           memoId_departmentName: { memoId, departmentName }
@@ -504,25 +544,24 @@ export async function PATCH(request) {
       });
     }
 
-    // Update Memo status kung APPROVE, DISAPPROVE, o kung sarado na lahat
-    if (action === 'APPROVE' || action === 'DISAPPROVE') {
+    // Update memo status if needed
+    if (Object.keys(memoUpdateData).length > 0) {
       await prisma.memo.update({
         where: { id: memoId },
         data: memoUpdateData
       });
-    } else {
+    } else if (!skipRecipientUpdate && Object.keys(recipientUpdateData).length > 0) {
+      // Check if all recipients are now closed (for recipient closing)
       const allRecipients = await prisma.memoRecipientStatus.findMany({
         where: { memoId: memoId }
       });
-
-      const checkAllClosed = allRecipients.every(r => 
+      const allClosed = allRecipients.every(r => 
         r.status === 'CLOSED' || r.status === 'DENIED' || r.status === 'COMPLETED'
       );
-
-      if (checkAllClosed) {
+      if (allClosed) {
         await prisma.memo.update({
           where: { id: memoId },
-          data: { status: 'CLOSED', lastActivityAt: now } // ✅ Valid na ngayon
+          data: { status: 'CLOSED', lastActivityAt: now }
         });
       }
     }
@@ -543,15 +582,20 @@ export async function PATCH(request) {
       }
     });
 
-    // Notifications (para sa ibang actions)
+    // Notifications
     try {
       let notificationPayload = { recipientId: currentMemo.senderId, title: "", message: "" };
       if (action === 'ACKNOWLEDGE') {
         notificationPayload.title = "Document Acknowledged";
         notificationPayload.message = `Department ${departmentName} acknowledged memo ${memoRefString}.`;
       } else if (action === 'CLOSED') {
-        notificationPayload.title = "Action Item Confirmed";
-        notificationPayload.message = `Signature confirmation for memo ${memoRefString} under ${departmentName}.`;
+        if (isSenderClosing) {
+          notificationPayload.title = "Memo Closed by Sender";
+          notificationPayload.message = `Memo ${memoRefString} has been closed by sender.`;
+        } else {
+          notificationPayload.title = "Action Item Completed";
+          notificationPayload.message = `Department ${departmentName} completed memo ${memoRefString}.`;
+        }
       } else if (action === 'DENY') {
         notificationPayload.title = "Inbound Transaction Denied";
         notificationPayload.message = `Memo ${memoRefString} denied by ${departmentName}.`;

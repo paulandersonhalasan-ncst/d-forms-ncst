@@ -52,6 +52,7 @@ export type MemoRecipientStatusMinAggregateOutputType = {
   recipientConfirmedAt: Date | null
   closedById: string | null
   closedByName: string | null
+  closedByRole: string | null
   closedAt: Date | null
   updatedAt: Date | null
   lastActivityAt: Date | null
@@ -87,6 +88,7 @@ export type MemoRecipientStatusMaxAggregateOutputType = {
   recipientConfirmedAt: Date | null
   closedById: string | null
   closedByName: string | null
+  closedByRole: string | null
   closedAt: Date | null
   updatedAt: Date | null
   lastActivityAt: Date | null
@@ -122,6 +124,7 @@ export type MemoRecipientStatusCountAggregateOutputType = {
   recipientConfirmedAt: number
   closedById: number
   closedByName: number
+  closedByRole: number
   closedAt: number
   updatedAt: number
   lastActivityAt: number
@@ -160,6 +163,7 @@ export type MemoRecipientStatusMinAggregateInputType = {
   recipientConfirmedAt?: true
   closedById?: true
   closedByName?: true
+  closedByRole?: true
   closedAt?: true
   updatedAt?: true
   lastActivityAt?: true
@@ -195,6 +199,7 @@ export type MemoRecipientStatusMaxAggregateInputType = {
   recipientConfirmedAt?: true
   closedById?: true
   closedByName?: true
+  closedByRole?: true
   closedAt?: true
   updatedAt?: true
   lastActivityAt?: true
@@ -230,6 +235,7 @@ export type MemoRecipientStatusCountAggregateInputType = {
   recipientConfirmedAt?: true
   closedById?: true
   closedByName?: true
+  closedByRole?: true
   closedAt?: true
   updatedAt?: true
   lastActivityAt?: true
@@ -339,6 +345,7 @@ export type MemoRecipientStatusGroupByOutputType = {
   recipientConfirmedAt: Date | null
   closedById: string | null
   closedByName: string | null
+  closedByRole: string | null
   closedAt: Date | null
   updatedAt: Date
   lastActivityAt: Date
@@ -396,6 +403,7 @@ export type MemoRecipientStatusWhereInput = {
   recipientConfirmedAt?: Prisma.DateTimeNullableFilter<"MemoRecipientStatus"> | Date | string | null
   closedById?: Prisma.StringNullableFilter<"MemoRecipientStatus"> | string | null
   closedByName?: Prisma.StringNullableFilter<"MemoRecipientStatus"> | string | null
+  closedByRole?: Prisma.StringNullableFilter<"MemoRecipientStatus"> | string | null
   closedAt?: Prisma.DateTimeNullableFilter<"MemoRecipientStatus"> | Date | string | null
   updatedAt?: Prisma.DateTimeFilter<"MemoRecipientStatus"> | Date | string
   lastActivityAt?: Prisma.DateTimeFilter<"MemoRecipientStatus"> | Date | string
@@ -433,6 +441,7 @@ export type MemoRecipientStatusOrderByWithRelationInput = {
   recipientConfirmedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   closedById?: Prisma.SortOrderInput | Prisma.SortOrder
   closedByName?: Prisma.SortOrderInput | Prisma.SortOrder
+  closedByRole?: Prisma.SortOrderInput | Prisma.SortOrder
   closedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   lastActivityAt?: Prisma.SortOrder
@@ -474,6 +483,7 @@ export type MemoRecipientStatusWhereUniqueInput = Prisma.AtLeast<{
   recipientConfirmedAt?: Prisma.DateTimeNullableFilter<"MemoRecipientStatus"> | Date | string | null
   closedById?: Prisma.StringNullableFilter<"MemoRecipientStatus"> | string | null
   closedByName?: Prisma.StringNullableFilter<"MemoRecipientStatus"> | string | null
+  closedByRole?: Prisma.StringNullableFilter<"MemoRecipientStatus"> | string | null
   closedAt?: Prisma.DateTimeNullableFilter<"MemoRecipientStatus"> | Date | string | null
   updatedAt?: Prisma.DateTimeFilter<"MemoRecipientStatus"> | Date | string
   lastActivityAt?: Prisma.DateTimeFilter<"MemoRecipientStatus"> | Date | string
@@ -511,6 +521,7 @@ export type MemoRecipientStatusOrderByWithAggregationInput = {
   recipientConfirmedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   closedById?: Prisma.SortOrderInput | Prisma.SortOrder
   closedByName?: Prisma.SortOrderInput | Prisma.SortOrder
+  closedByRole?: Prisma.SortOrderInput | Prisma.SortOrder
   closedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   lastActivityAt?: Prisma.SortOrder
@@ -553,6 +564,7 @@ export type MemoRecipientStatusScalarWhereWithAggregatesInput = {
   recipientConfirmedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"MemoRecipientStatus"> | Date | string | null
   closedById?: Prisma.StringNullableWithAggregatesFilter<"MemoRecipientStatus"> | string | null
   closedByName?: Prisma.StringNullableWithAggregatesFilter<"MemoRecipientStatus"> | string | null
+  closedByRole?: Prisma.StringNullableWithAggregatesFilter<"MemoRecipientStatus"> | string | null
   closedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"MemoRecipientStatus"> | Date | string | null
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"MemoRecipientStatus"> | Date | string
   lastActivityAt?: Prisma.DateTimeWithAggregatesFilter<"MemoRecipientStatus"> | Date | string
@@ -588,6 +600,7 @@ export type MemoRecipientStatusCreateInput = {
   recipientConfirmedAt?: Date | string | null
   closedById?: string | null
   closedByName?: string | null
+  closedByRole?: string | null
   closedAt?: Date | string | null
   updatedAt?: Date | string
   lastActivityAt?: Date | string
@@ -625,6 +638,7 @@ export type MemoRecipientStatusUncheckedCreateInput = {
   recipientConfirmedAt?: Date | string | null
   closedById?: string | null
   closedByName?: string | null
+  closedByRole?: string | null
   closedAt?: Date | string | null
   updatedAt?: Date | string
   lastActivityAt?: Date | string
@@ -660,6 +674,7 @@ export type MemoRecipientStatusUpdateInput = {
   recipientConfirmedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   closedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   closedByName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  closedByRole?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   closedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastActivityAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -697,6 +712,7 @@ export type MemoRecipientStatusUncheckedUpdateInput = {
   recipientConfirmedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   closedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   closedByName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  closedByRole?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   closedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastActivityAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -733,6 +749,7 @@ export type MemoRecipientStatusCreateManyInput = {
   recipientConfirmedAt?: Date | string | null
   closedById?: string | null
   closedByName?: string | null
+  closedByRole?: string | null
   closedAt?: Date | string | null
   updatedAt?: Date | string
   lastActivityAt?: Date | string
@@ -768,6 +785,7 @@ export type MemoRecipientStatusUpdateManyMutationInput = {
   recipientConfirmedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   closedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   closedByName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  closedByRole?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   closedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastActivityAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -804,6 +822,7 @@ export type MemoRecipientStatusUncheckedUpdateManyInput = {
   recipientConfirmedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   closedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   closedByName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  closedByRole?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   closedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastActivityAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -855,6 +874,7 @@ export type MemoRecipientStatusCountOrderByAggregateInput = {
   recipientConfirmedAt?: Prisma.SortOrder
   closedById?: Prisma.SortOrder
   closedByName?: Prisma.SortOrder
+  closedByRole?: Prisma.SortOrder
   closedAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   lastActivityAt?: Prisma.SortOrder
@@ -891,6 +911,7 @@ export type MemoRecipientStatusMaxOrderByAggregateInput = {
   recipientConfirmedAt?: Prisma.SortOrder
   closedById?: Prisma.SortOrder
   closedByName?: Prisma.SortOrder
+  closedByRole?: Prisma.SortOrder
   closedAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   lastActivityAt?: Prisma.SortOrder
@@ -926,6 +947,7 @@ export type MemoRecipientStatusMinOrderByAggregateInput = {
   recipientConfirmedAt?: Prisma.SortOrder
   closedById?: Prisma.SortOrder
   closedByName?: Prisma.SortOrder
+  closedByRole?: Prisma.SortOrder
   closedAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   lastActivityAt?: Prisma.SortOrder
@@ -1015,6 +1037,7 @@ export type MemoRecipientStatusCreateWithoutMemoInput = {
   recipientConfirmedAt?: Date | string | null
   closedById?: string | null
   closedByName?: string | null
+  closedByRole?: string | null
   closedAt?: Date | string | null
   updatedAt?: Date | string
   lastActivityAt?: Date | string
@@ -1050,6 +1073,7 @@ export type MemoRecipientStatusUncheckedCreateWithoutMemoInput = {
   recipientConfirmedAt?: Date | string | null
   closedById?: string | null
   closedByName?: string | null
+  closedByRole?: string | null
   closedAt?: Date | string | null
   updatedAt?: Date | string
   lastActivityAt?: Date | string
@@ -1115,6 +1139,7 @@ export type MemoRecipientStatusScalarWhereInput = {
   recipientConfirmedAt?: Prisma.DateTimeNullableFilter<"MemoRecipientStatus"> | Date | string | null
   closedById?: Prisma.StringNullableFilter<"MemoRecipientStatus"> | string | null
   closedByName?: Prisma.StringNullableFilter<"MemoRecipientStatus"> | string | null
+  closedByRole?: Prisma.StringNullableFilter<"MemoRecipientStatus"> | string | null
   closedAt?: Prisma.DateTimeNullableFilter<"MemoRecipientStatus"> | Date | string | null
   updatedAt?: Prisma.DateTimeFilter<"MemoRecipientStatus"> | Date | string
   lastActivityAt?: Prisma.DateTimeFilter<"MemoRecipientStatus"> | Date | string
@@ -1150,6 +1175,7 @@ export type MemoRecipientStatusCreateManyMemoInput = {
   recipientConfirmedAt?: Date | string | null
   closedById?: string | null
   closedByName?: string | null
+  closedByRole?: string | null
   closedAt?: Date | string | null
   updatedAt?: Date | string
   lastActivityAt?: Date | string
@@ -1185,6 +1211,7 @@ export type MemoRecipientStatusUpdateWithoutMemoInput = {
   recipientConfirmedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   closedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   closedByName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  closedByRole?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   closedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastActivityAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1220,6 +1247,7 @@ export type MemoRecipientStatusUncheckedUpdateWithoutMemoInput = {
   recipientConfirmedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   closedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   closedByName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  closedByRole?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   closedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastActivityAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1255,6 +1283,7 @@ export type MemoRecipientStatusUncheckedUpdateManyWithoutMemoInput = {
   recipientConfirmedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   closedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   closedByName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  closedByRole?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   closedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastActivityAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1293,6 +1322,7 @@ export type MemoRecipientStatusSelect<ExtArgs extends runtime.Types.Extensions.I
   recipientConfirmedAt?: boolean
   closedById?: boolean
   closedByName?: boolean
+  closedByRole?: boolean
   closedAt?: boolean
   updatedAt?: boolean
   lastActivityAt?: boolean
@@ -1330,6 +1360,7 @@ export type MemoRecipientStatusSelectCreateManyAndReturn<ExtArgs extends runtime
   recipientConfirmedAt?: boolean
   closedById?: boolean
   closedByName?: boolean
+  closedByRole?: boolean
   closedAt?: boolean
   updatedAt?: boolean
   lastActivityAt?: boolean
@@ -1367,6 +1398,7 @@ export type MemoRecipientStatusSelectUpdateManyAndReturn<ExtArgs extends runtime
   recipientConfirmedAt?: boolean
   closedById?: boolean
   closedByName?: boolean
+  closedByRole?: boolean
   closedAt?: boolean
   updatedAt?: boolean
   lastActivityAt?: boolean
@@ -1404,6 +1436,7 @@ export type MemoRecipientStatusSelectScalar = {
   recipientConfirmedAt?: boolean
   closedById?: boolean
   closedByName?: boolean
+  closedByRole?: boolean
   closedAt?: boolean
   updatedAt?: boolean
   lastActivityAt?: boolean
@@ -1412,7 +1445,7 @@ export type MemoRecipientStatusSelectScalar = {
   respondedAt?: boolean
 }
 
-export type MemoRecipientStatusOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "memoId" | "departmentName" | "status" | "acknowledgedById" | "acknowledgedByName" | "acknowledgedAt" | "processedAt" | "completedById" | "completedByName" | "completedAt" | "feedbackNote" | "senderConfirmationNote" | "recipientConfirmationNote" | "processedById" | "processedByName" | "deniedById" | "deniedByName" | "deniedAt" | "senderConfirmedById" | "senderConfirmedByName" | "senderConfirmedAt" | "recipientConfirmedById" | "recipientConfirmedByName" | "recipientConfirmedAt" | "closedById" | "closedByName" | "closedAt" | "updatedAt" | "lastActivityAt" | "isSenderClosing" | "attachmentPaths" | "respondedAt", ExtArgs["result"]["memoRecipientStatus"]>
+export type MemoRecipientStatusOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "memoId" | "departmentName" | "status" | "acknowledgedById" | "acknowledgedByName" | "acknowledgedAt" | "processedAt" | "completedById" | "completedByName" | "completedAt" | "feedbackNote" | "senderConfirmationNote" | "recipientConfirmationNote" | "processedById" | "processedByName" | "deniedById" | "deniedByName" | "deniedAt" | "senderConfirmedById" | "senderConfirmedByName" | "senderConfirmedAt" | "recipientConfirmedById" | "recipientConfirmedByName" | "recipientConfirmedAt" | "closedById" | "closedByName" | "closedByRole" | "closedAt" | "updatedAt" | "lastActivityAt" | "isSenderClosing" | "attachmentPaths" | "respondedAt", ExtArgs["result"]["memoRecipientStatus"]>
 export type MemoRecipientStatusInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   memo?: boolean | Prisma.MemoDefaultArgs<ExtArgs>
 }
@@ -1456,6 +1489,7 @@ export type $MemoRecipientStatusPayload<ExtArgs extends runtime.Types.Extensions
     recipientConfirmedAt: Date | null
     closedById: string | null
     closedByName: string | null
+    closedByRole: string | null
     closedAt: Date | null
     updatedAt: Date
     lastActivityAt: Date
@@ -1913,6 +1947,7 @@ export interface MemoRecipientStatusFieldRefs {
   readonly recipientConfirmedAt: Prisma.FieldRef<"MemoRecipientStatus", 'DateTime'>
   readonly closedById: Prisma.FieldRef<"MemoRecipientStatus", 'String'>
   readonly closedByName: Prisma.FieldRef<"MemoRecipientStatus", 'String'>
+  readonly closedByRole: Prisma.FieldRef<"MemoRecipientStatus", 'String'>
   readonly closedAt: Prisma.FieldRef<"MemoRecipientStatus", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"MemoRecipientStatus", 'DateTime'>
   readonly lastActivityAt: Prisma.FieldRef<"MemoRecipientStatus", 'DateTime'>

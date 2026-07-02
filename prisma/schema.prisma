@@ -230,6 +230,7 @@ model MemoRecipientStatus {
 
   closedById String?
   closedByName String?
+  closedByRole String?
   closedAt DateTime?
 
   updatedAt DateTime @updatedAt

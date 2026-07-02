@@ -198,6 +198,7 @@ export const MemoRecipientStatusScalarFieldEnum = {
   recipientConfirmedAt: 'recipientConfirmedAt',
   closedById: 'closedById',
   closedByName: 'closedByName',
+  closedByRole: 'closedByRole',
   closedAt: 'closedAt',
   updatedAt: 'updatedAt',
   lastActivityAt: 'lastActivityAt',

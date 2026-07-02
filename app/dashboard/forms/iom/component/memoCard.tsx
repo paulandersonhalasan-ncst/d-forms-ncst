@@ -201,6 +201,16 @@ export default function MemoCard({
           <Text size="xs">
             <b>TO:</b> {memo.recipients?.map((r) => r.departmentName).join(', ')}
           </Text>
+          {/* 🆕 Closed by information */}
+          {memo.recipients?.some(r => r.status === 'CLOSED') && (
+            <Text size="xs" c="dimmed">
+              <b>Closed by:</b>{' '}
+              {memo.recipients
+                ?.filter(r => r.status === 'CLOSED')
+                .map(r => `${r.departmentName} (${r.closedByName || 'Unknown'})`)
+                .join(', ')}
+            </Text>
+          )}
           <Group gap={6} align="center">
             <Text size="xs">
               <b>FROM:</b> {memo.senderName} ({memo.sender?.branch ? `${memo.sender.branch} - ` : ''}
@@ -342,21 +352,21 @@ export default function MemoCard({
             </Button>
           )}
 
-          {amISender && !isAllResolved && memo.status !== 'FOR_APPROVAL' && (
+          {amISender && !isAllResolved && memo.status !== 'FOR_APPROVAL' && memo.purpose !== 'FYI' && (
             <Button
-                size="xs"
-                color="teal"
-                leftSection={<IconFileCheck size={13} />}
-                onClick={() =>
-                triggerActionPasswordCheck('CLOSED', { // ← CLOSED
-                    memoId: memo.id,
-                    isSenderClosing: true,
+              size="xs"
+              color="teal"
+              leftSection={<IconFileCheck size={13} />}
+              onClick={() =>
+                triggerActionPasswordCheck('CLOSED', {
+                  memoId: memo.id,
+                  isSenderClosing: true,
                 })
-                }
+              }
             >
-                Resolve & Close
+              Resolve & Close
             </Button>
-            )}
+          )}
 
           {/* Advanced collaboration & override block */}
           {(() => {
@@ -366,24 +376,22 @@ export default function MemoCard({
             return (
               <Group gap={4}>
                 {isDepartmentHead && (isUnderProcessing || isAcknowledged) && (
-                  <Group gap={4}>
-                    <Button
-                      size="xs"
-                      color="teal"
-                      variant="filled"
-                      onClick={() =>
-                        triggerActionPasswordCheck('CLOSED', {
-                          memoId: memo.id,
-                          departmentName: activeDepartment,
-                        })
-                      }
-                    >
-                      Head Force Complete
-                    </Button>
-                  </Group>
+                  <Button
+                    size="xs"
+                    color="teal"
+                    variant="filled"
+                    onClick={() =>
+                      triggerActionPasswordCheck('CLOSED', {
+                        memoId: memo.id,
+                        departmentName: activeDepartment,
+                      })
+                    }
+                  >
+                    Head Force Complete
+                  </Button>
                 )}
 
-                {isUnderProcessing && !isDepartmentHead && (
+                {isUnderProcessing && !isDepartmentHead && memo.purpose !== 'FYI' && (
                   <Group gap={4}>
                     {!amIAlreadyProcessing && (
                       <Button

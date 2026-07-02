@@ -7,7 +7,7 @@ export interface MemoRecipientStatus {
   id: string;
   memoId: string;
   departmentName: string;
-  status: 'PENDING' | 'ACKNOWLEDGED' | 'PROCESSING' | 'CLOSED' | 'RESOLVE' | 'DENIED' | 'RESPONDED';
+  status: 'PENDING' | 'ACKNOWLEDGED' | 'PROCESSING' | 'CLOSED' | 'RESOLVE' | 'DENIED' | 'RESPONDED' | 'COMPLETED';
   feedbackNote?: string | null;
   attachmentPaths?: string[];
   respondedAt?: string | null;
