@@ -6,6 +6,8 @@ import '@mantine/dates/styles.css';
 import './globals.css'; // Isama ang global CSS mo rito
 import { theme } from './theme'; // I-import ang theme na ginawa natin sa taas
 import { ModalsProvider } from '@mantine/modals'; // 🆕 I-import ito
+import { NotificationProvider } from './components/notifications/NotificationProvider';
+
 
 export const metadata = {
   title: 'NCST | E-FORMS',
@@ -22,7 +24,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <MantineProvider theme={theme} defaultColorScheme="auto">
           <ModalsProvider>
-            {children}
+            <NotificationProvider>
+              {children}
+            </NotificationProvider>
           </ModalsProvider>
         </MantineProvider>
       </body>

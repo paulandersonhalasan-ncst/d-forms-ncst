@@ -14,12 +14,12 @@ import {
 } from "@tabler/icons-react";
 import { Code, Group, ScrollArea, Text, UnstyledButton, NavLink, useMantineColorScheme, Image, Switch, Badge } from "@mantine/core";
 
-import React, { useCallback, useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { TablerIcon } from "@tabler/icons-react";
-import NotificationPopover from "../components/notif_popover";
+import { useNotifications } from './notifications/NotificationProvider';
+import NotificationPopover from './notifications/NotificationPopover';
 import Clock from "./clock";
-
 
 interface SidebarProps {
     role: "SuperUser" | "OIC" | "DepartmentHead" | "Staff" | "Admin";
@@ -34,7 +34,7 @@ interface MenuItem {
     label: string;
     icon: TablerIcon;
     link?: string;
-    isPopover?: boolean; // 🎯 DAGDAG NA TAG: Para malaman kung popover ito
+    isPopover?: boolean;
     allowedRoles?: ("SuperUser" | "OIC" | "DepartmentHead" | "Staff" | "Admin")[];
     links?: { 
         label: string; 
@@ -47,14 +47,13 @@ const schoolMenuData: MenuItem[] = [
     {
         label: "Notifications",
         icon: IconBellRinging,
-        link: "/dashboard/notifications", // Fallback URL pa rin para sa SEO/routing
-        isPopover: true // 🎯 SASABIHIN NATIN SA MAP ENGINE NA SPECIAL ITONG ROW NA ITO!
+        link: "/dashboard/notifications",
+        isPopover: true
     },
     { 
         label: "Dashboard", 
         icon: IconGauge, 
         link: "/dashboard" 
-        // Walang allowedRoles = Makikita ng kahit sinong naka-login
     },
     {
         label: "Forms",
@@ -88,69 +87,19 @@ const schoolMenuData: MenuItem[] = [
     }
 ];
 
-//pang notification
-interface MiniNotification {
-    id: string;
-    title: string;
-    message: string;
-    isRead: boolean;
-}
-
 export default function Sidebar({ role, email, fname, lname, oic_start, oic_end }: SidebarProps) {
     const [isCurrentlyOIC, setIsCurrentlyOIC] = useState<boolean>(false);
     const { colorScheme, setColorScheme } = useMantineColorScheme({ keepTransitions: true });
-
-    const [notifications, setNotifications] = useState<MiniNotification[]>([]);
-    const [unreadCount, setUnreadCount] = useState(0);
 
     const router = useRouter();
     const pathname = usePathname();
     const [hoverKey, setHoverKey] = useState<string | null>(null);
     const [mounted, setMounted] = useState(false);
 
-    // 🎯 FIX: Ginamitan ng useCallback para hindi mag-paikot ikot ang reference dependencies ng React
-    const fetchNotifications = useCallback(async () => {
-    try {
-        const res = await fetch(`${window.location.origin}/api/notifications`, {
-            cache: "no-store",
-            });
+    // 🟢 Kunin ang unread count mula sa context
+    const { unreadCount } = useNotifications();
 
-            if (!res.ok) return;
-
-            const data = await res.json();
-
-            const unreadOnly = data.notifications.filter(
-                (n: MiniNotification) => !n.isRead
-            );
-
-            setNotifications(unreadOnly.slice(0, 5));
-            setUnreadCount(unreadOnly.length);
-            } catch (err) {
-                console.error(err);
-            }
-        }, []);
-
-    // 🎯 FIX: Idineklara nang maayos si handleNotificationRead na ligtas tawagin kahit saan
-    const handleNotificationRead = useCallback(() => {
-        fetchNotifications();
-    }, [fetchNotifications]);
-
-    // 🎯 GLOBAL SYNC ENGINE: Nakikinig sa mga pagbabago nang walang cascading renders
-    useEffect(() => {
-        const load = () => {
-            fetchNotifications();
-        };
-
-        load();
-
-        window.addEventListener("notifications-updated", load);
-
-        return () => {
-            window.removeEventListener("notifications-updated", load);
-        };
-    }, [fetchNotifications]);
-
-    // 🎯 TIMEOUT/MOUNT ENGINE AT RUNTIME OIC CHECK INTERVAL
+    // 🎯 OIC CHECK
     useEffect(() => {
         const id = window.setTimeout(() => setMounted(true), 0);
 
@@ -179,22 +128,6 @@ export default function Sidebar({ role, email, fname, lname, oic_start, oic_end 
             clearInterval(timer);
         };
     }, [oic_start, oic_end, email]);
-
-    // Idagdag ito sa loob ng NotificationPopover component mo (notif_popover.tsx)
-    useEffect(() => {
-        // 1. Gagawa tayo ng function para tawagin yung API fetcher mo
-        const handleRefresh = () => {
-        fetchNotifications(); // ⚠️ PALITAN ITO ng eksaktong pangalan ng fetch function mo diyan
-        };
-
-        // 2. Makikinig siya sa isinigaw ni page.tsx
-        window.addEventListener('refresh-notifications', handleRefresh);
-
-        // 3. Importante: Linisin ang listener kapag nag-close ang component para iwas memory leak
-        return () => {
-        window.removeEventListener('refresh-notifications', handleRefresh);
-        };
-    }, []); // Empty dependency array para isang beses lang i-mount
 
     const effectiveRole = (role === "Staff" && isCurrentlyOIC) ? "OIC" : role;
 
@@ -332,14 +265,16 @@ export default function Sidebar({ role, email, fname, lname, oic_start, oic_end 
                                 }
                             };
 
+                            // 🎯 BADGE - gamit ang unreadCount mula sa context
+                            const badge = item.isPopover && unreadCount > 0 ? (
+                                <Badge color="red" variant="filled" size="sm" circle>
+                                    {unreadCount > 99 ? '99+' : unreadCount}
+                                </Badge>
+                            ) : undefined;
+
                             return (
                                 item.isPopover ? (
-                                    <NotificationPopover
-                                        key={item.label}
-                                        unreadCount={unreadCount}
-                                        notifications={notifications}
-                                        onNotificationRead={handleNotificationRead}
-                                    >
+                                    <NotificationPopover key={item.label}>
                                         <NavLink
                                             label={item.label}
                                             leftSection={<item.icon size={18} stroke={1.5} color={textColor} />}
@@ -352,13 +287,7 @@ export default function Sidebar({ role, email, fname, lname, oic_start, oic_end 
                                                 backgroundColor: hoverKey === item.label ? hoverBg : (isMainActive ? activeBg : "transparent"),
                                                 cursor: 'pointer',
                                             }}
-                                            rightSection={
-                                                unreadCount > 0 && (
-                                                    <Badge color="red" variant="filled" size="sm" circle>
-                                                        {unreadCount}
-                                                    </Badge>
-                                                )
-                                            }
+                                            rightSection={badge}
                                         />
                                     </NotificationPopover>
                                 ) : (
