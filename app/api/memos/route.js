@@ -71,28 +71,31 @@ export async function POST(request) {
     const content = formData.get("content");
     const priority = formData.get("priority") || 'ROUTINE';
     const purpose = formData.get("purpose") || 'FYI';
-    const parentMemoId = formData.get("parentMemoId");
-    const rootMemoId = formData.get("rootMemoId");
+    const parentMemoId = formData.get("parentMemoId") || null;
+    const rootMemoId = formData.get("rootMemoId") || null;
     const password = formData.get("password");
     const targetDepts = formData.getAll("targetDepts");
+
+    // 🐛 DEBUG: Log incoming data
+    console.log('📝 Creating memo with:', {
+      subject,
+      parentMemoId,
+      rootMemoId,
+      targetDepts,
+      isReply: !!parentMemoId,
+    });
 
     if (authenticatedUser.password !== password) {
       return NextResponse.json({ success: false, message: "Security Verification Failed: Incorrect Signature Password" }, { status: 403 });
     }
 
-    // 🎯 FIX: MULTIPLE FILES UPLOAD PROCESSING
+    // File upload logic...
     const files = formData.getAll("memoAttachments");
-
-    console.log("FILES RECEIVED:", files);
-    
-    let savedFilePaths = []; 
-
+    let savedFilePaths = [];
     const uploadDir = path.join(process.cwd(), "public", "memos");
     await mkdir(uploadDir, { recursive: true });
-
     if (files && files.length > 0) {
       for (const file of files) {
-        // Kinakailangan ng typeof check dahil kapag walang file, string na empty ang pinapasa minsan ng browser
         if (file && file.size > 0 && typeof file.arrayBuffer === 'function') {
           const bytes = await file.arrayBuffer();
           const buffer = Buffer.from(bytes);
@@ -107,9 +110,9 @@ export async function POST(request) {
     const senderFullName = `${authenticatedUser.fname} ${authenticatedUser.lname}`;
     const databaseUserRole = authenticatedUser.role ? authenticatedUser.role.toUpperCase() : "STAFF";
 
-    let initialMemoStatus = "APPROVED"; // ✅ Valid
+    let initialMemoStatus = "APPROVED";
     if ((databaseUserRole === "STAFF" || databaseUserRole === "USER") && !parentMemoId) {
-      initialMemoStatus = "FOR_APPROVAL"; // ✅ Valid
+      initialMemoStatus = "FOR_APPROVAL";
     }
 
     const currentYear = new Date().getFullYear();
@@ -124,29 +127,22 @@ export async function POST(request) {
 
     const deadlineAt = priority === 'RUSH' ? new Date(Date.now() + 3 * 24 * 60 * 60 * 1000) : null;
 
-    // 🎯 FIX: Ginamit ang 'attachmentPaths' at inayos ang Prisma Sender Relation
+    // ✅ CREATE memo with relation syntax
     const newMemo = await prisma.memo.create({
       data: {
         referenceId: refId,
         subject,
         content,
-        attachmentPaths: savedFilePaths, 
+        attachmentPaths: savedFilePaths,
         priority,
         purpose,
-        
-        // 🛠️ FIX PRISMA RELATION ERROR DITO:
-        sender: {
-          connect: { id: authenticatedUser.id }
-        },
-
+        sender: { connect: { id: authenticatedUser.id } },
         senderName: senderFullName,
         senderDept: userDept,
-        status: initialMemoStatus, 
+        status: initialMemoStatus,
         deadlineAt,
-
-        ...(parentMemoId ? { parentMemo: { connect: { id: parentMemoId } } } : {}),
-        ...(rootMemoId ? { rootMemo: { connect: { id: rootMemoId } } } : {}),
-        
+        ...(parentMemoId && parentMemoId !== 'null' ? { parentMemo: { connect: { id: parentMemoId } } } : {}),
+        ...(rootMemoId && rootMemoId !== 'null' ? { rootMemo: { connect: { id: rootMemoId } } } : {}),
         isRevisedByHead: false,
         recipients: {
           create: targetDepts.map(dept => ({
@@ -158,14 +154,32 @@ export async function POST(request) {
       include: { recipients: true }
     });
 
-    if (!rootMemoId) {
+    // 🐛 DEBUG: Log after create
+    console.log('✅ After create:', {
+      id: newMemo.id,
+      parentMemoId: newMemo.parentMemoId,
+      rootMemoId: newMemo.rootMemoId,
+    });
+
+    // ✅ Para sa original memo (walang root), i-set ang rootMemoId sa sarili
+    if (!rootMemoId || rootMemoId === 'null') {
       await prisma.memo.update({
         where: { id: newMemo.id },
         data: { rootMemoId: newMemo.id }
       });
+      
+      // 🐛 DEBUG: Log after update
+      console.log('✅ After root update: rootMemoId set to self');
     }
 
-    if (parentMemoId) {
+    // ✅ I-fetch ulit para makuha ang updated data kasama ang recipients
+    const finalMemo = await prisma.memo.findUnique({
+      where: { id: newMemo.id },
+      include: { recipients: true }
+    });
+
+    // ✅ Update parent recipient status (reply)
+    if (parentMemoId && parentMemoId !== 'null') {
       await prisma.memoRecipientStatus.updateMany({
         where: {
           memoId: parentMemoId,
@@ -186,7 +200,6 @@ export async function POST(request) {
     try {
       if (initialMemoStatus === "FOR_APPROVAL") {
         const internalHeads = await getDepartmentUsers(userDept, ['DepartmentHead']);
-        
         if (internalHeads.length > 0) {
           await prisma.notification.createMany({
             data: internalHeads.map(head => ({
@@ -198,14 +211,13 @@ export async function POST(request) {
             }))
           });
         }
-
         await prisma.notification.create({
           data: {
             title: "Draft Submitted Successfully",
             message: `Your draft memo "${subject}" has been queued. It is currently pending approval/signature from your Department Head. Ref: ${refId}`,
             isRead: false,
             recipientId: authenticatedUser.id,
-            senderId: authenticatedUser.id 
+            senderId: authenticatedUser.id
           }
         });
       } else {
@@ -236,7 +248,7 @@ export async function POST(request) {
       });
     } catch (err) { console.error(err); }
 
-    return NextResponse.json({ success: true, data: newMemo }, { status: 201 });
+    return NextResponse.json({ success: true, data: finalMemo }, { status: 201 });
   } catch (error) {
     console.error("API POST Error:", error);
     return NextResponse.json({ success: false, message: error.message }, { status: 500 });

@@ -36,6 +36,8 @@ import {
   IconMessageReply,
   IconGitBranch,
 } from '@tabler/icons-react';
+import useSWR from 'swr';
+
 
 // Import shared types
 import { Priority, Purpose, Memo, UserContext, Department } from './component/types';
@@ -58,7 +60,7 @@ export default function IOMDashboardPage() {
   const [submitting, setSubmitting] = useState(false);
   const [departments, setDepartments] = useState<{ value: string; label: string }[]>([]);
   const [loadingDepts, setLoadingDepts] = useState(true);
-  const [memos, setMemos] = useState<Memo[]>([]);
+  //const [memos, setMemos] = useState<Memo[]>([]);
   const [loadingMemos, setLoadingMemos] = useState(true);
   const [currentUser, setCurrentUser] = useState<UserContext | null>(null);
   const [pageLoading, setPageLoading] = useState(true);
@@ -92,6 +94,8 @@ export default function IOMDashboardPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortByDate, toggleSortByDate] = useToggle(['NEWEST', 'OLDEST'] as const);
 
+  const fetcher = (url: string) => fetch(url).then(res => res.json());
+
   // ---- Form for creating memo ----
   const form = useForm({
     initialValues: {
@@ -111,16 +115,29 @@ export default function IOMDashboardPage() {
     },
   });
 
-  // ---- Data fetching ----
-  const fetchMemos = async () => {
-    try {
-      const res = await fetch('../../../api/memos');
-      const data = await res.json();
-      setMemos(data || []);
-    } catch (err) {
-      console.error('Failed to load memos:', err);
+  // SWR for memos with polling (15 seconds)
+  const { data: memosData, mutate: mutateMemos } = useSWR<Memo[]>(
+    '../../../api/memos',
+    fetcher,
+    {
+      refreshInterval: 15000, // 15 seconds
+      revalidateOnFocus: true,
+      dedupingInterval: 10000,
+      onError: (err) => {
+        console.error('Failed to load memos:', err);
+      },
     }
-  };
+  );
+
+  const memos: Memo[] = memosData || [];
+  console.log('📋 Memos loaded:', memos.length);
+  console.log('📋 First memo:', memos[0]?.id, 'rootMemoId:', memos[0]?.rootMemoId);
+
+  useEffect(() => {
+    const handleRefresh = () => mutateMemos();
+    window.addEventListener('refresh-notifications', handleRefresh);
+    return () => window.removeEventListener('refresh-notifications', handleRefresh);
+  }, [mutateMemos]);
 
   useEffect(() => {
     const initializeDashboard = async () => {
@@ -145,8 +162,6 @@ export default function IOMDashboardPage() {
           setDepartments(mappedDepts);
         }
 
-        setPageLoading(true);
-        await fetchMemos();
         setPageLoading(false);
       } catch (err) {
         console.error(err);
@@ -204,6 +219,13 @@ export default function IOMDashboardPage() {
     userChangedTab.current = true;
     setActiveTab(value);
   };
+
+  // Idagdag ito pagkatapos ng SWR setup
+  useEffect(() => {
+    const handleRefresh = () => mutateMemos();
+    window.addEventListener('refresh-notifications', handleRefresh);
+    return () => window.removeEventListener('refresh-notifications', handleRefresh);
+  }, [mutateMemos]);
 
 
   // ---- Filter & sort ----
@@ -312,6 +334,20 @@ export default function IOMDashboardPage() {
         formData.append('content', String(pendingAction.data.content || ''));
         formData.append('priority', String(pendingAction.data.priority || 'ROUTINE'));
         formData.append('purpose', String(pendingAction.data.purpose || 'FYI'));
+        
+        // ✅ Laging i-append ang parentMemoId at rootMemoId
+        const parentId = pendingAction.data.parentMemoId as string | null;
+        const rootId = pendingAction.data.rootMemoId as string | null;
+        
+        formData.append('parentMemoId', parentId !== null && parentId !== undefined ? parentId : '');
+        formData.append('rootMemoId', rootId !== null && rootId !== undefined ? rootId : '');
+        
+        // 🐛 DEBUG: Log kung ano ang ipinapadala
+        console.log('📤 Sending to API:', {
+          parentMemoId: parentId,
+          rootMemoId: rootId,
+        });
+        
         const targetDepts = pendingAction.data.targetDepts as string[];
         if (Array.isArray(targetDepts)) {
           targetDepts.forEach((dept) => formData.append('targetDepts', dept));
@@ -348,7 +384,7 @@ export default function IOMDashboardPage() {
           close();
           form.reset();
         }
-        fetchMemos();
+        mutateMemos();
         window.dispatchEvent(new Event('refresh-notifications'));
         alert(`Success! Memo has been ${pendingAction?.type === 'CREATE' ? 'created' : 'processed'}.`);
       } else {
@@ -399,7 +435,8 @@ export default function IOMDashboardPage() {
       if (response.ok) {
         alert('Memorandum reviewed, signed, and broadcasted successfully!');
         closeSuperEditModal();
-        fetchMemos();
+        mutateMemos();
+
       } else {
         const resData = await response.json();
         setPassError(resData.message || 'Security verification failed.');
@@ -413,6 +450,11 @@ export default function IOMDashboardPage() {
   };
 
   const handleReplyClick = (parentMemo: Memo) => {
+    console.log('📝 Replying to memo:', {
+      id: parentMemo.id,
+      rootMemoId: parentMemo.rootMemoId,
+    });
+    
     form.reset();
     form.setValues({
       subject: parentMemo.subject.startsWith('Re:') ? parentMemo.subject : `Re: ${parentMemo.subject}`,
@@ -420,8 +462,8 @@ export default function IOMDashboardPage() {
       priority: parentMemo.priority,
       purpose: 'ACTION',
       targetDepts: [parentMemo.senderDept],
-      parentMemoId: parentMemo.id,
-      rootMemoId: parentMemo.rootMemoId || parentMemo.id,
+      parentMemoId: parentMemo.id,  // ✅ Ito ang parent ID
+      rootMemoId: parentMemo.rootMemoId || parentMemo.id,  // ✅ Ito ang root ID
       memoAttachments: [],
     });
     open();
@@ -571,14 +613,24 @@ export default function IOMDashboardPage() {
 
   // ---- Render helper for memo cards ----
   const renderMemoCards = (memoList: Memo[], isApprovalTab = false) => {
-    if (memoList.length === 0) {
-      return <Text c="dimmed" ta="center" py="xl" w="100%">No documents logged.</Text>;
-    }
-    return (
-      <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="lg">
-        {memoList.map((memo) => {
-          const rootId = memo.rootMemoId || memo.id;
-          const threadCount = memos.filter((m) => m.rootMemoId === rootId || m.id === rootId).length;
+  if (memoList.length === 0) {
+    return <Text c="dimmed" ta="center" py="xl" w="100%">No documents logged.</Text>;
+  }
+  
+  // ✅ Debug: I-print ang lahat ng memos na may rootMemoId
+  console.log('🔍 All memos with rootMemoId:');
+  memos.forEach(m => {
+    console.log(`  - ${m.id}: rootMemoId=${m.rootMemoId}, parentMemoId=${m.parentMemoId}`);
+  });
+  
+  return (
+    <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="lg">
+      {memoList.map((memo) => {
+        const rootId = memo.rootMemoId || memo.id;
+        const threadCount = memos.filter((m) => m.rootMemoId === rootId || m.id === rootId).length;
+        
+        console.log(`🔗 Memo ${memo.id}: rootId=${rootId}, threadCount=${threadCount}`);
+
           return (
             <MemoCard
               key={memo.id}

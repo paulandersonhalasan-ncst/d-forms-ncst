@@ -1,4 +1,3 @@
-// components/ViewMemoModal.tsx
 'use client';
 
 import {
@@ -42,7 +41,6 @@ interface ViewMemoModalProps {
   isDepartmentHead: boolean;
   processOICAllowance: boolean;
   onPrint: (memo: Memo) => void;
-  // Replace the prop type
   triggerActionPasswordCheck: (
     type: 'CREATE' | 'ACKNOWLEDGE' | 'START_PROCESSING' | 'DENY' | 'CLOSED' | 'APPROVE_MEMO' | 'DISAPPROVE_DRAFT' | 'JOIN_PROCESSING',
     data: Record<string, unknown>
@@ -66,6 +64,20 @@ export default function ViewMemoModal({
   const isSenderOfExpanded = memo.senderId === currentUser?.id;
   const recipientRow = memo.recipients?.find((r) => r.departmentName === activeDepartment);
   const hasResponded = recipientRow && ['RESPONDED', 'COMPLETED', 'CLOSED', 'DENIED'].includes(recipientRow.status);
+
+  const isRecipient = !!recipientRow;
+
+  // ✅ Check kung ang current user ay ang sender o kabilang sa sender department
+  const isSender = memo.senderDept === activeDepartment;
+
+  // ✅ Check kung ang recipient ay pending (para sa Start Processing at Deny)
+  const isPending = recipientRow?.status === 'PENDING';
+
+  // ✅ Check kung ang recipient ay processing (para sa Mark as Completed)
+  const isProcessing = recipientRow?.status === 'PROCESSING';
+
+  // ✅ Check kung Department Head ang current user (may override)
+  const canForceClose = isDepartmentHead || isAdminOrSuper;
 
   return (
     <Modal
@@ -249,9 +261,10 @@ export default function ViewMemoModal({
           </Button>
 
           <Group gap="xs">
-            {memo && memo.status !== 'CLOSED' && memo.status !== 'DENIED' && (
+            {memo && memo.status !== 'CLOSED' && memo.status !== 'DENIED' && recipientRow && (
               <>
-                {memo.purpose === 'FYI' && recipientRow && !hasResponded && (
+                {/* ===== FYI ===== */}
+                {memo.purpose === 'FYI' && recipientRow.status === 'PENDING' && (
                   <Button
                     size="xs"
                     color="blue"
@@ -267,64 +280,83 @@ export default function ViewMemoModal({
                   </Button>
                 )}
 
+                {/* ===== Non-FYI ===== */}
                 {memo.purpose !== 'FYI' && (
                   <>
-                    {!hasResponded && recipientRow?.status === 'PENDING' && (
-                      <Button
-                        size="xs"
-                        color="orange"
-                        leftSection={<IconPlayerPlay size={13} />}
-                        onClick={() =>
-                          triggerActionPasswordCheck('ACKNOWLEDGE', {
-                            memoId: memo.id,
-                            departmentName: activeDepartment,
-                          })
-                        }
-                      >
-                        Start Processing
-                      </Button>
-                    )}
-
-                    {recipientRow?.status === 'PROCESSING' &&
-                      !recipientRow?.recipientConfirmedAt && (
+                    {/* Kapag PENDING: Start Processing at Deny */}
+                    {recipientRow.status === 'PENDING' && (
+                      <>
                         <Button
                           size="xs"
-                          color="green"
-                          leftSection={<IconCircleCheck size={13} />}
+                          color="orange"
+                          leftSection={<IconPlayerPlay size={13} />}
                           onClick={() =>
-                            triggerActionPasswordCheck('CLOSED', {
+                            triggerActionPasswordCheck('ACKNOWLEDGE', {
                               memoId: memo.id,
-                              departmentName: recipientRow.departmentName,
-                              isSenderClosing: false,
+                              departmentName: activeDepartment,
                             })
                           }
                         >
-                          Mark as Completed
+                          Start Processing
                         </Button>
-                      )}
+                        <Button
+                          size="xs"
+                          color="red"
+                          variant="light"
+                          leftSection={<IconMessageReply size={13} />}
+                          onClick={() =>
+                            triggerActionPasswordCheck('DENY', {
+                              memoId: memo.id,
+                              departmentName: activeDepartment,
+                            })
+                          }
+                        >
+                          Deny / Return
+                        </Button>
+                      </>
+                    )}
 
-                    {!hasResponded && recipientRow?.status !== 'CLOSED' && (
-                      <Button
-                        size="xs"
-                        color="red"
-                        variant="light"
-                        leftSection={<IconMessageReply size={13} />}
-                        onClick={() =>
-                          triggerActionPasswordCheck('DENY', {
-                            memoId: memo.id,
-                            departmentName: activeDepartment,
-                          })
-                        }
-                      >
-                        Deny / Return
-                      </Button>
+                    {/* Kapag PROCESSING: Complete at Deny (recipient side) */}
+                    {recipientRow.status === 'PROCESSING' && (
+                      <>
+                        {!recipientRow.recipientConfirmedAt && (
+                          <Button
+                            size="xs"
+                            color="green"
+                            leftSection={<IconCircleCheck size={13} />}
+                            onClick={() =>
+                              triggerActionPasswordCheck('CLOSED', {
+                                memoId: memo.id,
+                                departmentName: recipientRow.departmentName,
+                                isSenderClosing: false,
+                              })
+                            }
+                          >
+                            Mark as Completed
+                          </Button>
+                        )}
+                        <Button
+                          size="xs"
+                          color="red"
+                          variant="light"
+                          leftSection={<IconMessageReply size={13} />}
+                          onClick={() =>
+                            triggerActionPasswordCheck('DENY', {
+                              memoId: memo.id,
+                              departmentName: activeDepartment,
+                            })
+                          }
+                        >
+                          Deny / Return
+                        </Button>
+                      </>
                     )}
                   </>
                 )}
 
-                {/* Sender actions: Verify & Close */}
-                {memo.senderDept === activeDepartment &&
-                  recipientRow &&
+                {/* ===== Sender actions: Verify & Close (non-FYI only) ===== */}
+                {memo.purpose !== 'FYI' &&
+                  memo.senderDept === activeDepartment &&
                   recipientRow.status === 'PROCESSING' &&
                   !recipientRow.senderConfirmedAt && (
                     <Button
