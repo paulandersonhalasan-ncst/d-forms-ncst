@@ -362,177 +362,180 @@ export async function PATCH(request) {
     const targetRecipient = currentMemo.recipients.find(r => r.departmentName === departmentName);
 
     // =================================================================================
-    // ⚙️ WORKFLOW LOGIC ENGINE
-    // =================================================================================
-    if (action === 'CREATE') {
-      // Draft creation defaults
-    } else if (action === 'DISAPPROVE') {
-      memoUpdateData = { status: 'DRAFT' };
-      historyActionType = "DISAPPROVE";
-    } else if (action === 'APPROVE') {
-      // 🟢 DEPARTMENT HEAD APPROVAL
-      const finalSubject = newSubject || currentMemo.subject;
-      const finalContent = newContent || currentMemo.content;
-      const isRevised = finalSubject !== currentMemo.subject || finalContent !== currentMemo.content;
-      
-      const retained = retainedAttachments || [];
-      const allAttachments = [...retained, ...attachmentPaths];
-      
-      memoUpdateData = {
-        status: 'APPROVED',
-        subject: finalSubject,
-        content: finalContent,
-        isRevisedByHead: isRevised,
-        attachmentPaths: allAttachments
-      };
-      historyActionType = "APPROVED";
+      // ⚙️ WORKFLOW LOGIC ENGINE
+      // =================================================================================
+      if (action === 'CREATE') {
+        // Draft creation defaults
+      } else if (action === 'DISAPPROVE') {
+        memoUpdateData = { status: 'DRAFT' };
+        historyActionType = "DISAPPROVED";
+      } else if (action === 'APPROVE') {
+        // 🟢 DEPARTMENT HEAD APPROVAL
+        const finalSubject = newSubject || currentMemo.subject;
+        const finalContent = newContent || currentMemo.content;
+        const isRevised = finalSubject !== currentMemo.subject || finalContent !== currentMemo.content;
+        
+        const retained = retainedAttachments || [];
+        const allAttachments = [...retained, ...attachmentPaths];
+        
+        memoUpdateData = {
+          status: 'APPROVED',
+          subject: finalSubject,
+          content: finalContent,
+          isRevisedByHead: isRevised,
+          attachmentPaths: allAttachments
+        };
+        historyActionType = "APPROVED";
 
-      // Notifications for recipients
-      try {
-        const targetDepts = currentMemo.recipients.map(r => r.departmentName);
-        for (const dept of targetDepts) {
-          const targetHeads = await getDepartmentUsers(dept, ['DepartmentHead']);
-          if (targetHeads.length > 0) {
-            await prisma.notification.createMany({
-              data: targetHeads.map(head => ({
-                title: "Inbound Inter-Office Memo",
-                message: `New official memo released from ${currentMemo.senderDept} department. Subject: ${finalSubject}. Ref: ${currentMemo.referenceId}`,
-                isRead: false,
-                recipientId: head.id,
-                senderId: authenticatedUser.id
-              }))
-            });
+        // Notifications for recipients
+        try {
+          const targetDepts = currentMemo.recipients.map(r => r.departmentName);
+          for (const dept of targetDepts) {
+            const targetHeads = await getDepartmentUsers(dept, ['DepartmentHead']);
+            if (targetHeads.length > 0) {
+              await prisma.notification.createMany({
+                data: targetHeads.map(head => ({
+                  title: "Inbound Inter-Office Memo",
+                  message: `New official memo released from ${currentMemo.senderDept} department. Subject: ${finalSubject}. Ref: ${currentMemo.referenceId}`,
+                  isRead: false,
+                  recipientId: head.id,
+                  senderId: authenticatedUser.id
+                }))
+              });
+            }
           }
-        }
 
-        await prisma.notification.create({
-          data: {
-            title: "Memo Approved & Broadcasted",
-            message: `Your memo "${finalSubject}" (Ref: ${currentMemo.referenceId}) has been approved and sent to all recipients.`,
-            isRead: false,
-            recipientId: authenticatedUser.id,
-            senderId: authenticatedUser.id
-          }
-        });
-      } catch (notifErr) {
-        console.error("❌ Notification Generation Failed (APPROVE):", notifErr);
-      }
-    } else {
-      // ============================================================
-      // 🟡 WORKFLOW PARA SA MGA ACTION (ACKNOWLEDGE, START_PROCESSING, CLOSED, DENY)
-      // ============================================================
-
-      // 🆕 I-check kung FYI o Non-FYI
-      if (currentMemo.purpose === 'FYI') {
-        // ========== FYI WORKFLOW ==========
-        if (action === 'ACKNOWLEDGE') {
-          if (!targetRecipient) {
-            return NextResponse.json({ success: false, message: "Department not a recipient" }, { status: 400 });
-          }
-          recipientUpdateData = {
-            status: 'CLOSED',
-            feedbackNote: feedbackNote || "Acknowledged FYI Document",
-            respondedAt: now,
-            closedAt: now,
-            closedById: authenticatedUser.id,
-            closedByName: `${employeeName} (${authenticatedUser.role})`,
-            attachmentPaths: attachmentPaths.length > 0 ? attachmentPaths : undefined
-          };
-          historyActionType = "CLOSED";
-          // ✅ HINDI na nagsasara ang memo dito – hintayin ang lahat ng recipients
-        } else if (action === 'DENY') {
-          if (!targetRecipient) {
-            return NextResponse.json({ success: false, message: "Department not a recipient" }, { status: 400 });
-          }
-          recipientUpdateData = {
-            status: 'DENIED',
-            deniedById: authenticatedUser.id,
-            deniedByName: employeeName,
-            deniedAt: now,
-            feedbackNote: feedbackNote
-          };
-        } else {
-          return NextResponse.json({ success: false, message: `Action "${action}" not allowed for FYI memos` }, { status: 400 });
+          await prisma.notification.create({
+            data: {
+              title: "Memo Approved & Broadcasted",
+              message: `Your memo "${finalSubject}" (Ref: ${currentMemo.referenceId}) has been approved and sent to all recipients.`,
+              isRead: false,
+              recipientId: authenticatedUser.id,
+              senderId: authenticatedUser.id
+            }
+          });
+        } catch (notifErr) {
+          console.error("❌ Notification Generation Failed (APPROVE):", notifErr);
         }
       } else {
-        // ========== NON-FYI WORKFLOW ==========
-        if (action === 'ACKNOWLEDGE') {
-          if (!targetRecipient) {
-            return NextResponse.json({ success: false, message: "Department not a recipient" }, { status: 400 });
-          }
-          recipientUpdateData = {
-            status: 'PROCESSING',
-            respondedAt: now,
-            processedById: authenticatedUser.id,
-            processedByName: employeeName,
-            processedAt: now
-          };
-        } else if (action === 'START_PROCESSING') {
-          if (!targetRecipient) {
-            return NextResponse.json({ success: false, message: "Department not a recipient" }, { status: 400 });
-          }
-          recipientUpdateData = {
-            status: 'PROCESSING',
-            processedAt: now,
-            processedById: delegatedStaffId || authenticatedUser.id,
-            processedByName: delegatedStaffId ? "Delegated Staff" : employeeName
-          };
-        } else if (action === 'CLOSED') {
-          if (isSenderClosing) {
-            // ===== SENDER CLOSING =====
-            const allDone = currentMemo.recipients.every(r => 
-              r.status === 'CLOSED' || r.status === 'DENIED' || r.status === 'COMPLETED'
-            );
-            if (!allDone) {
-              return NextResponse.json({ 
-                success: false, 
-                message: "Cannot close: some recipients have not completed or denied" 
-              }, { status: 400 });
-            }
-            memoUpdateData = {
-              status: 'CLOSED',
-              lastActivityAt: now
-            };
-            historyActionType = "CLOSED_BY_SENDER";
-            skipRecipientUpdate = true;
-          } else {
-            // ===== RECIPIENT CLOSING =====
+        // ============================================================
+        // 🟡 WORKFLOW PARA SA MGA ACTION (ACKNOWLEDGE, START_PROCESSING, CLOSED, DENY)
+        // ============================================================
+
+        // 🆕 I-check kung FYI o Non-FYI
+        if (currentMemo.purpose === 'FYI') {
+          // ========== FYI WORKFLOW ==========
+          if (action === 'ACKNOWLEDGE') {
             if (!targetRecipient) {
               return NextResponse.json({ success: false, message: "Department not a recipient" }, { status: 400 });
             }
             recipientUpdateData = {
-              recipientConfirmedById: authenticatedUser.id,
-              recipientConfirmedByName: employeeName,
-              recipientConfirmedAt: now,
-              feedbackNote: feedbackNote,
+              status: 'CLOSED',
+              feedbackNote: feedbackNote || "Acknowledged FYI Document",
+              respondedAt: now,
+              closedAt: now,
+              closedById: authenticatedUser.id,
+              closedByName: `${employeeName} (${authenticatedUser.role})`,
               attachmentPaths: attachmentPaths.length > 0 ? attachmentPaths : undefined
             };
-            if (targetRecipient.senderConfirmedAt) {
-              recipientUpdateData.status = 'CLOSED';
-              recipientUpdateData.closedAt = now;
-              recipientUpdateData.closedById = authenticatedUser.id;
-              recipientUpdateData.closedByName = `${employeeName} (${authenticatedUser.role})`;
-            } else {
-              recipientUpdateData.status = 'PROCESSING';
+            historyActionType = "CLOSED";
+          } else if (action === 'DENY') {
+            if (!targetRecipient) {
+              return NextResponse.json({ success: false, message: "Department not a recipient" }, { status: 400 });
             }
-            historyActionType = "CLOSED_BY_RECIPIENT";
+            recipientUpdateData = {
+              status: 'DENIED',
+              deniedById: authenticatedUser.id,
+              deniedByName: employeeName,
+              deniedAt: now,
+              feedbackNote: feedbackNote
+            };
+            historyActionType = "DENIED"; // ✅ DAPAT "DENIED"
+          } else {
+            return NextResponse.json({ success: false, message: `Action "${action}" not allowed for FYI memos` }, { status: 400 });
           }
-        } else if (action === 'DENY') {
-          if (!targetRecipient) {
-            return NextResponse.json({ success: false, message: "Department not a recipient" }, { status: 400 });
-          }
-          recipientUpdateData = {
-            status: 'DENIED',
-            deniedById: authenticatedUser.id,
-            deniedByName: employeeName,
-            deniedAt: now,
-            feedbackNote: feedbackNote
-          };
         } else {
-          return NextResponse.json({ success: false, message: `Unknown action: ${action}` }, { status: 400 });
+          // ========== NON-FYI WORKFLOW ==========
+          if (action === 'ACKNOWLEDGE') {
+            if (!targetRecipient) {
+              return NextResponse.json({ success: false, message: "Department not a recipient" }, { status: 400 });
+            }
+            recipientUpdateData = {
+              status: 'PROCESSING',
+              respondedAt: now,
+              processedById: authenticatedUser.id,
+              processedByName: employeeName,
+              processedAt: now
+            };
+            historyActionType = "ACKNOWLEDGED";
+          } else if (action === 'START_PROCESSING') {
+            if (!targetRecipient) {
+              return NextResponse.json({ success: false, message: "Department not a recipient" }, { status: 400 });
+            }
+            recipientUpdateData = {
+              status: 'PROCESSING',
+              processedAt: now,
+              processedById: delegatedStaffId || authenticatedUser.id,
+              processedByName: delegatedStaffId ? "Delegated Staff" : employeeName
+            };
+            historyActionType = "PROCESSING_STARTED";
+          } else if (action === 'CLOSED') {
+            if (isSenderClosing) {
+              // ===== SENDER CLOSING =====
+              const allDone = currentMemo.recipients.every(r => 
+                r.status === 'CLOSED' || r.status === 'DENIED' || r.status === 'COMPLETED'
+              );
+              if (!allDone) {
+                return NextResponse.json({ 
+                  success: false, 
+                  message: "Cannot close: some recipients have not completed or denied" 
+                }, { status: 400 });
+              }
+              memoUpdateData = {
+                status: 'CLOSED',
+                lastActivityAt: now
+              };
+              historyActionType = "CLOSED_BY_SENDER";
+              skipRecipientUpdate = true;
+            } else {
+              // ===== RECIPIENT CLOSING =====
+              if (!targetRecipient) {
+                return NextResponse.json({ success: false, message: "Department not a recipient" }, { status: 400 });
+              }
+              recipientUpdateData = {
+                recipientConfirmedById: authenticatedUser.id,
+                recipientConfirmedByName: employeeName,
+                recipientConfirmedAt: now,
+                feedbackNote: feedbackNote,
+                attachmentPaths: attachmentPaths.length > 0 ? attachmentPaths : undefined
+              };
+              if (targetRecipient.senderConfirmedAt) {
+                recipientUpdateData.status = 'CLOSED';
+                recipientUpdateData.closedAt = now;
+                recipientUpdateData.closedById = authenticatedUser.id;
+                recipientUpdateData.closedByName = `${employeeName} (${authenticatedUser.role})`;
+              } else {
+                recipientUpdateData.status = 'PROCESSING';
+              }
+              historyActionType = "CLOSED_BY_RECIPIENT";
+            }
+          } else if (action === 'DENY') {
+            if (!targetRecipient) {
+              return NextResponse.json({ success: false, message: "Department not a recipient" }, { status: 400 });
+            }
+            recipientUpdateData = {
+              status: 'DENIED',
+              deniedById: authenticatedUser.id,
+              deniedByName: employeeName,
+              deniedAt: now,
+              feedbackNote: feedbackNote
+            };
+            historyActionType = "DENIED"; // ✅ DAPAT "DENIED"
+          } else {
+            return NextResponse.json({ success: false, message: `Unknown action: ${action}` }, { status: 400 });
+          }
         }
       }
-    }
 
     // =================================================================================
     // 3. DATABASE TRANSACTIONS
