@@ -75,6 +75,7 @@ export default function CreateMemoModal({
             required
             disabled={isReply}
             {...form.getInputProps('targetDepts')}
+            searchable
           />
 
           <Textarea

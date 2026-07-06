@@ -38,7 +38,6 @@ import {
 } from '@tabler/icons-react';
 import useSWR from 'swr';
 
-
 // Import shared types
 import { Priority, Purpose, Memo, UserContext, Department } from './component/types';
 // Import components
@@ -60,7 +59,6 @@ export default function IOMDashboardPage() {
   const [submitting, setSubmitting] = useState(false);
   const [departments, setDepartments] = useState<{ value: string; label: string }[]>([]);
   const [loadingDepts, setLoadingDepts] = useState(true);
-  //const [memos, setMemos] = useState<Memo[]>([]);
   const [loadingMemos, setLoadingMemos] = useState(true);
   const [currentUser, setCurrentUser] = useState<UserContext | null>(null);
   const [pageLoading, setPageLoading] = useState(true);
@@ -115,12 +113,27 @@ export default function IOMDashboardPage() {
     },
   });
 
-  // SWR for memos with polling (15 seconds)
+  // ---- Helper functions & derived state (kailangan bago ang memo filters) ----
+  const isCurrentlyOIC = () => {
+    if (!currentUser?.oic_start || !currentUser?.oic_end) return false;
+    const now = new Date().getTime();
+    const start = new Date(currentUser.oic_start).getTime();
+    const end = new Date(currentUser.oic_end).getTime();
+    return now >= start && now <= end;
+  };
+
+  const activeDepartment = currentUser?.departmentCode || '';
+  const processOICAllowance = isCurrentlyOIC();
+  const userRole = currentUser?.role?.toUpperCase() || '';
+  const isAdminOrSuper = ['ADMIN', 'SUPERUSER', 'Admin', 'SuperUser'].includes(userRole);
+  const isDepartmentHead = ['DEPARTMENTHEAD', 'DepartmentHead', 'OIC'].includes(userRole);
+
+  // ---- SWR for memos with polling (15 seconds) ----
   const { data: memosData, mutate: mutateMemos } = useSWR<Memo[]>(
     '../../../api/memos',
     fetcher,
     {
-      refreshInterval: 15000, // 15 seconds
+      refreshInterval: 15000,
       revalidateOnFocus: true,
       dedupingInterval: 10000,
       onError: (err) => {
@@ -130,15 +143,95 @@ export default function IOMDashboardPage() {
   );
 
   const memos: Memo[] = memosData || [];
-  console.log('📋 Memos loaded:', memos.length);
-  console.log('📋 First memo:', memos[0]?.id, 'rootMemoId:', memos[0]?.rootMemoId);
 
+  // ---- Memo lists (gumagamit ng activeDepartment at iba pang derived state) ----
+  // Ongoing sent memos
+  const ongoingSentMemos = memos.filter(
+    (memo) => memo.senderDept === activeDepartment &&
+              memo.status === 'APPROVED' &&
+              memo.recipients?.some(r => !['CLOSED', 'DENIED', 'COMPLETED'].includes(r.status))
+  );
+
+  // Closed sent memos
+  const closedSentMemos = memos.filter(
+    (memo) => memo.senderDept === activeDepartment &&
+              memo.status === 'CLOSED'
+  );
+
+  const sentMemos = ongoingSentMemos; // Para sa "Ongoing" tab
+
+  const allMemosLedgerList = isAdminOrSuper ? memos : [];
+  const forApprovalMemos = memos.filter(
+    (memo) => memo.senderDept === activeDepartment && memo.status === 'FOR_APPROVAL'
+  );
+
+  const incomingMemos = memos.filter((memo) => {
+    if (memo.status === 'FOR_APPROVAL' || memo.status === 'CLOSED' || memo.status === 'DENIED') return false;
+    return memo.recipients?.some(
+      (r) => (r.departmentName === activeDepartment || processOICAllowance) && r.status === 'PENDING'
+    );
+  });
+
+  const actionBoardMemos = memos.filter((memo) => {
+    if (memo.status === 'FOR_APPROVAL' || memo.status === 'CLOSED' || memo.status === 'DENIED') return false;
+    return memo.recipients?.some(
+      (r) =>
+        (r.departmentName === activeDepartment || processOICAllowance) &&
+        ['ACKNOWLEDGED', 'PROCESSING'].includes(r.status)
+    );
+  });
+
+  const resolvedMemos = memos.filter((memo) => {
+    if (isAdminOrSuper) {
+      return memo.recipients?.some((r) =>
+        ['COMPLETED', 'RESPONDED', 'DENIED', 'CLOSED'].includes(r.status)
+      );
+    }
+    const isRecipientResolved = memo.recipients?.some(
+      (r) =>
+        (r.departmentName === activeDepartment || processOICAllowance) &&
+        ['COMPLETED', 'RESPONDED', 'DENIED', 'CLOSED'].includes(r.status)
+    );
+    const isSenderResolved =
+      memo.senderDept === activeDepartment &&
+      memo.recipients?.every((r) =>
+        ['COMPLETED', 'RESPONDED', 'DENIED', 'CLOSED'].includes(r.status)
+      );
+    return isRecipientResolved || isSenderResolved;
+  });
+
+  // ---- Active tab state (gamit ang isAdminOrSuper at isDepartmentHead) ----
+  const [activeTab, setActiveTab] = useState<string | null>(() => {
+    if (isAdminOrSuper) return 'all_memos';
+    if (isDepartmentHead) return 'approval';
+    return 'inbox';
+  });
+
+  // ---- Ref para malaman kung nag-manual change ang user ----
+  const userChangedTab = useRef(false);
+
+  // ---- Effect para i-auto-set ang tab (pero hindi kung nag-manual na) ----
   useEffect(() => {
-    const handleRefresh = () => mutateMemos();
-    window.addEventListener('refresh-notifications', handleRefresh);
-    return () => window.removeEventListener('refresh-notifications', handleRefresh);
-  }, [mutateMemos]);
+    if (!userChangedTab.current) {
+      let desired: string | null = null;
+      if (isAdminOrSuper) desired = 'all_memos';
+      else if (isDepartmentHead) desired = 'approval';
+      else desired = 'inbox';
 
+      if (desired && activeTab !== desired) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setActiveTab(desired);
+      }
+    }
+  }, [isAdminOrSuper, isDepartmentHead, activeTab]);
+
+  // ---- Handler para sa pag-click ng tab ----
+  const handleTabChange = (value: string | null) => {
+    userChangedTab.current = true;
+    setActiveTab(value);
+  };
+
+  // ---- Data fetching (initialization) ----
   useEffect(() => {
     const initializeDashboard = async () => {
       try {
@@ -174,59 +267,12 @@ export default function IOMDashboardPage() {
     initializeDashboard();
   }, []);
 
-  // ---- Helper functions ----
-  const isCurrentlyOIC = () => {
-    if (!currentUser?.oic_start || !currentUser?.oic_end) return false;
-    const now = new Date().getTime();
-    const start = new Date(currentUser.oic_start).getTime();
-    const end = new Date(currentUser.oic_end).getTime();
-    return now >= start && now <= end;
-  };
-
-  const activeDepartment = currentUser?.departmentCode || '';
-  const processOICAllowance = isCurrentlyOIC();
-  const userRole = currentUser?.role?.toUpperCase() || '';
-  const isAdminOrSuper = ['ADMIN', 'SUPERUSER', 'Admin', 'SuperUser'].includes(userRole);
-  const isDepartmentHead = ['DEPARTMENTHEAD', 'DepartmentHead', 'OIC'].includes(userRole);
-
-  // ---- Ngayon, pwede na nating gamitin ang roles sa useState ----
-  const [activeTab, setActiveTab] = useState<string | null>(() => {
-    if (isAdminOrSuper) return 'all_memos';
-    if (isDepartmentHead) return 'approval';
-    return 'inbox';
-  });
-
-  // ---- Ref para malaman kung nag-manual change ang user ----
-  const userChangedTab = useRef(false);
-
-  // ---- Effect para i-auto-set ang tab kapag nagbago ang roles (pero hindi kung nag-manual na) ----
-  useEffect(() => {
-    if (!userChangedTab.current) {
-      let desired: string | null = null;
-      if (isAdminOrSuper) desired = 'all_memos';
-      else if (isDepartmentHead) desired = 'approval';
-      else desired = 'inbox';
-
-      if (desired && activeTab !== desired) {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setActiveTab(desired);
-      }
-    }
-  }, [isAdminOrSuper, isDepartmentHead, activeTab]);
-
-  // ---- Handler para sa pag-click ng tab ----
-  const handleTabChange = (value: string | null) => {
-    userChangedTab.current = true;
-    setActiveTab(value);
-  };
-
-  // Idagdag ito pagkatapos ng SWR setup
+  // ---- Refresh listener para sa mga manual refresh galing sa IOM actions ----
   useEffect(() => {
     const handleRefresh = () => mutateMemos();
     window.addEventListener('refresh-notifications', handleRefresh);
     return () => window.removeEventListener('refresh-notifications', handleRefresh);
   }, [mutateMemos]);
-
 
   // ---- Filter & sort ----
   const getFilteredMemos = (list: Memo[]) => {
@@ -246,47 +292,6 @@ export default function IOMDashboardPage() {
       return sortByDate === 'NEWEST' ? dateB - dateA : dateA - dateB;
     });
   };
-
-  // ---- Derived memo lists ----
-  const allMemosLedgerList = isAdminOrSuper ? memos : [];
-  const forApprovalMemos = memos.filter(
-    (memo) => memo.senderDept === activeDepartment && memo.status === 'FOR_APPROVAL'
-  );
-  const incomingMemos = memos.filter((memo) => {
-    if (memo.status === 'FOR_APPROVAL' || memo.status === 'CLOSED' || memo.status === 'DENIED') return false;
-    return memo.recipients?.some(
-      (r) => (r.departmentName === activeDepartment || processOICAllowance) && r.status === 'PENDING'
-    );
-  });
-  const actionBoardMemos = memos.filter((memo) => {
-    if (memo.status === 'FOR_APPROVAL' || memo.status === 'CLOSED' || memo.status === 'DENIED') return false;
-    return memo.recipients?.some(
-      (r) =>
-        (r.departmentName === activeDepartment || processOICAllowance) &&
-        ['ACKNOWLEDGED', 'PROCESSING'].includes(r.status)
-    );
-  });
-  const sentMemos = memos.filter(
-    (memo) => memo.senderDept === activeDepartment && memo.status === 'APPROVED'
-  );
-  const resolvedMemos = memos.filter((memo) => {
-    if (isAdminOrSuper) {
-      return memo.recipients?.some((r) => 
-        ['COMPLETED', 'RESPONDED', 'DENIED', 'CLOSED'].includes(r.status)
-      );
-    }
-    const isRecipientResolved = memo.recipients?.some(
-      (r) =>
-        (r.departmentName === activeDepartment || processOICAllowance) &&
-        ['COMPLETED', 'RESPONDED', 'DENIED', 'CLOSED'].includes(r.status)
-    );
-    const isSenderResolved =
-      memo.senderDept === activeDepartment &&
-      memo.recipients?.every((r) => 
-        ['COMPLETED', 'RESPONDED', 'DENIED', 'CLOSED'].includes(r.status)
-      );
-    return isRecipientResolved || isSenderResolved;
-  });
 
   // ---- Handlers ----
   const triggerActionPasswordCheck = (
@@ -334,26 +339,23 @@ export default function IOMDashboardPage() {
         formData.append('content', String(pendingAction.data.content || ''));
         formData.append('priority', String(pendingAction.data.priority || 'ROUTINE'));
         formData.append('purpose', String(pendingAction.data.purpose || 'FYI'));
-        
-        // ✅ Laging i-append ang parentMemoId at rootMemoId
+
         const parentId = pendingAction.data.parentMemoId as string | null;
         const rootId = pendingAction.data.rootMemoId as string | null;
-        
+
         formData.append('parentMemoId', parentId !== null && parentId !== undefined ? parentId : '');
         formData.append('rootMemoId', rootId !== null && rootId !== undefined ? rootId : '');
-        
-        // 🐛 DEBUG: Log kung ano ang ipinapadala
+
         console.log('📤 Sending to API:', {
           parentMemoId: parentId,
           rootMemoId: rootId,
         });
-        
+
         const targetDepts = pendingAction.data.targetDepts as string[];
         if (Array.isArray(targetDepts)) {
           targetDepts.forEach((dept) => formData.append('targetDepts', dept));
         }
 
-        // 🟢 IDAGDAG ANG MGA ATTACHMENTS
         const memoAttachments = pendingAction.data.memoAttachments as File[] | undefined;
         if (memoAttachments && Array.isArray(memoAttachments)) {
           for (const file of memoAttachments) {
@@ -436,7 +438,6 @@ export default function IOMDashboardPage() {
         alert('Memorandum reviewed, signed, and broadcasted successfully!');
         closeSuperEditModal();
         mutateMemos();
-
       } else {
         const resData = await response.json();
         setPassError(resData.message || 'Security verification failed.');
@@ -454,7 +455,7 @@ export default function IOMDashboardPage() {
       id: parentMemo.id,
       rootMemoId: parentMemo.rootMemoId,
     });
-    
+
     form.reset();
     form.setValues({
       subject: parentMemo.subject.startsWith('Re:') ? parentMemo.subject : `Re: ${parentMemo.subject}`,
@@ -462,8 +463,8 @@ export default function IOMDashboardPage() {
       priority: parentMemo.priority,
       purpose: 'ACTION',
       targetDepts: [parentMemo.senderDept],
-      parentMemoId: parentMemo.id,  // ✅ Ito ang parent ID
-      rootMemoId: parentMemo.rootMemoId || parentMemo.id,  // ✅ Ito ang root ID
+      parentMemoId: parentMemo.id,
+      rootMemoId: parentMemo.rootMemoId || parentMemo.id,
       memoAttachments: [],
     });
     open();
@@ -487,10 +488,10 @@ export default function IOMDashboardPage() {
   const handlePrintMemo = (memo: Memo) => {
     const printWindow = window.open('', '_blank', 'width=800,height=600');
     if (!printWindow) return;
-    
+
     const recipientDepts =
       memo.recipients?.map((r) => `${r.departmentName} [${r.status}]`).join(', ') || 'None';
-    
+
     const revisionNotice = memo.isRevisedByHead
       ? `<div style="margin-top:15px;padding:10px;border:1px solid #70438a;background-color:#fcf8ff;font-size:12px;color:#70438a;"><strong>⚠️ AMENDMENT NOTICE:</strong> This draft was officially reviewed, modified, and finalized by the Department Head prior to system broadcast.</div>`
       : '';
@@ -514,7 +515,6 @@ export default function IOMDashboardPage() {
         `
         : '';
 
-    // 📋 Dispatch Matrix Rows with Closed By info
     const dispatchMatrixRows =
       memo.recipients && memo.recipients.length > 0
         ? memo.recipients
@@ -522,12 +522,11 @@ export default function IOMDashboardPage() {
               const rawDate =
                 rec.respondedAt || rec.deniedAt || rec.acknowledgedAt || rec.processedAt || rec.closedAt;
               const formattedTimestamp = rawDate ? new Date(rawDate).toLocaleString() : null;
-              
-              // 🆕 Closed by information
+
               const closedByInfo = rec.status === 'CLOSED' && rec.closedByName
                 ? `<div style="font-size:10px;color:#666;margin-top:2px;border-left:2px solid #666;padding-left:5px;"><b>CLOSED BY:</b> ${rec.closedByName}</div>`
                 : '';
-              
+
               return `
               <tr style="border-bottom:1px dashed #000;page-break-inside:avoid;">
                 <td style="padding:10px 4px;font-weight:bold;vertical-align:top;">${rec.departmentName}</td>
@@ -611,25 +610,17 @@ export default function IOMDashboardPage() {
     printWindow.document.close();
   };
 
-  // ---- Render helper for memo cards ----
+  // ---- Render helper ----
   const renderMemoCards = (memoList: Memo[], isApprovalTab = false) => {
-  if (memoList.length === 0) {
-    return <Text c="dimmed" ta="center" py="xl" w="100%">No documents logged.</Text>;
-  }
-  
-  // ✅ Debug: I-print ang lahat ng memos na may rootMemoId
-  console.log('🔍 All memos with rootMemoId:');
-  memos.forEach(m => {
-    console.log(`  - ${m.id}: rootMemoId=${m.rootMemoId}, parentMemoId=${m.parentMemoId}`);
-  });
-  
-  return (
-    <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="lg">
-      {memoList.map((memo) => {
-        const rootId = memo.rootMemoId || memo.id;
-        const threadCount = memos.filter((m) => m.rootMemoId === rootId || m.id === rootId).length;
-        
-        console.log(`🔗 Memo ${memo.id}: rootId=${rootId}, threadCount=${threadCount}`);
+    if (memoList.length === 0) {
+      return <Text c="dimmed" ta="center" py="xl" w="100%">No documents logged.</Text>;
+    }
+
+    return (
+      <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="lg">
+        {memoList.map((memo) => {
+          const rootId = memo.rootMemoId || memo.id;
+          const threadCount = memos.filter((m) => m.rootMemoId === rootId || m.id === rootId).length;
 
           return (
             <MemoCard
@@ -727,9 +718,13 @@ export default function IOMDashboardPage() {
                   Action Board Workspace{' '}
                   <Badge size="xs" variant="light" ml={6}>{actionBoardMemos.length}</Badge>
                 </Tabs.Tab>
-                <Tabs.Tab value="sent" leftSection={<IconSend size={15} />}>
-                  Sent Ledger{' '}
-                  <Badge size="xs" variant="light" ml={6}>{sentMemos.length}</Badge>
+                <Tabs.Tab value="ongoing_sent" leftSection={<IconSend size={15} />}>
+                  Ongoing Sent{' '}
+                  <Badge size="xs" variant="light" ml={6}>{ongoingSentMemos.length}</Badge>
+                </Tabs.Tab>
+                <Tabs.Tab value="closed_sent" leftSection={<IconCircleCheck size={15} />}>
+                  Closed Sent{' '}
+                  <Badge size="xs" variant="light" ml={6}>{closedSentMemos.length}</Badge>
                 </Tabs.Tab>
               </>
             )}
@@ -775,13 +770,22 @@ export default function IOMDashboardPage() {
             {renderMemoCards(getFilteredMemos(actionBoardMemos))}
           </Tabs.Panel>
 
-          <Tabs.Panel value="sent">
-            <Alert icon={<IconInfoCircle size={16} />} title="Dispatched Ledger Log" color="gray" mb="md" radius="md">
-              Historical ledger of all approved and successfully transmitted documents signed from this department node.
+          <Tabs.Panel value="ongoing_sent">
+            <Alert icon={<IconInfoCircle size={16} />} title="Ongoing Sent Memos" color="gray" mb="md" radius="md">
+              Memos you have sent that are still pending recipient actions.
               <br /><br />
-              Talaan ng lahat ng ipinadalang memorandum ng departamentong ito.
+              Mga memorandum na ipinadala mo na naghihintay pa ng aksyon mula sa mga tatanggap.
             </Alert>
-            {renderMemoCards(getFilteredMemos(sentMemos))}
+            {renderMemoCards(getFilteredMemos(ongoingSentMemos))}
+          </Tabs.Panel>
+
+          <Tabs.Panel value="closed_sent">
+            <Alert icon={<IconInfoCircle size={16} />} title="Closed Sent Memos" color="green" mb="md" radius="md">
+              Memos you have sent that are fully resolved.
+              <br /><br />
+              Mga memorandum na ipinadala mo na tapos na at sarado na.
+            </Alert>
+            {renderMemoCards(getFilteredMemos(closedSentMemos))}
           </Tabs.Panel>
 
           <Tabs.Panel value="closed">
@@ -853,7 +857,7 @@ export default function IOMDashboardPage() {
         onSubmit={handleSuperEditAndApproveSubmit}
       />
 
-      {/* Thread Timeline Modal (kept inline) */}
+      {/* Thread Timeline Modal */}
       <Modal opened={threadModalOpened} onClose={closeThreadModal} title="📜 Inter-office Document Thread History" size="lg" radius="md">
         <Box p="md">
           {activeThreadMemos.length === 0 ? (

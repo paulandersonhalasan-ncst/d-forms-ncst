@@ -40,12 +40,11 @@ interface MemoCardProps {
   onViewThread: (memo: Memo) => void;
   onExpand: (memo: Memo) => void;
   onSuperEdit: (memo: Memo) => void;
-  // Replace the prop type
-    triggerActionPasswordCheck: (
-        type: 'CREATE' | 'ACKNOWLEDGE' | 'START_PROCESSING' | 'DENY' | 'CLOSED' | 'APPROVE_MEMO' | 'DISAPPROVE_DRAFT' | 'JOIN_PROCESSING',
-        data: Record<string, unknown>
-    ) => void;
-  allMemos: Memo[]; // needed for thread count? We already pass threadCount, so not needed.
+  triggerActionPasswordCheck: (
+    type: 'CREATE' | 'ACKNOWLEDGE' | 'START_PROCESSING' | 'DENY' | 'CLOSED' | 'APPROVE_MEMO' | 'DISAPPROVE_DRAFT' | 'JOIN_PROCESSING',
+    data: Record<string, unknown>
+  ) => void;
+  allMemos: Memo[]; // not used but kept for compatibility
 }
 
 export default function MemoCard({
@@ -71,8 +70,8 @@ export default function MemoCard({
   const processingRecipients = memo.recipients?.filter((r) => r.status === 'PROCESSING') || [];
   const isBeingProcessed = processingRecipients.length > 0;
 
-    const isMemoResolvedForMe = ['COMPLETED', 'RESPONDED', 'DENIED', 'CLOSED'].includes(myRecipientInfo?.status || '');
-    const isAllResolved =
+  const isMemoResolvedForMe = ['COMPLETED', 'RESPONDED', 'DENIED', 'CLOSED'].includes(myRecipientInfo?.status || '');
+  const isAllResolved =
     memo.senderId === currentUser?.id &&
     memo.recipients?.every((r) => ['COMPLETED', 'RESPONDED', 'DENIED', 'CLOSED'].includes(r.status));
   const disableReply =
@@ -124,6 +123,7 @@ export default function MemoCard({
         transition: 'all 0.2s ease',
       }}
     >
+      {/* ----- CARD BODY: Click to expand ----- */}
       <UnstyledButton
         onClick={() => onExpand(memo)}
         style={{
@@ -151,6 +151,7 @@ export default function MemoCard({
           e.currentTarget.style.boxShadow = 'none';
         }}
       >
+        {/* Header row: Reference, badges, purpose, priority */}
         <Group justify="space-between" w="100%" mb="xs">
           <Group gap="xs" onClick={(e) => e.stopPropagation()}>
             <Text ff="monospace" fw={700} c="blue" size="sm">
@@ -197,6 +198,7 @@ export default function MemoCard({
           </Group>
         </Group>
 
+        {/* Meta info: TO, FROM, CLOSED BY, DATE */}
         <Stack gap={4} my="xs" p="xs" w="100%" bg="light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-7))" style={{ borderRadius: '6px' }}>
           <Text size="xs">
             <b>TO:</b> {memo.recipients?.map((r) => r.departmentName).join(', ')}
@@ -248,6 +250,7 @@ export default function MemoCard({
         </Text>
       </UnstyledButton>
 
+      {/* ----- CARD FOOTER: Buttons ----- */}
       <Group
         justify="space-between"
         p="md"
@@ -307,33 +310,33 @@ export default function MemoCard({
           {/* Recipient actions */}
           {isDepartmentHead && myRecipientInfo?.status === 'PENDING' && !isApprovalTab && (
             <Group gap={4}>
-                <Button
+              <Button
                 size="xs"
                 color="green"
                 leftSection={<IconCheck size={13} />}
                 onClick={() =>
-                    triggerActionPasswordCheck('ACKNOWLEDGE', {
+                  triggerActionPasswordCheck('ACKNOWLEDGE', {
                     memoId: memo.id,
                     departmentName: activeDepartment,
-                    })
+                  })
                 }
-                >
+              >
                 {memo.purpose === 'FYI' ? 'Acknowledge & Close' : 'Acknowledge'}
-                </Button>
-                <Button
+              </Button>
+              <Button
                 size="xs"
                 color="red"
                 onClick={() =>
-                    triggerActionPasswordCheck('DENY', {
+                  triggerActionPasswordCheck('DENY', {
                     memoId: memo.id,
                     departmentName: activeDepartment,
-                    })
+                  })
                 }
-                >
+              >
                 Deny Inbound
-                </Button>
+              </Button>
             </Group>
-            )}
+          )}
 
           {myRecipientInfo?.status === 'ACKNOWLEDGED' && (
             <Button
@@ -351,7 +354,9 @@ export default function MemoCard({
             </Button>
           )}
 
-          {amISender && !isAllResolved && memo.status !== 'FOR_APPROVAL' && memo.purpose !== 'FYI' && (
+          {/* Sender: Resolve & Close */}
+          {amISender && memo.status === 'APPROVED' && memo.purpose !== 'FYI' && 
+          memo.recipients?.every(r => ['CLOSED', 'DENIED', 'COMPLETED'].includes(r.status)) && (
             <Button
               size="xs"
               color="teal"
@@ -425,7 +430,7 @@ export default function MemoCard({
             );
           })()}
 
-          {/* Reply button - disabled when denied or already responded */}
+          {/* Reply button */}
           {(() => {
             const isMemoDenied = memo.recipients?.some((r) => r.status === 'DENIED');
             const isAlreadyResponded = memo.recipients?.some((r) => r.status === 'RESPONDED');

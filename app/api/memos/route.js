@@ -461,11 +461,10 @@ export async function PATCH(request) {
               return NextResponse.json({ success: false, message: "Department not a recipient" }, { status: 400 });
             }
             recipientUpdateData = {
-              status: 'PROCESSING',
+              status: 'ACKNOWLEDGED',
               respondedAt: now,
-              processedById: authenticatedUser.id,
-              processedByName: employeeName,
-              processedAt: now
+              acknowledgedById: authenticatedUser.id,
+              acknowledgedByName: employeeName,
             };
             historyActionType = "ACKNOWLEDGED";
           } else if (action === 'START_PROCESSING') {
