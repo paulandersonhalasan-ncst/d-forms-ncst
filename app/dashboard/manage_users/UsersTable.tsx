@@ -36,6 +36,10 @@ interface Department {
     code: string;
 }
 
+interface UsersTableProps {
+  canDelete?: boolean;
+}
+
 type SortField =
   | "employee_id"
   | "email"
@@ -71,7 +75,7 @@ function SortableHeader({
   );
 }
 
-export default function UsersTable() {
+export default function UsersTable({ canDelete = false }: UsersTableProps) {
   const [users, setUsers] = useState<User[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [search, setSearch] = useState("");
@@ -340,7 +344,7 @@ export default function UsersTable() {
             <Button size="xs" variant="default" onClick={() => openEdit(user)}>
             Edit
             </Button>
-            <Button size="xs" color="red" variant="outline" onClick={() => handleDelete(user.id)}>
+            <Button size="xs" color="red" variant="outline" disabled={!canDelete} onClick={() => handleDelete(user.id)}>
             Delete
             </Button>
         </Group>
@@ -367,7 +371,7 @@ export default function UsersTable() {
           <Group>
             <Button onClick={() => { fetchDept(); setForm(initialForm); setAddOpen(true); }}>Add User</Button>
             <Button onClick={() => { fetchDept(); setDeptAddOpen(true); }}>Manage Departments</Button>
-            <Button disabled={selected.size === 0} color="red" onClick={() => handleDelete()}>Delete Selected</Button>
+            <Button disabled={selected.size === 0 || !canDelete} color="red" onClick={() => handleDelete()}>Delete Selected</Button>
             <Select
               placeholder="Bulk actions"
               data={[
@@ -377,7 +381,7 @@ export default function UsersTable() {
                 { value: "dept", label: "Change department" },
                 { value: "branch", label: "Change branch" },
               ]}
-              disabled={selected.size === 0}
+              disabled={selected.size === 0 || !canDelete}
               onChange={(val) => {
                 if (!val) return;
                 if (val === "delete") return handleDelete();
@@ -799,7 +803,7 @@ export default function UsersTable() {
                             alert("Edit department request failed");
                           }
                         }}>Edit</Button>
-                        <Button size="xs" color="red" variant="outline" onClick={async () => {
+                        <Button size="xs" color="red" variant="outline" disabled={!canDelete} onClick={async () => {
                           if (!confirm(`Delete department ${d.code}? This will fail if users are assigned.`)) return;
                           try {
                             const res = await fetch(`../../../api/department/delete`, {
