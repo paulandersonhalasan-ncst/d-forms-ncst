@@ -232,6 +232,8 @@ export default function ViewMemoModal({
               actionLabel = 'Replied';
             }
 
+            
+
             return (
               <Group
                 key={rec.id}
@@ -247,6 +249,29 @@ export default function ViewMemoModal({
                     <Text size="11px" c="orange">
                       Remarks: {rec.feedbackNote}
                     </Text>
+                  )}
+                  {/* Latest Remark with Performer */}
+                  {memo.history && memo.history.length > 0 && memo.history[0].remarks && (
+                    <Paper withBorder p="sm" radius="md" bg="light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-8))">
+                      <Stack gap={2}>
+                        <Group gap="xs">
+                          <Text size="xs" fw={700}>Latest Remark:</Text>
+                          <Text size="xs" c="dimmed" style={{ whiteSpace: 'pre-wrap' }}>
+                            {memo.history[0].remarks}
+                          </Text>
+                        </Group>
+                        <Group gap="xs">
+                          <Text size="10px" c="dimmed">
+                            <b>By:</b> {memo.history[0].performedByName} 
+                            ({memo.history[0].actorRole === 'SENDER' ? 'Sender' : 
+                              memo.history[0].actorRole === 'RECIPIENT' ? 'Recipient' : 'System'})
+                          </Text>
+                          <Text size="10px" c="dimmed">
+                            <b>At:</b> {new Date(memo.history[0].createdAt).toLocaleString()}
+                          </Text>
+                        </Group>
+                      </Stack>
+                    </Paper>
                   )}
                   {/* ✅ Timestamp for action */}
                   {actionTimestamp && (

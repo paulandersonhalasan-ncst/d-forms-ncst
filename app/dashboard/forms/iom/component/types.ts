@@ -55,6 +55,12 @@ export interface Memo {
     branch: 'MAIN' | 'IMUS' | 'NASTECH' | 'SHS';
     departmentCode: string;
   };
+  history?: {
+    remarks: string | null;
+    createdAt: string | Date;
+    performedByName: string;
+    actorRole: string; // 'SENDER' | 'RECIPIENT' | 'ADMIN'
+  }[];
 }
 
 export interface Department {

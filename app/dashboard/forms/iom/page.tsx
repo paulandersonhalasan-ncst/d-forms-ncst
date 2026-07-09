@@ -543,130 +543,176 @@ export default function IOMDashboardPage() {
     openExpandNoteModal();
   };
 
-  const handlePrintMemo = (memo: Memo) => {
-    const printWindow = window.open('', '_blank', 'width=800,height=600');
-    if (!printWindow) return;
+    const handlePrintMemo = (memo: Memo) => {
+      const printWindow = window.open('', '_blank', 'width=800,height=600');
+      if (!printWindow) return;
 
-    const recipientDepts =
-      memo.recipients?.map((r) => `${r.departmentName} [${r.status}]`).join(', ') || 'None';
+      const recipientDepts =
+        memo.recipients?.map((r) => `${r.departmentName} [${r.status}]`).join(', ') || 'None';
 
-    const revisionNotice = memo.isRevisedByHead
-      ? `<div style="margin-top:15px;padding:10px;border:1px solid #70438a;background-color:#fcf8ff;font-size:12px;color:#70438a;"><strong>⚠️ AMENDMENT NOTICE:</strong> This draft was officially reviewed, modified, and finalized by the Department Head prior to system broadcast.</div>`
-      : '';
-
-    const attachmentNotice =
-      memo.attachmentPaths && memo.attachmentPaths.length > 0
-        ? `
-          <div style="margin-top:20px;border:1px solid #000;padding:12px;page-break-inside:avoid;">
-            <div style="font-weight:bold;margin-bottom:10px;text-decoration:underline;">ATTACHED DOCUMENTS</div>
-            <ol style="margin:0;padding-left:20px;">
-              ${memo.attachmentPaths
-                .map((path) => {
-                  const fileName =
-                    path.split('/').pop()?.replace(/^\d+-(\d+-)?/, '') || 'Unnamed Attachment';
-                  return `<li style="margin-bottom:4px;">${fileName}</li>`;
-                })
-                .join('')}
-            </ol>
-            <div style="margin-top:10px;font-size:11px;color:#555;">Total Attachments: ${memo.attachmentPaths.length}</div>
+      // ✅ Kunin ang latest remark mula sa history
+      const latestHistory = memo.history && memo.history.length > 0 ? memo.history[0] : null;
+      const latestRemarkHtml = latestHistory?.remarks ? `
+        <div style="margin-top:20px;padding:10px 14px;border-left:3px solid #70438a;background-color:#f9f5ff;font-size:13px;page-break-inside:avoid;">
+          <div style="font-weight:bold;margin-bottom:4px;">LATEST REMARK</div>
+          <div style="white-space:pre-wrap;">${latestHistory.remarks}</div>
+          <div style="font-size:11px;color:#555;margin-top:4px;">
+            By: <b>${latestHistory.performedByName}</b> 
+            (${latestHistory.actorRole === 'SENDER' ? 'Sender' : 
+              latestHistory.actorRole === 'RECIPIENT' ? 'Recipient' : 'System'}) 
+            at ${new Date(latestHistory.createdAt).toLocaleString()}
           </div>
-        `
+        </div>
+      ` : '';
+
+      const revisionNotice = memo.isRevisedByHead
+        ? `<div style="margin-top:12px;padding:8px 12px;border:1px solid #70438a;background-color:#fcf8ff;font-size:12px;color:#70438a;"><strong>⚠️ AMENDMENT NOTICE:</strong> This draft was officially reviewed, modified, and finalized by the Department Head prior to system broadcast.</div>`
         : '';
 
-    const dispatchMatrixRows =
-      memo.recipients && memo.recipients.length > 0
-        ? memo.recipients
-            .map((rec) => {
-              const rawDate =
-                rec.respondedAt || rec.deniedAt || rec.acknowledgedAt || rec.processedAt || rec.closedAt;
-              const formattedTimestamp = rawDate ? new Date(rawDate).toLocaleString() : null;
+      const attachmentNotice =
+        memo.attachmentPaths && memo.attachmentPaths.length > 0
+          ? `
+            <div style="margin-top:16px;border:1px solid #000;padding:10px 14px;page-break-inside:avoid;">
+              <div style="font-weight:bold;margin-bottom:8px;text-decoration:underline;">ATTACHED DOCUMENTS</div>
+              <ol style="margin:0;padding-left:20px;font-size:13px;">
+                ${memo.attachmentPaths
+                  .map((path) => {
+                    const fileName =
+                      path.split('/').pop()?.replace(/^\d+-(\d+-)?/, '') || 'Unnamed Attachment';
+                    return `<li style="margin-bottom:2px;">${fileName}</li>`;
+                  })
+                  .join('')}
+              </ol>
+              <div style="margin-top:6px;font-size:11px;color:#555;">Total Attachments: ${memo.attachmentPaths.length}</div>
+            </div>
+          `
+          : '';
 
-              const closedByInfo = rec.status === 'CLOSED' && rec.closedByName
-                ? `<div style="font-size:10px;color:#666;margin-top:2px;border-left:2px solid #666;padding-left:5px;"><b>CLOSED BY:</b> ${rec.closedByName}</div>`
-                : '';
+      const dispatchMatrixRows =
+        memo.recipients && memo.recipients.length > 0
+          ? memo.recipients
+              .map((rec) => {
+                const rawDate =
+                  rec.respondedAt || rec.deniedAt || rec.acknowledgedAt || rec.processedAt || rec.closedAt;
+                const formattedTimestamp = rawDate ? new Date(rawDate).toLocaleString() : null;
 
-              return `
-              <tr style="border-bottom:1px dashed #000;page-break-inside:avoid;">
-                <td style="padding:10px 4px;font-weight:bold;vertical-align:top;">${rec.departmentName}</td>
-                <td style="padding:10px 4px;vertical-align:top;">
-                  <span style="padding:2px 6px;border:1px solid #000;font-size:12px;font-weight:bold;display:inline-block;background-color:${rec.status === 'CLOSED' ? '#e6f7e6' : rec.status === 'DENIED' ? '#ffe6e6' : 'transparent'};">${rec.status}</span>
-                </td>
-                <td style="padding:10px 4px;font-size:13px;vertical-align:top;word-break:break-word;">
-                  <div style="font-weight:500;margin-bottom:6px;white-space:pre-wrap;">${rec.feedbackNote || '--'}</div>
-                  ${formattedTimestamp ? `<div style="font-size:11px;color:#444;margin-top:4px;border-left:2px solid #000;padding-left:5px;"><b>TIMESTAMP:</b> ${formattedTimestamp}</div>` : ''}
-                  ${closedByInfo}
-                </td>
+                const closedByInfo = rec.status === 'CLOSED' && rec.closedByName
+                  ? `<div style="font-size:10px;color:#666;margin-top:2px;border-left:2px solid #666;padding-left:5px;"><b>CLOSED BY:</b> ${rec.closedByName}</div>`
+                  : '';
+
+                return `
+                <tr style="border-bottom:1px dashed #000;page-break-inside:avoid;">
+                  <td style="padding:6px 4px;font-weight:bold;vertical-align:top;">${rec.departmentName}</td>
+                  <td style="padding:6px 4px;vertical-align:top;">
+                    <span style="padding:1px 6px;border:1px solid #000;font-size:11px;font-weight:bold;display:inline-block;background-color:${rec.status === 'CLOSED' ? '#e6f7e6' : rec.status === 'DENIED' ? '#ffe6e6' : 'transparent'};">${rec.status}</span>
+                  </td>
+                  <td style="padding:6px 4px;font-size:12px;vertical-align:top;word-break:break-word;">
+                    <div style="font-weight:500;margin-bottom:4px;white-space:pre-wrap;">${rec.feedbackNote || '--'}</div>
+                    ${formattedTimestamp ? `<div style="font-size:10px;color:#444;margin-top:2px;border-left:2px solid #000;padding-left:5px;"><b>TIMESTAMP:</b> ${formattedTimestamp}</div>` : ''}
+                    ${closedByInfo}
+                  </td>
+                </tr>
+              `;
+              })
+              .join('')
+          : `<tr><td colspan="3" style="text-align:center;padding:10px;color:#000;border-bottom:1px dashed #000;">No recipient records found.</td></tr>`;
+
+      const dispatchMatrixTable = `
+        <div style="margin-top:24px;page-break-inside:avoid;">
+          <div style="font-weight:bold;margin-bottom:6px;text-decoration:underline;font-size:13px;">DISPATCH ROUTE TRACKING MATRIX</div>
+          <table style="width:100%;border-collapse:collapse;font-size:12px;text-align:left;font-family:monospace;table-layout:fixed;">
+            <thead>
+              <tr style="border-bottom:2px solid #000;font-weight:bold;">
+                <th style="padding:4px 4px;width:20%;">DEPARTMENT</th>
+                <th style="padding:4px 4px;width:18%;">STATUS</th>
+                <th style="padding:4px 4px;width:62%;">REMARKS & TRANSACTION TIMESTAMP</th>
               </tr>
-            `;
-            })
-            .join('')
-        : `<tr><td colspan="3" style="text-align:center;padding:15px;color:#000;border-bottom:1px dashed #000;">No recipient records found.</td></tr>`;
-
-    const dispatchMatrixTable = `
-      <div style="margin-top:40px;page-break-inside:avoid;">
-        <div style="font-weight:bold;margin-bottom:10px;text-decoration:underline;font-size:14px;">DISPATCH ROUTE TRACKING MATRIX</div>
-        <table style="width:100%;border-collapse:collapse;font-size:13px;text-align:left;font-family:monospace;table-layout:fixed;">
-          <thead>
-            <tr style="border-bottom:2px solid #000;font-weight:bold;">
-              <th style="padding:6px 4px;width:20%;">DEPARTMENT</th>
-              <th style="padding:6px 4px;width:18%;">STATUS</th>
-              <th style="padding:6px 4px;width:62%;">REMARKS & TRANSACTION TIMESTAMP</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${dispatchMatrixRows}
-          </tbody>
-        </table>
-      </div>
-    `;
-
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>Print Memo - ${memo.referenceId || 'DRAFT'}</title>
-          <style>
-            body { font-family: monospace; line-height: 1.6; padding: 40px; color: #000; font-size: 14px; }
-            .header { text-align: center; margin-bottom: 30px; font-weight: bold; font-size: 18px; letter-spacing: 1px; }
-            .meta-table { width: 100%; border-collapse: collapse; margin-bottom: 25px; }
-            .meta-table td { padding: 6px 0; vertical-align: top; }
-            .meta-label { width: 140px; font-weight: bold; }
-            .content-box { border-top: 2px dashed #000; border-bottom: 2px dashed #000; padding: 25px 0; margin-bottom: 30px; white-space: pre-wrap; font-size: 15px; }
-            @media print {
-              tr { page-break-inside: avoid !important; }
-            }
-          </style>
-        </head>
-        <body>
-          <div class="header">INTERNAL OFFICE MEMORANDUM<br>==========================</div>
-          <table class="meta-table">
-            <tr><td class="meta-label">REF ID:</td><td><strong>${memo.referenceId || 'DRAFT (PENDING APPROVAL)'}</strong></td></tr>
-            <tr><td class="meta-label">DATE CREATED:</td><td>${new Date(memo.createdAt).toLocaleString()}</td></tr>
-            <tr><td class="meta-label">FROM (SENDER):</td><td>${memo.senderName} (${memo.senderDept}) ${memo.isRevisedByHead ? '[Amended by Head]' : ''}</td></tr>
-            <tr><td class="meta-label">TO (TARGET):</td><td>${recipientDepts}</td></tr>
-            <tr><td class="meta-label">PRIORITY:</td><td>[${memo.priority}]</td></tr>
-            <tr><td class="meta-label">PURPOSE:</td><td>${memo.purpose || 'N/A'}</td></tr>
-            <tr><td class="meta-label">SUBJECT:</td><td><strong>${memo.subject}</strong></td></tr>
+            </thead>
+            <tbody>
+              ${dispatchMatrixRows}
+            </tbody>
           </table>
-          
-          ${revisionNotice}
-          
-          <div class="content-box">${memo.content.replace(/\n/g, '<br>')}</div>
-          
-          ${attachmentNotice}
-          
-          ${dispatchMatrixTable}
-          
-          <div style="margin-top:60px;font-size:11px;text-align:center;color:#555;">-- System Generated Document --</div>
-          
-          <script>
-            window.onload = function() { window.print(); };
-            window.onafterprint = function() { window.close(); };
-          <\/script>
-        </body>
-      </html>
-    `);
-    printWindow.document.close();
-  };
+        </div>
+      `;
+
+      printWindow.document.write(`
+        <html>
+          <head>
+            <title>Print Memo - ${memo.referenceId || 'DRAFT'}</title>
+            <style>
+              body { 
+                font-family: monospace; 
+                line-height: 1.5; 
+                padding: 24px 30px; 
+                color: #000; 
+                font-size: 13px; 
+              }
+              .header { 
+                text-align: center; 
+                margin-bottom: 18px; 
+                font-weight: bold; 
+                font-size: 17px; 
+                letter-spacing: 1px; 
+              }
+              .meta-table { 
+                width: 100%; 
+                border-collapse: collapse; 
+                margin-bottom: 14px; 
+              }
+              .meta-table td { 
+                padding: 3px 0; 
+                vertical-align: top; 
+              }
+              .meta-label { 
+                width: 120px; 
+                font-weight: bold; 
+              }
+              .content-box { 
+                border-top: 2px dashed #000; 
+                border-bottom: 2px dashed #000; 
+                padding: 16px 0; 
+                margin-bottom: 14px; 
+                white-space: pre-wrap; 
+                font-size: 14px; 
+              }
+              @media print {
+                tr { page-break-inside: avoid !important; }
+              }
+            </style>
+          </head>
+          <body>
+            <div class="header">INTERNAL OFFICE MEMORANDUM<br>==========================</div>
+            <table class="meta-table">
+              <tr><td class="meta-label">REF ID:</td><td><strong>${memo.referenceId || 'DRAFT (PENDING APPROVAL)'}</strong></td></tr>
+              <tr><td class="meta-label">DATE CREATED:</td><td>${new Date(memo.createdAt).toLocaleString()}</td></tr>
+              <tr><td class="meta-label">FROM (SENDER):</td><td>${memo.senderName} (${memo.senderDept}) ${memo.isRevisedByHead ? '[Amended by Head]' : ''}</td></tr>
+              <tr><td class="meta-label">TO (TARGET):</td><td>${recipientDepts}</td></tr>
+              <tr><td class="meta-label">PRIORITY:</td><td>[${memo.priority}]</td></tr>
+              <tr><td class="meta-label">PURPOSE:</td><td>${memo.purpose || 'N/A'}</td></tr>
+              <tr><td class="meta-label">SUBJECT:</td><td><strong>${memo.subject}</strong></td></tr>
+            </table>
+            
+            ${revisionNotice}
+            
+            <div class="content-box">${memo.content.replace(/\n/g, '<br>')}</div>
+            
+            ${latestRemarkHtml}
+            
+            ${attachmentNotice}
+            
+            ${dispatchMatrixTable}
+            
+            <div style="margin-top:36px;font-size:10px;text-align:center;color:#555;">-- System Generated Document --</div>
+            
+            <script>
+              window.onload = function() { window.print(); };
+              window.onafterprint = function() { window.close(); };
+            <\/script>
+          </body>
+        </html>
+      `);
+      printWindow.document.close();
+    };
 
   // ---- Render helper ----
   const renderMemoCards = (memoList: Memo[], isApprovalTab = false) => {

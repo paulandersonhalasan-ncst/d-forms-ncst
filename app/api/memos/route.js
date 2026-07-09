@@ -45,7 +45,17 @@ export async function GET(request) {
     const memos = await prisma.memo.findMany({
       include: { 
         recipients: true,
-        sender: true 
+        sender: true,
+        history: {
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+          select: {
+            remarks: true,
+            createdAt: true,
+            performedByName: true,
+            actorRole: true, // 'SENDER' or 'RECIPIENT'
+          }
+        }
       },
       orderBy: { createdAt: 'desc' },
     });
