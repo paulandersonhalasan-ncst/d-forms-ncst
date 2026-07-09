@@ -553,7 +553,7 @@ export default function IOMDashboardPage() {
       // ✅ Kunin ang latest remark mula sa history
       const latestHistory = memo.history && memo.history.length > 0 ? memo.history[0] : null;
       const latestRemarkHtml = latestHistory?.remarks ? `
-        <div style="margin-top:20px;padding:10px 14px;border-left:3px solid #70438a;background-color:#f9f5ff;font-size:13px;page-break-inside:avoid;">
+        <div style="margin-top:20px;padding:10px 14px;border-left:3px solid black;font-size:13px;page-break-inside:avoid;">
           <div style="font-weight:bold;margin-bottom:4px;">LATEST REMARK</div>
           <div style="white-space:pre-wrap;">${latestHistory.remarks}</div>
           <div style="font-size:11px;color:#555;margin-top:4px;">
@@ -681,7 +681,7 @@ export default function IOMDashboardPage() {
             </style>
           </head>
           <body>
-            <div class="header">INTERNAL OFFICE MEMORANDUM<br>==========================</div>
+            <div class="header">NCST E-FORMS | INTER-OFFICE MEMORANDUM<br>==========================</div>
             <table class="meta-table">
               <tr><td class="meta-label">REF ID:</td><td><strong>${memo.referenceId || 'DRAFT (PENDING APPROVAL)'}</strong></td></tr>
               <tr><td class="meta-label">DATE CREATED:</td><td>${new Date(memo.createdAt).toLocaleString()}</td></tr>
@@ -702,7 +702,7 @@ export default function IOMDashboardPage() {
             
             ${dispatchMatrixTable}
             
-            <div style="margin-top:36px;font-size:10px;text-align:center;color:#555;">-- System Generated Document --</div>
+            <div style="margin-top:36px;font-size:10px;text-align:center;color:#555;">-- This is a system-generated document. --</div>
             
             <script>
               window.onload = function() { window.print(); };
