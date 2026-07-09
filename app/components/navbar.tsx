@@ -77,7 +77,7 @@ const schoolMenuData: MenuItem[] = [
         label: "Activity Logs", 
         icon: IconLogs, 
         link: "/dashboard/activity_logs",
-        allowedRoles: ["Admin", "SuperUser"]
+        allowedRoles: ["SuperUser"]
     },
     { 
         label: "Manage Staff", 
