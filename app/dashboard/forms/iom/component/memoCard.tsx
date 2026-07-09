@@ -23,6 +23,7 @@ import {
   IconEdit,
   IconDownload,
   IconThumbUp,
+  IconCircleCheck
 } from '@tabler/icons-react';
 import { Memo, UserContext } from './types';
 
@@ -105,6 +106,24 @@ export default function MemoCard({
   // Check if current user is already in processing list
   const currentUserName = currentUser ? `${currentUser.fname} ${currentUser.lname}` : '';
   const amIAlreadyProcessing = myRecipientInfo?.processedByName?.includes(currentUserName);
+
+  console.log('🔍 MemoCard debug:', {
+  id: memo.id,
+  amISender,
+  memoStatus: memo.status,
+  purpose: memo.purpose,
+  recipients: memo.recipients?.map(r => ({
+    status: r.status,
+    recipientConfirmedAt: r.recipientConfirmedAt,
+    senderConfirmedAt: r.senderConfirmedAt,
+  })),
+  condition: amISender && memo.status === 'APPROVED' && memo.purpose !== 'FYI' && 
+    memo.recipients?.every(r => {
+      if (['CLOSED', 'DENIED', 'COMPLETED'].includes(r.status)) return true;
+      if (r.status === 'PROCESSING' && r.recipientConfirmedAt) return true;
+      return false;
+    }),
+});
 
   return (
     <Card
@@ -356,19 +375,42 @@ export default function MemoCard({
 
           {/* Sender: Resolve & Close */}
           {amISender && memo.status === 'APPROVED' && memo.purpose !== 'FYI' && 
-          memo.recipients?.every(r => ['CLOSED', 'DENIED', 'COMPLETED'].includes(r.status)) && (
+            memo.recipients?.every(r => {
+              // ✅ Kasama na ang COMPLETED bilang tapos na
+              if (['CLOSED', 'DENIED', 'COMPLETED'].includes(r.status)) return true;
+              return false;
+            }) && (
+              <Button
+                size="xs"
+                color="teal"
+                leftSection={<IconFileCheck size={13} />}
+                onClick={() =>
+                  triggerActionPasswordCheck('CLOSED', {
+                    memoId: memo.id,
+                    isSenderClosing: true,
+                  })
+                }
+              >
+                Resolve & Close
+              </Button>
+            )}
+            
+          {/* Complete button - para sa recipient staff */}
+          {!amISender && memo.status === 'APPROVED' && memo.purpose !== 'FYI' && 
+          myRecipientInfo?.status === 'PROCESSING' && !myRecipientInfo?.recipientConfirmedAt && (
             <Button
               size="xs"
-              color="teal"
-              leftSection={<IconFileCheck size={13} />}
+              color="green"
+              leftSection={<IconCircleCheck size={13} />}
               onClick={() =>
                 triggerActionPasswordCheck('CLOSED', {
                   memoId: memo.id,
-                  isSenderClosing: true,
+                  departmentName: activeDepartment,
+                  isSenderClosing: false,
                 })
               }
             >
-              Resolve & Close
+              Mark as Completed
             </Button>
           )}
 
@@ -379,6 +421,7 @@ export default function MemoCard({
 
             return (
               <Group gap={4}>
+                {/* Department Head: Force Complete */}
                 {isDepartmentHead && (isUnderProcessing || isAcknowledged) && (
                   <Button
                     size="xs"
@@ -388,6 +431,7 @@ export default function MemoCard({
                       triggerActionPasswordCheck('CLOSED', {
                         memoId: memo.id,
                         departmentName: activeDepartment,
+                        isSenderClosing: false, // ✅ ito ay recipient closing
                       })
                     }
                   >
@@ -395,6 +439,7 @@ export default function MemoCard({
                   </Button>
                 )}
 
+                {/* Staff: Complete (kapag PROCESSING at hindi pa confirmed) */}
                 {isUnderProcessing && !isDepartmentHead && memo.purpose !== 'FYI' && (
                   <Group gap={4}>
                     {!amIAlreadyProcessing && (
@@ -419,6 +464,7 @@ export default function MemoCard({
                         triggerActionPasswordCheck('CLOSED', {
                           memoId: memo.id,
                           departmentName: activeDepartment,
+                          isSenderClosing: false, // ✅ explicit
                         })
                       }
                     >

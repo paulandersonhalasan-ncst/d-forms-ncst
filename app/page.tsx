@@ -21,7 +21,7 @@ export default function LoginPage() {
         setError("");
         setLoading(true);
 
-        console.log("Attempting login with email:", email); // Debug log
+        //console.log("Attempting login with email:", email); // Debug log
 
         try {
             const res = await fetch("/api/auth/login", {

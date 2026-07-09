@@ -152,13 +152,36 @@ export default function IOMDashboardPage() {
               memo.recipients?.some(r => !['CLOSED', 'DENIED', 'COMPLETED'].includes(r.status))
   );
 
-  // Closed sent memos
-  const closedSentMemos = memos.filter(
-    (memo) => memo.senderDept === activeDepartment &&
-              memo.status === 'CLOSED'
-  );
+  const sentByUserMemos = memos.filter((memo) => {
+    // 1. Basic Check: Dapat galing sa department ninyo at valid ang status
+    const isFromMyDept = memo.senderDept === activeDepartment;
+    const hasValidStatus = ['APPROVED', 'FOR_APPROVAL', 'CLOSED', 'DENIED'].includes(memo.status);
+    
+    if (!isFromMyDept || !hasValidStatus) return false;
 
-  const sentMemos = ongoingSentMemos; // Para sa "Ongoing" tab
+    // 2. Alamin kung ang kasalukuyang user ang mismong gumawa (applicable sa lahat)
+    const isMine = memo.senderId === currentUser?.id;
+
+    // 3. LOGIC PARA SA HEAD / OIC / ADMIN
+    if (isDepartmentHead || processOICAllowance || isAdminOrSuper) {
+      // Makikita nila sa "Sent by You" kung:
+      // a. Sila ang mismong gumawa (isMine)
+      // b. Inedit nila yung memo ng staff (isRevisedByHead)
+      // c. Na-approve/naipadala na nila ito papunta sa ibang department (APPROVED, CLOSED, DENIED)
+      // Note: Hindi kasama ang staff's 'FOR_APPROVAL' dito kasi dapat nasa "For Approval / Review" tab pa 'yon ng Head.
+      return isMine || memo.isRevisedByHead || ['APPROVED', 'CLOSED', 'DENIED'].includes(memo.status);
+    }
+
+    // 4. LOGIC PARA SA STAFF
+    // Kung ordinaryong staff lang, strictly mga sariling gawa lang ang lalabas
+    return isMine;
+  });
+
+  // Closed sent memos
+  // const closedSentMemos = memos.filter(
+  //   (memo) => memo.senderDept === activeDepartment &&
+  //             memo.status === 'CLOSED' && memo.senderId === currentUser?.id || memo.isRevisedByHead === true
+  // );
 
   const allMemosLedgerList = isAdminOrSuper ? memos : [];
   const forApprovalMemos = memos.filter(
@@ -181,24 +204,34 @@ export default function IOMDashboardPage() {
     );
   });
 
-  const resolvedMemos = memos.filter((memo) => {
-    if (isAdminOrSuper) {
-      return memo.recipients?.some((r) =>
-        ['COMPLETED', 'RESPONDED', 'DENIED', 'CLOSED'].includes(r.status)
+   const resolvedMemos = memos.filter((memo) => {
+      // Para sa Admin o Super Admin
+      if (isAdminOrSuper) {
+        return memo.recipients?.some((r) =>
+          ['COMPLETED', 'RESPONDED', 'DENIED', 'CLOSED'].includes(r.status)
+        );
+      }
+      
+      // Check kung resolved na para sa recipient department
+      const isRecipientResolved = memo.recipients?.some(
+        (r) =>
+          (r.departmentName === activeDepartment || processOICAllowance) &&
+          ['COMPLETED', 'RESPONDED', 'DENIED', 'CLOSED'].includes(r.status)
       );
-    }
-    const isRecipientResolved = memo.recipients?.some(
-      (r) =>
-        (r.departmentName === activeDepartment || processOICAllowance) &&
-        ['COMPLETED', 'RESPONDED', 'DENIED', 'CLOSED'].includes(r.status)
-    );
-    const isSenderResolved =
-      memo.senderDept === activeDepartment &&
-      memo.recipients?.every((r) =>
-        ['COMPLETED', 'RESPONDED', 'DENIED', 'CLOSED'].includes(r.status)
-      );
-    return isRecipientResolved || isSenderResolved;
+      
+      // Check kung resolved na para sa sender department (dapat lahat ng recipients nakapag-respond na)
+      const isSenderResolved =
+        memo.senderDept === activeDepartment &&
+        memo.recipients?.every((r) =>
+          ['COMPLETED', 'RESPONDED', 'DENIED', 'CLOSED'].includes(r.status)
+        );
+        
+      return isRecipientResolved || isSenderResolved;
   });
+
+  // const resolvedMemos = memos.filter(
+  //   (memo) => memo.senderDept === activeDepartment || memo.recipients?. && memo.status === 'CLOSED'
+  // );
 
   // ---- Active tab state (gamit ang isAdminOrSuper at isDepartmentHead) ----
   const [activeTab, setActiveTab] = useState<string | null>(() => {
@@ -722,10 +755,14 @@ export default function IOMDashboardPage() {
                   Ongoing Sent{' '}
                   <Badge size="xs" variant="light" ml={6}>{ongoingSentMemos.length}</Badge>
                 </Tabs.Tab>
-                <Tabs.Tab value="closed_sent" leftSection={<IconCircleCheck size={15} />}>
+                <Tabs.Tab value="sentby_user" leftSection={<IconSend size={15} />}>
+                  Sent by You{' '}
+                  <Badge size="xs" variant="light" ml={6}>{sentByUserMemos.length}</Badge>
+                </Tabs.Tab>
+                {/* <Tabs.Tab value="closed_sent" leftSection={<IconCircleCheck size={15} />}>
                   Closed Sent{' '}
                   <Badge size="xs" variant="light" ml={6}>{closedSentMemos.length}</Badge>
-                </Tabs.Tab>
+                </Tabs.Tab> */}
               </>
             )}
             <Tabs.Tab value="closed" leftSection={<IconCircleCheck size={15} />}>
@@ -770,6 +807,15 @@ export default function IOMDashboardPage() {
             {renderMemoCards(getFilteredMemos(actionBoardMemos))}
           </Tabs.Panel>
 
+          <Tabs.Panel value="sentby_user">
+            <Alert icon={<IconInfoCircle size={16} />} title="Sent by You" color="gray" mb="md" radius="md">
+              Memos you have sent that are still pending recipient actions.
+              <br /><br />
+              Mga memorandum na ipinadala mo na naghihintay pang ma-aprubahan ng inyong departamento.
+            </Alert>
+            {renderMemoCards(getFilteredMemos(sentByUserMemos))}
+          </Tabs.Panel>
+
           <Tabs.Panel value="ongoing_sent">
             <Alert icon={<IconInfoCircle size={16} />} title="Ongoing Sent Memos" color="gray" mb="md" radius="md">
               Memos you have sent that are still pending recipient actions.
@@ -779,14 +825,14 @@ export default function IOMDashboardPage() {
             {renderMemoCards(getFilteredMemos(ongoingSentMemos))}
           </Tabs.Panel>
 
-          <Tabs.Panel value="closed_sent">
+          {/* <Tabs.Panel value="closed_sent">
             <Alert icon={<IconInfoCircle size={16} />} title="Closed Sent Memos" color="green" mb="md" radius="md">
               Memos you have sent that are fully resolved.
               <br /><br />
               Mga memorandum na ipinadala mo na tapos na at sarado na.
             </Alert>
             {renderMemoCards(getFilteredMemos(closedSentMemos))}
-          </Tabs.Panel>
+          </Tabs.Panel> */}
 
           <Tabs.Panel value="closed">
             <Alert icon={<IconInfoCircle size={16} />} title="Archived Records Directory" color="green" mb="md" radius="md">

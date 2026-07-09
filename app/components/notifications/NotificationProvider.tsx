@@ -35,7 +35,7 @@ interface NotificationContextType {
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
 const fetcher = (url: string) => {
-    console.log('🔄 Fetching notifications at:', new Date().toLocaleTimeString());
+    //console.log('🔄 Fetching notifications at:', new Date().toLocaleTimeString());
     return fetch(url).then(res => res.json());
 };
 

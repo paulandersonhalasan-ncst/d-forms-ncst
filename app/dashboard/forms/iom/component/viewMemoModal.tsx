@@ -180,7 +180,7 @@ export default function ViewMemoModal({
                           {isPdf ? <IconFileTypePdf size={16} /> : isImage ? <IconPhoto size={16} /> : <IconFile size={16} />}
                         </ThemeIcon>
                         <div style={{ overflow: 'hidden' }}>
-                          <Text size="sm" fw={500} truncate c="dark">
+                          <Text size="sm" fw={500} truncate>
                             {fileName}
                           </Text>
                           <Text size="xs" c="dimmed">
@@ -217,7 +217,7 @@ export default function ViewMemoModal({
                 </Text>
                 {rec.feedbackNote && (
                   <Text size="11px" c="orange">
-                    Remarks: {rec.feedbackNote}
+                    Remarks: {rec.feedbackNote}<br></br>Timestamp: {rec.recipientConfirmedAt ? new Date(rec.recipientConfirmedAt).toLocaleString() : 'N/A'}
                   </Text>
                 )}
                 {/* 🆕 Closed by information */}
@@ -317,9 +317,9 @@ export default function ViewMemoModal({
                     )}
 
                     {/* Kapag PROCESSING: Complete at Deny (recipient side) */}
-                    {recipientRow.status === 'PROCESSING' && (
+                    {recipientRow?.status === 'PROCESSING' && (
                       <>
-                        {!recipientRow.recipientConfirmedAt && (
+                        {!recipientRow?.recipientConfirmedAt && (
                           <Button
                             size="xs"
                             color="green"
