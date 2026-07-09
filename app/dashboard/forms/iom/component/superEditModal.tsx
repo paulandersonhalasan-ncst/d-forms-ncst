@@ -27,6 +27,8 @@ interface SuperEditModalProps {
   setSubject: (val: string) => void;
   content: string;
   setContent: (val: string) => void;
+  headNote: string;
+  setHeadNote: (val: string) => void;
   retainedAttachments: string[];
   setRetainedAttachments: (val: string[] | ((prev: string[]) => string[])) => void;
   newAttachments: File[];
@@ -36,6 +38,8 @@ interface SuperEditModalProps {
   passError: string;
   submitting: boolean;
   onSubmit: () => void;
+  feedbackNote: string;
+  setFeedbackNote: (val: string) => void;
 }
 
 export default function SuperEditModal({
@@ -45,6 +49,8 @@ export default function SuperEditModal({
   setSubject,
   content,
   setContent,
+  headNote,
+  setHeadNote,
   retainedAttachments,
   setRetainedAttachments,
   newAttachments,
@@ -54,6 +60,8 @@ export default function SuperEditModal({
   passError,
   submitting,
   onSubmit,
+  feedbackNote,
+  setFeedbackNote
 }: SuperEditModalProps) {
   return (
     <Modal
@@ -69,10 +77,10 @@ export default function SuperEditModal({
       radius="md"
     >
       <Stack gap="md">
-        <Alert icon={<IconInfoCircle size={16} />} title="Super Editor System Control" color="indigo" radius="md">
-          As Department Head, any inline edits made to the original subject or text below will flag
-          the finalized memo as <Badge color="grape" size="xs" variant="filled">Amended by Head</Badge>{' '}
-          across recipient trackers.
+        <Alert icon={<IconInfoCircle size={16} />} title="Super Editor Review" color="indigo" radius="md">
+          As Department Head, you can include your own <b>additional notes</b> to this draft. The original content will remain.
+          <br />
+          <Badge color="grape" size="xs" variant="filled" mt={4}>Original content is read-only</Badge>
         </Alert>
 
         <TextInput
@@ -82,13 +90,36 @@ export default function SuperEditModal({
           required
         />
 
+        {/* ✅ Original content - read only */}
         <Textarea
-          label="Memorandum Body Content"
+          label="Original Memorandum Body Content (Read-Only)"
           value={content}
-          onChange={(e) => setContent(e.currentTarget.value)}
+          readOnly
           minRows={6}
           autosize
+          styles={{ input: { backgroundColor: 'var(--mantine-color-gray-1)' } }}
+        />
+
+        {/* ✅ Head Note - additional remarks */}
+        <Textarea
+          label="Department Head Notes (Optional)"
+          placeholder="Add your feedback, corrections, or additional instructions here..."
+          value={headNote}
+          onChange={(e) => setHeadNote(e.currentTarget.value)}
+          minRows={3}
+          autosize
           required
+          description="This note will be appended to the memo content and visible to all recipients."
+        />
+
+        <Textarea
+          label="Feedback Note (Required)"
+          placeholder="State your reason or feedback for this approval..."
+          required
+          value={feedbackNote}
+          onChange={(e) => setFeedbackNote(e.currentTarget.value)}
+          minRows={2}
+          description="This will be recorded in the audit trail and visible to all parties."
         />
 
         <Stack>

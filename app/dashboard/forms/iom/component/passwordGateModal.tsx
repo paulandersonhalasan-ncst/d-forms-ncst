@@ -66,7 +66,7 @@ export default function PasswordGateModal({
           Confirm transaction authorization status using your cryptography signing phrase key.
         </Text>
 
-        {/* Feedback for DENY / DISAPPROVE_DRAFT (required) */}
+        {/* For DENY / DISAPPROVE_DRAFT – always required */}
         {(pendingAction?.type === 'DENY' || pendingAction?.type === 'DISAPPROVE_DRAFT') && (
           <Textarea
             label="Reason for Denial / Disapproval"
@@ -79,12 +79,25 @@ export default function PasswordGateModal({
           />
         )}
 
-        {/* Optional remarks for RESOLVE / ACKNOWLEDGE / START_PROCESSING */}
-        {(pendingAction?.type === 'CLOSED' ||
-          pendingAction?.type === 'ACKNOWLEDGE' ||
-          pendingAction?.type === 'START_PROCESSING') && (
+        {/* For all other non-ACKNOWLEDGE actions – required */}
+        {pendingAction?.type !== 'ACKNOWLEDGE' &&
+        pendingAction?.type !== 'DENY' &&
+        pendingAction?.type !== 'DISAPPROVE_DRAFT' && (
           <Textarea
             label="Remarks / Feedback Note"
+            placeholder="Enter your remarks here (required)"
+            required
+            value={feedbackNote}
+            onChange={(e) => setFeedbackNote(e.currentTarget.value)}
+            rows={3}
+            error={!feedbackNote && passError ? 'Remarks are required for this action.' : null}
+          />
+        )}
+
+        {/* ACKNOWLEDGE – optional remarks */}
+        {pendingAction?.type === 'ACKNOWLEDGE' && (
+          <Textarea
+            label="Remarks / Feedback Note (optional)"
             placeholder="Enter your remarks here (optional)"
             value={feedbackNote}
             onChange={(e) => setFeedbackNote(e.currentTarget.value)}

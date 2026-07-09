@@ -63,6 +63,14 @@ export default function IOMDashboardPage() {
   const [currentUser, setCurrentUser] = useState<UserContext | null>(null);
   const [pageLoading, setPageLoading] = useState(true);
 
+  const handleClosePassModal = () => {
+    setFeedbackNote('');
+    setConfirmPassword('');
+    setPassError('');
+    setActionAttachment(null);
+    closePassModal(); // calls the original disclosure close
+  };
+
   const [pendingAction, setPendingAction] = useState<{
     type:
       | 'CREATE'
@@ -91,6 +99,8 @@ export default function IOMDashboardPage() {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [sortByDate, toggleSortByDate] = useToggle(['NEWEST', 'OLDEST'] as const);
+
+  const [headNote, setHeadNote] = useState('');
 
   const fetcher = (url: string) => fetch(url).then(res => res.json());
 
@@ -361,9 +371,7 @@ export default function IOMDashboardPage() {
       formData.append('departmentName', (pendingAction?.data?.departmentName as string) || '');
       formData.append('action', pendingAction?.type || '');
       formData.append('password', confirmPassword);
-      if (feedbackNote) {
-        formData.append('feedbackNote', feedbackNote);
-      }
+      formData.append('feedbackNote', feedbackNote || headNote || '');
       const isSenderClosing = pendingAction?.data?.isSenderClosing ? 'true' : 'false';
       formData.append('isSenderClosing', isSenderClosing);
 
@@ -437,6 +445,8 @@ export default function IOMDashboardPage() {
     setHeadSelectedMemoId(memo.id);
     setHeadEditSubject(memo.subject);
     setHeadEditContent(memo.content);
+    setHeadNote('');
+    setFeedbackNote('');
     setRetainedAttachments(memo.attachmentPaths || []);
     setHeadNewAttachments([]);
     setConfirmPassword('');
@@ -444,44 +454,59 @@ export default function IOMDashboardPage() {
     openSuperEditModal();
   };
 
-  const handleSuperEditAndApproveSubmit = async () => {
-    if (!confirmPassword) {
-      setPassError('Signature password is required.');
-      return;
-    }
-    setSubmitting(true);
-    setPassError('');
-    try {
-      const formData = new FormData();
-      formData.append('memoId', headSelectedMemoId);
-      formData.append('action', 'APPROVE');
-      formData.append('password', confirmPassword);
-      formData.append('subject', headEditSubject);
-      formData.append('content', headEditContent);
-      formData.append('retainedAttachments', JSON.stringify(retainedAttachments));
-      headNewAttachments.forEach((file) => {
-        formData.append('headNewAttachments', file);
-      });
-
-      const response = await fetch('../../../api/memos', {
-        method: 'PATCH',
-        body: formData,
-      });
-      if (response.ok) {
-        alert('Memorandum reviewed, signed, and broadcasted successfully!');
-        closeSuperEditModal();
-        mutateMemos();
-      } else {
-        const resData = await response.json();
-        setPassError(resData.message || 'Security verification failed.');
+    const handleSuperEditAndApproveSubmit = async () => {
+      // Validate password
+      if (!confirmPassword) {
+        setPassError('Signature password is required.');
+        return;
       }
-    } catch (err) {
-      console.error(err);
-      setPassError('System infrastructure timeout.');
-    } finally {
-      setSubmitting(false);
-    }
-  };
+      // Validate feedbackNote (required)
+      if (!feedbackNote) {
+        setPassError('Remarks/Feedback note is required for approval.');
+        return;
+      }
+      // HeadNote is optional, so no validation needed
+      setSubmitting(true);
+      setPassError('');
+      try {
+        const formData = new FormData();
+        formData.append('memoId', headSelectedMemoId);
+        formData.append('action', 'APPROVE');
+        formData.append('password', confirmPassword);
+        formData.append('subject', headEditSubject);
+        formData.append('content', headEditContent);
+        formData.append('headNote', headNote || ''); // optional
+        formData.append('feedbackNote', feedbackNote); // required
+        formData.append('retainedAttachments', JSON.stringify(retainedAttachments));
+        headNewAttachments.forEach((file) => {
+          formData.append('headNewAttachments', file);
+        });
+
+        // Debug log
+        console.log('📤 SuperEdit FormData:');
+        for (const [key, value] of formData.entries()) {
+          console.log(key, value);
+        }
+
+        const response = await fetch('../../../api/memos', {
+          method: 'PATCH',
+          body: formData,
+        });
+        const result = await response.json();
+        if (response.ok) {
+          alert('Memorandum reviewed, signed, and broadcasted successfully!');
+          closeSuperEditModal();
+          mutateMemos();
+        } else {
+          setPassError(result.message || 'Security verification failed.');
+        }
+      } catch (err) {
+        console.error(err);
+        setPassError('System infrastructure timeout.');
+      } finally {
+        setSubmitting(false);
+      }
+    };
 
   const handleReplyClick = (parentMemo: Memo) => {
     console.log('📝 Replying to memo:', {
@@ -871,7 +896,7 @@ export default function IOMDashboardPage() {
 
       <PasswordGateModal
         opened={passModalOpened}
-        onClose={closePassModal}
+        onClose={handleClosePassModal}
         pendingAction={pendingAction}
         confirmPassword={confirmPassword}
         setConfirmPassword={setConfirmPassword}
@@ -892,6 +917,10 @@ export default function IOMDashboardPage() {
         setSubject={setHeadEditSubject}
         content={headEditContent}
         setContent={setHeadEditContent}
+        setHeadNote={setHeadNote}
+        headNote={headNote}
+        feedbackNote={feedbackNote}
+        setFeedbackNote={setFeedbackNote}
         retainedAttachments={retainedAttachments}
         setRetainedAttachments={setRetainedAttachments}
         newAttachments={headNewAttachments}

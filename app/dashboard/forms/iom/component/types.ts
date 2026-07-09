@@ -24,6 +24,9 @@ export interface MemoRecipientStatus {
   closedById?: string | null;
   closedByName?: string | null;
   closedAt?: string | null;
+  completedAt?: string | null;
+  completedById?: string | null;
+  completedByName?: string | null;
   isSenderClosing?: boolean;
   deniedAt?: string | null;
 }

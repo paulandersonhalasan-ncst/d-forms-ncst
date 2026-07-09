@@ -204,48 +204,83 @@ export default function ViewMemoModal({
           Recipients Status:
         </Text>
         <Stack gap={6}>
-          {memo.recipients?.map((rec) => (
-            <Group
-              key={rec.id}
-              justify="space-between"
-              p="xs"
-              style={{ border: '1px solid var(--mantine-color-gray-3)', borderRadius: '6px' }}
-            >
-              <Stack gap={2}>
-                <Text size="xs" fw={700}>
-                  {rec.departmentName}
-                </Text>
-                {rec.feedbackNote && (
-                  <Text size="11px" c="orange">
-                    Remarks: {rec.feedbackNote}<br></br>Timestamp: {rec.recipientConfirmedAt ? new Date(rec.recipientConfirmedAt).toLocaleString() : 'N/A'}
-                  </Text>
-                )}
-                {/* 🆕 Closed by information */}
-                {rec.status === 'CLOSED' && rec.closedByName && (
-                  <Text size="10px" c="dimmed">
-                    Closed by: {rec.closedByName}
-                  </Text>
-                )}
-              </Stack>
-              <Badge
-                color={
-                  rec.status === 'RESPONDED'
-                    ? 'green'
-                    : rec.status === 'DENIED'
-                    ? 'red'
-                    : rec.status === 'PROCESSING'
-                    ? 'orange'
-                    : rec.status === 'CLOSED'
-                    ? 'blue'
-                    : 'gray'
-                }
-                variant="filled"
-                size="xs"
+          {memo.recipients?.map((rec) => {
+            // ✅ Determine the timestamp based on status
+            let actionTimestamp = null;
+            let actionLabel = '';
+            
+            if (rec.status === 'PENDING') {
+              actionTimestamp = null;
+              actionLabel = 'Awaiting action';
+            } else if (rec.status === 'ACKNOWLEDGED') {
+              actionTimestamp = rec.acknowledgedAt || rec.respondedAt;
+              actionLabel = 'Acknowledged';
+            } else if (rec.status === 'PROCESSING') {
+              actionTimestamp = rec.processedAt || rec.respondedAt;
+              actionLabel = 'Processing';
+            } else if (rec.status === 'COMPLETED') {
+              actionTimestamp = rec.completedAt || rec.recipientConfirmedAt;
+              actionLabel = 'Completed';
+            } else if (rec.status === 'CLOSED') {
+              actionTimestamp = rec.closedAt || rec.senderConfirmedAt || rec.recipientConfirmedAt;
+              actionLabel = 'Closed';
+            } else if (rec.status === 'DENIED') {
+              actionTimestamp = rec.deniedAt;
+              actionLabel = 'Denied';
+            } else if (rec.status === 'RESPONDED') {
+              actionTimestamp = rec.respondedAt;
+              actionLabel = 'Replied';
+            }
+
+            return (
+              <Group
+                key={rec.id}
+                justify="space-between"
+                p="xs"
+                style={{ border: '1px solid var(--mantine-color-gray-3)', borderRadius: '6px' }}
               >
-                {rec.status}
-              </Badge>
-            </Group>
-          ))}
+                <Stack gap={2}>
+                  <Text size="xs" fw={700}>
+                    {rec.departmentName}
+                  </Text>
+                  {rec.feedbackNote && (
+                    <Text size="11px" c="orange">
+                      Remarks: {rec.feedbackNote}
+                    </Text>
+                  )}
+                  {/* ✅ Timestamp for action */}
+                  {actionTimestamp && (
+                    <Text size="10px" c="dimmed">
+                      {actionLabel}: {new Date(actionTimestamp).toLocaleString()}
+                    </Text>
+                  )}
+                  {/* Closed by information */}
+                  {rec.status === 'CLOSED' && rec.closedByName && (
+                    <Text size="10px" c="dimmed">
+                      Closed by: {rec.closedByName}
+                    </Text>
+                  )}
+                </Stack>
+                <Badge
+                  color={
+                    rec.status === 'RESPONDED'
+                      ? 'green'
+                      : rec.status === 'DENIED'
+                      ? 'red'
+                      : rec.status === 'PROCESSING'
+                      ? 'orange'
+                      : rec.status === 'CLOSED'
+                      ? 'blue'
+                      : 'gray'
+                  }
+                  variant="filled"
+                  size="xs"
+                >
+                  {rec.status}
+                </Badge>
+              </Group>
+            );
+          })}
         </Stack>
 
         {/* Dynamic footer: Print + Actions + Close */}

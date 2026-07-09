@@ -270,11 +270,13 @@ export async function PATCH(request) {
     let memoId, departmentName, action, password, feedbackNote, delegatedStaffId, isSenderClosing;
     let attachmentPaths = [];
     let newSubject, newContent, retainedAttachments;
+    let headNote = null;
 
     // =================================================================================
     // 📎 FILE UPLOAD & FORMDATA PROCESSING
     // =================================================================================
     if (contentType.includes("multipart/form-data")) {
+
       const formData = await request.formData();
       memoId = formData.get("memoId");
       departmentName = formData.get("departmentName");
@@ -286,6 +288,7 @@ export async function PATCH(request) {
       
       newSubject = formData.get("subject");
       newContent = formData.get("content");
+      headNote = formData.get("headNote");
       retainedAttachments = formData.get("retainedAttachments") ? JSON.parse(formData.get("retainedAttachments")) : [];
 
       // Process attachments (recipient resolve)
@@ -326,7 +329,7 @@ export async function PATCH(request) {
       departmentName = body.departmentName;
       action = body.action;
       password = body.password;
-      feedbackNote = body.feedbackNote;
+      feedbackNote = body.feedbackNote || body.remarks || body.headNote;
       delegatedStaffId = body.delegatedStaffId;
       isSenderClosing = body.isSenderClosing || false;
     }
@@ -334,6 +337,15 @@ export async function PATCH(request) {
     // Common validations
     if (!password) {
       return NextResponse.json({ success: false, message: "Password signature required" }, { status: 400 });
+    }
+
+    // ✅ Require feedback note for all actions except ACKNOWLEDGE
+    const trimmedFeedback = feedbackNote ? feedbackNote.trim() : '';
+    if (action !== 'ACKNOWLEDGE' && action !== 'CREATE' && !trimmedFeedback) {
+      return NextResponse.json({ 
+        success: false, 
+        message: "Remarks/Feedback note is required for this action." 
+      }, { status: 400 });
     }
 
     const passwordMatch = (password === authenticatedUser.password);
@@ -372,22 +384,37 @@ export async function PATCH(request) {
       historyActionType = "DISAPPROVED";
       // feedback note will be saved in memoHistory later
     } else if (action === 'APPROVE') {
-      // 🟢 DEPARTMENT HEAD APPROVAL
       const finalSubject = newSubject || currentMemo.subject;
       const finalContent = newContent || currentMemo.content;
-      const isRevised = finalSubject !== currentMemo.subject || finalContent !== currentMemo.content;
+
+      let finalContentWithNote = finalContent;
+      if (headNote && headNote.trim()) {
+        finalContentWithNote = `${finalContent}\n\n---\n📝 Department Head Notes:\n${headNote}`;
+      }
+
+      const hasHeadNote = !!(headNote && headNote.trim().length > 0);
+      const isRevised = (finalSubject !== currentMemo.subject) || hasHeadNote;
       
       const retained = retainedAttachments || [];
       const allAttachments = [...retained, ...attachmentPaths];
       
+      // ✅ Simpleng fix: tanggalin lang ang "DRAFT-" prefix
+      let newReferenceId = currentMemo.referenceId;
+      if (currentMemo.referenceId?.startsWith('DRAFT-')) {
+        newReferenceId = currentMemo.referenceId.substring(6); // "DRAFT-" = 6 chars
+      }
+
       memoUpdateData = {
         status: 'APPROVED',
         subject: finalSubject,
-        content: finalContent,
+        content: finalContentWithNote,
         isRevisedByHead: isRevised,
-        attachmentPaths: allAttachments
+        attachmentPaths: allAttachments,
+        referenceId: newReferenceId
       };
       historyActionType = "APPROVED";
+
+      console.log('🧪 isRevised value:', isRevised, 'type:', typeof isRevised);
 
       // Notifications for recipients
       try {
