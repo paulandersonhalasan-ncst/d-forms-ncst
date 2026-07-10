@@ -395,25 +395,26 @@ export default function MemoCard({
               </Button>
             )}
             
-          {/* Complete button - para sa recipient staff */}
+          {/* Complete button - para sa recipient staff
           {!amISender && memo.status === 'APPROVED' && memo.purpose !== 'FYI' && 
-          myRecipientInfo?.status === 'PROCESSING' && !myRecipientInfo?.recipientConfirmedAt && (
-            <Button
-              size="xs"
-              color="green"
-              leftSection={<IconCircleCheck size={13} />}
-              onClick={() =>
-                triggerActionPasswordCheck('CLOSED', {
-                  memoId: memo.id,
-                  departmentName: activeDepartment,
-                  isSenderClosing: false,
-                })
-              }
-            >
-              Mark as Completed
-            </Button>
-          )}
+          // myRecipientInfo?.status === 'PROCESSING' && !myRecipientInfo?.recipientConfirmedAt && (
+          //   <Button
+          //     size="xs"
+          //     color="green"
+          //     leftSection={<IconCircleCheck size={13} />}
+          //     onClick={() =>
+          //       triggerActionPasswordCheck('CLOSED', {
+          //         memoId: memo.id,
+          //         departmentName: activeDepartment,
+          //         isSenderClosing: false,
+          //       })
+          //     }
+          //   >
+          //     Mark as Completed
+          //   </Button>
+          )} */}
 
+          {/* Advanced collaboration & override block */}
           {/* Advanced collaboration & override block */}
           {(() => {
             const isUnderProcessing = myRecipientInfo?.status === 'PROCESSING';
@@ -431,7 +432,7 @@ export default function MemoCard({
                       triggerActionPasswordCheck('CLOSED', {
                         memoId: memo.id,
                         departmentName: activeDepartment,
-                        isSenderClosing: false, // ✅ ito ay recipient closing
+                        isSenderClosing: false,
                       })
                     }
                   >
@@ -439,7 +440,7 @@ export default function MemoCard({
                   </Button>
                 )}
 
-                {/* Staff: Complete (kapag PROCESSING at hindi pa confirmed) */}
+                {/* Staff: Complete (kapag PROCESSING at nakasali na sa process) */}
                 {isUnderProcessing && !isDepartmentHead && memo.purpose !== 'FYI' && (
                   <Group gap={4}>
                     {!amIAlreadyProcessing && (
@@ -457,19 +458,22 @@ export default function MemoCard({
                         Join Process
                       </Button>
                     )}
-                    <Button
-                      size="xs"
-                      color="green"
-                      onClick={() =>
-                        triggerActionPasswordCheck('CLOSED', {
-                          memoId: memo.id,
-                          departmentName: activeDepartment,
-                          isSenderClosing: false,
-                        })
-                      }
-                    >
-                      Complete
-                    </Button>
+                    {/* ✅ Complete button - lumalabas lang kung nakasali na sa process */}
+                    {amIAlreadyProcessing && !myRecipientInfo?.recipientConfirmedAt && (
+                      <Button
+                        size="xs"
+                        color="green"
+                        onClick={() =>
+                          triggerActionPasswordCheck('CLOSED', {
+                            memoId: memo.id,
+                            departmentName: activeDepartment,
+                            isSenderClosing: false,
+                          })
+                        }
+                      >
+                        Complete
+                      </Button>
+                    )}
                   </Group>
                 )}
               </Group>

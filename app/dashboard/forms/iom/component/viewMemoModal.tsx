@@ -79,6 +79,9 @@ export default function ViewMemoModal({
   // ✅ Check kung Department Head ang current user (may override)
   const canForceClose = isDepartmentHead || isAdminOrSuper;
 
+  const currentUserName = currentUser ? `${currentUser.fname} ${currentUser.lname}` : '';
+  const amIAlreadyProcessing = recipientRow?.processedByName?.includes(currentUserName) || false;
+
   return (
     <Modal
       opened={opened}
@@ -323,8 +326,10 @@ export default function ViewMemoModal({
           <Group gap="xs">
             {memo && memo.status !== 'CLOSED' && memo.status !== 'DENIED' && recipientRow && (
               <>
-                {/* ===== FYI ===== */}
-                {memo.purpose === 'FYI' && recipientRow.status === 'PENDING' && (
+                {/* ===== FYI - Department Head only ===== */}
+                {memo.purpose === 'FYI' && 
+                recipientRow.status === 'PENDING' && 
+                (isDepartmentHead || isAdminOrSuper) && (
                   <Button
                     size="xs"
                     color="blue"
@@ -379,7 +384,8 @@ export default function ViewMemoModal({
                     {/* Kapag PROCESSING: Complete at Deny (recipient side) */}
                     {recipientRow?.status === 'PROCESSING' && (
                       <>
-                        {!recipientRow?.recipientConfirmedAt && (
+                        {/* ✅ Complete button - lumalabas lang kung nakasali na sa process */}
+                        {amIAlreadyProcessing && !recipientRow?.recipientConfirmedAt && (
                           <Button
                             size="xs"
                             color="green"
