@@ -592,8 +592,8 @@ export default function IOMDashboardPage() {
         memo.recipients && memo.recipients.length > 0
           ? memo.recipients
               .map((rec) => {
-                const rawDate =
-                  rec.respondedAt || rec.deniedAt || rec.acknowledgedAt || rec.processedAt || rec.closedAt;
+                const rawDate = latestHistory?.createdAt;
+                  // rec.respondedAt || rec.deniedAt || rec.acknowledgedAt || rec.processedAt || rec.closedAt;
                 const formattedTimestamp = rawDate ? new Date(rawDate).toLocaleString() : null;
 
                 const closedByInfo = rec.status === 'CLOSED' && rec.closedByName

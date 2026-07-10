@@ -464,7 +464,7 @@ export default function MemoCard({
                         triggerActionPasswordCheck('CLOSED', {
                           memoId: memo.id,
                           departmentName: activeDepartment,
-                          isSenderClosing: false, // ✅ explicit
+                          isSenderClosing: false,
                         })
                       }
                     >

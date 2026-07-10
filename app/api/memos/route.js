@@ -522,6 +522,32 @@ export async function PATCH(request) {
             feedbackNote: feedbackNote, // ✅ IDAGDAG ITO
           };
           historyActionType = "PROCESSING_STARTED";
+        } else if (action === 'JOIN_PROCESSING') {
+          if (!targetRecipient) {
+            return NextResponse.json({ success: false, message: "Department not a recipient" }, { status: 400 });
+          }
+          
+          // Check kung ang status ay PROCESSING o ACKNOWLEDGED (para pwedeng sumali)
+          if (!['PROCESSING', 'ACKNOWLEDGED'].includes(targetRecipient.status)) {
+            return NextResponse.json({ 
+              success: false, 
+              message: "Cannot join: memo must be in PROCESSING or ACKNOWLEDGED state." 
+            }, { status: 400 });
+          }
+
+          const currentProcessedByName = targetRecipient.processedByName || '';
+          const newProcessedByName = currentProcessedByName 
+            ? `${currentProcessedByName}, ${employeeName}` 
+            : employeeName;
+
+          recipientUpdateData = {
+            processedByName: newProcessedByName,
+            processedAt: now,
+            processedById: authenticatedUser.id,
+            feedbackNote: feedbackNote || `Joined processing by ${employeeName}`,
+            // Huwag baguhin ang status, mananatiling PROCESSING
+          };
+          historyActionType = "PROCESSING_JOINED";
         } else if (action === 'CLOSED') {
           if (isSenderClosing) {
             // ===== SENDER CLOSING =====
@@ -571,7 +597,7 @@ export async function PATCH(request) {
               lastActivityAt: now
             };
             historyActionType = "CLOSED_BY_SENDER";
-            skipRecipientUpdate = true; // para hindi na mag-update ng isang recipient sa ibaba
+            skipRecipientUpdate = true;
           } else {
             // ===== RECIPIENT CLOSING =====
             if (!targetRecipient) {
