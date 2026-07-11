@@ -121,7 +121,7 @@ export async function POST(request) {
     const databaseUserRole = authenticatedUser.role ? authenticatedUser.role.toUpperCase() : "STAFF";
 
     let initialMemoStatus = "APPROVED";
-    if ((databaseUserRole === "STAFF" || databaseUserRole === "USER") && !parentMemoId) {
+    if ((databaseUserRole === "STAFF" || databaseUserRole === "USER" || databaseUserRole === "FACULTY") && !parentMemoId) {
       initialMemoStatus = "FOR_APPROVAL";
     }
 
@@ -686,7 +686,7 @@ export async function PATCH(request) {
     const memoRefString = currentMemo.referenceId || currentMemo.id.substring(0, 8).toUpperCase();
     await prisma.memoHistory.create({
       data: {
-        memoId: memoId,
+        referenceId: referenceId,
         departmentName: userDept,
         performedById: authenticatedUser.id,
         performedByName: employeeName,
@@ -736,7 +736,7 @@ export async function PATCH(request) {
         userId: authenticatedUser.id,
         email: authenticatedUser.email,
         action: `IOM_${action}_SUCCESS`,
-        details: JSON.stringify({ memoId, departmentName, note: feedbackNote })
+        details: JSON.stringify({ referenceId, departmentName, note: feedbackNote })
       });
     } catch (err) {
       console.error(err);

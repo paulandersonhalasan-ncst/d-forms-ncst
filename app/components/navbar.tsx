@@ -22,7 +22,7 @@ import NotificationPopover from './notifications/NotificationPopover';
 import Clock from "./clock";
 
 interface SidebarProps {
-    role: "SuperUser" | "OIC" | "DepartmentHead" | "Staff" | "Admin";
+    role: "SuperUser" | "OIC" | "DepartmentHead" | "Staff" | "Admin" | "Faculty";
     email: string;
     fname: string;
     lname: string;
@@ -35,11 +35,11 @@ interface MenuItem {
     icon: TablerIcon;
     link?: string;
     isPopover?: boolean;
-    allowedRoles?: ("SuperUser" | "OIC" | "DepartmentHead" | "Staff" | "Admin")[];
+    allowedRoles?: ("SuperUser" | "OIC" | "DepartmentHead" | "Staff" | "Admin" | "Faculty")[];
     links?: { 
         label: string; 
         link: string;
-        allowedRoles?: ("SuperUser" | "OIC" | "DepartmentHead" | "Staff" | "Admin")[];
+        allowedRoles?: ("SuperUser" | "OIC" | "DepartmentHead" | "Staff" | "Admin" | "Faculty")[];
     }[];
 }
 
@@ -53,7 +53,7 @@ const schoolMenuData: MenuItem[] = [
     { 
         label: "Dashboard", 
         icon: IconGauge, 
-        link: "/dashboard" 
+        link: "/dashboard/analytics" 
     },
     {
         label: "Forms",
@@ -132,7 +132,7 @@ export default function Sidebar({ role, email, fname, lname, oic_start, oic_end 
     const effectiveRole = (role === "Staff" && isCurrentlyOIC) ? "OIC" : role;
 
     let sidebarBg = "";
-    const textColor = effectiveRole === "Staff" ? "#242424" : "#ffffff"; 
+    const textColor = effectiveRole === "Staff" || effectiveRole === "Faculty" ? "#242424" : "#ffffff"; 
 
     const hoverBg = "rgba(0, 0, 0, 0.1)";
     const activeBg = "rgba(0, 0, 0, 0.2)";
@@ -148,6 +148,7 @@ export default function Sidebar({ role, email, fname, lname, oic_start, oic_end 
         case "DepartmentHead":
             sidebarBg = "var(--mantine-color-regalNavy-9)";
             break;
+        case "Faculty":
         case "Staff":
             sidebarBg = "var(--mantine-color-customCreamYellow-2)";
             break;
@@ -190,10 +191,12 @@ export default function Sidebar({ role, email, fname, lname, oic_start, oic_end 
                         <Image src="/favicon.ico" alt="NCST logo" style={{ width: 24, height: 24, borderRadius: 4 }} />
                         <Text fw={800} size="xl">NCST E-FORMS</Text>
                     </Group>
+                    {mounted && (
                     <Clock
                         background={effectiveRole === "Staff" ? "rgba(0,0,0,0.1)" : "rgba(255,255,255,0.15)"}
                         color={textColor}
                     />
+                    )}
                 </Group>
 
                 <Group justify="space-between" align="center" mt="xs">
@@ -230,12 +233,7 @@ export default function Sidebar({ role, email, fname, lname, oic_start, oic_end 
                         .map((item) => {
                             let isMainActive = false;
                             if (item.label === "Dashboard") {
-                                if (pathname && pathname !== "/") {
-                                    isMainActive = [
-                                        "/dashboard", "/dashboard/staff", "/dashboard/superuser",
-                                        "/dashboard/oic", "/dashboard/dept_head", "/dashboard/admin"
-                                    ].includes(pathname);
-                                }
+                                isMainActive = pathname === "/dashboard/analytics";
                             } else if (item.link) {
                                 isMainActive = pathname === item.link;
                             }
@@ -254,12 +252,8 @@ export default function Sidebar({ role, email, fname, lname, oic_start, oic_end 
 
                             const handleMainClick = () => {
                                 if (item.label === "Dashboard") {
-                                    if (effectiveRole === "Staff") router.push("/dashboard/staff");
-                                    else if (effectiveRole === "SuperUser") router.push("/dashboard/superuser");
-                                    else if (effectiveRole === "Admin") router.push("/dashboard/admin");
-                                    else if (effectiveRole === "OIC") router.push("/dashboard/oic");
-                                    else if (effectiveRole === "DepartmentHead") router.push("/dashboard/dept_head");
-                                    else router.push("/dashboard");
+                                    // ✅ Lahat ng users, iisa lang ang dashboard
+                                    router.push("/dashboard/analytics");
                                 } else if (item.link) {
                                     router.push(item.link);
                                 }

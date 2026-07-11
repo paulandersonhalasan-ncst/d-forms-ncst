@@ -53,7 +53,19 @@ export async function POST(request) {
 
     // log deletion activity
     try {
-      await logActivity({ req: request, userId: requesterId, email: requesterEmail, action: "DELETE_USERS", details: JSON.stringify({ deleted: deletedUsers.map((u) => u.id) }) });
+      await logActivity({ 
+        req: request, 
+        userId: requesterId, 
+        email: requesterEmail, 
+        action: "DELETE_USERS", 
+        details: JSON.stringify({ 
+          deleted: deletedUsers.map((u) => ({
+            id: u.id,
+            employee_id: u.employee_id,
+            email: u.email
+          }))
+        }) 
+      });    
     } catch (err) {
       console.error("Failed to log delete users activity:", err);
     }

@@ -100,8 +100,19 @@ export async function POST(request) {
 
     // log activity for created users
     try {
-      await logActivity({ req: request, userId: requesterId, email: requesterEmail, action: "CREATE_USERS", details: JSON.stringify({ created: createdUsers.map((u) => u.id) }) });
-    } catch (err) {
+      await logActivity({ 
+        req: request, 
+        userId: requesterId, 
+        email: requesterEmail, 
+        action: "CREATE_USERS", 
+        details: JSON.stringify({ 
+          created: createdUsers.map((u) => ({
+            id: u.id,
+            employee_id: u.employee_id,
+            email: u.email
+          }))
+        }) 
+      });    } catch (err) {
       console.error("Failed to log create users activity:", err);
     }
 

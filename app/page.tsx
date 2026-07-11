@@ -75,33 +75,36 @@ export default function LoginPage() {
             }
 
             // Kapag matagumpay ang login, i-route batay sa role
-            switch (data.user?.role) {
-                case "Staff":
-                    router.push("/dashboard/staff");
-                    break;
-                case "OIC":
-                    router.push("/dashboard/oic");
-                    break;
-                case "Admin":
-                    router.push("/dashboard/admin");
-                    break;
-                case "DepartmentHead":
-                    router.push("/dashboard/dept_head");
-                    break;
-                case "SuperUser":
-                    router.push("/dashboard/superuser");
-                    break;
-                case undefined:
-                case null:
-                    setError("Walang nakatalagang role ang account na ito.");
-                    console.error("User role is missing for user: ", data.user);
-                    setLoading(false);
-                    break;
-                default:
-                    setError("Unknown user role");
-                    console.error("Unknown user role: ", data.user?.role);
-                    setLoading(false);
-            }
+            // switch (data.user?.role) {
+            //     case "Faculty":
+            //     case "Staff":
+            //         router.push("/dashboard/staff");
+            //         break;
+            //     case "OIC":
+            //         router.push("/dashboard/oic");
+            //         break;
+            //     case "Admin":
+            //         router.push("/dashboard/admin");
+            //         break;
+            //     case "DepartmentHead":
+            //         router.push("/dashboard/dept_head");
+            //         break;
+            //     case "SuperUser":
+            //         router.push("/dashboard/superuser");
+            //         break;
+            //     case undefined:
+            //     case null:
+            //         setError("Walang nakatalagang role ang account na ito.");
+            //         console.error("User role is missing for user: ", data.user);
+            //         setLoading(false);
+            //         break;
+            //     default:
+            //         setError("Unknown user role");
+            //         console.error("Unknown user role: ", data.user?.role);
+            //         setLoading(false);
+            // }
+
+            router.push("/dashboard/analytics");
 
         } catch (err) {
             console.error("Network error occurred:", err);

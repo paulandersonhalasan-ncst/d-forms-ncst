@@ -20,7 +20,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
     let oic_start = "UNKNOWN";
     let oic_end = "UNKNOWN";
 
-    const VALID_ROLES = ["SuperUser", "OIC", "DepartmentHead", "Staff", "Admin"] as const;
+    const VALID_ROLES = ["SuperUser", "OIC", "DepartmentHead", "Staff", "Admin", "Faculty"] as const;
     type RoleType = typeof VALID_ROLES[number];
     let userRole: RoleType = "Staff";
 

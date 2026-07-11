@@ -112,34 +112,38 @@ export default function UsersTable({ canDelete = false }: UsersTableProps) {
     fetchDept();
   }, []);
 
-  async function fetchAll() {
-    setLoading(true);
-
-    try {
-      const res = await fetch("../../../api/user/get");
-      const json = await res.json();
-
-      if (json?.success) {
-        setUsers(json.data || json.users || []);
+    async function fetchAll() {
+      setLoading(true);
+      try {
+        const res = await fetch("../../../api/user/get");
+        const json = await res.json();
+        if (json?.success) {
+          setUsers(json.data || json.users || []);
+        } else {
+          console.error("Failed to fetch users:", json.message);
+          alert("❌ Failed to load users. Please refresh the page.");
+        }
+      } catch (e) {
+        console.error("Error fetching users:", e);
+        alert("❌ Network error. Please check your connection.");
+      } finally {
+        setLoading(false);
       }
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
     }
-  }
 
-  async function fetchDept() {
-    try {
-      const res = await fetch("../../../api/department/get");
-      const json = await res.json();
-      if (json && json.success) setDepartments(json.data || json.department || json.data);
-
-      console.log(json.data);
-    } catch (e) {
-      console.error(e);
+    async function fetchDept() {
+      try {
+        const res = await fetch("../../../api/department/get");
+        const json = await res.json();
+        if (json && json.success) {
+          setDepartments(json.data || json.department || json.data);
+        } else {
+          console.error("Failed to fetch departments:", json?.message);
+        }
+      } catch (e) {
+        console.error("Error fetching departments:", e);
+      }
     }
-  }
 
   function toggleSelect(id: string) {
     const s = new Set(selected);
@@ -185,6 +189,7 @@ export default function UsersTable({ canDelete = false }: UsersTableProps) {
 
     if (!confirm(`Delete ${toDelete.length} user(s)?`)) return;
 
+    setLoading(true);
     try {
       const body = toDelete.map((u) => ({ id: u.id }));
       const res = await fetch("../../../api/user/delete", {
@@ -193,20 +198,25 @@ export default function UsersTable({ canDelete = false }: UsersTableProps) {
         body: JSON.stringify(body),
       });
       const json = await res.json();
-      if (json && json.success) {
+      
+      if (json.success) {
         setSelected(new Set());
         fetchAll();
+        alert(`✅ ${toDelete.length} user(s) deleted successfully!`);
       } else {
-        alert(json.message || "Delete failed");
+        alert(json.message || "❌ Failed to delete user(s).");
       }
-    } catch (e) {
-      console.error(e);
-      alert("Delete request failed");
+    } catch (error) {
+      console.error("Delete error:", error);
+      alert("❌ Network error. Please check your connection and try again.");
+    } finally {
+      setLoading(false);
     }
   }
 
   async function handleAdd(e?: React.FormEvent) {
     if (e) e.preventDefault();
+    setLoading(true);
     try {
       const res = await fetch("../../../api/user/add", {
         method: "POST",
@@ -214,42 +224,33 @@ export default function UsersTable({ canDelete = false }: UsersTableProps) {
         body: JSON.stringify(form),
       });
       const json = await res.json();
-      if (json && json.success) {
+      
+      if (json.success) {
         setAddOpen(false);
-        setForm({
-          employee_id: "",
-          email: "",
-          password: "",
-          fname: "",
-          lname: "",
-          role: "Staff",
-          departmentCode: "",
-          branch: "MAIN",
-        });
+        setForm(initialForm);
         fetchAll();
+        alert("✅ User created successfully!");
       } else {
-        alert(json.message || "Add failed");
+        // Show specific error from backend
+        alert(json.message || "❌ Failed to create user. Please check the form.");
       }
-    } catch (e) {
-      console.error(e);
-      alert("Add request failed");
+    } catch (error) {
+      console.error("Add user error:", error);
+      alert("❌ Network error. Please check your connection and try again.");
+    } finally {
+      setLoading(false);
     }
   }
 
   async function handleEdit(e?: React.FormEvent) {
     if (e) e.preventDefault();
     if (!editing) return;
+    setLoading(true);
     try {
-      // 1. Gumawa ng base copy ng form states natin
       const dataToSend: Record<string, string> = { ...form };
-
-      // 2. Solid check: Kung walang tinype si admin sa password input box,
-      //    BURAHIN natin ang password property sa payload para hindi ito ma-overwrite sa database ng blangko!
       if (!dataToSend.password || dataToSend.password.trim() === "") {
         delete dataToSend.password;
       }
-
-      // 3. I-combine kasama ang user ID na kasalukuyang ine-edit
       const payload = { id: editing.id, ...dataToSend };
 
       const res = await fetch("../../../api/user/edit", {
@@ -258,16 +259,20 @@ export default function UsersTable({ canDelete = false }: UsersTableProps) {
         body: JSON.stringify(payload),
       });
       const json = await res.json();
-      if (json && json.success) {
+      
+      if (json.success) {
         setEditOpen(false);
         setEditing(null);
         fetchAll();
+        alert("✅ User updated successfully!");
       } else {
-        alert(json.message || "Edit failed");
+        alert(json.message || "❌ Failed to update user. Please check the form.");
       }
-    } catch (e) {
-      console.error(e);
-      alert("Edit request failed");
+    } catch (error) {
+      console.error("Edit user error:", error);
+      alert("❌ Network error. Please check your connection and try again.");
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -508,12 +513,13 @@ export default function UsersTable({ canDelete = false }: UsersTableProps) {
                 data={departments.map((d) => ({ value: d.code, label: d.code }))}
                 value={form.departmentCode}
                 onChange={(val) => setForm({ ...form, departmentCode: val || "" })}
+                searchable
                 required
                 placeholder={departments.length === 0 ? "No departments" : "Select department"}
               />
             <Select
               label="Role"
-              data={["Staff", "OIC", "DepartmentHead", "SuperUser", "Admin"]}
+              data={["Staff", "OIC", "DepartmentHead", "SuperUser", "Admin", "Faculty"]}
               value={form.role}
               onChange={(val) => setForm({ ...form, role: val || "Staff" })}
             />
@@ -529,7 +535,7 @@ export default function UsersTable({ canDelete = false }: UsersTableProps) {
         <Stack>
           <Select
             label="Role"
-            data={["Staff", "OIC", "DepartmentHead", "SuperUser", "Admin"]}
+            data={["Staff", "OIC", "DepartmentHead", "SuperUser", "Admin", "Faculty"]}
             value={bulkRoleValue}
             onChange={(val) => setBulkRoleValue(val || "Staff")}
           />
@@ -537,21 +543,37 @@ export default function UsersTable({ canDelete = false }: UsersTableProps) {
             <Button
               onClick={async () => {
                 if (selected.size === 0) return alert("No users selected");
+                if (!bulkRoleValue) return alert("Please select a role");
+                setLoading(true);
+                
                 const ids = Array.from(selected);
                 try {
-                  await Promise.all(ids.map((id) =>
-                    fetch("../../../api/user/edit", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ id, role: bulkRoleValue }),
-                    })
-                  ));
-                  setBulkRoleOpen(false);
-                  setSelected(new Set());
-                  fetchAll();
+                  const results = await Promise.allSettled(
+                    ids.map((id) =>
+                      fetch("../../../api/user/edit", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ id, role: bulkRoleValue }),
+                      }).then(res => res.json())
+                    )
+                  );
+                  
+                  const succeeded = results.filter(r => r.status === 'fulfilled' && r.value?.success).length;
+                  const failed = results.filter(r => r.status === 'rejected' || !r.value?.success).length;
+                  
+                  if (succeeded > 0) {
+                    setBulkRoleOpen(false);
+                    setSelected(new Set());
+                    fetchAll();
+                    alert(`✅ ${succeeded} user(s) updated successfully! ${failed > 0 ? `⚠️ ${failed} failed.` : ''}`);
+                  } else {
+                    alert("❌ Bulk role update failed. Please try again.");
+                  }
                 } catch (err) {
                   console.error(err);
-                  alert("Bulk role update failed");
+                  alert("❌ Bulk role update failed.");
+                } finally {
+                  setLoading(false);
                 }
               }}
             >
@@ -566,6 +588,7 @@ export default function UsersTable({ canDelete = false }: UsersTableProps) {
           <Select
             label="Department"
             data={departments.map((d) => ({ value: d.code, label: d.code }))}
+            searchable
             value={bulkDeptValue}
             onChange={(val) => setBulkDeptValue(val || "")}
             placeholder={departments.length === 0 ? "No departments" : "Select department"}
@@ -575,21 +598,36 @@ export default function UsersTable({ canDelete = false }: UsersTableProps) {
               onClick={async () => {
                 if (selected.size === 0) return alert("No users selected");
                 if (!bulkDeptValue) return alert("Please choose a department");
+                setLoading(true);
+                
                 const ids = Array.from(selected);
                 try {
-                  await Promise.all(ids.map((id) =>
-                    fetch("../../../api/user/edit", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ id, departmentCode: bulkDeptValue }),
-                    })
-                  ));
-                  setBulkDeptOpen(false);
-                  setSelected(new Set());
-                  fetchAll();
+                  const results = await Promise.allSettled(
+                    ids.map((id) =>
+                      fetch("../../../api/user/edit", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ id, departmentCode: bulkDeptValue }),
+                      }).then(res => res.json())
+                    )
+                  );
+                  
+                  const succeeded = results.filter(r => r.status === 'fulfilled' && r.value?.success).length;
+                  const failed = results.filter(r => r.status === 'rejected' || !r.value?.success).length;
+                  
+                  if (succeeded > 0) {
+                    setBulkDeptOpen(false);
+                    setSelected(new Set());
+                    fetchAll();
+                    alert(`✅ ${succeeded} user(s) updated successfully! ${failed > 0 ? `⚠️ ${failed} failed.` : ''}`);
+                  } else {
+                    alert("❌ Bulk department update failed. Please try again.");
+                  }
                 } catch (err) {
                   console.error(err);
-                  alert("Bulk department update failed");
+                  alert("❌ Bulk department update failed.");
+                } finally {
+                  setLoading(false);
                 }
               }}
             >
@@ -612,21 +650,36 @@ export default function UsersTable({ canDelete = false }: UsersTableProps) {
               onClick={async () => {
                 if (selected.size === 0) return alert("No users selected");
                 if (!bulkBranchValue) return alert("Please choose a branch");
+                setLoading(true);
+                
                 const ids = Array.from(selected);
                 try {
-                  await Promise.all(ids.map((id) =>
-                    fetch("../../../api/user/edit", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ id, branch: bulkBranchValue }),
-                    })
-                  ));
-                  setBulkBranchOpen(false);
-                  setSelected(new Set());
-                  fetchAll();
+                  const results = await Promise.allSettled(
+                    ids.map((id) =>
+                      fetch("../../../api/user/edit", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ id, branch: bulkBranchValue }),
+                      }).then(res => res.json())
+                    )
+                  );
+                  
+                  const succeeded = results.filter(r => r.status === 'fulfilled' && r.value?.success).length;
+                  const failed = results.filter(r => r.status === 'rejected' || !r.value?.success).length;
+                  
+                  if (succeeded > 0) {
+                    setBulkBranchOpen(false);
+                    setSelected(new Set());
+                    fetchAll();
+                    alert(`✅ ${succeeded} user(s) updated successfully! ${failed > 0 ? `⚠️ ${failed} failed.` : ''}`);
+                  } else {
+                    alert("❌ Bulk branch update failed. Please try again.");
+                  }
                 } catch (err) {
                   console.error(err);
-                  alert("Bulk branch update failed");
+                  alert("❌ Bulk branch update failed.");
+                } finally {
+                  setLoading(false);
                 }
               }}
             >
@@ -656,8 +709,8 @@ export default function UsersTable({ canDelete = false }: UsersTableProps) {
                 XLSX.utils.book_append_sheet(wb, ws, "Users");
                 XLSX.writeFile(wb, `users_${new Date().toISOString().slice(0,10)}.xlsx`);
               } catch (err) {
-                console.error(err);
-                alert("XLSX export failed. Install 'xlsx' or check the console for details.");
+                console.error("Export error:", err);
+                alert("❌ Export failed. Please make sure 'xlsx' package is installed.");
               }
             }}
           >
@@ -672,17 +725,26 @@ export default function UsersTable({ canDelete = false }: UsersTableProps) {
             onChange={async (e) => {
               const f = e.currentTarget.files && e.currentTarget.files[0];
               if (!f) return;
+              setLoading(true);
               try {
                 const arrayBuffer = await f.arrayBuffer();
-                
                 const XLSX = await import("xlsx");
                 const workbook = XLSX.read(arrayBuffer, { type: "array" });
                 const sheetName = workbook.SheetNames[0];
                 const sheet = workbook.Sheets[sheetName];
                 const data: Record<string, unknown>[] = XLSX.utils.sheet_to_json(sheet);
-                if (!data || data.length === 0) return alert("No rows found in the uploaded file.");
+                
+                if (!data || data.length === 0) {
+                  alert("⚠️ No rows found in the uploaded file.");
+                  setLoading(false);
+                  return;
+                }
+                
                 const proceed = confirm(`Parsed ${data.length} rows. Upload to server as users?`);
-                if (!proceed) return console.log(data);
+                if (!proceed) {
+                  setLoading(false);
+                  return;
+                }
                 // attempt to add each row (best-effort) - use safe extractor for unknown-typed rows
                 const getVal = (r: Record<string, unknown>, ...keys: string[]) => {
                   for (const k of keys) {
@@ -719,16 +781,16 @@ export default function UsersTable({ canDelete = false }: UsersTableProps) {
                     results.fail += 1;
                   }
                 }
-                alert(`Import finished. Success: ${results.success}, Fail: ${results.fail}`);
-                fetchAll();
-              } catch (err) {
-                console.error(err);
-                alert("Failed to parse XLSX file. See console for details.");
-              } finally {
-                // reset input
-                if (fileInputRef.current) fileInputRef.current.value = "";
-              }
-            }}
+                alert(`✅ Import finished. Success: ${results.success}, Fail: ${results.fail}`);
+                  fetchAll();
+                } catch (err) {
+                  console.error("Import error:", err);
+                  alert("❌ Failed to parse XLSX file. Please check the file format.");
+                } finally {
+                  setLoading(false);
+                  if (fileInputRef.current) fileInputRef.current.value = "";
+                }
+              }}
           />
 
           <Button onClick={() => fileInputRef.current && fileInputRef.current.click()}>Import XLSX</Button>
@@ -743,6 +805,7 @@ export default function UsersTable({ canDelete = false }: UsersTableProps) {
               onClick={async () => {
                 const code = String(deptCode || "").toUpperCase().trim();
                 if (!code) return alert("Please provide a department code.");
+                setLoading(true);
                 try {
                   const res = await fetch("../../../api/department/add", {
                     method: "POST",
@@ -750,15 +813,18 @@ export default function UsersTable({ canDelete = false }: UsersTableProps) {
                     body: JSON.stringify({ code }),
                   });
                   const json = await res.json();
-                  if (json && json.success) {
+                  if (json.success) {
                     setDeptCode("");
                     fetchDept();
+                    alert(`✅ Department "${code}" created successfully!`);
                   } else {
-                    alert(json.message || "Add department failed");
+                    alert(json.message || "❌ Failed to add department.");
                   }
                 } catch (err) {
                   console.error(err);
-                  alert("Add department request failed");
+                  alert("❌ Failed to add department. Please try again.");
+                } finally {
+                  setLoading(false);
                 }
               }}
             >
@@ -780,49 +846,56 @@ export default function UsersTable({ canDelete = false }: UsersTableProps) {
                     <Table.Td><b>{d.code}</b></Table.Td>
                     <Table.Td>
                       <Group>
-                        <Button size="xs" onClick={async () => {
-                          const newCode = String(prompt(`New code for ${d.code}:`, d.code) || "").toUpperCase().trim();
-                          if (!newCode) return;
-                          if (newCode === d.code) return;
-                          try {
-                            const res = await fetch(`../../../api/department/edit`, {
-                              method: "POST",
-                              headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({ id: d.id, code: d.code, newCode: newCode }),
-                            });
-                            const json = await res.json();
-                            if (json && json.success) {
-                              // refresh departments and users so renamed department shows immediately
-                              await fetchDept();
-                              await fetchAll();
-                            } else {
-                              alert(json.message || "Edit department failed");
-                            }
-                          } catch (err) {
-                            console.error(err);
-                            alert("Edit department request failed");
+                      <Button size="xs" onClick={async () => {
+                        const newCode = String(prompt(`New code for ${d.code}:`, d.code) || "").toUpperCase().trim();
+                        if (!newCode) return;
+                        if (newCode === d.code) return;
+                        setLoading(true);
+                        try {
+                          const res = await fetch(`../../../api/department/edit`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ id: d.id, code: d.code, newCode: newCode }),
+                          });
+                          const json = await res.json();
+                          if (json.success) {
+                            await fetchDept();
+                            await fetchAll();
+                            alert(`✅ Department renamed from "${d.code}" to "${newCode}"!`);
+                          } else {
+                            alert(json.message || "❌ Failed to edit department.");
                           }
-                        }}>Edit</Button>
-                        <Button size="xs" color="red" variant="outline" disabled={!canDelete} onClick={async () => {
-                          if (!confirm(`Delete department ${d.code}? This will fail if users are assigned.`)) return;
-                          try {
-                            const res = await fetch(`../../../api/department/delete`, {
-                              method: "POST",
-                              headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({ id: d.id }),
-                            });
-                            const json = await res.json();
-                            if (json && json.success) {
-                              fetchDept();
-                              fetchAll();
-                            } else {
-                              alert(json.message || "Delete department failed");
-                            }
-                          } catch (err) {
-                            console.error(err);
-                            alert("Delete department request failed");
+                        } catch (err) {
+                          console.error(err);
+                          alert("❌ Failed to edit department.");
+                        } finally {
+                          setLoading(false);
+                        }
+                      }}>Edit</Button>
+                      <Button size="xs" color="red" variant="outline" disabled={!canDelete} onClick={async () => {
+                        if (!confirm(`Delete department ${d.code}? This will fail if users are assigned.`)) return;
+                        setLoading(true);
+                        try {
+                          const res = await fetch(`../../../api/department/delete`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ id: d.id }),
+                          });
+                          const json = await res.json();
+                          if (json.success) {
+                            fetchDept();
+                            fetchAll();
+                            alert(`✅ Department "${d.code}" deleted successfully!`);
+                          } else {
+                            alert(json.message || "❌ Failed to delete department. It may have users assigned.");
                           }
-                        }}>Delete</Button>
+                        } catch (err) {
+                          console.error(err);
+                          alert("❌ Failed to delete department.");
+                        } finally {
+                          setLoading(false);
+                        }
+                      }}>Delete</Button>
                       </Group>
                     </Table.Td>
                   </Table.Tr>
@@ -851,12 +924,13 @@ export default function UsersTable({ canDelete = false }: UsersTableProps) {
               data={departments.map((d) => ({ value: d.code, label: d.code }))}
               value={form.departmentCode}
               onChange={(val) => setForm({ ...form, departmentCode: val || "" })}
+              searchable
               required
               placeholder={departments.length === 0 ? "No departments" : "Select department"}
             />
             <Select
               label="Role"
-              data={["Staff", "OIC", "DepartmentHead", "SuperUser", "Admin"]}
+              data={["Staff", "OIC", "DepartmentHead", "SuperUser", "Admin", "Faculty"]}
               value={form.role}
               onChange={(val) => setForm({ ...form, role: val || "Staff" })}
             />

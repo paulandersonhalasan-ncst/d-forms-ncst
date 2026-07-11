@@ -814,26 +814,28 @@ export default function IOMDashboardPage() {
             )}
             {!isAdminOrSuper && (
               <>
-                <Tabs.Tab value="inbox" leftSection={<IconInbox size={15} />}>
-                  Incoming Memos{' '}
-                  <Badge size="xs" variant="light" ml={6}>{incomingMemos.length}</Badge>
-                </Tabs.Tab>
+                {/* Incoming Memos - Department Head / OIC only */}
+                {isDepartmentHead && (
+                  <Tabs.Tab value="inbox" leftSection={<IconInbox size={15} />}>
+                    Incoming Memos{' '}
+                    <Badge size="xs" variant="light" ml={6}>{incomingMemos.length}</Badge>
+                  </Tabs.Tab>
+                )}
+                
                 <Tabs.Tab value="action_board" leftSection={<IconPlayerPlay size={15} />}>
                   Action Board Workspace{' '}
                   <Badge size="xs" variant="light" ml={6}>{actionBoardMemos.length}</Badge>
                 </Tabs.Tab>
+                
                 <Tabs.Tab value="ongoing_sent" leftSection={<IconSend size={15} />}>
                   Ongoing Sent{' '}
                   <Badge size="xs" variant="light" ml={6}>{ongoingSentMemos.length}</Badge>
                 </Tabs.Tab>
+                
                 <Tabs.Tab value="sentby_user" leftSection={<IconSend size={15} />}>
                   Sent by You{' '}
                   <Badge size="xs" variant="light" ml={6}>{sentByUserMemos.length}</Badge>
                 </Tabs.Tab>
-                {/* <Tabs.Tab value="closed_sent" leftSection={<IconCircleCheck size={15} />}>
-                  Closed Sent{' '}
-                  <Badge size="xs" variant="light" ml={6}>{closedSentMemos.length}</Badge>
-                </Tabs.Tab> */}
               </>
             )}
             <Tabs.Tab value="closed" leftSection={<IconCircleCheck size={15} />}>

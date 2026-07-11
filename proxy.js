@@ -79,7 +79,7 @@ export async function proxy(request) {
   }
 
   if (request.nextUrl.pathname.startsWith('/dashboard/staff')) {
-    const denied = denyIfNotRole(['Staff']);
+    const denied = denyIfNotRole(['Staff', 'Faculty']);
     if (denied) return denied;
   }
 
@@ -97,17 +97,22 @@ export async function proxy(request) {
   // FRONTEND AUTHENTICATED LOGIN REDIRECT HANDLER
   // ----------------------------------------------------------------
   // 🛠️ Palitan mo ang dulo ng iyong proxy.js (ang redirect handler) gamit ito:
-  if (request.nextUrl.pathname === '/' && user) {
-    // Gumamit ng request.nextUrl.clone() para manatili sa tamang LAN IP base domain
-    const targetUrl = request.nextUrl.clone();
+  // if (request.nextUrl.pathname === '/' && user) {
+  //   // Gumamit ng request.nextUrl.clone() para manatili sa tamang LAN IP base domain
+  //   const targetUrl = request.nextUrl.clone();
     
-    if (role === 'SuperUser') targetUrl.pathname = '/dashboard/superuser';
-    else if (role === 'DepartmentHead') targetUrl.pathname = '/dashboard/dept_head';
-    else if (role === 'Staff') targetUrl.pathname = '/dashboard/staff';
-    else if (role === 'Admin') targetUrl.pathname = '/dashboard/admin';
-    else if (role === 'OIC') targetUrl.pathname = '/dashboard/oic';
-    else return NextResponse.next();
+  //   if (role === 'SuperUser') targetUrl.pathname = '/dashboard/superuser';
+  //   else if (role === 'DepartmentHead') targetUrl.pathname = '/dashboard/dept_head';
+  //   else if (role === 'Staff' || role === 'Faculty') targetUrl.pathname = '/dashboard/staff';
+  //   else if (role === 'Admin') targetUrl.pathname = '/dashboard/admin';
+  //   else if (role === 'OIC') targetUrl.pathname = '/dashboard/oic';
+  //   else return NextResponse.next();
 
+  //   return NextResponse.redirect(targetUrl);
+  // }
+  if (request.nextUrl.pathname === '/' && user) {
+    const targetUrl = request.nextUrl.clone();
+    targetUrl.pathname = '/dashboard/analytics'; // Lahat ng users, i-redirect sa /dashboard
     return NextResponse.redirect(targetUrl);
   }
 }

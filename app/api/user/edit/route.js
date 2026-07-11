@@ -125,7 +125,19 @@ export async function POST(request) {
 
     // log edit activity
     try {
-      await logActivity({ req: request, userId: requesterId, email: requesterEmail || null, action: "EDIT_USERS", details: JSON.stringify({ updated: updatedUsers.map((u) => u.id) }) });
+      await logActivity({ 
+        req: request, 
+        userId: requesterId, 
+        email: requesterEmail || null, 
+        action: "EDIT_USERS", 
+        details: JSON.stringify({ 
+          updated: updatedUsers.map((u) => ({
+            id: u.id,
+            employee_id: u.employee_id,
+            email: u.email
+          }))
+        }) 
+      });
     } catch (err) {
       console.error("Failed to log edit users activity:", err);
     }
