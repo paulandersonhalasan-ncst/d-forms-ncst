@@ -106,7 +106,7 @@ export default function PasswordGateModal({
         )}
 
         {/* File upload for recipient RESOLVE (not sender closing) */}
-        {pendingAction?.type === 'CLOSED' && !pendingAction?.data?.isSenderClosing && (
+        {/* {pendingAction?.type === 'CLOSED' && !pendingAction?.data?.isSenderClosing && (
           <FileInput
             label="Supporting Attachment (Optional)"
             description="Upload proof of completion or signed document."
@@ -116,7 +116,7 @@ export default function PasswordGateModal({
             rightSection={<IconFile size={14} />}
             clearable
           />
-        )}
+        )} */}
 
         <PasswordInput
           label="Confirm Security Password / Signature"
