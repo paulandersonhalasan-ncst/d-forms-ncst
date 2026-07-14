@@ -1,8 +1,11 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Table, Badge, Card, Text, Group, Stack, Code, ScrollArea, TextInput, UnstyledButton, Button, LoadingOverlay } from "@mantine/core";
+import { Table, Badge, Card, Text, Group, Stack, Code, ScrollArea, TextInput, UnstyledButton, Button, LoadingOverlay, SegmentedControl } from "@mantine/core";
 import { IconSearch, IconTerminal2, IconChevronDown, IconChevronUp, IconSelector, IconDownload } from "@tabler/icons-react";
+import {
+  DatePicker,
+} from "@mantine/dates";
 
 interface AuditLog {
   id: string;
@@ -131,22 +134,65 @@ export default function AuditLogsTable() {
   const [sortField, setSortField] = useState<SortField | null>(null);
   const [reverseSortDirection, setReverseSortDirection] = useState(false);
 
+  const [timeRange, setTimeRange] = useState<
+    "day" | "week" | "month" | "custom" | "all"
+  >("all");
+
+  const [customDates, setCustomDates] = useState<
+    [string | null, string | null]
+  >([null, null]);
+
   useEffect(() => {
     async function fetchLogs() {
       try {
-        const res = await fetch("/api/auditlogs/get");
-        const json = await res.json();
+        setLoading(true);
+
+        const query =
+          new URLSearchParams();
+
+        query.set(
+          "timeRange",
+          timeRange
+        );
+
+        if (
+          timeRange === "custom" &&
+          customDates[0] &&
+          customDates[1]
+        ) {
+          query.set(
+            "startDate",
+            customDates[0]
+          );
+
+          query.set(
+            "endDate",
+            customDates[1]
+          );
+        }
+
+        const res = await fetch(
+          `/api/auditlogs/get?${query.toString()}`
+        );
+
+        const json =
+          await res.json();
+
         if (json.success) {
           setLogs(json.data);
         }
       } catch (e) {
-        console.error("Error fetching logs hook:", e);
+        console.error(e);
       } finally {
         setLoading(false);
       }
     }
+
     fetchLogs();
-  }, []);
+  }, [
+    timeRange,
+    customDates,
+  ]);
 
   const handleSort = (field: SortField) => {
     const reversed = field === sortField ? !reverseSortDirection : false;
@@ -327,6 +373,48 @@ export default function AuditLogsTable() {
               This is a table of all activity logs throughout NCST E-Forms. For Admin/SuperUser access only. Contact your Department Head/NCST E-Forms Admin if you are not supposed to access this feature.
             </Text>
           </div>
+
+          <Group gap="sm" wrap="wrap">
+            <SegmentedControl
+              value={timeRange}
+              onChange={(value) =>
+                setTimeRange(
+                  value as typeof timeRange
+                )
+              }
+              data={[
+                {
+                  label: "Today",
+                  value: "day",
+                },
+                {
+                  label: "Week",
+                  value: "week",
+                },
+                {
+                  label: "Month",
+                  value: "month",
+                },
+                {
+                  label: "Custom",
+                  value: "custom",
+                },
+                {
+                  label: "All",
+                  value: "all",
+                },
+              ]}
+            />
+
+            {timeRange === "custom" && (
+              <DatePicker
+                type="range"
+                allowSingleDateInRange
+                value={customDates}
+                onChange={setCustomDates}
+              />
+            )}
+          </Group>
           
           {/* 🎯 RIGHT-SIDE ACTION CONTROLS */}
           <Group gap="sm">

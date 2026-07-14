@@ -9,7 +9,6 @@ import {
   Text,
   Button,
   Badge,
-  Tabs,
   Stack,
   Alert,
   SimpleGrid,
@@ -20,8 +19,10 @@ import {
   SegmentedControl,
   RingProgress,
   useMantineTheme,
-  useMantineColorScheme
+  useMantineColorScheme,
+  Popover,
 } from '@mantine/core';
+import { DatePicker } from '@mantine/dates';
 import {
   IconChevronLeft,
   IconChevronRight,
@@ -29,27 +30,40 @@ import {
   IconSend,
   IconInbox,
   IconTrendingUp,
-  IconChartPie
+  IconChartPie,
 } from '@tabler/icons-react';
 import useSWR from 'swr';
 import { PieChart, LineChart, BarChart } from '@mantine/charts';
 import { UserContext } from '../../dashboard/forms/iom/component/types';
 import dayjs from 'dayjs';
 
-const fetcher = (url: string) => fetch(url).then(res => res.json());
+const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
 export default function AnalyticsPage() {
   const theme = useMantineTheme();
   const { colorScheme } = useMantineColorScheme();
   const isDark = colorScheme === 'dark';
+
+  // --- User & Department ---
   const [currentUser, setCurrentUser] = useState<UserContext | null>(null);
   const [selectedDept, setSelectedDept] = useState<string>('');
   const [departments, setDepartments] = useState<{ value: string; label: string }[]>([]);
-  const [timeRange, setTimeRange] = useState<'day' | 'week' | 'month' | 'all'>('day');
-  const [baseDate, setBaseDate] = useState(new Date());
   const [pageLoading, setPageLoading] = useState(true);
 
-  // Fetch current user
+  // --- Date Filter States ---
+  const [timeRange, setTimeRange] = useState<'day' | 'week' | 'month' | 'all' | 'custom'>('day');
+  const [baseDate, setBaseDate] = useState(new Date());
+
+
+  // Custom date range as [start, end] in 'YYYY-MM-DD' format
+  const [customDates, setCustomDates] =
+  useState<[string | null, string | null]>([
+    null,
+    null,
+  ]);
+  const [datePickerOpened, setDatePickerOpened] = useState(false);
+
+  // --- Fetch user ---
   useEffect(() => {
     const fetchUser = async () => {
       try {
@@ -68,7 +82,7 @@ export default function AnalyticsPage() {
     fetchUser();
   }, []);
 
-  // Fetch departments for admin/superuser
+  // --- Fetch departments for admin/superuser ---
   useEffect(() => {
     if (currentUser && ['Admin', 'SuperUser'].includes(currentUser.role)) {
       const fetchDepts = async () => {
@@ -93,12 +107,27 @@ export default function AnalyticsPage() {
   const isAdminOrSuper = currentUser && ['Admin', 'SuperUser'].includes(currentUser.role);
   const effectiveDept = isAdminOrSuper ? selectedDept : currentUser?.departmentCode;
 
-  // ✅ Tama ang API endpoint
+  // --- Build API URL with query params ---
   const queryParams = new URLSearchParams({
     departmentCode: effectiveDept || '',
     timeRange,
-    ...(timeRange !== 'all' && { date: baseDate.toISOString() }),
+    ...(timeRange !== 'all' && timeRange !== 'custom' && { date: baseDate.toISOString() }),
   });
+
+  if (timeRange === 'custom') {
+    const [start, end] = customDates;
+    if (start) {
+      // Convert to ISO with start of day (00:00:00)
+      const startDate = dayjs(start).format('YYYY-MM-DD');
+      queryParams.append('startDate', startDate);
+    }
+    if (end) {
+      // Convert to ISO with end of day (23:59:59.999)
+      const endDate = dayjs(end).format('YYYY-MM-DD');
+      queryParams.append('endDate', endDate);
+    }
+  }
+
   const url = `/api/analytics?${queryParams.toString()}`;
 
   const { data, error } = useSWR(url, fetcher, {
@@ -106,6 +135,7 @@ export default function AnalyticsPage() {
     revalidateOnFocus: true,
   });
 
+  // --- Navigation for day/week/month ---
   const navigateDate = (direction: 'prev' | 'next') => {
     const newDate = new Date(baseDate);
     if (timeRange === 'day') newDate.setDate(newDate.getDate() + (direction === 'next' ? 1 : -1));
@@ -126,6 +156,23 @@ export default function AnalyticsPage() {
     return '';
   };
 
+  // --- Dynamic label for 'custom' segment ---
+  const customLabel =
+    customDates[0] && customDates[1]
+      ? `${dayjs(customDates[0]).format('MMM D')} - ${dayjs(customDates[1]).format('MMM D')}`
+      : customDates[0]
+      ? `Custom: ${dayjs(customDates[0]).format('MMM D')}`
+      : 'Custom';
+
+  const segmentData = [
+    { label: 'Day', value: 'day' },
+    { label: 'Week', value: 'week' },
+    { label: 'Month', value: 'month' },
+    { label: 'All Time', value: 'all' },
+    { label: customLabel, value: 'custom' },
+  ];
+
+  // --- Loading & Error states ---
   if (pageLoading) {
     return (
       <Container size="xl" py="lg">
@@ -152,7 +199,7 @@ export default function AnalyticsPage() {
 
   const analytics = data?.data;
 
-  // 🎨 Gamitin ang theme colors para cohesive
+  // --- Chart Colors ---
   const chartColors = [
     theme.colors.regalNavy?.[6] || '#377ff5',
     theme.colors.regalNavy?.[4] || '#4a8ff5',
@@ -186,49 +233,10 @@ export default function AnalyticsPage() {
       }))
     : [];
 
-  // 🎯 Gamitin ang dynamicBg at dynamicText mula sa theme
-  const bgColor = theme.colors.dynamicBg?.[0] || '#fff8f2';
+  // --- Theme variables ---
   const cardBg = isDark ? theme.colors.dark[7] : theme.white;
   const cardBorder = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)';
   const textColor = isDark ? theme.white : theme.black;
-
-    const ChartCard = ({
-        title,
-        subtitle,
-        children,
-        }: {
-        title: string;
-        subtitle?: string;
-        children: React.ReactNode;
-        }) => (
-        <Paper
-            withBorder
-            radius="xl"
-            p="lg"
-            h="100%"
-        >
-            <Group justify="space-between" mb="lg">
-            <div>
-                <Text fw={700}>
-                {title}
-                </Text>
-
-                <Text size="xs" c="dimmed">
-                {subtitle}
-                </Text>
-            </div>
-
-            <ThemeIcon
-                variant="light"
-                radius="xl"
-            >
-                <IconChartPie size={18} />
-            </ThemeIcon>
-            </Group>
-
-            {children}
-        </Paper>
-        );
 
   return (
     <Container size="xl" py="lg">
@@ -237,7 +245,7 @@ export default function AnalyticsPage() {
         radius="lg"
         p="xl"
         shadow="sm"
-        style={{ 
+        style={{
           backgroundColor: cardBg,
           borderColor: cardBorder,
         }}
@@ -253,133 +261,149 @@ export default function AnalyticsPage() {
 
         {/* Filters */}
         <Paper
-            withBorder
-            radius="xl"
-            p="lg"
-            mb="lg"
-            style={{
-                background: cardBg,
-                borderColor: cardBorder,
-            }}
-            >
-            <Group align="flex-end" wrap="wrap" gap="md">
-                {isAdminOrSuper && (
-                <Select
-                    label="Department"
-                    data={departments}
-                    value={selectedDept}
-                    onChange={(val) => setSelectedDept(val || '')}
-                    style={{ width: 220 }}
-                />
-                )}
+          withBorder
+          radius="xl"
+          p="lg"
+          mb="lg"
+          style={{
+            background: cardBg,
+            borderColor: cardBorder,
+          }}
+        >
+          <Group align="flex-end" wrap="wrap" gap="md">
+            {isAdminOrSuper && (
+              <Select
+                label="Department"
+                data={departments}
+                value={selectedDept}
+                onChange={(val) => setSelectedDept(val || '')}
+                style={{ width: 220 }}
+              />
+            )}
 
-                <Stack gap={5}>
+            {/* Navigation for day/week/month (hidden when custom or all) */}
+            {!['all', 'custom'].includes(timeRange) && (
+              <Stack gap={5}>
                 <Text size="sm" fw={500}>
-                    Date Range
+                  Navigate
                 </Text>
-
-                {timeRange !== 'all' ? (
-                  <Group gap="xs">
-                    <Button variant="light" onClick={() => navigateDate('prev')}>
-                      <IconChevronLeft size={16} />
-                    </Button>
-                    <Paper withBorder p="sm" radius="md" style={{ minWidth: 220 }}>
-                      <Text ta="center" fw={600}>{getDateLabel()}</Text>
-                    </Paper>
-                    <Button variant="light" onClick={() => navigateDate('next')}>
-                      <IconChevronRight size={16} />
-                    </Button>
-                  </Group>
-                ) : (
-                  <Paper withBorder p="sm" radius="md" style={{ minWidth: 220 }}>
-                    <Text ta="center" fw={600}>All Time</Text>
+                <Group gap="xs">
+                  <Button variant="light" onClick={() => navigateDate('prev')}>
+                    <IconChevronLeft size={16} />
+                  </Button>
+                  <Paper withBorder p="sm" radius="md" style={{ minWidth: 150 }}>
+                    <Text ta="center" fw={600}>
+                      {getDateLabel()}
+                    </Text>
                   </Paper>
-                )}
-                </Stack>
+                  <Button variant="light" onClick={() => navigateDate('next')}>
+                    <IconChevronRight size={16} />
+                  </Button>
+                </Group>
+              </Stack>
+            )}
 
-                <Stack gap={5}>
-                <Text size="sm" fw={500}>
-                    View
-                </Text>
+            {/* Date Range Segmented Control with Popover */}
+            <Stack gap={5}>
+              <Text fw={500} size="sm">
+                Date Range
+              </Text>
 
-                <SegmentedControl
-                  value={timeRange}
-                  onChange={(v) => setTimeRange(v as 'day' | 'week' | 'month' | 'all')}
-                  data={[
-                    { label: 'Day', value: 'day' },
-                    { label: 'Week', value: 'week' },
-                    { label: 'Month', value: 'month' },
-                    { label: 'All Time', value: 'all' },
-                  ]}
+              <SegmentedControl
+                value={timeRange}
+                onChange={(value) =>
+                  setTimeRange(value as typeof timeRange)
+                }
+                data={[
+                  {
+                    label: 'Day',
+                    value: 'day',
+                  },
+                  {
+                    label: 'Week',
+                    value: 'week',
+                  },
+                  {
+                    label: 'Month',
+                    value: 'month',
+                  },
+                  {
+                    label: 'Custom',
+                    value: 'custom',
+                  },
+                  {
+                    label: 'All',
+                    value: 'all',
+                  },
+                ]}
+              />
+
+              {timeRange === 'custom' && (
+                <DatePicker
+                  type="range"
+                  allowSingleDateInRange
+                  maxDate={new Date()}
+                  value={customDates}
+                  onChange={setCustomDates}
                 />
-                </Stack>
-            </Group>
-            </Paper>
+              )}
+            </Stack>
+          </Group>
+        </Paper>
+
+        {/* Main content – charts and stats (unchanged) */}
         {!analytics ? (
           <Loader />
         ) : (
           <Stack gap="lg">
             {/* Overview Cards */}
             <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }}>
-                {[
-                    {
-                    label: 'Total Memos',
-                    value: analytics.overview.total,
-                    icon: IconFileText,
-                    color: 'blue',
-                    },
-                    {
-                    label: 'Sent',
-                    value: analytics.overview.sent,
-                    icon: IconSend,
-                    color: 'cyan',
-                    },
-                    {
-                    label: 'Received',
-                    value: analytics.overview.received,
-                    icon: IconInbox,
-                    color: 'grape',
-                    },
-                    {
-                    label: 'Active',
-                    value: analytics.overview.active,
-                    icon: IconTrendingUp,
-                    color: 'green',
-                    },
-                ].map((stat) => {
-                    const Icon = stat.icon;
-
-                    return (
-                    <Paper
-                        key={stat.label}
-                        withBorder
-                        radius="xl"
-                        p="lg"
-                    >
-                        <Group justify="space-between">
-                        <Stack gap={0}>
-                            <Text size="sm" c="dimmed">
-                            {stat.label}
-                            </Text>
-
-                            <Text fw={900} fz={34}>
-                            {stat.value}
-                            </Text>
-                        </Stack>
-
-                        <ThemeIcon
-                            size={60}
-                            radius="xl"
-                            color={stat.color}
-                            variant="light"
-                        >
-                            <Icon size={30} />
-                        </ThemeIcon>
-                        </Group>
-                    </Paper>
-                    );
-                })}
-                </SimpleGrid>
+              {[
+                {
+                  label: 'Total Memos',
+                  value: analytics.overview.total,
+                  icon: IconFileText,
+                  color: 'blue',
+                },
+                {
+                  label: 'Sent',
+                  value: analytics.overview.sent,
+                  icon: IconSend,
+                  color: 'cyan',
+                },
+                {
+                  label: 'Received',
+                  value: analytics.overview.received,
+                  icon: IconInbox,
+                  color: 'grape',
+                },
+                {
+                  label: 'Active',
+                  value: analytics.overview.active,
+                  icon: IconTrendingUp,
+                  color: 'green',
+                },
+              ].map((stat) => {
+                const Icon = stat.icon;
+                return (
+                  <Paper key={stat.label} withBorder radius="xl" p="lg">
+                    <Group justify="space-between">
+                      <Stack gap={0}>
+                        <Text size="sm" c="dimmed">
+                          {stat.label}
+                        </Text>
+                        <Text fw={900} fz={34}>
+                          {stat.value}
+                        </Text>
+                      </Stack>
+                      <ThemeIcon size={60} radius="xl" color={stat.color} variant="light">
+                        <Icon size={30} />
+                      </ThemeIcon>
+                    </Group>
+                  </Paper>
+                );
+              })}
+            </SimpleGrid>
 
             {/* Charts Row */}
             <SimpleGrid cols={{ base: 1, md: 3 }} spacing="lg">
@@ -387,151 +411,114 @@ export default function AnalyticsPage() {
                 withBorder
                 p="md"
                 radius="md"
-                style={{ 
-                  backgroundColor: cardBg,
-                  borderColor: cardBorder,
-                }}
+                style={{ backgroundColor: cardBg, borderColor: cardBorder }}
               >
                 <Text fw={600} mb="md" style={{ color: textColor }}>
                   Status Distribution
                 </Text>
                 <>
-                    <PieChart
-                        data={statusData}
-                        withLabels={false}
-                        withTooltip
-                        size={220}
-                        mx="auto"
-                    />
-
-                    <Stack gap={8} mt="lg">
-                        {statusData.map((item) => (
-                        <Group
-                            key={item.name}
-                            justify="space-between"
-                        >
-                            <Group gap={8}>
-                            <div
-                                style={{
-                                width: 12,
-                                height: 12,
-                                borderRadius: 999,
-                                background: item.color,
-                                }}
-                            />
-
-                            <Text size="sm">
-                                {item.name}
-                            </Text>
-                            </Group>
-
-                            <Badge variant="light">
-                            {item.value}
-                            </Badge>
+                  <PieChart
+                    data={statusData}
+                    withLabels={false}
+                    withTooltip
+                    size={220}
+                    mx="auto"
+                  />
+                  <Stack gap={8} mt="lg">
+                    {statusData.map((item) => (
+                      <Group key={item.name} justify="space-between">
+                        <Group gap={8}>
+                          <div
+                            style={{
+                              width: 12,
+                              height: 12,
+                              borderRadius: 999,
+                              background: item.color,
+                            }}
+                          />
+                          <Text size="sm">{item.name}</Text>
                         </Group>
-                        ))}
-                    </Stack>
-                    </>
+                        <Badge variant="light">{item.value}</Badge>
+                      </Group>
+                    ))}
+                  </Stack>
+                </>
               </Paper>
+
               <Paper
                 withBorder
                 p="md"
                 radius="md"
-                style={{ 
-                  backgroundColor: cardBg,
-                  borderColor: cardBorder,
-                }}
+                style={{ backgroundColor: cardBg, borderColor: cardBorder }}
               >
                 <Text fw={600} mb="md" style={{ color: textColor }}>
                   Priority Distribution
                 </Text>
                 <>
-                    <PieChart
-                        data={priorityData}
-                        withLabels={false}
-                        withTooltip
-                        size={220}
-                        mx="auto"
-                    />
-
-                    <Stack gap={8} mt="lg">
-                        {priorityData.map((item) => (
-                        <Group
-                            key={item.name}
-                            justify="space-between"
-                        >
-                            <Group gap={8}>
-                            <div
-                                style={{
-                                width: 12,
-                                height: 12,
-                                borderRadius: 999,
-                                background: item.color,
-                                }}
-                            />
-
-                            <Text size="sm">
-                                {item.name}
-                            </Text>
-                            </Group>
-
-                            <Badge variant="light">
-                            {item.value}
-                            </Badge>
+                  <PieChart
+                    data={priorityData}
+                    withLabels={false}
+                    withTooltip
+                    size={220}
+                    mx="auto"
+                  />
+                  <Stack gap={8} mt="lg">
+                    {priorityData.map((item) => (
+                      <Group key={item.name} justify="space-between">
+                        <Group gap={8}>
+                          <div
+                            style={{
+                              width: 12,
+                              height: 12,
+                              borderRadius: 999,
+                              background: item.color,
+                            }}
+                          />
+                          <Text size="sm">{item.name}</Text>
                         </Group>
-                        ))}
-                    </Stack>
-                    </>
+                        <Badge variant="light">{item.value}</Badge>
+                      </Group>
+                    ))}
+                  </Stack>
+                </>
               </Paper>
+
               <Paper
                 withBorder
                 p="md"
                 radius="md"
-                style={{ 
-                  backgroundColor: cardBg,
-                  borderColor: cardBorder,
-                }}
+                style={{ backgroundColor: cardBg, borderColor: cardBorder }}
               >
                 <Text fw={600} mb="md" style={{ color: textColor }}>
                   Purpose Distribution
                 </Text>
                 <>
-            <PieChart
-                data={purposeData}
-                withLabels={false}
-                withTooltip
-                size={220}
-                mx="auto"
-            />
-
-            <Stack gap={8} mt="lg">
-                {purposeData.map((item) => (
-                <Group
-                    key={item.name}
-                    justify="space-between"
-                >
-                    <Group gap={8}>
-                    <div
-                        style={{
-                        width: 12,
-                        height: 12,
-                        borderRadius: 999,
-                        background: item.color,
-                        }}
-                    />
-
-                    <Text size="sm">
-                        {item.name}
-                    </Text>
-                    </Group>
-
-                    <Badge variant="light">
-                    {item.value}
-                    </Badge>
-                </Group>
-                ))}
-            </Stack>
-            </>
+                  <PieChart
+                    data={purposeData}
+                    withLabels={false}
+                    withTooltip
+                    size={220}
+                    mx="auto"
+                  />
+                  <Stack gap={8} mt="lg">
+                    {purposeData.map((item) => (
+                      <Group key={item.name} justify="space-between">
+                        <Group gap={8}>
+                          <div
+                            style={{
+                              width: 12,
+                              height: 12,
+                              borderRadius: 999,
+                              background: item.color,
+                            }}
+                          />
+                          <Text size="sm">{item.name}</Text>
+                        </Group>
+                        <Badge variant="light">{item.value}</Badge>
+                      </Group>
+                    ))}
+                  </Stack>
+                </>
               </Paper>
             </SimpleGrid>
 
@@ -540,13 +527,12 @@ export default function AnalyticsPage() {
               withBorder
               p="md"
               radius="md"
-              style={{ 
-                backgroundColor: cardBg,
-                borderColor: cardBorder,
-              }}
+              style={{ backgroundColor: cardBg, borderColor: cardBorder }}
             >
               <Text fw={600} mb="md" style={{ color: textColor }}>
-                Memo Trends
+                {timeRange === 'day'
+                  ? 'Hourly Memo Activity'
+                  : 'Memo Trends'}
               </Text>
               {analytics.trends && analytics.trends.length > 0 ? (
                 <LineChart
@@ -562,10 +548,10 @@ export default function AnalyticsPage() {
                   activeDotProps={{ r: 7, stroke: isDark ? '#fff' : '#000', strokeWidth: 2 }}
                   strokeWidth={3}
                   tooltipAnimationDuration={200}
-                  legendProps={{ 
-                    verticalAlign: 'bottom', 
+                  legendProps={{
+                    verticalAlign: 'bottom',
                     height: 40,
-                    wrapperStyle: { paddingTop: 10 }
+                    wrapperStyle: { paddingTop: 10 },
                   }}
                   tooltipProps={{
                     cursor: { fill: 'rgba(0, 0, 0, 0.05)' },
@@ -578,11 +564,15 @@ export default function AnalyticsPage() {
                           radius="md"
                           style={{
                             backgroundColor: isDark ? theme.colors.dark[6] : theme.white,
-                            border: `1px solid ${isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'}`,
+                            border: `1px solid ${
+                              isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'
+                            }`,
                             boxShadow: theme.shadows.sm,
                           }}
                         >
-                          <Text size="xs" c="dimmed" mb={4}>{label}</Text>
+                          <Text size="xs" c="dimmed" mb={4}>
+                            {label}
+                          </Text>
                           <Group gap="xs">
                             <div
                               style={{
@@ -592,12 +582,16 @@ export default function AnalyticsPage() {
                                 backgroundColor: theme.colors.regalNavy?.[6] || '#377ff5',
                               }}
                             />
-                            <Text fw={700} size="sm">{value}</Text>
-                            <Text size="xs" c="dimmed">memos</Text>
+                            <Text fw={700} size="sm">
+                              {value}
+                            </Text>
+                            <Text size="xs" c="dimmed">
+                              memos
+                            </Text>
                           </Group>
                         </Paper>
                       );
-                    }
+                    },
                   }}
                   valueFormatter={(value) => `${value} memos`}
                   gridAxis="xy"
@@ -610,16 +604,13 @@ export default function AnalyticsPage() {
               )}
             </Paper>
 
-            {/* Top Performers Row */}
+            {/* Top Senders & Recipients */}
             <SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
               <Paper
                 withBorder
                 p="md"
                 radius="md"
-                style={{ 
-                  backgroundColor: cardBg,
-                  borderColor: cardBorder,
-                }}
+                style={{ backgroundColor: cardBg, borderColor: cardBorder }}
               >
                 <Text fw={600} mb="md" style={{ color: textColor }}>
                   Top Senders (Incoming)
@@ -654,11 +645,15 @@ export default function AnalyticsPage() {
                             radius="md"
                             style={{
                               backgroundColor: isDark ? theme.colors.dark[6] : theme.white,
-                              border: `1px solid ${isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'}`,
+                              border: `1px solid ${
+                                isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'
+                              }`,
                               boxShadow: theme.shadows.sm,
                             }}
                           >
-                            <Text size="xs" c="dimmed" mb={4}>{label}</Text>
+                            <Text size="xs" c="dimmed" mb={4}>
+                              {label}
+                            </Text>
                             <Group gap="xs">
                               <div
                                 style={{
@@ -668,12 +663,16 @@ export default function AnalyticsPage() {
                                   backgroundColor: theme.colors.regalNavy?.[6] || '#377ff5',
                                 }}
                               />
-                              <Text fw={700} size="sm">{value}</Text>
-                              <Text size="xs" c="dimmed">memos</Text>
+                              <Text fw={700} size="sm">
+                                {value}
+                              </Text>
+                              <Text size="xs" c="dimmed">
+                                memos
+                              </Text>
                             </Group>
                           </Paper>
                         );
-                      }
+                      },
                     }}
                   />
                 ) : (
@@ -682,15 +681,12 @@ export default function AnalyticsPage() {
                   </Text>
                 )}
               </Paper>
-              
+
               <Paper
                 withBorder
                 p="md"
                 radius="md"
-                style={{ 
-                  backgroundColor: cardBg,
-                  borderColor: cardBorder,
-                }}
+                style={{ backgroundColor: cardBg, borderColor: cardBorder }}
               >
                 <Text fw={600} mb="md" style={{ color: textColor }}>
                   Top Recipients (Outgoing)
@@ -700,9 +696,11 @@ export default function AnalyticsPage() {
                     h={250}
                     data={analytics.topRecipients}
                     dataKey="department"
-                    tooltipAnimationDuration={200}
-                    series={[{ name: 'count', color: theme.colors.customCreamYellow?.[5] || '#feb625' }]}
+                    series={[
+                      { name: 'count', color: theme.colors.customCreamYellow?.[5] || '#feb625' },
+                    ]}
                     withTooltip
+                    tooltipAnimationDuration={200}
                     withLegend={false}
                     withBarValueLabel
                     valueFormatter={(value) => `${value}`}
@@ -725,26 +723,35 @@ export default function AnalyticsPage() {
                             radius="md"
                             style={{
                               backgroundColor: isDark ? theme.colors.dark[6] : theme.white,
-                              border: `1px solid ${isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'}`,
+                              border: `1px solid ${
+                                isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'
+                              }`,
                               boxShadow: theme.shadows.sm,
                             }}
                           >
-                            <Text size="xs" c="dimmed" mb={4}>{label}</Text>
+                            <Text size="xs" c="dimmed" mb={4}>
+                              {label}
+                            </Text>
                             <Group gap="xs">
                               <div
                                 style={{
                                   width: 12,
                                   height: 12,
                                   borderRadius: '50%',
-                                  backgroundColor: theme.colors.customCreamYellow?.[5] || '#feb625',
+                                  backgroundColor:
+                                    theme.colors.customCreamYellow?.[5] || '#feb625',
                                 }}
                               />
-                              <Text fw={700} size="sm">{value}</Text>
-                              <Text size="xs" c="dimmed">memos</Text>
+                              <Text fw={700} size="sm">
+                                {value}
+                              </Text>
+                              <Text size="xs" c="dimmed">
+                                memos
+                              </Text>
                             </Group>
                           </Paper>
                         );
-                      }
+                      },
                     }}
                   />
                 ) : (
@@ -756,50 +763,31 @@ export default function AnalyticsPage() {
             </SimpleGrid>
 
             {/* Average Processing Time */}
-            <Paper
-                withBorder
-                radius="xl"
-                p="xl"
-                >
-                <Group justify="space-between">
-                    <Stack gap={0}>
-                    <Text fw={700}>
-                        Average Processing Time
-                    </Text>
-
-                    <Text c="dimmed" size="sm">
-                        Closed memos only
-                    </Text>
-
-                    <Text fz={42} fw={900}>
-                        {analytics.averageProcessingTime}
-                    </Text>
-
-                    <Text c="dimmed">
-                        days
-                    </Text>
-                    </Stack>
-
-                    <RingProgress
-                    size={150}
-                    thickness={14}
-                    sections={[
-                        {
-                        value: Math.min(
-                            analytics.averageProcessingTime * 5,
-                            100
-                        ),
-                        color: 'blue',
-                        },
-                    ]}
-                    label={
-                        <Text ta="center" fw={800}>
-                        {analytics.averageProcessingTime}
-                        </Text>
-                    }
-                    />
-                </Group>
-                </Paper>
+            <Paper withBorder radius="xl" p="xl">
+              <Group justify="space-between">
+                <Stack gap={0}>
+                  <Text fw={700}>Average Processing Time</Text>
+                  <Text c="dimmed" size="sm">
+                    Closed memos only
+                  </Text>
+                  <Text fz={42} fw={900}>
+                    {analytics.averageProcessingTime}
+                  </Text>
+                  <Text c="dimmed">days</Text>
+                </Stack>
+                <RingProgress
+                  size={150}
+                  thickness={14}
+                  sections={[
+                    {
+                      value: Math.min(analytics.averageProcessingTime * 5, 100),
+                      color: 'blue',
+                    },
+                  ]}
+                  label={<Text ta="center" fw={800}>{analytics.averageProcessingTime}</Text>}
+                />
+              </Group>
+            </Paper>
           </Stack>
         )}
       </Card>

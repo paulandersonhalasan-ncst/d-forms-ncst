@@ -61,7 +61,14 @@ export async function GET(request) {
     const url = new URL(request.url);
     let departmentCode = url.searchParams.get('departmentCode');
     const timeRange = url.searchParams.get('timeRange') || 'day';
-    const dateParam = url.searchParams.get('date') || new Date().toISOString();
+    const now = new Date();
+    const dateParam =
+      url.searchParams.get('date') ||
+      `${now.getFullYear()}-${String(
+        now.getMonth() + 1
+      ).padStart(2, '0')}-${String(
+        now.getDate()
+      ).padStart(2, '0')}`;
 
     const userRole = authenticatedUser.role;
     const userDept = authenticatedUser.departmentCode;
@@ -76,11 +83,26 @@ export async function GET(request) {
       targetDept = userDept;
     }
 
+    // --- ✅ UPDATED: Date range logic with custom support ---
     let startDate, endDate;
+
     if (timeRange === 'all') {
-      // All time: from the beginning of time to now
-      startDate = new Date(0); // Jan 1, 1970
-      endDate = new Date(); // current date/time
+      startDate = new Date(0);
+      endDate = new Date();
+    } else if (timeRange === 'custom') {
+      const startParam = url.searchParams.get('startDate');
+      const endParam = url.searchParams.get('endDate');
+
+      if (startParam && endParam) {
+        startDate = new Date(`${startParam}T00:00:00`);
+        endDate = new Date(`${endParam}T23:59:59.999`);
+      } else {
+        // Fallback: gamitin ang kasalukuyang buwan
+        const now = new Date();
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        endDate.setHours(23, 59, 59, 999);
+      }
     } else {
       const baseDate = new Date(dateParam);
       if (timeRange === 'day') {
@@ -94,7 +116,6 @@ export async function GET(request) {
       }
     }
 
-    // --- 1. Overview ---
     const totalSent = await prisma.memo.count({
       where: {
         senderDept: targetDept,
@@ -163,30 +184,109 @@ export async function GET(request) {
       return acc;
     }, {});
 
-    // --- 5. Trends (using Prisma findMany + manual grouping) ---
+    // --- 5. Trends ---
     const allMemos = await prisma.memo.findMany({
       where: {
         senderDept: targetDept,
         status: 'APPROVED',
         createdAt: { gte: startDate, lte: endDate }
       },
-      select: {
-        createdAt: true
-      }
+      select: { createdAt: true }
     });
 
-    // Group by date in JavaScript
     const trendMap = new Map();
-    allMemos.forEach(memo => {
-      const dateKey = memo.createdAt.toISOString().split('T')[0];
-      trendMap.set(dateKey, (trendMap.get(dateKey) || 0) + 1);
-    });
-    const trendData = Array.from(trendMap.entries())
-      .map(([date, count]) => ({ date, count }))
-      .sort((a, b) => a.date.localeCompare(b.date));
 
-    // --- 6. Top Senders (incoming to target dept) ---
-    // Get all recipients where department is target, then count by senderDept
+    if (timeRange === 'day') {
+      // Initialize all 24 hours
+      for (let i = 0; i < 24; i++) {
+        const hourLabel = new Date(
+          2000,
+          0,
+          1,
+          i
+        ).toLocaleTimeString('en-US', {
+          hour: 'numeric',
+          hour12: true,
+        });
+
+        trendMap.set(hourLabel, 0);
+      }
+
+      allMemos.forEach((memo) => {
+        const hourLabel = memo.createdAt.toLocaleTimeString(
+          'en-US',
+          {
+            hour: 'numeric',
+            hour12: true,
+          }
+        );
+
+        trendMap.set(
+          hourLabel,
+          (trendMap.get(hourLabel) || 0) + 1
+        );
+      });
+    } else if (timeRange === 'all') {
+      allMemos.forEach((memo) => {
+        const monthKey = memo.createdAt.toLocaleDateString(
+          'en-CA',
+          {
+            year: 'numeric',
+            month: '2-digit',
+          }
+        );
+
+        trendMap.set(
+          monthKey,
+          (trendMap.get(monthKey) || 0) + 1
+        );
+      });
+    } else {
+      allMemos.forEach((memo) => {
+        const dateKey = memo.createdAt
+          .toLocaleDateString('en-CA');
+
+        trendMap.set(
+          dateKey,
+          (trendMap.get(dateKey) || 0) + 1
+        );
+      });
+    }
+
+    allMemos.forEach(memo => {
+      const dateKey = memo.createdAt
+        .toISOString()
+        .split('T')[0];
+
+      trendMap.set(
+        dateKey,
+        (trendMap.get(dateKey) || 0) + 1
+      );
+    });
+    
+    let trendData;
+
+    if (timeRange === 'day') {
+      trendData = Array.from(
+        trendMap.entries()
+      ).map(([date, count]) => ({
+        date,
+        count,
+      }));
+    } else {
+      trendData = Array.from(
+        trendMap.entries()
+      )
+        .map(([date, count]) => ({
+          date,
+          count,
+        }))
+        .sort((a, b) =>
+          a.date.localeCompare(b.date)
+        );
+    }
+
+    // --- 6. Top Senders ---
     const recipientRecords = await prisma.memoRecipientStatus.findMany({
       where: {
         departmentName: targetDept,
@@ -196,11 +296,7 @@ export async function GET(request) {
         }
       },
       include: {
-        memo: {
-          select: {
-            senderDept: true
-          }
-        }
+        memo: { select: { senderDept: true } }
       }
     });
 
@@ -214,7 +310,7 @@ export async function GET(request) {
       .sort((a, b) => b.count - a.count)
       .slice(0, 5);
 
-    // --- 7. Top Recipients (outgoing from target dept) ---
+    // --- 7. Top Recipients ---
     const outgoingMemos = await prisma.memo.findMany({
       where: {
         senderDept: targetDept,
@@ -222,11 +318,7 @@ export async function GET(request) {
         createdAt: { gte: startDate, lte: endDate }
       },
       include: {
-        recipients: {
-          select: {
-            departmentName: true
-          }
-        }
+        recipients: { select: { departmentName: true } }
       }
     });
 
@@ -242,17 +334,14 @@ export async function GET(request) {
       .sort((a, b) => b.count - a.count)
       .slice(0, 5);
 
-    // --- 8. Average Processing Time (using Prisma) ---
+    // --- 8. Average Processing Time ---
     const closedMemos = await prisma.memo.findMany({
       where: {
         senderDept: targetDept,
         status: 'CLOSED',
         createdAt: { gte: startDate, lte: endDate }
       },
-      select: {
-        createdAt: true,
-        lastActivityAt: true
-      }
+      select: { createdAt: true, lastActivityAt: true }
     });
 
     let totalDays = 0;
