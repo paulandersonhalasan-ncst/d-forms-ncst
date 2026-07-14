@@ -550,11 +550,10 @@ export default function IOMDashboardPage() {
       const recipientDepts =
         memo.recipients?.map((r) => `${r.departmentName} [${r.status}]`).join(', ') || 'None';
 
-      // ✅ Kunin ang latest remark mula sa history
       const latestHistory = memo.history && memo.history.length > 0 ? memo.history[0] : null;
       const latestRemarkHtml = latestHistory?.remarks ? `
         <div style="margin-top:20px;padding:10px 14px;border-left:3px solid black;font-size:13px;page-break-inside:avoid;">
-          <div style="font-weight:bold;margin-bottom:4px;">LATEST REMARK</div>
+          <div style="font-weight:bold;margin-bottom:4px;">📌 LATEST MEMO REMARK</div>
           <div style="white-space:pre-wrap;">${latestHistory.remarks}</div>
           <div style="font-size:11px;color:#555;margin-top:4px;">
             By: <b>${latestHistory.performedByName}</b> 
@@ -592,27 +591,93 @@ export default function IOMDashboardPage() {
         memo.recipients && memo.recipients.length > 0
           ? memo.recipients
               .map((rec) => {
-                const rawDate = latestHistory?.createdAt;
-                  // rec.respondedAt || rec.deniedAt || rec.acknowledgedAt || rec.processedAt || rec.closedAt;
-                const formattedTimestamp = rawDate ? new Date(rawDate).toLocaleString() : null;
+                // ✅ Determine the correct timestamp based on recipient's status
+                let actionTimestamp = null;
+                let actionLabel = '';
 
-                const closedByInfo = rec.status === 'CLOSED' && rec.closedByName
-                  ? `<div style="font-size:10px;color:#666;margin-top:2px;border-left:2px solid #666;padding-left:5px;"><b>CLOSED BY:</b> ${rec.closedByName}</div>`
+                if (rec.status === 'PENDING') {
+                  actionTimestamp = null;
+                  actionLabel = 'Awaiting action';
+                } else if (rec.status === 'ACKNOWLEDGED') {
+                  actionTimestamp = rec.acknowledgedAt || rec.respondedAt;
+                  actionLabel = 'Acknowledged';
+                } else if (rec.status === 'PROCESSING') {
+                  actionTimestamp = rec.processedAt || rec.respondedAt;
+                  actionLabel = 'Processing';
+                } else if (rec.status === 'COMPLETED') {
+                  actionTimestamp = rec.completedAt || rec.recipientConfirmedAt;
+                  actionLabel = 'Completed';
+                } else if (rec.status === 'CLOSED') {
+                  actionTimestamp = rec.closedAt || rec.senderConfirmedAt || rec.recipientConfirmedAt;
+                  actionLabel = 'Closed';
+                } else if (rec.status === 'DENIED') {
+                  actionTimestamp = rec.deniedAt;
+                  actionLabel = 'Denied';
+                } else if (rec.status === 'RESPONDED') {
+                  actionTimestamp = rec.respondedAt;
+                  actionLabel = 'Replied';
+                }
+
+                const formattedTimestamp = actionTimestamp
+                  ? new Date(actionTimestamp).toLocaleString()
+                  : null;
+
+                const recipientHistory = memo.history?.filter(
+                  (h) => h.departmentName === rec.departmentName
+                );
+                // Gamitin ang feedbackNote ng recipient bilang remark
+                const latestRemark = rec.feedbackNote || null;
+
+                // Kunin ang pangalan ng gumawa batay sa status
+                let performerName = '';
+                let performerRole = '';
+                if (rec.status === 'ACKNOWLEDGED' && rec.acknowledgedByName) {
+                  performerName = rec.acknowledgedByName;
+                  performerRole = 'Recipient';
+                } else if (rec.status === 'PROCESSING' && rec.processedByName) {
+                  performerName = rec.processedByName;
+                  performerRole = 'Recipient';
+                } else if (rec.status === 'COMPLETED' && rec.completedByName) {
+                  performerName = rec.completedByName;
+                  performerRole = 'Recipient';
+                } else if (rec.status === 'CLOSED' && rec.closedByName) {
+                  performerName = rec.closedByName;
+                  performerRole = rec.closedByRole || 'Recipient';
+                } else if (rec.status === 'DENIED' && rec.deniedByName) {
+                  performerName = rec.deniedByName;
+                  performerRole = 'Recipient';
+                } else if (rec.status === 'RESPONDED') {
+                  // walang specific field, gamitin na lang ang feedbackNote
+                }
+
+                const performerInfo = performerName
+                  ? `<div style="font-size:10px;color:#666;margin-top:2px;border-left:2px solid #666;padding-left:5px;"><b>PERFORMED BY:</b> ${performerName} (${performerRole})</div>`
                   : '';
 
+                const closedByInfo =
+                  rec.status === 'CLOSED' && rec.closedByName
+                    ? `<div style="font-size:10px;color:#666;margin-top:2px;border-left:2px solid #666;padding-left:5px;"><b>CLOSED BY:</b> ${rec.closedByName}</div>`
+                    : '';
+
                 return `
-                <tr style="border-bottom:1px dashed #000;page-break-inside:avoid;">
-                  <td style="padding:6px 4px;font-weight:bold;vertical-align:top;">${rec.departmentName}</td>
-                  <td style="padding:6px 4px;vertical-align:top;">
-                    <span style="padding:1px 6px;border:1px solid #000;font-size:11px;font-weight:bold;display:inline-block;background-color:${rec.status === 'CLOSED' ? '#e6f7e6' : rec.status === 'DENIED' ? '#ffe6e6' : 'transparent'};">${rec.status}</span>
-                  </td>
-                  <td style="padding:6px 4px;font-size:12px;vertical-align:top;word-break:break-word;">
-                    <div style="font-weight:500;margin-bottom:4px;white-space:pre-wrap;">${rec.feedbackNote || '--'}</div>
-                    ${formattedTimestamp ? `<div style="font-size:10px;color:#444;margin-top:2px;border-left:2px solid #000;padding-left:5px;"><b>TIMESTAMP:</b> ${formattedTimestamp}</div>` : ''}
-                    ${closedByInfo}
-                  </td>
-                </tr>
-              `;
+                  <tr style="border-bottom:1px dashed #000;page-break-inside:avoid;">
+                    <td style="padding:6px 4px;font-weight:bold;vertical-align:top;">${rec.departmentName}</td>
+                    <td style="padding:6px 4px;vertical-align:top;">
+                      <span style="padding:1px 6px;border:1px solid #000;font-size:11px;font-weight:bold;display:inline-block;background-color:${
+                        rec.status === 'CLOSED' ? '#e6f7e6' : 
+                        rec.status === 'DENIED' ? '#ffe6e6' : 
+                        rec.status === 'COMPLETED' ? '#e6f0ff' : 
+                        'transparent'
+                      };">${rec.status}</span>
+                    </td>
+                    <td style="padding:6px 4px;font-size:12px;vertical-align:top;word-break:break-word;">
+                      <div style="font-weight:500;margin-bottom:4px;white-space:pre-wrap;">${latestRemark || '--'}</div>
+                      ${formattedTimestamp ? `<div style="font-size:10px;color:#444;margin-top:2px;border-left:2px solid #000;padding-left:5px;"><b>${actionLabel} AT:</b> ${formattedTimestamp}</div>` : ''}
+                      ${performerInfo}
+                      ${closedByInfo}
+                    </td>
+                  </tr>
+                `;
               })
               .join('')
           : `<tr><td colspan="3" style="text-align:center;padding:10px;color:#000;border-bottom:1px dashed #000;">No recipient records found.</td></tr>`;

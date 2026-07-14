@@ -53,7 +53,8 @@ export async function GET(request) {
             remarks: true,
             createdAt: true,
             performedByName: true,
-            actorRole: true, // 'SENDER' or 'RECIPIENT'
+            actorRole: true,
+            departmentName: true,
           }
         }
       },

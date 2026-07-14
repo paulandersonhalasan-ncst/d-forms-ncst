@@ -11,24 +11,35 @@ export interface MemoRecipientStatus {
   feedbackNote?: string | null;
   attachmentPaths?: string[];
   respondedAt?: string | null;
+  
   acknowledgedAt?: string | null;
+  acknowledgedByName: string;
+  
   processedById?: string | null;
   processedByName?: string | null;
   processedAt?: string | null;
+  
   senderConfirmedById?: string | null;
   senderConfirmedByName?: string | null;
   senderConfirmedAt?: string | null;
+  
   recipientConfirmedById?: string | null;
   recipientConfirmedByName?: string | null;
   recipientConfirmedAt?: string | null;
+  
   closedById?: string | null;
   closedByName?: string | null;
   closedAt?: string | null;
+  closedByRole?: string | null;
+  
   completedAt?: string | null;
   completedById?: string | null;
   completedByName?: string | null;
+  
   isSenderClosing?: boolean;
+  
   deniedAt?: string | null;
+  deniedByName?: string | null;
 }
 
 export interface Memo {
@@ -60,6 +71,7 @@ export interface Memo {
     createdAt: string | Date;
     performedByName: string;
     actorRole: string; // 'SENDER' | 'RECIPIENT' | 'ADMIN'
+    departmentName?: string | null;
   }[];
 }
 
