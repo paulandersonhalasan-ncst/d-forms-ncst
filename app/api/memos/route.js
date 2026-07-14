@@ -736,7 +736,7 @@ export async function PATCH(request) {
         userId: authenticatedUser.id,
         email: authenticatedUser.email,
         action: `IOM_${action}_SUCCESS`,
-        details: JSON.stringify({ referenceId, departmentName, note: feedbackNote })
+        details: JSON.stringify({ referenceId: currentMemo.referenceId || currentMemo.id, departmentName, note: feedbackNote })
       });
     } catch (err) {
       console.error(err);
