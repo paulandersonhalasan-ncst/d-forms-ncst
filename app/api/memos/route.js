@@ -692,7 +692,7 @@ export async function PATCH(request) {
         performedByName: employeeName,
         actorRole: userDept === currentMemo.senderDept ? 'SENDER' : 'RECIPIENT',
         action: historyActionType,
-        remarks: feedbackNote || `State system routing update trigger: ${action}`
+        remarks: feedbackNote || `Action: ${action} (system default)`
       }
     });
 
