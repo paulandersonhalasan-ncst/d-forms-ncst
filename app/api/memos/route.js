@@ -686,7 +686,7 @@ export async function PATCH(request) {
     const memoRefString = currentMemo.referenceId || currentMemo.id.substring(0, 8).toUpperCase();
     await prisma.memoHistory.create({
       data: {
-        referenceId: referenceId || currentMemo.id,
+        referenceId: memoRefString,
         departmentName: userDept,
         performedById: authenticatedUser.id,
         performedByName: employeeName,
@@ -736,7 +736,7 @@ export async function PATCH(request) {
         userId: authenticatedUser.id,
         email: authenticatedUser.email,
         action: `IOM_${action}_SUCCESS`,
-        details: JSON.stringify({ referenceId: currentMemo.referenceId || currentMemo.id, departmentName, note: feedbackNote })
+        details: JSON.stringify({ referenceId: memoRefString, departmentName, note: feedbackNote })
       });
     } catch (err) {
       console.error(err);
