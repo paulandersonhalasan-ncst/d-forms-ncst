@@ -112,7 +112,7 @@ export default function AnalyticsPage() {
   const effectiveDept = isAdminOrSuper ? selectedDept : currentUser?.departmentCode;
   const isDepartmentHead = currentUser && ['DepartmentHead', 'OIC'].includes(currentUser.role);
 
-  // --- SWR for memos (to get counts per tab) ---
+  // --- SWR for memos (to get counts per tab for shortcuts) ---
   const { data: memosData } = useSWR<Memo[]>('/api/memos', fetcher, {
     refreshInterval: 30000,
     revalidateOnFocus: true,
@@ -213,7 +213,7 @@ export default function AnalyticsPage() {
     [memos, isAdminOrSuper]
   );
 
-  // --- Build tab configurations ---
+  // --- Build tab configurations for shortcut cards ---
   const tabConfigs = [];
   if (isAdminOrSuper) {
     tabConfigs.push({
@@ -271,7 +271,7 @@ export default function AnalyticsPage() {
     count: resolvedMemos.length,
   });
 
-  // --- Build API URL for analytics charts ---
+  // --- Build API URL for analytics charts (with date filter) ---
   const queryParams = new URLSearchParams({
     departmentCode: effectiveDept || '',
     timeRange,
@@ -494,250 +494,241 @@ export default function AnalyticsPage() {
           </Group>
         </Paper>
 
-        {/* Main content – charts and stats */}
+        {/* ----- Main Content ----- */}
         {!analytics ? (
           <Loader />
         ) : (
           <Stack gap="lg">
-            {/* ----- SHORTCUT CARDS (replacing overview cards) ----- */}
-            <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }}>
-              {tabConfigs.map((config) => {
-                const Icon = config.icon;
-                return (
-                  <UnstyledButton
-                    key={config.value}
-                    onClick={() => router.push(`/dashboard/forms/iom?tab=${config.value}`)}
-                    style={{
-                      textDecoration: 'none',
-                      cursor: 'pointer',
-                      transition: 'transform 0.2s ease',
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.transform = 'translateY(-4px)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.transform = 'translateY(0)';
-                    }}
-                  >
-                    <Paper withBorder radius="xl" p="lg">
+            {/* ========== 1. ANALYTICS OVERVIEW (Date-Filtered) ========== */}
+            <Stack gap="xs">
+              <Text size="sm" fw={700} c="dimmed">
+                Analytics Overview
+              </Text>
+              {/* Analytics Overview (simple tiles) */}
+              <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }}>
+                {[
+                  {
+                    label: 'Total Memos',
+                    value: analytics.overview.total,
+                    icon: IconFileText,
+                    color: 'blue',
+                  },
+                  {
+                    label: 'Sent',
+                    value: analytics.overview.sent,
+                    icon: IconSend,
+                    color: 'cyan',
+                  },
+                  {
+                    label: 'Received',
+                    value: analytics.overview.received,
+                    icon: IconInbox,
+                    color: 'grape',
+                  },
+                  {
+                    label: 'Active',
+                    value: analytics.overview.active,
+                    icon: IconTrendingUp,
+                    color: 'green',
+                  },
+                ].map((stat) => {
+                  const Icon = stat.icon;
+                  return (
+                    <Paper
+                      key={stat.label}
+                      shadow="xs"
+                      p="md"
+                      bg={isDark ? theme.colors.dark[6] : theme.colors.gray[0]}
+                      style={{ borderRadius: theme.radius.md }}
+                    >
                       <Group justify="space-between">
                         <Stack gap={0}>
-                          <Text size="sm" c="dimmed">
-                            {config.label}
+                          <Text size="xs" c="dimmed" tt="uppercase" fw={700}>
+                            {stat.label}
                           </Text>
-                          <Text fw={900} fz={34}>
-                            {config.count}
+                          <Text fw={900} fz={32}>
+                            {stat.value}
                           </Text>
                         </Stack>
-                        <ThemeIcon size={60} radius="xl" color={config.color} variant="light">
-                          <Icon size={30} />
+                        <ThemeIcon size={44} radius="md" color={stat.color} variant="light">
+                          <Icon size={22} />
                         </ThemeIcon>
                       </Group>
                     </Paper>
-                  </UnstyledButton>
-                );
-              })}
-            </SimpleGrid>
+                  );
+                })}
+              </SimpleGrid>
+            </Stack>
 
-            {/* Charts Row */}
-            <SimpleGrid cols={{ base: 1, md: 3 }} spacing="lg">
-              <Paper
-                withBorder
-                p="md"
-                radius="md"
-                style={{ backgroundColor: cardBg, borderColor: cardBorder }}
-              >
-                <Text fw={600} mb="md" style={{ color: textColor }}>
-                  Status Distribution
-                </Text>
-                <>
-                  <PieChart
-                    data={statusData}
-                    withLabels={false}
-                    withTooltip
-                    size={220}
-                    mx="auto"
-                  />
-                  <Stack gap={8} mt="lg">
-                    {statusData.map((item) => (
-                      <Group key={item.name} justify="space-between">
-                        <Group gap={8}>
-                          <div
-                            style={{
-                              width: 12,
-                              height: 12,
-                              borderRadius: 999,
-                              background: item.color,
-                            }}
-                          />
-                          <Text size="sm">{item.name}</Text>
-                        </Group>
-                        <Badge variant="light">{item.value}</Badge>
-                      </Group>
-                    ))}
-                  </Stack>
-                </>
-              </Paper>
-
-              <Paper
-                withBorder
-                p="md"
-                radius="md"
-                style={{ backgroundColor: cardBg, borderColor: cardBorder }}
-              >
-                <Text fw={600} mb="md" style={{ color: textColor }}>
-                  Priority Distribution
-                </Text>
-                <>
-                  <PieChart
-                    data={priorityData}
-                    withLabels={false}
-                    withTooltip
-                    size={220}
-                    mx="auto"
-                  />
-                  <Stack gap={8} mt="lg">
-                    {priorityData.map((item) => (
-                      <Group key={item.name} justify="space-between">
-                        <Group gap={8}>
-                          <div
-                            style={{
-                              width: 12,
-                              height: 12,
-                              borderRadius: 999,
-                              background: item.color,
-                            }}
-                          />
-                          <Text size="sm">{item.name}</Text>
-                        </Group>
-                        <Badge variant="light">{item.value}</Badge>
-                      </Group>
-                    ))}
-                  </Stack>
-                </>
-              </Paper>
-
-              <Paper
-                withBorder
-                p="md"
-                radius="md"
-                style={{ backgroundColor: cardBg, borderColor: cardBorder }}
-              >
-                <Text fw={600} mb="md" style={{ color: textColor }}>
-                  Purpose Distribution
-                </Text>
-                <>
-                  <PieChart
-                    data={purposeData}
-                    withLabels={false}
-                    withTooltip
-                    size={220}
-                    mx="auto"
-                  />
-                  <Stack gap={8} mt="lg">
-                    {purposeData.map((item) => (
-                      <Group key={item.name} justify="space-between">
-                        <Group gap={8}>
-                          <div
-                            style={{
-                              width: 12,
-                              height: 12,
-                              borderRadius: 999,
-                              background: item.color,
-                            }}
-                          />
-                          <Text size="sm">{item.name}</Text>
-                        </Group>
-                        <Badge variant="light">{item.value}</Badge>
-                      </Group>
-                    ))}
-                  </Stack>
-                </>
-              </Paper>
-            </SimpleGrid>
-
-            {/* Trend Chart */}
-            <Paper
-              withBorder
-              p="md"
-              radius="md"
-              style={{ backgroundColor: cardBg, borderColor: cardBorder }}
-            >
-              <Text fw={600} mb="md" style={{ color: textColor }}>
-                {timeRange === 'day' ? 'Hourly Memo Activity' : 'Memo Trends'}
+            {/* ========== 2. QUICK NAVIGATION SHORTCUTS (Real-time counts) ========== */}
+            <Stack gap="xs">
+              <Text size="sm" fw={700} c="dimmed">
+                Inter-Office Memorandum Shortcuts
               </Text>
-              {analytics.trends && analytics.trends.length > 0 ? (
-                <LineChart
-                  h={350}
-                  data={analytics.trends}
-                  dataKey="date"
-                  series={[{ name: 'count', color: theme.colors.regalNavy?.[6] || '#377ff5' }]}
-                  curveType="monotone"
-                  withDots
-                  withLegend
-                  withTooltip
-                  dotProps={{ r: 4 }}
-                  activeDotProps={{ r: 7, stroke: isDark ? '#fff' : '#000', strokeWidth: 2 }}
-                  strokeWidth={3}
-                  tooltipAnimationDuration={200}
-                  legendProps={{
-                    verticalAlign: 'bottom',
-                    height: 40,
-                    wrapperStyle: { paddingTop: 10 },
-                  }}
-                  tooltipProps={{
-                    cursor: { fill: 'rgba(0, 0, 0, 0.05)' },
-                    content: ({ payload, label }) => {
-                      if (!payload || payload.length === 0) return null;
-                      const value = payload[0]?.value;
-                      return (
-                        <Paper
-                          p="sm"
-                          radius="md"
-                          style={{
-                            backgroundColor: isDark ? theme.colors.dark[6] : theme.white,
-                            border: `1px solid ${
-                              isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'
-                            }`,
-                            boxShadow: theme.shadows.sm,
-                          }}
-                        >
-                          <Text size="xs" c="dimmed" mb={4}>
-                            {label}
-                          </Text>
-                          <Group gap="xs">
+              <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }}>
+                {tabConfigs.map((config) => {
+                  const Icon = config.icon;
+                  return (
+                    <UnstyledButton
+                      key={config.value}
+                      onClick={() => router.push(`/dashboard/forms/iom?tab=${config.value}`)}
+                      style={{
+                        textDecoration: 'none',
+                        cursor: 'pointer',
+                        transition: 'transform 0.2s ease',
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.transform = 'translateY(-4px)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = 'translateY(0)';
+                      }}
+                    >
+                      <Paper withBorder radius="xl" p="lg">
+                        <Group justify="space-between">
+                          <Stack gap={0}>
+                            <Text size="sm" c="dimmed">
+                              {config.label}
+                            </Text>
+                            <Text fw={900} fz={34}>
+                              {config.count}
+                            </Text>
+                          </Stack>
+                          <ThemeIcon size={60} radius="xl" color={config.color} variant="light">
+                            <Icon size={30} />
+                          </ThemeIcon>
+                        </Group>
+                      </Paper>
+                    </UnstyledButton>
+                  );
+                })}
+              </SimpleGrid>
+            </Stack>
+
+            {/* ========== 3. ANALYTICS CHARTS (Date-Filtered) ========== */}
+            <Stack gap="lg">
+              <Text size="sm" fw={700} c="dimmed">
+                📈 Charts & Trends (filtered by selected date range)
+              </Text>
+
+              {/* Charts Row */}
+              <SimpleGrid cols={{ base: 1, md: 3 }} spacing="lg">
+                <Paper
+                  withBorder
+                  p="md"
+                  radius="md"
+                  style={{ backgroundColor: cardBg, borderColor: cardBorder }}
+                >
+                  <Text fw={600} mb="md" style={{ color: textColor }}>
+                    Status Distribution
+                  </Text>
+                  <>
+                    <PieChart
+                      data={statusData}
+                      withLabels={false}
+                      withTooltip
+                      size={220}
+                      mx="auto"
+                    />
+                    <Stack gap={8} mt="lg">
+                      {statusData.map((item) => (
+                        <Group key={item.name} justify="space-between">
+                          <Group gap={8}>
                             <div
                               style={{
                                 width: 12,
                                 height: 12,
-                                borderRadius: '50%',
-                                backgroundColor: theme.colors.regalNavy?.[6] || '#377ff5',
+                                borderRadius: 999,
+                                background: item.color,
                               }}
                             />
-                            <Text fw={700} size="sm">
-                              {value}
-                            </Text>
-                            <Text size="xs" c="dimmed">
-                              memos
-                            </Text>
+                            <Text size="sm">{item.name}</Text>
                           </Group>
-                        </Paper>
-                      );
-                    },
-                  }}
-                  valueFormatter={(value) => `${value} memos`}
-                  gridAxis="xy"
-                  gridColor={isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'}
-                />
-              ) : (
-                <Text c="dimmed" ta="center">
-                  No data
-                </Text>
-              )}
-            </Paper>
+                          <Badge variant="light">{item.value}</Badge>
+                        </Group>
+                      ))}
+                    </Stack>
+                  </>
+                </Paper>
 
-            {/* Top Senders & Recipients */}
-            <SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
+                <Paper
+                  withBorder
+                  p="md"
+                  radius="md"
+                  style={{ backgroundColor: cardBg, borderColor: cardBorder }}
+                >
+                  <Text fw={600} mb="md" style={{ color: textColor }}>
+                    Priority Distribution
+                  </Text>
+                  <>
+                    <PieChart
+                      data={priorityData}
+                      withLabels={false}
+                      withTooltip
+                      size={220}
+                      mx="auto"
+                    />
+                    <Stack gap={8} mt="lg">
+                      {priorityData.map((item) => (
+                        <Group key={item.name} justify="space-between">
+                          <Group gap={8}>
+                            <div
+                              style={{
+                                width: 12,
+                                height: 12,
+                                borderRadius: 999,
+                                background: item.color,
+                              }}
+                            />
+                            <Text size="sm">{item.name}</Text>
+                          </Group>
+                          <Badge variant="light">{item.value}</Badge>
+                        </Group>
+                      ))}
+                    </Stack>
+                  </>
+                </Paper>
+
+                <Paper
+                  withBorder
+                  p="md"
+                  radius="md"
+                  style={{ backgroundColor: cardBg, borderColor: cardBorder }}
+                >
+                  <Text fw={600} mb="md" style={{ color: textColor }}>
+                    Purpose Distribution
+                  </Text>
+                  <>
+                    <PieChart
+                      data={purposeData}
+                      withLabels={false}
+                      withTooltip
+                      size={220}
+                      mx="auto"
+                    />
+                    <Stack gap={8} mt="lg">
+                      {purposeData.map((item) => (
+                        <Group key={item.name} justify="space-between">
+                          <Group gap={8}>
+                            <div
+                              style={{
+                                width: 12,
+                                height: 12,
+                                borderRadius: 999,
+                                background: item.color,
+                              }}
+                            />
+                            <Text size="sm">{item.name}</Text>
+                          </Group>
+                          <Badge variant="light">{item.value}</Badge>
+                        </Group>
+                      ))}
+                    </Stack>
+                  </>
+                </Paper>
+              </SimpleGrid>
+
+              {/* Trend Chart */}
               <Paper
                 withBorder
                 p="md"
@@ -745,26 +736,26 @@ export default function AnalyticsPage() {
                 style={{ backgroundColor: cardBg, borderColor: cardBorder }}
               >
                 <Text fw={600} mb="md" style={{ color: textColor }}>
-                  Top Senders (Incoming)
+                  {timeRange === 'day' ? 'Hourly Memo Activity' : 'Memo Trends'}
                 </Text>
-                {analytics.topSenders && analytics.topSenders.length > 0 ? (
-                  <BarChart
-                    h={250}
-                    data={analytics.topSenders}
-                    dataKey="department"
+                {analytics.trends && analytics.trends.length > 0 ? (
+                  <LineChart
+                    h={350}
+                    data={analytics.trends}
+                    dataKey="date"
                     series={[{ name: 'count', color: theme.colors.regalNavy?.[6] || '#377ff5' }]}
+                    curveType="monotone"
+                    withDots
+                    withLegend
                     withTooltip
+                    dotProps={{ r: 4 }}
+                    activeDotProps={{ r: 7, stroke: isDark ? '#fff' : '#000', strokeWidth: 2 }}
+                    strokeWidth={3}
                     tooltipAnimationDuration={200}
-                    withLegend={false}
-                    withBarValueLabel
-                    valueFormatter={(value) => `${value}`}
-                    gridAxis="xy"
-                    gridColor={isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'}
-                    barProps={{
-                      radius: [4, 4, 0, 0],
-                      maxBarSize: 60,
-                      fill: theme.colors.regalNavy?.[6] || '#377ff5',
-                      fillOpacity: 0.85,
+                    legendProps={{
+                      verticalAlign: 'bottom',
+                      height: 40,
+                      wrapperStyle: { paddingTop: 10 },
                     }}
                     tooltipProps={{
                       cursor: { fill: 'rgba(0, 0, 0, 0.05)' },
@@ -806,85 +797,9 @@ export default function AnalyticsPage() {
                         );
                       },
                     }}
-                  />
-                ) : (
-                  <Text c="dimmed" ta="center">
-                    No data
-                  </Text>
-                )}
-              </Paper>
-
-              <Paper
-                withBorder
-                p="md"
-                radius="md"
-                style={{ backgroundColor: cardBg, borderColor: cardBorder }}
-              >
-                <Text fw={600} mb="md" style={{ color: textColor }}>
-                  Top Recipients (Outgoing)
-                </Text>
-                {analytics.topRecipients && analytics.topRecipients.length > 0 ? (
-                  <BarChart
-                    h={250}
-                    data={analytics.topRecipients}
-                    dataKey="department"
-                    series={[
-                      { name: 'count', color: theme.colors.customCreamYellow?.[5] || '#feb625' },
-                    ]}
-                    withTooltip
-                    tooltipAnimationDuration={200}
-                    withLegend={false}
-                    withBarValueLabel
-                    valueFormatter={(value) => `${value}`}
+                    valueFormatter={(value) => `${value} memos`}
                     gridAxis="xy"
                     gridColor={isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'}
-                    barProps={{
-                      radius: [4, 4, 0, 0],
-                      maxBarSize: 60,
-                      fill: theme.colors.customCreamYellow?.[5] || '#feb625',
-                      fillOpacity: 0.85,
-                    }}
-                    tooltipProps={{
-                      cursor: { fill: 'rgba(0, 0, 0, 0.05)' },
-                      content: ({ payload, label }) => {
-                        if (!payload || payload.length === 0) return null;
-                        const value = payload[0]?.value;
-                        return (
-                          <Paper
-                            p="sm"
-                            radius="md"
-                            style={{
-                              backgroundColor: isDark ? theme.colors.dark[6] : theme.white,
-                              border: `1px solid ${
-                                isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'
-                              }`,
-                              boxShadow: theme.shadows.sm,
-                            }}
-                          >
-                            <Text size="xs" c="dimmed" mb={4}>
-                              {label}
-                            </Text>
-                            <Group gap="xs">
-                              <div
-                                style={{
-                                  width: 12,
-                                  height: 12,
-                                  borderRadius: '50%',
-                                  backgroundColor:
-                                    theme.colors.customCreamYellow?.[5] || '#feb625',
-                                }}
-                              />
-                              <Text fw={700} size="sm">
-                                {value}
-                              </Text>
-                              <Text size="xs" c="dimmed">
-                                memos
-                              </Text>
-                            </Group>
-                          </Paper>
-                        );
-                      },
-                    }}
                   />
                 ) : (
                   <Text c="dimmed" ta="center">
@@ -892,34 +807,192 @@ export default function AnalyticsPage() {
                   </Text>
                 )}
               </Paper>
-            </SimpleGrid>
 
-            {/* Average Processing Time */}
-            <Paper withBorder radius="xl" p="xl">
-              <Group justify="space-between">
-                <Stack gap={0}>
-                  <Text fw={700}>Average Processing Time</Text>
-                  <Text c="dimmed" size="sm">
-                    Closed memos only
+              {/* Top Senders & Recipients */}
+              <SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
+                <Paper
+                  withBorder
+                  p="md"
+                  radius="md"
+                  style={{ backgroundColor: cardBg, borderColor: cardBorder }}
+                >
+                  <Text fw={600} mb="md" style={{ color: textColor }}>
+                    Top Senders (Incoming)
                   </Text>
-                  <Text fz={42} fw={900}>
-                    {analytics.averageProcessingTime}
+                  {analytics.topSenders && analytics.topSenders.length > 0 ? (
+                    <BarChart
+                      h={250}
+                      data={analytics.topSenders}
+                      dataKey="department"
+                      series={[{ name: 'count', color: theme.colors.regalNavy?.[6] || '#377ff5' }]}
+                      withTooltip
+                      tooltipAnimationDuration={200}
+                      withLegend={false}
+                      withBarValueLabel
+                      valueFormatter={(value) => `${value}`}
+                      gridAxis="xy"
+                      gridColor={isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'}
+                      barProps={{
+                        radius: [4, 4, 0, 0],
+                        maxBarSize: 60,
+                        fill: theme.colors.regalNavy?.[6] || '#377ff5',
+                        fillOpacity: 0.85,
+                      }}
+                      tooltipProps={{
+                        cursor: { fill: 'rgba(0, 0, 0, 0.05)' },
+                        content: ({ payload, label }) => {
+                          if (!payload || payload.length === 0) return null;
+                          const value = payload[0]?.value;
+                          return (
+                            <Paper
+                              p="sm"
+                              radius="md"
+                              style={{
+                                backgroundColor: isDark ? theme.colors.dark[6] : theme.white,
+                                border: `1px solid ${
+                                  isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'
+                                }`,
+                                boxShadow: theme.shadows.sm,
+                              }}
+                            >
+                              <Text size="xs" c="dimmed" mb={4}>
+                                {label}
+                              </Text>
+                              <Group gap="xs">
+                                <div
+                                  style={{
+                                    width: 12,
+                                    height: 12,
+                                    borderRadius: '50%',
+                                    backgroundColor: theme.colors.regalNavy?.[6] || '#377ff5',
+                                  }}
+                                />
+                                <Text fw={700} size="sm">
+                                  {value}
+                                </Text>
+                                <Text size="xs" c="dimmed">
+                                  memos
+                                </Text>
+                              </Group>
+                            </Paper>
+                          );
+                        },
+                      }}
+                    />
+                  ) : (
+                    <Text c="dimmed" ta="center">
+                      No data
+                    </Text>
+                  )}
+                </Paper>
+
+                <Paper
+                  withBorder
+                  p="md"
+                  radius="md"
+                  style={{ backgroundColor: cardBg, borderColor: cardBorder }}
+                >
+                  <Text fw={600} mb="md" style={{ color: textColor }}>
+                    Top Recipients (Outgoing)
                   </Text>
-                  <Text c="dimmed">days</Text>
-                </Stack>
-                <RingProgress
-                  size={150}
-                  thickness={14}
-                  sections={[
-                    {
-                      value: Math.min(analytics.averageProcessingTime * 5, 100),
-                      color: 'blue',
-                    },
-                  ]}
-                  label={<Text ta="center" fw={800}>{analytics.averageProcessingTime}</Text>}
-                />
-              </Group>
-            </Paper>
+                  {analytics.topRecipients && analytics.topRecipients.length > 0 ? (
+                    <BarChart
+                      h={250}
+                      data={analytics.topRecipients}
+                      dataKey="department"
+                      series={[
+                        { name: 'count', color: theme.colors.customCreamYellow?.[5] || '#feb625' },
+                      ]}
+                      withTooltip
+                      tooltipAnimationDuration={200}
+                      withLegend={false}
+                      withBarValueLabel
+                      valueFormatter={(value) => `${value}`}
+                      gridAxis="xy"
+                      gridColor={isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'}
+                      barProps={{
+                        radius: [4, 4, 0, 0],
+                        maxBarSize: 60,
+                        fill: theme.colors.customCreamYellow?.[5] || '#feb625',
+                        fillOpacity: 0.85,
+                      }}
+                      tooltipProps={{
+                        cursor: { fill: 'rgba(0, 0, 0, 0.05)' },
+                        content: ({ payload, label }) => {
+                          if (!payload || payload.length === 0) return null;
+                          const value = payload[0]?.value;
+                          return (
+                            <Paper
+                              p="sm"
+                              radius="md"
+                              style={{
+                                backgroundColor: isDark ? theme.colors.dark[6] : theme.white,
+                                border: `1px solid ${
+                                  isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'
+                                }`,
+                                boxShadow: theme.shadows.sm,
+                              }}
+                            >
+                              <Text size="xs" c="dimmed" mb={4}>
+                                {label}
+                              </Text>
+                              <Group gap="xs">
+                                <div
+                                  style={{
+                                    width: 12,
+                                    height: 12,
+                                    borderRadius: '50%',
+                                    backgroundColor:
+                                      theme.colors.customCreamYellow?.[5] || '#feb625',
+                                  }}
+                                />
+                                <Text fw={700} size="sm">
+                                  {value}
+                                </Text>
+                                <Text size="xs" c="dimmed">
+                                  memos
+                                </Text>
+                              </Group>
+                            </Paper>
+                          );
+                        },
+                      }}
+                    />
+                  ) : (
+                    <Text c="dimmed" ta="center">
+                      No data
+                    </Text>
+                  )}
+                </Paper>
+              </SimpleGrid>
+
+              {/* Average Processing Time */}
+              <Paper withBorder radius="xl" p="xl">
+                <Group justify="space-between">
+                  <Stack gap={0}>
+                    <Text fw={700}>Average Processing Time</Text>
+                    <Text c="dimmed" size="sm">
+                      Closed memos only
+                    </Text>
+                    <Text fz={42} fw={900}>
+                      {analytics.averageProcessingTime}
+                    </Text>
+                    <Text c="dimmed">days</Text>
+                  </Stack>
+                  <RingProgress
+                    size={150}
+                    thickness={14}
+                    sections={[
+                      {
+                        value: Math.min(analytics.averageProcessingTime * 5, 100),
+                        color: 'blue',
+                      },
+                    ]}
+                    label={<Text ta="center" fw={800}>{analytics.averageProcessingTime}</Text>}
+                  />
+                </Group>
+              </Paper>
+            </Stack>
           </Stack>
         )}
       </Card>
