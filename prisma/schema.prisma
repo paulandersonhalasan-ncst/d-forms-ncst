@@ -243,6 +243,9 @@ model MemoRecipientStatus {
 
   respondedAt DateTime?
 
+  assignedToIds   String[]
+  assignedToNames String[]
+  assignedAt     DateTime?
 
   @@unique([memoId, departmentName])
 
@@ -311,4 +314,5 @@ enum MemoHistoryAction {
     CLOSED_BY_SENDER
     REPLIED
     REVISED_BY_HEAD
+    ASSIGNED
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Container,
   Card,
@@ -21,6 +21,7 @@ import {
   useMantineTheme,
   useMantineColorScheme,
   Popover,
+  UnstyledButton,
 } from '@mantine/core';
 import { DatePicker } from '@mantine/dates';
 import {
@@ -31,11 +32,17 @@ import {
   IconInbox,
   IconTrendingUp,
   IconChartPie,
+  IconThumbUp,
+  IconPlayerPlay,
+  IconUserCheck,
+  IconCircleCheck,
+  IconLayersIntersect,
 } from '@tabler/icons-react';
 import useSWR from 'swr';
 import { PieChart, LineChart, BarChart } from '@mantine/charts';
-import { UserContext } from '../../dashboard/forms/iom/component/types';
+import { UserContext, Memo } from '../../dashboard/forms/iom/component/types';
 import dayjs from 'dayjs';
+import { useRouter } from 'next/navigation';
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
@@ -54,14 +61,11 @@ export default function AnalyticsPage() {
   const [timeRange, setTimeRange] = useState<'day' | 'week' | 'month' | 'all' | 'custom'>('day');
   const [baseDate, setBaseDate] = useState(new Date());
 
-
   // Custom date range as [start, end] in 'YYYY-MM-DD' format
-  const [customDates, setCustomDates] =
-  useState<[string | null, string | null]>([
-    null,
-    null,
-  ]);
+  const [customDates, setCustomDates] = useState<[string | null, string | null]>([null, null]);
   const [datePickerOpened, setDatePickerOpened] = useState(false);
+
+  const router = useRouter();
 
   // --- Fetch user ---
   useEffect(() => {
@@ -106,8 +110,168 @@ export default function AnalyticsPage() {
 
   const isAdminOrSuper = currentUser && ['Admin', 'SuperUser'].includes(currentUser.role);
   const effectiveDept = isAdminOrSuper ? selectedDept : currentUser?.departmentCode;
+  const isDepartmentHead = currentUser && ['DepartmentHead', 'OIC'].includes(currentUser.role);
 
-  // --- Build API URL with query params ---
+  // --- SWR for memos (to get counts per tab) ---
+  const { data: memosData } = useSWR<Memo[]>('/api/memos', fetcher, {
+    refreshInterval: 30000,
+    revalidateOnFocus: true,
+  });
+  const memos: Memo[] = Array.isArray(memosData) ? memosData : [];
+
+  // --- Compute memo lists (same logic as IOM page) ---
+  const activeDepartment = currentUser?.departmentCode || '';
+  const isCurrentlyOIC = () => {
+    if (!currentUser?.oic_start || !currentUser?.oic_end) return false;
+    const now = new Date().getTime();
+    const start = new Date(currentUser.oic_start).getTime();
+    const end = new Date(currentUser.oic_end).getTime();
+    return now >= start && now <= end;
+  };
+  const processOICAllowance = isCurrentlyOIC();
+
+  const forApprovalMemos = useMemo(
+    () => memos.filter((m) => m.senderDept === activeDepartment && m.status === 'FOR_APPROVAL'),
+    [memos, activeDepartment]
+  );
+  const inboundMemos = useMemo(
+    () =>
+      memos.filter((m) => {
+        if (m.status === 'FOR_APPROVAL' || m.status === 'CLOSED' || m.status === 'DENIED')
+          return false;
+        return m.recipients?.some(
+          (r) => (r.departmentName === activeDepartment || processOICAllowance) && r.status === 'PENDING'
+        );
+      }),
+    [memos, activeDepartment, processOICAllowance]
+  );
+  const outboundMemos = useMemo(
+    () =>
+      memos.filter((m) => {
+        if (m.senderDept !== activeDepartment) return false;
+        if (m.status !== 'APPROVED') return false;
+        if (!m.recipients || m.recipients.length === 0) return false;
+        const allResolved = m.recipients.every((r) =>
+          ['CLOSED', 'DENIED', 'COMPLETED'].includes(r.status)
+        );
+        return !allResolved;
+      }),
+    [memos, activeDepartment]
+  );
+  const actionBoardMemos = useMemo(
+    () =>
+      memos.filter((m) => {
+        if (m.status === 'FOR_APPROVAL' || m.status === 'CLOSED' || m.status === 'DENIED')
+          return false;
+        return m.recipients?.some(
+          (r) =>
+            (r.departmentName === activeDepartment || processOICAllowance) &&
+            ['ACKNOWLEDGED', 'PROCESSING'].includes(r.status)
+        );
+      }),
+    [memos, activeDepartment, processOICAllowance]
+  );
+  const assignedToMeMemos = useMemo(
+    () =>
+      memos.filter((m) => {
+        if (m.status === 'FOR_APPROVAL' || m.status === 'CLOSED' || m.status === 'DENIED')
+          return false;
+        return m.recipients?.some(
+          (r) =>
+            r.departmentName === activeDepartment &&
+            r.assignedToIds?.includes(currentUser?.id ?? '') &&
+            !['COMPLETED', 'CLOSED', 'DENIED'].includes(r.status)
+        );
+      }),
+    [memos, activeDepartment, currentUser?.id]
+  );
+  const resolvedMemos = useMemo(
+    () =>
+      memos.filter((m) => {
+        if (!m.recipients || m.recipients.length === 0) return false;
+        if (isAdminOrSuper) {
+          return m.recipients.some((r) =>
+            ['COMPLETED', 'RESPONDED', 'DENIED', 'CLOSED'].includes(r.status)
+          );
+        }
+        const isRecipientResolved = m.recipients.some(
+          (r) =>
+            (r.departmentName === activeDepartment || processOICAllowance) &&
+            ['COMPLETED', 'RESPONDED', 'DENIED', 'CLOSED'].includes(r.status)
+        );
+        const isSenderResolved =
+          m.senderDept === activeDepartment &&
+          m.recipients.every((r) =>
+            ['COMPLETED', 'RESPONDED', 'DENIED', 'CLOSED'].includes(r.status)
+          );
+        return isRecipientResolved || isSenderResolved;
+      }),
+    [memos, activeDepartment, processOICAllowance, isAdminOrSuper]
+  );
+  const allMemosLedgerList = useMemo(
+    () => (isAdminOrSuper ? memos : []),
+    [memos, isAdminOrSuper]
+  );
+
+  // --- Build tab configurations ---
+  const tabConfigs = [];
+  if (isAdminOrSuper) {
+    tabConfigs.push({
+      label: 'All Memos',
+      value: 'all_memos',
+      icon: IconLayersIntersect,
+      color: 'blue',
+      count: allMemosLedgerList.length,
+    });
+  }
+  if (isDepartmentHead) {
+    tabConfigs.push({
+      label: 'For Approval',
+      value: 'approval',
+      icon: IconThumbUp,
+      color: 'orange',
+      count: forApprovalMemos.length,
+    });
+    tabConfigs.push({
+      label: 'Inbound',
+      value: 'inbound',
+      icon: IconInbox,
+      color: 'teal',
+      count: inboundMemos.length,
+    });
+  }
+  tabConfigs.push({
+    label: 'Outbound',
+    value: 'outbound',
+    icon: IconSend,
+    color: 'cyan',
+    count: outboundMemos.length,
+  });
+  tabConfigs.push({
+    label: 'Action Board',
+    value: 'action_board',
+    icon: IconPlayerPlay,
+    color: 'indigo',
+    count: actionBoardMemos.length,
+  });
+  if (!isAdminOrSuper && !isDepartmentHead) {
+    tabConfigs.push({
+      label: 'Assigned to Me',
+      value: 'assigned_to_me',
+      icon: IconUserCheck,
+      color: 'grape',
+      count: assignedToMeMemos.length,
+    });
+  }
+  tabConfigs.push({
+    label: 'Archived',
+    value: 'archived',
+    icon: IconCircleCheck,
+    color: 'green',
+    count: resolvedMemos.length,
+  });
+
+  // --- Build API URL for analytics charts ---
   const queryParams = new URLSearchParams({
     departmentCode: effectiveDept || '',
     timeRange,
@@ -117,14 +281,10 @@ export default function AnalyticsPage() {
   if (timeRange === 'custom') {
     const [start, end] = customDates;
     if (start) {
-      // Convert to ISO with start of day (00:00:00)
-      const startDate = dayjs(start).format('YYYY-MM-DD');
-      queryParams.append('startDate', startDate);
+      queryParams.append('startDate', dayjs(start).format('YYYY-MM-DD'));
     }
     if (end) {
-      // Convert to ISO with end of day (23:59:59.999)
-      const endDate = dayjs(end).format('YYYY-MM-DD');
-      queryParams.append('endDate', endDate);
+      queryParams.append('endDate', dayjs(end).format('YYYY-MM-DD'));
     }
   }
 
@@ -311,30 +471,13 @@ export default function AnalyticsPage() {
 
               <SegmentedControl
                 value={timeRange}
-                onChange={(value) =>
-                  setTimeRange(value as typeof timeRange)
-                }
+                onChange={(value) => setTimeRange(value as typeof timeRange)}
                 data={[
-                  {
-                    label: 'Day',
-                    value: 'day',
-                  },
-                  {
-                    label: 'Week',
-                    value: 'week',
-                  },
-                  {
-                    label: 'Month',
-                    value: 'month',
-                  },
-                  {
-                    label: 'Custom',
-                    value: 'custom',
-                  },
-                  {
-                    label: 'All',
-                    value: 'all',
-                  },
+                  { label: 'Day', value: 'day' },
+                  { label: 'Week', value: 'week' },
+                  { label: 'Month', value: 'month' },
+                  { label: 'Custom', value: 'custom' },
+                  { label: 'All', value: 'all' },
                 ]}
               />
 
@@ -351,56 +494,47 @@ export default function AnalyticsPage() {
           </Group>
         </Paper>
 
-        {/* Main content – charts and stats (unchanged) */}
+        {/* Main content – charts and stats */}
         {!analytics ? (
           <Loader />
         ) : (
           <Stack gap="lg">
-            {/* Overview Cards */}
+            {/* ----- SHORTCUT CARDS (replacing overview cards) ----- */}
             <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }}>
-              {[
-                {
-                  label: 'Total Memos',
-                  value: analytics.overview.total,
-                  icon: IconFileText,
-                  color: 'blue',
-                },
-                {
-                  label: 'Sent',
-                  value: analytics.overview.sent,
-                  icon: IconSend,
-                  color: 'cyan',
-                },
-                {
-                  label: 'Received',
-                  value: analytics.overview.received,
-                  icon: IconInbox,
-                  color: 'grape',
-                },
-                {
-                  label: 'Active',
-                  value: analytics.overview.active,
-                  icon: IconTrendingUp,
-                  color: 'green',
-                },
-              ].map((stat) => {
-                const Icon = stat.icon;
+              {tabConfigs.map((config) => {
+                const Icon = config.icon;
                 return (
-                  <Paper key={stat.label} withBorder radius="xl" p="lg">
-                    <Group justify="space-between">
-                      <Stack gap={0}>
-                        <Text size="sm" c="dimmed">
-                          {stat.label}
-                        </Text>
-                        <Text fw={900} fz={34}>
-                          {stat.value}
-                        </Text>
-                      </Stack>
-                      <ThemeIcon size={60} radius="xl" color={stat.color} variant="light">
-                        <Icon size={30} />
-                      </ThemeIcon>
-                    </Group>
-                  </Paper>
+                  <UnstyledButton
+                    key={config.value}
+                    onClick={() => router.push(`/dashboard/forms/iom?tab=${config.value}`)}
+                    style={{
+                      textDecoration: 'none',
+                      cursor: 'pointer',
+                      transition: 'transform 0.2s ease',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.transform = 'translateY(-4px)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = 'translateY(0)';
+                    }}
+                  >
+                    <Paper withBorder radius="xl" p="lg">
+                      <Group justify="space-between">
+                        <Stack gap={0}>
+                          <Text size="sm" c="dimmed">
+                            {config.label}
+                          </Text>
+                          <Text fw={900} fz={34}>
+                            {config.count}
+                          </Text>
+                        </Stack>
+                        <ThemeIcon size={60} radius="xl" color={config.color} variant="light">
+                          <Icon size={30} />
+                        </ThemeIcon>
+                      </Group>
+                    </Paper>
+                  </UnstyledButton>
                 );
               })}
             </SimpleGrid>
@@ -530,9 +664,7 @@ export default function AnalyticsPage() {
               style={{ backgroundColor: cardBg, borderColor: cardBorder }}
             >
               <Text fw={600} mb="md" style={{ color: textColor }}>
-                {timeRange === 'day'
-                  ? 'Hourly Memo Activity'
-                  : 'Memo Trends'}
+                {timeRange === 'day' ? 'Hourly Memo Activity' : 'Memo Trends'}
               </Text>
               {analytics.trends && analytics.trends.length > 0 ? (
                 <LineChart

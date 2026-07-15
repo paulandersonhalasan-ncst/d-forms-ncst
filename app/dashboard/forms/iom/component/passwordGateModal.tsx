@@ -97,8 +97,9 @@ export default function PasswordGateModal({
         {/* ACKNOWLEDGE – optional remarks */}
         {pendingAction?.type === 'ACKNOWLEDGE' && (
           <Textarea
-            label="Remarks / Feedback Note (optional)"
-            placeholder="Enter your remarks here (optional)"
+            label="Remarks / Feedback Note"
+            placeholder="Enter your remarks here (required)"
+            required
             value={feedbackNote}
             onChange={(e) => setFeedbackNote(e.currentTarget.value)}
             rows={2}

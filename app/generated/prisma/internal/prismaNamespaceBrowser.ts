@@ -204,7 +204,10 @@ export const MemoRecipientStatusScalarFieldEnum = {
   lastActivityAt: 'lastActivityAt',
   isSenderClosing: 'isSenderClosing',
   attachmentPaths: 'attachmentPaths',
-  respondedAt: 'respondedAt'
+  respondedAt: 'respondedAt',
+  assignedToIds: 'assignedToIds',
+  assignedToNames: 'assignedToNames',
+  assignedAt: 'assignedAt'
 } as const
 
 export type MemoRecipientStatusScalarFieldEnum = (typeof MemoRecipientStatusScalarFieldEnum)[keyof typeof MemoRecipientStatusScalarFieldEnum]

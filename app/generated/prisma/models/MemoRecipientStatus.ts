@@ -58,6 +58,7 @@ export type MemoRecipientStatusMinAggregateOutputType = {
   lastActivityAt: Date | null
   isSenderClosing: boolean | null
   respondedAt: Date | null
+  assignedAt: Date | null
 }
 
 export type MemoRecipientStatusMaxAggregateOutputType = {
@@ -94,6 +95,7 @@ export type MemoRecipientStatusMaxAggregateOutputType = {
   lastActivityAt: Date | null
   isSenderClosing: boolean | null
   respondedAt: Date | null
+  assignedAt: Date | null
 }
 
 export type MemoRecipientStatusCountAggregateOutputType = {
@@ -131,6 +133,9 @@ export type MemoRecipientStatusCountAggregateOutputType = {
   isSenderClosing: number
   attachmentPaths: number
   respondedAt: number
+  assignedToIds: number
+  assignedToNames: number
+  assignedAt: number
   _all: number
 }
 
@@ -169,6 +174,7 @@ export type MemoRecipientStatusMinAggregateInputType = {
   lastActivityAt?: true
   isSenderClosing?: true
   respondedAt?: true
+  assignedAt?: true
 }
 
 export type MemoRecipientStatusMaxAggregateInputType = {
@@ -205,6 +211,7 @@ export type MemoRecipientStatusMaxAggregateInputType = {
   lastActivityAt?: true
   isSenderClosing?: true
   respondedAt?: true
+  assignedAt?: true
 }
 
 export type MemoRecipientStatusCountAggregateInputType = {
@@ -242,6 +249,9 @@ export type MemoRecipientStatusCountAggregateInputType = {
   isSenderClosing?: true
   attachmentPaths?: true
   respondedAt?: true
+  assignedToIds?: true
+  assignedToNames?: true
+  assignedAt?: true
   _all?: true
 }
 
@@ -352,6 +362,9 @@ export type MemoRecipientStatusGroupByOutputType = {
   isSenderClosing: boolean
   attachmentPaths: string[]
   respondedAt: Date | null
+  assignedToIds: string[]
+  assignedToNames: string[]
+  assignedAt: Date | null
   _count: MemoRecipientStatusCountAggregateOutputType | null
   _min: MemoRecipientStatusMinAggregateOutputType | null
   _max: MemoRecipientStatusMaxAggregateOutputType | null
@@ -410,6 +423,9 @@ export type MemoRecipientStatusWhereInput = {
   isSenderClosing?: Prisma.BoolFilter<"MemoRecipientStatus"> | boolean
   attachmentPaths?: Prisma.StringNullableListFilter<"MemoRecipientStatus">
   respondedAt?: Prisma.DateTimeNullableFilter<"MemoRecipientStatus"> | Date | string | null
+  assignedToIds?: Prisma.StringNullableListFilter<"MemoRecipientStatus">
+  assignedToNames?: Prisma.StringNullableListFilter<"MemoRecipientStatus">
+  assignedAt?: Prisma.DateTimeNullableFilter<"MemoRecipientStatus"> | Date | string | null
   memo?: Prisma.XOR<Prisma.MemoScalarRelationFilter, Prisma.MemoWhereInput>
 }
 
@@ -448,6 +464,9 @@ export type MemoRecipientStatusOrderByWithRelationInput = {
   isSenderClosing?: Prisma.SortOrder
   attachmentPaths?: Prisma.SortOrder
   respondedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  assignedToIds?: Prisma.SortOrder
+  assignedToNames?: Prisma.SortOrder
+  assignedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   memo?: Prisma.MemoOrderByWithRelationInput
 }
 
@@ -490,6 +509,9 @@ export type MemoRecipientStatusWhereUniqueInput = Prisma.AtLeast<{
   isSenderClosing?: Prisma.BoolFilter<"MemoRecipientStatus"> | boolean
   attachmentPaths?: Prisma.StringNullableListFilter<"MemoRecipientStatus">
   respondedAt?: Prisma.DateTimeNullableFilter<"MemoRecipientStatus"> | Date | string | null
+  assignedToIds?: Prisma.StringNullableListFilter<"MemoRecipientStatus">
+  assignedToNames?: Prisma.StringNullableListFilter<"MemoRecipientStatus">
+  assignedAt?: Prisma.DateTimeNullableFilter<"MemoRecipientStatus"> | Date | string | null
   memo?: Prisma.XOR<Prisma.MemoScalarRelationFilter, Prisma.MemoWhereInput>
 }, "id" | "memoId_departmentName">
 
@@ -528,6 +550,9 @@ export type MemoRecipientStatusOrderByWithAggregationInput = {
   isSenderClosing?: Prisma.SortOrder
   attachmentPaths?: Prisma.SortOrder
   respondedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  assignedToIds?: Prisma.SortOrder
+  assignedToNames?: Prisma.SortOrder
+  assignedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   _count?: Prisma.MemoRecipientStatusCountOrderByAggregateInput
   _max?: Prisma.MemoRecipientStatusMaxOrderByAggregateInput
   _min?: Prisma.MemoRecipientStatusMinOrderByAggregateInput
@@ -571,6 +596,9 @@ export type MemoRecipientStatusScalarWhereWithAggregatesInput = {
   isSenderClosing?: Prisma.BoolWithAggregatesFilter<"MemoRecipientStatus"> | boolean
   attachmentPaths?: Prisma.StringNullableListFilter<"MemoRecipientStatus">
   respondedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"MemoRecipientStatus"> | Date | string | null
+  assignedToIds?: Prisma.StringNullableListFilter<"MemoRecipientStatus">
+  assignedToNames?: Prisma.StringNullableListFilter<"MemoRecipientStatus">
+  assignedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"MemoRecipientStatus"> | Date | string | null
 }
 
 export type MemoRecipientStatusCreateInput = {
@@ -607,6 +635,9 @@ export type MemoRecipientStatusCreateInput = {
   isSenderClosing?: boolean
   attachmentPaths?: Prisma.MemoRecipientStatusCreateattachmentPathsInput | string[]
   respondedAt?: Date | string | null
+  assignedToIds?: Prisma.MemoRecipientStatusCreateassignedToIdsInput | string[]
+  assignedToNames?: Prisma.MemoRecipientStatusCreateassignedToNamesInput | string[]
+  assignedAt?: Date | string | null
   memo: Prisma.MemoCreateNestedOneWithoutRecipientsInput
 }
 
@@ -645,6 +676,9 @@ export type MemoRecipientStatusUncheckedCreateInput = {
   isSenderClosing?: boolean
   attachmentPaths?: Prisma.MemoRecipientStatusCreateattachmentPathsInput | string[]
   respondedAt?: Date | string | null
+  assignedToIds?: Prisma.MemoRecipientStatusCreateassignedToIdsInput | string[]
+  assignedToNames?: Prisma.MemoRecipientStatusCreateassignedToNamesInput | string[]
+  assignedAt?: Date | string | null
 }
 
 export type MemoRecipientStatusUpdateInput = {
@@ -681,6 +715,9 @@ export type MemoRecipientStatusUpdateInput = {
   isSenderClosing?: Prisma.BoolFieldUpdateOperationsInput | boolean
   attachmentPaths?: Prisma.MemoRecipientStatusUpdateattachmentPathsInput | string[]
   respondedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  assignedToIds?: Prisma.MemoRecipientStatusUpdateassignedToIdsInput | string[]
+  assignedToNames?: Prisma.MemoRecipientStatusUpdateassignedToNamesInput | string[]
+  assignedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   memo?: Prisma.MemoUpdateOneRequiredWithoutRecipientsNestedInput
 }
 
@@ -719,6 +756,9 @@ export type MemoRecipientStatusUncheckedUpdateInput = {
   isSenderClosing?: Prisma.BoolFieldUpdateOperationsInput | boolean
   attachmentPaths?: Prisma.MemoRecipientStatusUpdateattachmentPathsInput | string[]
   respondedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  assignedToIds?: Prisma.MemoRecipientStatusUpdateassignedToIdsInput | string[]
+  assignedToNames?: Prisma.MemoRecipientStatusUpdateassignedToNamesInput | string[]
+  assignedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
 
 export type MemoRecipientStatusCreateManyInput = {
@@ -756,6 +796,9 @@ export type MemoRecipientStatusCreateManyInput = {
   isSenderClosing?: boolean
   attachmentPaths?: Prisma.MemoRecipientStatusCreateattachmentPathsInput | string[]
   respondedAt?: Date | string | null
+  assignedToIds?: Prisma.MemoRecipientStatusCreateassignedToIdsInput | string[]
+  assignedToNames?: Prisma.MemoRecipientStatusCreateassignedToNamesInput | string[]
+  assignedAt?: Date | string | null
 }
 
 export type MemoRecipientStatusUpdateManyMutationInput = {
@@ -792,6 +835,9 @@ export type MemoRecipientStatusUpdateManyMutationInput = {
   isSenderClosing?: Prisma.BoolFieldUpdateOperationsInput | boolean
   attachmentPaths?: Prisma.MemoRecipientStatusUpdateattachmentPathsInput | string[]
   respondedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  assignedToIds?: Prisma.MemoRecipientStatusUpdateassignedToIdsInput | string[]
+  assignedToNames?: Prisma.MemoRecipientStatusUpdateassignedToNamesInput | string[]
+  assignedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
 
 export type MemoRecipientStatusUncheckedUpdateManyInput = {
@@ -829,6 +875,9 @@ export type MemoRecipientStatusUncheckedUpdateManyInput = {
   isSenderClosing?: Prisma.BoolFieldUpdateOperationsInput | boolean
   attachmentPaths?: Prisma.MemoRecipientStatusUpdateattachmentPathsInput | string[]
   respondedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  assignedToIds?: Prisma.MemoRecipientStatusUpdateassignedToIdsInput | string[]
+  assignedToNames?: Prisma.MemoRecipientStatusUpdateassignedToNamesInput | string[]
+  assignedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
 
 export type MemoRecipientStatusListRelationFilter = {
@@ -881,6 +930,9 @@ export type MemoRecipientStatusCountOrderByAggregateInput = {
   isSenderClosing?: Prisma.SortOrder
   attachmentPaths?: Prisma.SortOrder
   respondedAt?: Prisma.SortOrder
+  assignedToIds?: Prisma.SortOrder
+  assignedToNames?: Prisma.SortOrder
+  assignedAt?: Prisma.SortOrder
 }
 
 export type MemoRecipientStatusMaxOrderByAggregateInput = {
@@ -917,6 +969,7 @@ export type MemoRecipientStatusMaxOrderByAggregateInput = {
   lastActivityAt?: Prisma.SortOrder
   isSenderClosing?: Prisma.SortOrder
   respondedAt?: Prisma.SortOrder
+  assignedAt?: Prisma.SortOrder
 }
 
 export type MemoRecipientStatusMinOrderByAggregateInput = {
@@ -953,6 +1006,7 @@ export type MemoRecipientStatusMinOrderByAggregateInput = {
   lastActivityAt?: Prisma.SortOrder
   isSenderClosing?: Prisma.SortOrder
   respondedAt?: Prisma.SortOrder
+  assignedAt?: Prisma.SortOrder
 }
 
 export type MemoRecipientStatusCreateNestedManyWithoutMemoInput = {
@@ -1001,11 +1055,29 @@ export type MemoRecipientStatusCreateattachmentPathsInput = {
   set: string[]
 }
 
+export type MemoRecipientStatusCreateassignedToIdsInput = {
+  set: string[]
+}
+
+export type MemoRecipientStatusCreateassignedToNamesInput = {
+  set: string[]
+}
+
 export type EnumStatusFieldUpdateOperationsInput = {
   set?: $Enums.Status
 }
 
 export type MemoRecipientStatusUpdateattachmentPathsInput = {
+  set?: string[]
+  push?: string | string[]
+}
+
+export type MemoRecipientStatusUpdateassignedToIdsInput = {
+  set?: string[]
+  push?: string | string[]
+}
+
+export type MemoRecipientStatusUpdateassignedToNamesInput = {
   set?: string[]
   push?: string | string[]
 }
@@ -1044,6 +1116,9 @@ export type MemoRecipientStatusCreateWithoutMemoInput = {
   isSenderClosing?: boolean
   attachmentPaths?: Prisma.MemoRecipientStatusCreateattachmentPathsInput | string[]
   respondedAt?: Date | string | null
+  assignedToIds?: Prisma.MemoRecipientStatusCreateassignedToIdsInput | string[]
+  assignedToNames?: Prisma.MemoRecipientStatusCreateassignedToNamesInput | string[]
+  assignedAt?: Date | string | null
 }
 
 export type MemoRecipientStatusUncheckedCreateWithoutMemoInput = {
@@ -1080,6 +1155,9 @@ export type MemoRecipientStatusUncheckedCreateWithoutMemoInput = {
   isSenderClosing?: boolean
   attachmentPaths?: Prisma.MemoRecipientStatusCreateattachmentPathsInput | string[]
   respondedAt?: Date | string | null
+  assignedToIds?: Prisma.MemoRecipientStatusCreateassignedToIdsInput | string[]
+  assignedToNames?: Prisma.MemoRecipientStatusCreateassignedToNamesInput | string[]
+  assignedAt?: Date | string | null
 }
 
 export type MemoRecipientStatusCreateOrConnectWithoutMemoInput = {
@@ -1146,6 +1224,9 @@ export type MemoRecipientStatusScalarWhereInput = {
   isSenderClosing?: Prisma.BoolFilter<"MemoRecipientStatus"> | boolean
   attachmentPaths?: Prisma.StringNullableListFilter<"MemoRecipientStatus">
   respondedAt?: Prisma.DateTimeNullableFilter<"MemoRecipientStatus"> | Date | string | null
+  assignedToIds?: Prisma.StringNullableListFilter<"MemoRecipientStatus">
+  assignedToNames?: Prisma.StringNullableListFilter<"MemoRecipientStatus">
+  assignedAt?: Prisma.DateTimeNullableFilter<"MemoRecipientStatus"> | Date | string | null
 }
 
 export type MemoRecipientStatusCreateManyMemoInput = {
@@ -1182,6 +1263,9 @@ export type MemoRecipientStatusCreateManyMemoInput = {
   isSenderClosing?: boolean
   attachmentPaths?: Prisma.MemoRecipientStatusCreateattachmentPathsInput | string[]
   respondedAt?: Date | string | null
+  assignedToIds?: Prisma.MemoRecipientStatusCreateassignedToIdsInput | string[]
+  assignedToNames?: Prisma.MemoRecipientStatusCreateassignedToNamesInput | string[]
+  assignedAt?: Date | string | null
 }
 
 export type MemoRecipientStatusUpdateWithoutMemoInput = {
@@ -1218,6 +1302,9 @@ export type MemoRecipientStatusUpdateWithoutMemoInput = {
   isSenderClosing?: Prisma.BoolFieldUpdateOperationsInput | boolean
   attachmentPaths?: Prisma.MemoRecipientStatusUpdateattachmentPathsInput | string[]
   respondedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  assignedToIds?: Prisma.MemoRecipientStatusUpdateassignedToIdsInput | string[]
+  assignedToNames?: Prisma.MemoRecipientStatusUpdateassignedToNamesInput | string[]
+  assignedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
 
 export type MemoRecipientStatusUncheckedUpdateWithoutMemoInput = {
@@ -1254,6 +1341,9 @@ export type MemoRecipientStatusUncheckedUpdateWithoutMemoInput = {
   isSenderClosing?: Prisma.BoolFieldUpdateOperationsInput | boolean
   attachmentPaths?: Prisma.MemoRecipientStatusUpdateattachmentPathsInput | string[]
   respondedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  assignedToIds?: Prisma.MemoRecipientStatusUpdateassignedToIdsInput | string[]
+  assignedToNames?: Prisma.MemoRecipientStatusUpdateassignedToNamesInput | string[]
+  assignedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
 
 export type MemoRecipientStatusUncheckedUpdateManyWithoutMemoInput = {
@@ -1290,6 +1380,9 @@ export type MemoRecipientStatusUncheckedUpdateManyWithoutMemoInput = {
   isSenderClosing?: Prisma.BoolFieldUpdateOperationsInput | boolean
   attachmentPaths?: Prisma.MemoRecipientStatusUpdateattachmentPathsInput | string[]
   respondedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  assignedToIds?: Prisma.MemoRecipientStatusUpdateassignedToIdsInput | string[]
+  assignedToNames?: Prisma.MemoRecipientStatusUpdateassignedToNamesInput | string[]
+  assignedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
 
 
@@ -1329,6 +1422,9 @@ export type MemoRecipientStatusSelect<ExtArgs extends runtime.Types.Extensions.I
   isSenderClosing?: boolean
   attachmentPaths?: boolean
   respondedAt?: boolean
+  assignedToIds?: boolean
+  assignedToNames?: boolean
+  assignedAt?: boolean
   memo?: boolean | Prisma.MemoDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["memoRecipientStatus"]>
 
@@ -1367,6 +1463,9 @@ export type MemoRecipientStatusSelectCreateManyAndReturn<ExtArgs extends runtime
   isSenderClosing?: boolean
   attachmentPaths?: boolean
   respondedAt?: boolean
+  assignedToIds?: boolean
+  assignedToNames?: boolean
+  assignedAt?: boolean
   memo?: boolean | Prisma.MemoDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["memoRecipientStatus"]>
 
@@ -1405,6 +1504,9 @@ export type MemoRecipientStatusSelectUpdateManyAndReturn<ExtArgs extends runtime
   isSenderClosing?: boolean
   attachmentPaths?: boolean
   respondedAt?: boolean
+  assignedToIds?: boolean
+  assignedToNames?: boolean
+  assignedAt?: boolean
   memo?: boolean | Prisma.MemoDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["memoRecipientStatus"]>
 
@@ -1443,9 +1545,12 @@ export type MemoRecipientStatusSelectScalar = {
   isSenderClosing?: boolean
   attachmentPaths?: boolean
   respondedAt?: boolean
+  assignedToIds?: boolean
+  assignedToNames?: boolean
+  assignedAt?: boolean
 }
 
-export type MemoRecipientStatusOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "memoId" | "departmentName" | "status" | "acknowledgedById" | "acknowledgedByName" | "acknowledgedAt" | "processedAt" | "completedById" | "completedByName" | "completedAt" | "feedbackNote" | "senderConfirmationNote" | "recipientConfirmationNote" | "processedById" | "processedByName" | "deniedById" | "deniedByName" | "deniedAt" | "senderConfirmedById" | "senderConfirmedByName" | "senderConfirmedAt" | "recipientConfirmedById" | "recipientConfirmedByName" | "recipientConfirmedAt" | "closedById" | "closedByName" | "closedByRole" | "closedAt" | "updatedAt" | "lastActivityAt" | "isSenderClosing" | "attachmentPaths" | "respondedAt", ExtArgs["result"]["memoRecipientStatus"]>
+export type MemoRecipientStatusOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "memoId" | "departmentName" | "status" | "acknowledgedById" | "acknowledgedByName" | "acknowledgedAt" | "processedAt" | "completedById" | "completedByName" | "completedAt" | "feedbackNote" | "senderConfirmationNote" | "recipientConfirmationNote" | "processedById" | "processedByName" | "deniedById" | "deniedByName" | "deniedAt" | "senderConfirmedById" | "senderConfirmedByName" | "senderConfirmedAt" | "recipientConfirmedById" | "recipientConfirmedByName" | "recipientConfirmedAt" | "closedById" | "closedByName" | "closedByRole" | "closedAt" | "updatedAt" | "lastActivityAt" | "isSenderClosing" | "attachmentPaths" | "respondedAt" | "assignedToIds" | "assignedToNames" | "assignedAt", ExtArgs["result"]["memoRecipientStatus"]>
 export type MemoRecipientStatusInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   memo?: boolean | Prisma.MemoDefaultArgs<ExtArgs>
 }
@@ -1496,6 +1601,9 @@ export type $MemoRecipientStatusPayload<ExtArgs extends runtime.Types.Extensions
     isSenderClosing: boolean
     attachmentPaths: string[]
     respondedAt: Date | null
+    assignedToIds: string[]
+    assignedToNames: string[]
+    assignedAt: Date | null
   }, ExtArgs["result"]["memoRecipientStatus"]>
   composites: {}
 }
@@ -1954,6 +2062,9 @@ export interface MemoRecipientStatusFieldRefs {
   readonly isSenderClosing: Prisma.FieldRef<"MemoRecipientStatus", 'Boolean'>
   readonly attachmentPaths: Prisma.FieldRef<"MemoRecipientStatus", 'String[]'>
   readonly respondedAt: Prisma.FieldRef<"MemoRecipientStatus", 'DateTime'>
+  readonly assignedToIds: Prisma.FieldRef<"MemoRecipientStatus", 'String[]'>
+  readonly assignedToNames: Prisma.FieldRef<"MemoRecipientStatus", 'String[]'>
+  readonly assignedAt: Prisma.FieldRef<"MemoRecipientStatus", 'DateTime'>
 }
     
 

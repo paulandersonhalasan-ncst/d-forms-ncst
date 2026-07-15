@@ -42,7 +42,7 @@ interface ViewMemoModalProps {
   processOICAllowance: boolean;
   onPrint: (memo: Memo) => void;
   triggerActionPasswordCheck: (
-    type: 'CREATE' | 'ACKNOWLEDGE' | 'START_PROCESSING' | 'DENY' | 'CLOSED' | 'APPROVE_MEMO' | 'DISAPPROVE_DRAFT' | 'JOIN_PROCESSING',
+    type: 'CREATE' | 'ACKNOWLEDGE' | 'START_PROCESSING' | 'DENY' | 'CLOSED' | 'APPROVE_MEMO' | 'DISAPPROVE_DRAFT' | 'JOIN_PROCESSING' | 'ASSIGN',
     data: Record<string, unknown>
   ) => void;
 }
@@ -208,10 +208,10 @@ export default function ViewMemoModal({
         </Text>
         <Stack gap={6}>
           {memo.recipients?.map((rec) => {
-            // ✅ Determine the timestamp based on status
+            // ✅ Determine timestamp based on status
             let actionTimestamp = null;
             let actionLabel = '';
-            
+
             if (rec.status === 'PENDING') {
               actionTimestamp = null;
               actionLabel = 'Awaiting action';
@@ -235,7 +235,15 @@ export default function ViewMemoModal({
               actionLabel = 'Replied';
             }
 
-            
+            // ✅ Kunin ang pinakabagong history entry para sa department na ito
+            const deptHistory = memo.history
+              ?.filter((h) => h.departmentName === rec.departmentName)
+              ?.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()) || [];
+
+            const latestDeptRemark = deptHistory.length > 0 ? deptHistory[0] : null;
+
+            // ✅ Kung pending, walang remark
+            const showRemark = rec.status !== 'PENDING' && latestDeptRemark?.remarks;
 
             return (
               <Group
@@ -244,51 +252,64 @@ export default function ViewMemoModal({
                 p="xs"
                 style={{ border: '1px solid var(--mantine-color-gray-3)', borderRadius: '6px' }}
               >
-                <Stack gap={2}>
+                <Stack gap={2} style={{ flex: 1 }}>
                   <Text size="xs" fw={700}>
                     {rec.departmentName}
                   </Text>
+
+                  {/* Remarks from recipient's feedbackNote */}
                   {rec.feedbackNote && (
-                    <Text size="11px" c="orange">
+                    <Text size="xs" c="orange">
                       Remarks: {rec.feedbackNote}
                     </Text>
                   )}
-                  {/* Latest Remark with Performer */}
-                  {memo.history && memo.history.length > 0 && memo.history[0].remarks && (
+
+                  {/* ✅ Per-department latest remark (hindi na global) */}
+                  {showRemark && (
                     <Paper withBorder p="sm" radius="md" bg="light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-8))">
                       <Stack gap={2}>
                         <Group gap="xs">
                           <Text size="xs" fw={700}>Latest Remark:</Text>
                           <Text size="xs" c="dimmed" style={{ whiteSpace: 'pre-wrap' }}>
-                            {memo.history[0].remarks}
+                            {latestDeptRemark.remarks}
                           </Text>
                         </Group>
                         <Group gap="xs">
                           <Text size="10px" c="dimmed">
-                            <b>By:</b> {memo.history[0].performedByName} 
-                            ({memo.history[0].actorRole === 'SENDER' ? 'Sender' : 
-                              memo.history[0].actorRole === 'RECIPIENT' ? 'Recipient' : 'System'})
+                            <b>By:</b> {latestDeptRemark.performedByName}
+                            ({latestDeptRemark.actorRole === 'SENDER' ? 'Sender' :
+                              latestDeptRemark.actorRole === 'RECIPIENT' ? 'Recipient' : 'System'})
                           </Text>
                           <Text size="10px" c="dimmed">
-                            <b>At:</b> {new Date(memo.history[0].createdAt).toLocaleString()}
+                            <b>At:</b> {new Date(latestDeptRemark.createdAt).toLocaleString()}
                           </Text>
                         </Group>
                       </Stack>
                     </Paper>
                   )}
-                  {/* ✅ Timestamp for action */}
+
+                  {/* ✅ Kung pending, magpakita ng placeholder */}
+                  {rec.status === 'PENDING' && (
+                    <Text size="xs" c="dimmed" fs="italic">
+                      No action taken yet — awaiting acknowledgment.
+                    </Text>
+                  )}
+
+                  {/* Timestamp for action */}
                   {actionTimestamp && (
-                    <Text size="10px" c="dimmed">
+                    <Text size="13px" c="dimmed">
                       {actionLabel}: {new Date(actionTimestamp).toLocaleString()}
                     </Text>
                   )}
+
                   {/* Closed by information */}
                   {rec.status === 'CLOSED' && rec.closedByName && (
-                    <Text size="10px" c="dimmed">
+                    <Text size="13px" c="dimmed">
                       Closed by: {rec.closedByName}
                     </Text>
                   )}
                 </Stack>
+
                 <Badge
                   color={
                     rec.status === 'RESPONDED'
@@ -418,6 +439,14 @@ export default function ViewMemoModal({
                       </>
                     )}
                   </>
+                )}
+
+                {/* Assigned to (array) */}
+                {recipientRow?.assignedToNames && recipientRow.assignedToNames.length > 0 && (
+                  <Text size="xs" c="dimmed">
+                    <b>Assigned to:</b> {recipientRow.assignedToNames.join(', ')}
+                    {recipientRow.assignedAt && ` (${new Date(recipientRow.assignedAt).toLocaleString()})`}
+                  </Text>
                 )}
 
                 {/* ===== Sender actions: Verify & Close (non-FYI only) ===== */}

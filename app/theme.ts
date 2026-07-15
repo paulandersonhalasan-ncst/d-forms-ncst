@@ -55,6 +55,27 @@ export const theme = createTheme({
   primaryColor: 'regalNavy',
   primaryShade: 9,
 
+  // ✅ DAGDAGAN: Palakihin ang lahat ng text sizes
+  fontSizes: {
+    xs: '14px',   // default 12px
+    sm: '16px',   // default 14px
+    md: '18px',   // default 16px
+    lg: '20px',   // default 18px
+    xl: '22px',   // default 20px
+  },
+
+  // Opsiyonal: Palakihin din ang mga heading sizes
+  headings: {
+    sizes: {
+      h1: { fontSize: '2.75rem' },  // default ~2rem
+      h2: { fontSize: '2.25rem' },
+      h3: { fontSize: '2.0rem' },
+      h4: { fontSize: '1.75rem' },
+      h5: { fontSize: '1.5rem' },
+      h6: { fontSize: '1.25rem' },
+    },
+  },
+
   // Global style overrides para pilitin ang Seashell at Carbon Black bilang body background
   components: {
     Container: {

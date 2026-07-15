@@ -35,6 +35,7 @@ import {
   IconInfoCircle,
   IconMessageReply,
   IconGitBranch,
+  IconUserCheck
 } from '@tabler/icons-react';
 import useSWR from 'swr';
 
@@ -46,6 +47,8 @@ import CreateMemoModal from './component/createMemoModal';
 import ViewMemoModal from './component/viewMemoModal';
 import PasswordGateModal from './component/passwordGateModal';
 import SuperEditModal from './component/superEditModal';
+
+import { useSearchParams } from 'next/navigation';
 
 export default function IOMDashboardPage() {
   // ---- Disclosure hooks ----
@@ -80,7 +83,8 @@ export default function IOMDashboardPage() {
       | 'CLOSED'
       | 'APPROVE_MEMO'
       | 'DISAPPROVE_DRAFT'
-      | 'JOIN_PROCESSING';
+      | 'JOIN_PROCESSING'
+      | 'ASSIGN';
     data: Record<string, unknown>;
   } | null>(null);
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -101,6 +105,11 @@ export default function IOMDashboardPage() {
   const [sortByDate, toggleSortByDate] = useToggle(['NEWEST', 'OLDEST'] as const);
 
   const [headNote, setHeadNote] = useState('');
+
+  const [departmentStaff, setDepartmentStaff] = useState<{ id: string; fname: string; lname: string }[]>([]);
+
+  const searchParams = useSearchParams();
+  const urlTab = searchParams.get('tab');
 
   const fetcher = (url: string) => fetch(url).then(res => res.json());
 
@@ -152,7 +161,7 @@ export default function IOMDashboardPage() {
     }
   );
 
-  const memos: Memo[] = memosData || [];
+  const memos: Memo[] = Array.isArray(memosData) ? memosData : [];
 
   // ---- Memo lists (gumagamit ng activeDepartment at iba pang derived state) ----
   // Ongoing sent memos
@@ -194,17 +203,38 @@ export default function IOMDashboardPage() {
   // );
 
   const allMemosLedgerList = isAdminOrSuper ? memos : [];
+  
+  // ---- Memo lists ----
+
+  // For Approval - Staff drafts (Head only)
   const forApprovalMemos = memos.filter(
     (memo) => memo.senderDept === activeDepartment && memo.status === 'FOR_APPROVAL'
   );
 
-  const incomingMemos = memos.filter((memo) => {
+  // Inbound - Incoming pending memos (Head only)
+  const inboundMemos = memos.filter((memo) => {
     if (memo.status === 'FOR_APPROVAL' || memo.status === 'CLOSED' || memo.status === 'DENIED') return false;
     return memo.recipients?.some(
       (r) => (r.departmentName === activeDepartment || processOICAllowance) && r.status === 'PENDING'
     );
   });
 
+  // Outbound - Memos sent by your department (active, not fully resolved)
+  const outboundMemos = memos.filter((memo) => {
+    if (memo.senderDept !== activeDepartment) return false;
+    if (memo.status !== 'APPROVED') return false;
+    
+    // Skip kung walang recipients (for safety)
+    if (!memo.recipients || memo.recipients.length === 0) return false;
+    
+    // Ipakita lamang kung hindi pa lahat ng recipients ay resolved
+    const allResolved = memo.recipients.every(r =>
+      ['CLOSED', 'DENIED', 'COMPLETED'].includes(r.status)
+    );
+    return !allResolved;
+  });
+
+  // Action Board - Acknowledged/Processing memos (FREE FOR ALL)
   const actionBoardMemos = memos.filter((memo) => {
     if (memo.status === 'FOR_APPROVAL' || memo.status === 'CLOSED' || memo.status === 'DENIED') return false;
     return memo.recipients?.some(
@@ -214,40 +244,49 @@ export default function IOMDashboardPage() {
     );
   });
 
-   const resolvedMemos = memos.filter((memo) => {
-      // Para sa Admin o Super Admin
-      if (isAdminOrSuper) {
-        return memo.recipients?.some((r) =>
-          ['COMPLETED', 'RESPONDED', 'DENIED', 'CLOSED'].includes(r.status)
-        );
-      }
-      
-      // Check kung resolved na para sa recipient department
-      const isRecipientResolved = memo.recipients?.some(
-        (r) =>
-          (r.departmentName === activeDepartment || processOICAllowance) &&
-          ['COMPLETED', 'RESPONDED', 'DENIED', 'CLOSED'].includes(r.status)
-      );
-      
-      // Check kung resolved na para sa sender department (dapat lahat ng recipients nakapag-respond na)
-      const isSenderResolved =
-        memo.senderDept === activeDepartment &&
-        memo.recipients?.every((r) =>
-          ['COMPLETED', 'RESPONDED', 'DENIED', 'CLOSED'].includes(r.status)
-        );
-        
-      return isRecipientResolved || isSenderResolved;
+  // Assigned to Me - Memos na assigned sa current user
+  const assignedToMeMemos = memos.filter((memo) => {
+    if (memo.status === 'FOR_APPROVAL' || memo.status === 'CLOSED' || memo.status === 'DENIED') return false;
+    return memo.recipients?.some(
+      (r) =>
+        r.departmentName === activeDepartment &&
+        r.assignedToIds?.includes(currentUser?.id ?? '') && // ✅ array na ngayon
+        !['COMPLETED', 'CLOSED', 'DENIED'].includes(r.status)
+    );
   });
 
-  // const resolvedMemos = memos.filter(
-  //   (memo) => memo.senderDept === activeDepartment || memo.recipients?. && memo.status === 'CLOSED'
-  // );
+  // Archived/Resolved
+  const resolvedMemos = memos.filter((memo) => {
+    // Skip kung walang recipients
+    if (!memo.recipients || memo.recipients.length === 0) return false;
+
+    if (isAdminOrSuper) {
+      return memo.recipients.some((r) =>
+        ['COMPLETED', 'RESPONDED', 'DENIED', 'CLOSED'].includes(r.status)
+      );
+    }
+
+    const isRecipientResolved = memo.recipients.some(
+      (r) =>
+        (r.departmentName === activeDepartment || processOICAllowance) &&
+        ['COMPLETED', 'RESPONDED', 'DENIED', 'CLOSED'].includes(r.status)
+    );
+
+    const isSenderResolved =
+      memo.senderDept === activeDepartment &&
+      memo.recipients.every((r) =>
+        ['COMPLETED', 'RESPONDED', 'DENIED', 'CLOSED'].includes(r.status)
+      );
+
+    return isRecipientResolved || isSenderResolved;
+  });
 
   // ---- Active tab state (gamit ang isAdminOrSuper at isDepartmentHead) ----
   const [activeTab, setActiveTab] = useState<string | null>(() => {
+    if (urlTab) return urlTab;
     if (isAdminOrSuper) return 'all_memos';
     if (isDepartmentHead) return 'approval';
-    return 'inbox';
+    return 'action_board';
   });
 
   // ---- Ref para malaman kung nag-manual change ang user ----
@@ -255,30 +294,35 @@ export default function IOMDashboardPage() {
 
   // ---- Effect para i-auto-set ang tab (pero hindi kung nag-manual na) ----
   useEffect(() => {
+    if (urlTab) return; // ✅ Huwag i‑override kung may URL tab
+    
     if (!userChangedTab.current) {
       let desired: string | null = null;
       if (isAdminOrSuper) desired = 'all_memos';
       else if (isDepartmentHead) desired = 'approval';
-      else desired = 'inbox';
-
+      else desired = 'action_board';
       if (desired && activeTab !== desired) {
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setActiveTab(desired);
       }
     }
-  }, [isAdminOrSuper, isDepartmentHead, activeTab]);
+  }, [isAdminOrSuper, isDepartmentHead, activeTab, urlTab]);
 
   // ---- Handler para sa pag-click ng tab ----
   const handleTabChange = (value: string | null) => {
     userChangedTab.current = true;
     setActiveTab(value);
+    // ✅ I‑clear ang search kapag nag‑switch sa archived tab
+    if (value === 'archived') {
+      setSearchTerm('');
+    }
   };
 
   // ---- Data fetching (initialization) ----
   useEffect(() => {
     const initializeDashboard = async () => {
       try {
-        const authRes = await fetch('../../../api/auth/me');
+        const authRes = await fetch('/api/auth/me');
         const authData = await authRes.json();
         let userDeptCode = '';
         if (authData.success) {
@@ -286,16 +330,18 @@ export default function IOMDashboardPage() {
           userDeptCode = authData.data.departmentCode;
         }
 
-        const deptRes = await fetch('../../../api/department/get');
+        const deptRes = await fetch('/api/department/get');
         const deptData = await deptRes.json();
         if (deptData.success && Array.isArray(deptData.data)) {
           const mappedDepts = deptData.data
-            .filter((dept: Department) => dept.code !== userDeptCode)
+            .filter((dept: Department) => dept.code && dept.code !== userDeptCode)
             .map((dept: Department) => ({
               value: dept.code,
               label: dept.name ? `${dept.code} - ${dept.name}` : dept.code,
             }));
           setDepartments(mappedDepts);
+        } else {
+          setDepartments([]);
         }
 
         setPageLoading(false);
@@ -317,16 +363,37 @@ export default function IOMDashboardPage() {
     return () => window.removeEventListener('refresh-notifications', handleRefresh);
   }, [mutateMemos]);
 
+  // I‑fetch ang staff members (same department, exclude current user)
+  useEffect(() => {
+    const fetchStaff = async () => {
+      if (currentUser?.departmentCode && isDepartmentHead) {
+        try {
+          // ✅ Gamitin ang tamang route at parameters
+          const res = await fetch(`/api/user/get?sameDepartment=true&role=Staff`);
+          const data = await res.json();
+          if (data.success) {
+            setDepartmentStaff(data.data);
+          }
+        } catch (err) {
+          console.error('Failed to fetch staff:', err);
+        }
+      }
+    };
+    fetchStaff();
+  }, [currentUser?.departmentCode, isDepartmentHead]);
+
   // ---- Filter & sort ----
   const getFilteredMemos = (list: Memo[]) => {
     const filtered = list.filter((memo) => {
       const searchLower = searchTerm.toLowerCase();
+      if (!searchLower) return true;
+      
       return (
         memo.subject?.toLowerCase().includes(searchLower) ||
         memo.referenceId?.toLowerCase().includes(searchLower) ||
         memo.content?.toLowerCase().includes(searchLower) ||
         memo.senderName?.toLowerCase().includes(searchLower) ||
-        memo.sender?.branch.toLowerCase().includes(searchLower)
+        memo.sender?.branch?.toLowerCase().includes(searchLower) // ✅ Optional chaining
       );
     });
     return [...filtered].sort((a, b) => {
@@ -346,7 +413,8 @@ export default function IOMDashboardPage() {
       | 'CLOSED'
       | 'APPROVE_MEMO'
       | 'DISAPPROVE_DRAFT'
-      | 'JOIN_PROCESSING',
+      | 'JOIN_PROCESSING'
+      | 'ASSIGN',
     data: Record<string, unknown>
   ) => {
     setConfirmPassword('');
@@ -374,6 +442,10 @@ export default function IOMDashboardPage() {
       formData.append('feedbackNote', feedbackNote || headNote || '');
       const isSenderClosing = pendingAction?.data?.isSenderClosing ? 'true' : 'false';
       formData.append('isSenderClosing', isSenderClosing);
+
+      if (pendingAction?.type === 'ASSIGN' && pendingAction?.data?.assignedToId) {
+        formData.append('assignedToId', String(pendingAction.data.assignedToId));
+      }
 
       if (pendingAction?.type === 'CREATE' && pendingAction?.data) {
         formData.append('subject', String(pendingAction.data.subject || ''));
@@ -426,6 +498,8 @@ export default function IOMDashboardPage() {
         if (pendingAction?.type === 'CREATE') {
           close();
           form.reset();
+        } else {
+          closeExpandNoteModal();
         }
         mutateMemos();
         window.dispatchEvent(new Event('refresh-notifications'));
@@ -551,18 +625,18 @@ export default function IOMDashboardPage() {
         memo.recipients?.map((r) => `${r.departmentName} [${r.status}]`).join(', ') || 'None';
 
       const latestHistory = memo.history && memo.history.length > 0 ? memo.history[0] : null;
-      const latestRemarkHtml = latestHistory?.remarks ? `
-        <div style="margin-top:20px;padding:10px 14px;border-left:3px solid black;font-size:13px;page-break-inside:avoid;">
-          <div style="font-weight:bold;margin-bottom:4px;">📌 LATEST MEMO REMARK</div>
-          <div style="white-space:pre-wrap;">${latestHistory.remarks}</div>
-          <div style="font-size:11px;color:#555;margin-top:4px;">
-            By: <b>${latestHistory.performedByName}</b> 
-            (${latestHistory.actorRole === 'SENDER' ? 'Sender' : 
-              latestHistory.actorRole === 'RECIPIENT' ? 'Recipient' : 'System'}) 
-            at ${new Date(latestHistory.createdAt).toLocaleString()}
-          </div>
-        </div>
-      ` : '';
+      // const latestRemarkHtml = latestHistory?.remarks ? `
+      //   <div style="margin-top:20px;padding:10px 14px;border-left:3px solid black;font-size:13px;page-break-inside:avoid;">
+      //     <div style="font-weight:bold;margin-bottom:4px;">📌 LATEST MEMO REMARK</div>
+      //     <div style="white-space:pre-wrap;">${latestHistory.remarks}</div>
+      //     <div style="font-size:11px;color:#555;margin-top:4px;">
+      //       By: <b>${latestHistory.performedByName}</b> 
+      //       (${latestHistory.actorRole === 'SENDER' ? 'Sender' : 
+      //         latestHistory.actorRole === 'RECIPIENT' ? 'Recipient' : 'System'}) 
+      //       at ${new Date(latestHistory.createdAt).toLocaleString()}
+      //     </div>
+      //   </div>
+      // ` : '';
 
       const revisionNotice = memo.isRevisedByHead
         ? `<div style="margin-top:12px;padding:8px 12px;border:1px solid #70438a;background-color:#fcf8ff;font-size:12px;color:#70438a;"><strong>⚠️ AMENDMENT NOTICE:</strong> This draft was officially reviewed, modified, and finalized by the Department Head prior to system broadcast.</div>`
@@ -761,7 +835,7 @@ export default function IOMDashboardPage() {
             
             <div class="content-box">${memo.content.replace(/\n/g, '<br>')}</div>
             
-            ${latestRemarkHtml}
+            
             
             ${attachmentNotice}
             
@@ -809,6 +883,7 @@ export default function IOMDashboardPage() {
               onSuperEdit={triggerSuperEditReview}
               triggerActionPasswordCheck={triggerActionPasswordCheck}
               allMemos={memos}
+              departmentStaff={departmentStaff}
             />
           );
         })}
@@ -863,48 +938,45 @@ export default function IOMDashboardPage() {
         </Card>
 
         {/* Tabs */}
-        <Tabs value={activeTab} onChange={handleTabChange} radius="md" variant="outline">
+        <Tabs value={activeTab} onChange={handleTabChange} radius="md" variant="pills">
           <Tabs.List mb="lg">
-            {isAdminOrSuper && (
-              <Tabs.Tab value="all_memos" leftSection={<IconLayersIntersect size={15} />}>
-                All System Memos Ledger{' '}
-                <Badge size="xs" variant="light" ml={6}>{allMemosLedgerList.length}</Badge>
-              </Tabs.Tab>
-            )}
+            {/* For Approval - Head only */}
             {isDepartmentHead && (
               <Tabs.Tab value="approval" leftSection={<IconThumbUp size={15} />}>
-                For Approval (Staff Drafts){' '}
+                For Approval{' '}
                 <Badge size="xs" variant="light" ml={6}>{forApprovalMemos.length}</Badge>
               </Tabs.Tab>
             )}
-            {!isAdminOrSuper && (
-              <>
-                {/* Incoming Memos - Department Head / OIC only */}
-                {isDepartmentHead && (
-                  <Tabs.Tab value="inbox" leftSection={<IconInbox size={15} />}>
-                    Incoming Memos{' '}
-                    <Badge size="xs" variant="light" ml={6}>{incomingMemos.length}</Badge>
-                  </Tabs.Tab>
-                )}
-                
-                <Tabs.Tab value="action_board" leftSection={<IconPlayerPlay size={15} />}>
-                  Action Board Workspace{' '}
-                  <Badge size="xs" variant="light" ml={6}>{actionBoardMemos.length}</Badge>
-                </Tabs.Tab>
-                
-                <Tabs.Tab value="ongoing_sent" leftSection={<IconSend size={15} />}>
-                  Ongoing Sent{' '}
-                  <Badge size="xs" variant="light" ml={6}>{ongoingSentMemos.length}</Badge>
-                </Tabs.Tab>
-                
-                <Tabs.Tab value="sentby_user" leftSection={<IconSend size={15} />}>
-                  Sent by You{' '}
-                  <Badge size="xs" variant="light" ml={6}>{sentByUserMemos.length}</Badge>
-                </Tabs.Tab>
-              </>
+            
+            {/* Inbound - Head only */}
+            {isDepartmentHead && (
+              <Tabs.Tab value="inbound" leftSection={<IconInbox size={15} />}>
+                Inbound{' '}
+                <Badge size="xs" variant="light" ml={6}>{inboundMemos.length}</Badge>
+              </Tabs.Tab>
             )}
-            <Tabs.Tab value="closed" leftSection={<IconCircleCheck size={15} />}>
-              Archive / Resolved Logs{' '}
+            
+            {/* Outbound - Everyone */}
+            <Tabs.Tab value="outbound" leftSection={<IconSend size={15} />}>
+              Outbound{' '}
+              <Badge size="xs" variant="light" ml={6}>{outboundMemos.length}</Badge>
+            </Tabs.Tab>
+            
+            {/* Action Board - Everyone (FREE MODE - lahat nakakakita, lahat pwedeng kumilos) */}
+            <Tabs.Tab value="action_board" leftSection={<IconPlayerPlay size={15} />}>
+              Action Board{' '}
+              <Badge size="xs" variant="light" ml={6}>{actionBoardMemos.length}</Badge>
+            </Tabs.Tab>
+            
+            {/* Ipakita sa lahat (except Admin? pero okay lang din) */}
+            <Tabs.Tab value="assigned_to_me" leftSection={<IconUserCheck size={15} />}>
+              Assigned to Me{' '}
+              <Badge size="xs" variant="light" ml={6}>{assignedToMeMemos.length}</Badge>
+            </Tabs.Tab>
+            
+            {/* Archived */}
+            <Tabs.Tab value="archived" leftSection={<IconCircleCheck size={15} />}>
+              Archived / Resolved{' '}
               <Badge size="xs" variant="light" ml={6}>{resolvedMemos.length}</Badge>
             </Tabs.Tab>
           </Tabs.List>
@@ -927,13 +999,13 @@ export default function IOMDashboardPage() {
             {renderMemoCards(getFilteredMemos(forApprovalMemos), true)}
           </Tabs.Panel>
 
-          <Tabs.Panel value="inbox">
+          <Tabs.Panel value="inbound">
             <Alert icon={<IconInfoCircle size={16} />} title="Incoming External Inbound Queue" color="teal" mb="md" radius="md">
               Incoming memorandums routed by external entities. Requires Department Head authentication to acknowledge and shift to the public Action Board.
               <br /><br />
               Mga memorandum na galing sa ibang mga departmento na aprubado na ng kanilang Department Head. I-<b><i>Acknowledge</i></b> para mapunta sa Action Board Workspace para aksyunan ng kahit sino sa inyong departamento.
             </Alert>
-            {renderMemoCards(getFilteredMemos(incomingMemos))}
+            {renderMemoCards(getFilteredMemos(inboundMemos))}
           </Tabs.Panel>
 
           <Tabs.Panel value="action_board">
@@ -945,34 +1017,25 @@ export default function IOMDashboardPage() {
             {renderMemoCards(getFilteredMemos(actionBoardMemos))}
           </Tabs.Panel>
 
-          <Tabs.Panel value="sentby_user">
-            <Alert icon={<IconInfoCircle size={16} />} title="Sent by You" color="gray" mb="md" radius="md">
-              Memos you have sent that are still pending recipient actions.
+          <Tabs.Panel value="assigned_to_me">
+            <Alert icon={<IconInfoCircle size={16} />} title="Assigned to Me" color="grape" mb="md" radius="md">
+              Memos specifically assigned to you by the Department Head.
               <br /><br />
-              Mga memorandum na ipinadala mo na naghihintay pang ma-aprubahan ng inyong departamento.
+              Mga memorandum na direktang na‑assign sa iyo ng Department Head.
             </Alert>
-            {renderMemoCards(getFilteredMemos(sentByUserMemos))}
+            {renderMemoCards(getFilteredMemos(assignedToMeMemos))}
           </Tabs.Panel>
 
-          <Tabs.Panel value="ongoing_sent">
-            <Alert icon={<IconInfoCircle size={16} />} title="Ongoing Sent Memos" color="gray" mb="md" radius="md">
-              Memos you have sent that are still pending recipient actions.
+          <Tabs.Panel value="outbound">
+            <Alert icon={<IconInfoCircle size={16} />} title="Outbound Memos" color="cyan" mb="md" radius="md">
+              Memos sent by your department to other departments.
               <br /><br />
-              Mga memorandum na ipinadala mo na naghihintay pa ng aksyon mula sa mga tatanggap.
+              Mga memorandum na ipinadala ng inyong departamento sa ibang departamento.
             </Alert>
-            {renderMemoCards(getFilteredMemos(ongoingSentMemos))}
+            {renderMemoCards(getFilteredMemos(outboundMemos))}
           </Tabs.Panel>
 
-          {/* <Tabs.Panel value="closed_sent">
-            <Alert icon={<IconInfoCircle size={16} />} title="Closed Sent Memos" color="green" mb="md" radius="md">
-              Memos you have sent that are fully resolved.
-              <br /><br />
-              Mga memorandum na ipinadala mo na tapos na at sarado na.
-            </Alert>
-            {renderMemoCards(getFilteredMemos(closedSentMemos))}
-          </Tabs.Panel> */}
-
-          <Tabs.Panel value="closed">
+          <Tabs.Panel value="archived">
             <Alert icon={<IconInfoCircle size={16} />} title="Archived Records Directory" color="green" mb="md" radius="md">
               Archived historical repository containing fully responded operations or structurally denied state documents.
               <br /><br />

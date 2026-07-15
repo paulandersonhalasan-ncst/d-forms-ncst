@@ -43,7 +43,7 @@ async function getDepartmentUsers(deptCode, roles) {
 export async function GET(request) {
   try {
     const memos = await prisma.memo.findMany({
-      include: { 
+      include: {
         recipients: true,
         sender: true,
         history: {
@@ -65,7 +65,6 @@ export async function GET(request) {
     return NextResponse.json({ success: false, message: error.message }, { status: 500 });
   }
 }
-
 // ==========================================
 // 2. CREATE NEW MEMO (POST METHOD)
 // ==========================================
@@ -282,6 +281,7 @@ export async function PATCH(request) {
     let attachmentPaths = [];
     let newSubject, newContent, retainedAttachments;
     let headNote = null;
+    let assignedToId = null;
 
     // =================================================================================
     // 📎 FILE UPLOAD & FORMDATA PROCESSING
@@ -296,6 +296,8 @@ export async function PATCH(request) {
       feedbackNote = formData.get("feedbackNote");
       delegatedStaffId = formData.get("delegatedStaffId");
       isSenderClosing = formData.get("isSenderClosing") === "true";
+
+      assignedToId = formData.get("assignedToId") || null;
       
       newSubject = formData.get("subject");
       newContent = formData.get("content");
@@ -343,6 +345,7 @@ export async function PATCH(request) {
       feedbackNote = body.feedbackNote || body.remarks || body.headNote;
       delegatedStaffId = body.delegatedStaffId;
       isSenderClosing = body.isSenderClosing || false;
+      assignedToId = body.assignedToId || null;
     }
 
     // Common validations
@@ -400,7 +403,7 @@ export async function PATCH(request) {
 
       let finalContentWithNote = finalContent;
       if (headNote && headNote.trim()) {
-        finalContentWithNote = `${finalContent}\n\n---\n📝 Department Head Notes:\n${headNote}`;
+        finalContentWithNote = `${finalContent}\n\n---\nDepartment Head Notes:\n${headNote}`;
       }
 
       const hasHeadNote = !!(headNote && headNote.trim().length > 0);
@@ -515,30 +518,53 @@ export async function PATCH(request) {
           if (!targetRecipient) {
             return NextResponse.json({ success: false, message: "Department not a recipient" }, { status: 400 });
           }
+          
+          const assignedId = targetRecipient.assignedToId || authenticatedUser.id;
+          const assignedName = targetRecipient.assignedToName || employeeName;
+
+          const currentAssignedIds = targetRecipient.assignedToIds || [];
+          const currentAssignedNames = targetRecipient.assignedToNames || [];
+
+          if (!currentAssignedIds.includes(authenticatedUser.id)) {
+            currentAssignedIds.push(authenticatedUser.id);
+            currentAssignedNames.push(employeeName);
+          }
+          
           recipientUpdateData = {
             status: 'PROCESSING',
             processedAt: now,
-            processedById: delegatedStaffId || authenticatedUser.id,
-            processedByName: delegatedStaffId ? "Delegated Staff" : employeeName,
-            feedbackNote: feedbackNote, // ✅ IDAGDAG ITO
+            processedById: authenticatedUser.id,
+            processedByName: employeeName,
+            feedbackNote: feedbackNote || `Started processing by ${employeeName}`,
+            assignedToIds: currentAssignedIds,
+            assignedToNames: currentAssignedNames,
+            assignedAt: targetRecipient.assignedAt || now,
           };
           historyActionType = "PROCESSING_STARTED";
         } else if (action === 'JOIN_PROCESSING') {
           if (!targetRecipient) {
             return NextResponse.json({ success: false, message: "Department not a recipient" }, { status: 400 });
           }
-          
-          // Check kung ang status ay PROCESSING o ACKNOWLEDGED (para pwedeng sumali)
+
           if (!['PROCESSING', 'ACKNOWLEDGED'].includes(targetRecipient.status)) {
-            return NextResponse.json({ 
-              success: false, 
-              message: "Cannot join: memo must be in PROCESSING or ACKNOWLEDGED state." 
+            return NextResponse.json({
+              success: false,
+              message: "Cannot join: memo must be in PROCESSING or ACKNOWLEDGED state."
             }, { status: 400 });
           }
 
+          // ✅ I‑add ang current user sa assigned lists kung wala pa
+          const currentAssignedIds = targetRecipient.assignedToIds || [];
+          const currentAssignedNames = targetRecipient.assignedToNames || [];
+
+          if (!currentAssignedIds.includes(authenticatedUser.id)) {
+            currentAssignedIds.push(authenticatedUser.id);
+            currentAssignedNames.push(employeeName);
+          }
+
           const currentProcessedByName = targetRecipient.processedByName || '';
-          const newProcessedByName = currentProcessedByName 
-            ? `${currentProcessedByName}, ${employeeName}` 
+          const newProcessedByName = currentProcessedByName
+            ? `${currentProcessedByName}, ${employeeName}`
             : employeeName;
 
           recipientUpdateData = {
@@ -546,6 +572,8 @@ export async function PATCH(request) {
             processedAt: now,
             processedById: authenticatedUser.id,
             feedbackNote: feedbackNote || `Joined processing by ${employeeName}`,
+            assignedToIds: currentAssignedIds,
+            assignedToNames: currentAssignedNames,
             // Huwag baguhin ang status, mananatiling PROCESSING
           };
           historyActionType = "PROCESSING_JOINED";
@@ -630,6 +658,45 @@ export async function PATCH(request) {
             feedbackNote: feedbackNote
           };
           historyActionType = "DENIED";
+        } else if (action === 'ASSIGN') {
+          if (!targetRecipient) {
+            return NextResponse.json({ success: false, message: "Department not a recipient" }, { status: 400 });
+          }
+
+          // ✅ gamitin ang outer variable na na‑set na
+          if (!assignedToId) {
+            return NextResponse.json({ success: false, message: "No staff selected for assignment" }, { status: 400 });
+          }
+
+          if (!assignedToId) {
+            return NextResponse.json({ success: false, message: "No staff selected for assignment" }, { status: 400 });
+          }
+
+          const assignedUser = await prisma.user.findUnique({
+            where: { id: assignedToId },
+            select: { fname: true, lname: true }
+          });
+          if (!assignedUser) {
+            return NextResponse.json({ success: false, message: "Staff not found" }, { status: 404 });
+          }
+
+          const assignedName = `${assignedUser.fname} ${assignedUser.lname}`;
+
+          const currentAssignedIds = targetRecipient.assignedToIds || [];
+          const currentAssignedNames = targetRecipient.assignedToNames || [];
+
+          if (!currentAssignedIds.includes(assignedToId)) {
+            currentAssignedIds.push(assignedToId);
+            currentAssignedNames.push(assignedName);
+          }
+
+          recipientUpdateData = {
+            assignedToIds: currentAssignedIds,
+            assignedToNames: currentAssignedNames,
+            assignedAt: now,
+            feedbackNote: feedbackNote || `Assigned to ${assignedName}`
+          };
+          historyActionType = "ASSIGNED";
         } else {
           return NextResponse.json({ success: false, message: `Unknown action: ${action}` }, { status: 400 });
         }

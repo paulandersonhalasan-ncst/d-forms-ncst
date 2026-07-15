@@ -115,7 +115,8 @@ export const MemoHistoryAction = {
   CLOSED_BY_RECIPIENT: 'CLOSED_BY_RECIPIENT',
   CLOSED_BY_SENDER: 'CLOSED_BY_SENDER',
   REPLIED: 'REPLIED',
-  REVISED_BY_HEAD: 'REVISED_BY_HEAD'
+  REVISED_BY_HEAD: 'REVISED_BY_HEAD',
+  ASSIGNED: 'ASSIGNED'
 } as const
 
 export type MemoHistoryAction = (typeof MemoHistoryAction)[keyof typeof MemoHistoryAction]

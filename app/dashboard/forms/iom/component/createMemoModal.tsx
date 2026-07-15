@@ -70,7 +70,7 @@ export default function CreateMemoModal({
 
           <MultiSelect
             label="Target Recipient Departments"
-            data={departments}
+            data={departments.filter(d => d.value && d.label)}
             placeholder="Select one or more departments"
             required
             disabled={isReply}

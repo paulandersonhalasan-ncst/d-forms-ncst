@@ -40,6 +40,15 @@ export interface MemoRecipientStatus {
   
   deniedAt?: string | null;
   deniedByName?: string | null;
+
+  assignedToIds?: string[] | null;
+  assignedToNames?: string[] | null;
+  assignedAt?: string | null;
+  assignedTo?: {
+    id: string;
+    fname: string;
+    lname: string;
+  } | null;
 }
 
 export interface Memo {

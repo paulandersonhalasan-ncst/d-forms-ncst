@@ -12,6 +12,7 @@ import {
   Divider,
   UnstyledButton,
   SimpleGrid,
+  Select
 } from '@mantine/core';
 import {
   IconGitBranch,
@@ -42,10 +43,11 @@ interface MemoCardProps {
   onExpand: (memo: Memo) => void;
   onSuperEdit: (memo: Memo) => void;
   triggerActionPasswordCheck: (
-    type: 'CREATE' | 'ACKNOWLEDGE' | 'START_PROCESSING' | 'DENY' | 'CLOSED' | 'APPROVE_MEMO' | 'DISAPPROVE_DRAFT' | 'JOIN_PROCESSING',
+    type: 'CREATE' | 'ACKNOWLEDGE' | 'START_PROCESSING' | 'DENY' | 'CLOSED' | 'APPROVE_MEMO' | 'DISAPPROVE_DRAFT' | 'JOIN_PROCESSING' | 'ASSIGN',
     data: Record<string, unknown>
   ) => void;
-  allMemos: Memo[]; // not used but kept for compatibility
+  allMemos: Memo[];
+  departmentStaff: { id: string; fname: string; lname: string }[];
 }
 
 export default function MemoCard({
@@ -63,6 +65,8 @@ export default function MemoCard({
   onExpand,
   onSuperEdit,
   triggerActionPasswordCheck,
+  allMemos,
+  departmentStaff
 }: MemoCardProps) {
   const amISender = memo.senderId === currentUser?.id;
   const myRecipientInfo = memo.recipients?.find(
@@ -107,23 +111,32 @@ export default function MemoCard({
   const currentUserName = currentUser ? `${currentUser.fname} ${currentUser.lname}` : '';
   const amIAlreadyProcessing = myRecipientInfo?.processedByName?.includes(currentUserName);
 
+  // ✅ Kunin ang lahat ng assignments mula sa lahat ng recipients
+  const allAssignments = memo.recipients
+    ?.filter(r => r.assignedToNames && r.assignedToNames.length > 0)
+    .map(r => `${r.departmentName}: ${r.assignedToNames?.join(', ') || ''}`)
+    .join(' | ') || '';
+  const hasAssignments = allAssignments.length > 0;
+
   console.log('🔍 MemoCard debug:', {
-  id: memo.id,
-  amISender,
-  memoStatus: memo.status,
-  purpose: memo.purpose,
-  recipients: memo.recipients?.map(r => ({
-    status: r.status,
-    recipientConfirmedAt: r.recipientConfirmedAt,
-    senderConfirmedAt: r.senderConfirmedAt,
-  })),
-  condition: amISender && memo.status === 'APPROVED' && memo.purpose !== 'FYI' && 
-    memo.recipients?.every(r => {
-      if (['CLOSED', 'DENIED', 'COMPLETED'].includes(r.status)) return true;
-      if (r.status === 'PROCESSING' && r.recipientConfirmedAt) return true;
-      return false;
-    }),
-});
+    id: memo.id,
+    amISender,
+    memoStatus: memo.status,
+    purpose: memo.purpose,
+    recipients: memo.recipients?.map(r => ({
+      status: r.status,
+      recipientConfirmedAt: r.recipientConfirmedAt,
+      senderConfirmedAt: r.senderConfirmedAt,
+    })),
+    condition: amISender && memo.status === 'APPROVED' && memo.purpose !== 'FYI' && 
+      memo.recipients?.every(r => {
+        if (['CLOSED', 'DENIED', 'COMPLETED'].includes(r.status)) return true;
+        if (r.status === 'PROCESSING' && r.recipientConfirmedAt) return true;
+        return false;
+      }),
+  });
+
+  const [assignedStaffId, setAssignedStaffId] = useState<string | null>(null);
 
   return (
     <Card
@@ -206,6 +219,12 @@ export default function MemoCard({
                 In a Thread
               </Badge>
             )}
+            {/* Show assigned to info (array) */}
+            {myRecipientInfo?.assignedToNames && myRecipientInfo.assignedToNames.length > 0 && (
+              <Badge color="grape" size="xs" variant="light">
+                Assigned to: {myRecipientInfo.assignedToNames.join(', ')}
+              </Badge>
+            )}
           </Group>
           <Group gap="xs">
             <Badge color="cyan" variant="light" size="sm">
@@ -222,6 +241,12 @@ export default function MemoCard({
           <Text size="xs">
             <b>TO:</b> {memo.recipients?.map((r) => r.departmentName).join(', ')}
           </Text>
+          {/* ✅ Idagdag ito — assignment summary para sa lahat */}
+          {hasAssignments && (
+            <Text size="xs" c="grape">
+              <b>Assigned to:</b> {allAssignments}
+            </Text>
+          )}
           <Group gap={6} align="center">
             <Text size="xs">
               <b>FROM:</b> {memo.senderName} ({memo.sender?.branch ? `${memo.sender.branch} - ` : ''}
@@ -357,7 +382,8 @@ export default function MemoCard({
             </Group>
           )}
 
-          {myRecipientInfo?.status === 'ACKNOWLEDGED' && (
+          {/* Staff: Process button (auto‑assign sa sarili) */}
+          {!isDepartmentHead && myRecipientInfo?.status === 'ACKNOWLEDGED' && (
             <Button
               size="xs"
               color="orange"
@@ -366,10 +392,11 @@ export default function MemoCard({
                 triggerActionPasswordCheck('START_PROCESSING', {
                   memoId: memo.id,
                   departmentName: activeDepartment,
+                  // Hindi na kailangan ng assignedToId, backend na ang bahala
                 })
               }
             >
-              Process
+              Process (Assign to Me)
             </Button>
           )}
 
@@ -479,6 +506,37 @@ export default function MemoCard({
               </Group>
             );
           })()}
+
+          {/* Department Head: Assign to Staff */ }
+            {isDepartmentHead && myRecipientInfo?.status === 'ACKNOWLEDGED' && (
+              <Group gap={4}>
+                <Select
+                  size="xs"
+                  placeholder="Assign to staff..."
+                  data={departmentStaff.map(s => ({ value: s.id, label: `${s.fname} ${s.lname}` }))}
+                  value={assignedStaffId}
+                  onChange={setAssignedStaffId}
+                  style={{ width: 150 }}
+                />
+                <Button
+                  size="xs"
+                  color="indigo"
+                  onClick={() => {
+                    if (assignedStaffId) {
+                      triggerActionPasswordCheck('ASSIGN', {
+                        memoId: memo.id,
+                        departmentName: activeDepartment,
+                        assignedToId: assignedStaffId,
+                      });
+                      setAssignedStaffId(null); // reset after assign
+                    }
+                  }}
+                  disabled={!assignedStaffId}
+                >
+                  Assign
+                </Button>
+              </Group>
+            )}
 
           {/* Reply button */}
           {(() => {
