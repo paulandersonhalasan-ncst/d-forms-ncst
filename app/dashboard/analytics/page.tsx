@@ -22,6 +22,8 @@ import {
   useMantineColorScheme,
   Popover,
   UnstyledButton,
+  Grid,
+  RollingNumber
 } from '@mantine/core';
 import { DatePicker } from '@mantine/dates';
 import {
@@ -536,22 +538,19 @@ export default function AnalyticsPage() {
                   return (
                     <Paper
                       key={stat.label}
-                      shadow="xs"
-                      p="md"
-                      bg={isDark ? theme.colors.dark[6] : theme.colors.gray[0]}
+                      withBorder p="md"
+                      radius="lg"
                       style={{ borderRadius: theme.radius.md }}
                     >
                       <Group justify="space-between">
                         <Stack gap={0}>
-                          <Text size="xs" c="dimmed" tt="uppercase" fw={700}>
+                          <Text size="xs" c="dimmed" fw={700}>
                             {stat.label}
                           </Text>
-                          <Text fw={900} fz={32}>
-                            {stat.value}
-                          </Text>
+                          <RollingNumber value={stat.value} fw={500} fz={32} />
                         </Stack>
-                        <ThemeIcon size={44} radius="md" color={stat.color} variant="light">
-                          <Icon size={22} />
+                        <ThemeIcon size={28} radius="md" color={stat.color} variant="light">
+                          <Icon size={16} />
                         </ThemeIcon>
                       </Group>
                     </Paper>
@@ -563,52 +562,46 @@ export default function AnalyticsPage() {
             {/* ========== 2. QUICK NAVIGATION SHORTCUTS (Real-time counts) ========== */}
             <Stack gap="xs">
               <Text size="sm" fw={700} c="dimmed">
-                Inter-Office Memorandum Shortcuts
+                🚀 Quick Navigation to IOM Dashboard
               </Text>
-              <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }}>
+              <Grid grow gap="md" columns={Math.min(tabConfigs.length, 5)}>
                 {tabConfigs.map((config) => {
                   const Icon = config.icon;
                   return (
-                    <UnstyledButton
-                      key={config.value}
-                      onClick={() => router.push(`/dashboard/forms/iom?tab=${config.value}`)}
-                      style={{
-                        textDecoration: 'none',
-                        cursor: 'pointer',
-                        transition: 'transform 0.2s ease',
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.transform = 'translateY(-4px)';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.transform = 'translateY(0)';
-                      }}
-                    >
-                      <Paper withBorder radius="xl" p="lg">
-                        <Group justify="space-between">
-                          <Stack gap={0}>
-                            <Text size="sm" c="dimmed">
-                              {config.label}
-                            </Text>
-                            <Text fw={900} fz={34}>
-                              {config.count}
-                            </Text>
-                          </Stack>
-                          <ThemeIcon size={60} radius="xl" color={config.color} variant="light">
-                            <Icon size={30} />
-                          </ThemeIcon>
-                        </Group>
-                      </Paper>
-                    </UnstyledButton>
+                    <Grid.Col key={config.value} span={1}>
+                      <UnstyledButton
+                        onClick={() => router.push(`/dashboard/forms/iom?tab=${config.value}`)}
+                        style={{
+                          width: '100%',
+                          textDecoration: 'none',
+                          cursor: 'pointer',
+                          transition: 'transform 0.2s ease',
+                        }}
+                        onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-4px)'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; }}
+                      >
+                        <Paper withBorder radius="xl" p="lg">
+                          <Group justify="space-between">
+                            <Stack gap={0}>
+                              <Text size="sm" c="dimmed">{config.label}</Text>
+                              <RollingNumber value={config.count} fw={900} fz={34} />
+                            </Stack>
+                            <ThemeIcon size={60} radius="xl" color={config.color} variant="light">
+                              <Icon size={30} />
+                            </ThemeIcon>
+                          </Group>
+                        </Paper>
+                      </UnstyledButton>
+                    </Grid.Col>
                   );
                 })}
-              </SimpleGrid>
+              </Grid>
             </Stack>
 
             {/* ========== 3. ANALYTICS CHARTS (Date-Filtered) ========== */}
             <Stack gap="lg">
               <Text size="sm" fw={700} c="dimmed">
-                📈 Charts & Trends (filtered by selected date range)
+                Charts & Trends (filtered by selected date range)
               </Text>
 
               {/* Charts Row */}
