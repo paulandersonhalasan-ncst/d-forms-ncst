@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { modals } from "@mantine/modals";
 import { IconAlertCircle } from "@tabler/icons-react";
 import '@mantine/core/styles.css';
+import { ForgotPasswordModal } from "./components/forgotpasswordmodal";
 
 export default function LoginPage() {
     const [email, setEmail] = useState("");
@@ -15,6 +16,8 @@ export default function LoginPage() {
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false); // Para iwas double submit habang nagpoproseso
     const router = useRouter();
+
+    const [forgotModalOpened, setForgotModalOpened] = useState(false);
 
     async function handleSubmit(e: FormEvent<HTMLFormElement>) {
         e.preventDefault();
@@ -74,36 +77,6 @@ export default function LoginPage() {
                 return;
             }
 
-            // Kapag matagumpay ang login, i-route batay sa role
-            // switch (data.user?.role) {
-            //     case "Faculty":
-            //     case "Staff":
-            //         router.push("/dashboard/staff");
-            //         break;
-            //     case "OIC":
-            //         router.push("/dashboard/oic");
-            //         break;
-            //     case "Admin":
-            //         router.push("/dashboard/admin");
-            //         break;
-            //     case "DepartmentHead":
-            //         router.push("/dashboard/dept_head");
-            //         break;
-            //     case "SuperUser":
-            //         router.push("/dashboard/superuser");
-            //         break;
-            //     case undefined:
-            //     case null:
-            //         setError("Walang nakatalagang role ang account na ito.");
-            //         console.error("User role is missing for user: ", data.user);
-            //         setLoading(false);
-            //         break;
-            //     default:
-            //         setError("Unknown user role");
-            //         console.error("Unknown user role: ", data.user?.role);
-            //         setLoading(false);
-            // }
-
             router.push("/dashboard/analytics");
 
         } catch (err) {
@@ -161,7 +134,15 @@ export default function LoginPage() {
                             variant="filled"
                             required
                         />
-                        <Anchor href="#" onClick={(event) => event.preventDefault()} fw={500} fz="xs">
+                        <Anchor 
+                            href="#" 
+                            onClick={(event) => {
+                                event.preventDefault();
+                                setForgotModalOpened(true); // ✅ open modal
+                            }} 
+                            fw={500} 
+                            fz="xs"
+                        >
                             Forgot your password?
                         </Anchor>
                     </div>
@@ -176,6 +157,12 @@ export default function LoginPage() {
                     </Button>
                 </Stack>
             </form>
+
+            {/* ✅ Forgot Password Modal */}
+            <ForgotPasswordModal
+                opened={forgotModalOpened}
+                onClose={() => setForgotModalOpened(false)}
+            />
         </main>
     );
 }

@@ -38,6 +38,8 @@ export type UserMinAggregateOutputType = {
   departmentCode: string | null
   last_login: Date | null
   forgot_password: boolean | null
+  resetToken: string | null
+  resetTokenExpiry: Date | null
   oic_start: string | null
   oic_end: string | null
 }
@@ -56,6 +58,8 @@ export type UserMaxAggregateOutputType = {
   departmentCode: string | null
   last_login: Date | null
   forgot_password: boolean | null
+  resetToken: string | null
+  resetTokenExpiry: Date | null
   oic_start: string | null
   oic_end: string | null
 }
@@ -74,6 +78,8 @@ export type UserCountAggregateOutputType = {
   departmentCode: number
   last_login: number
   forgot_password: number
+  resetToken: number
+  resetTokenExpiry: number
   oic_start: number
   oic_end: number
   _all: number
@@ -94,6 +100,8 @@ export type UserMinAggregateInputType = {
   departmentCode?: true
   last_login?: true
   forgot_password?: true
+  resetToken?: true
+  resetTokenExpiry?: true
   oic_start?: true
   oic_end?: true
 }
@@ -112,6 +120,8 @@ export type UserMaxAggregateInputType = {
   departmentCode?: true
   last_login?: true
   forgot_password?: true
+  resetToken?: true
+  resetTokenExpiry?: true
   oic_start?: true
   oic_end?: true
 }
@@ -130,6 +140,8 @@ export type UserCountAggregateInputType = {
   departmentCode?: true
   last_login?: true
   forgot_password?: true
+  resetToken?: true
+  resetTokenExpiry?: true
   oic_start?: true
   oic_end?: true
   _all?: true
@@ -221,6 +233,8 @@ export type UserGroupByOutputType = {
   departmentCode: string
   last_login: Date | null
   forgot_password: boolean
+  resetToken: string | null
+  resetTokenExpiry: Date | null
   oic_start: string | null
   oic_end: string | null
   _count: UserCountAggregateOutputType | null
@@ -260,6 +274,8 @@ export type UserWhereInput = {
   departmentCode?: Prisma.StringFilter<"User"> | string
   last_login?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
   forgot_password?: Prisma.BoolFilter<"User"> | boolean
+  resetToken?: Prisma.StringNullableFilter<"User"> | string | null
+  resetTokenExpiry?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
   oic_start?: Prisma.StringNullableFilter<"User"> | string | null
   oic_end?: Prisma.StringNullableFilter<"User"> | string | null
   department?: Prisma.XOR<Prisma.DepartmentScalarRelationFilter, Prisma.DepartmentWhereInput>
@@ -284,6 +300,8 @@ export type UserOrderByWithRelationInput = {
   departmentCode?: Prisma.SortOrder
   last_login?: Prisma.SortOrderInput | Prisma.SortOrder
   forgot_password?: Prisma.SortOrder
+  resetToken?: Prisma.SortOrderInput | Prisma.SortOrder
+  resetTokenExpiry?: Prisma.SortOrderInput | Prisma.SortOrder
   oic_start?: Prisma.SortOrderInput | Prisma.SortOrder
   oic_end?: Prisma.SortOrderInput | Prisma.SortOrder
   department?: Prisma.DepartmentOrderByWithRelationInput
@@ -297,6 +315,7 @@ export type UserOrderByWithRelationInput = {
 export type UserWhereUniqueInput = Prisma.AtLeast<{
   id?: string
   email?: string
+  resetToken?: string
   AND?: Prisma.UserWhereInput | Prisma.UserWhereInput[]
   OR?: Prisma.UserWhereInput[]
   NOT?: Prisma.UserWhereInput | Prisma.UserWhereInput[]
@@ -311,6 +330,7 @@ export type UserWhereUniqueInput = Prisma.AtLeast<{
   departmentCode?: Prisma.StringFilter<"User"> | string
   last_login?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
   forgot_password?: Prisma.BoolFilter<"User"> | boolean
+  resetTokenExpiry?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
   oic_start?: Prisma.StringNullableFilter<"User"> | string | null
   oic_end?: Prisma.StringNullableFilter<"User"> | string | null
   department?: Prisma.XOR<Prisma.DepartmentScalarRelationFilter, Prisma.DepartmentWhereInput>
@@ -319,7 +339,7 @@ export type UserWhereUniqueInput = Prisma.AtLeast<{
   login_logs?: Prisma.LoginLogListRelationFilter
   activity_logs?: Prisma.ActivityLogListRelationFilter
   memosCreated?: Prisma.MemoListRelationFilter
-}, "id" | "email">
+}, "id" | "email" | "resetToken">
 
 export type UserOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
@@ -335,6 +355,8 @@ export type UserOrderByWithAggregationInput = {
   departmentCode?: Prisma.SortOrder
   last_login?: Prisma.SortOrderInput | Prisma.SortOrder
   forgot_password?: Prisma.SortOrder
+  resetToken?: Prisma.SortOrderInput | Prisma.SortOrder
+  resetTokenExpiry?: Prisma.SortOrderInput | Prisma.SortOrder
   oic_start?: Prisma.SortOrderInput | Prisma.SortOrder
   oic_end?: Prisma.SortOrderInput | Prisma.SortOrder
   _count?: Prisma.UserCountOrderByAggregateInput
@@ -359,6 +381,8 @@ export type UserScalarWhereWithAggregatesInput = {
   departmentCode?: Prisma.StringWithAggregatesFilter<"User"> | string
   last_login?: Prisma.DateTimeNullableWithAggregatesFilter<"User"> | Date | string | null
   forgot_password?: Prisma.BoolWithAggregatesFilter<"User"> | boolean
+  resetToken?: Prisma.StringNullableWithAggregatesFilter<"User"> | string | null
+  resetTokenExpiry?: Prisma.DateTimeNullableWithAggregatesFilter<"User"> | Date | string | null
   oic_start?: Prisma.StringNullableWithAggregatesFilter<"User"> | string | null
   oic_end?: Prisma.StringNullableWithAggregatesFilter<"User"> | string | null
 }
@@ -376,6 +400,8 @@ export type UserCreateInput = {
   updatedAt?: Date | string
   last_login?: Date | string | null
   forgot_password?: boolean
+  resetToken?: string | null
+  resetTokenExpiry?: Date | string | null
   oic_start?: string | null
   oic_end?: string | null
   department: Prisma.DepartmentCreateNestedOneWithoutUsersInput
@@ -400,6 +426,8 @@ export type UserUncheckedCreateInput = {
   departmentCode: string
   last_login?: Date | string | null
   forgot_password?: boolean
+  resetToken?: string | null
+  resetTokenExpiry?: Date | string | null
   oic_start?: string | null
   oic_end?: string | null
   received_notif?: Prisma.NotificationUncheckedCreateNestedManyWithoutRecipientInput
@@ -422,6 +450,8 @@ export type UserUpdateInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   last_login?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   forgot_password?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  resetToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  resetTokenExpiry?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   oic_start?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   oic_end?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   department?: Prisma.DepartmentUpdateOneRequiredWithoutUsersNestedInput
@@ -446,6 +476,8 @@ export type UserUncheckedUpdateInput = {
   departmentCode?: Prisma.StringFieldUpdateOperationsInput | string
   last_login?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   forgot_password?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  resetToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  resetTokenExpiry?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   oic_start?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   oic_end?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   received_notif?: Prisma.NotificationUncheckedUpdateManyWithoutRecipientNestedInput
@@ -469,6 +501,8 @@ export type UserCreateManyInput = {
   departmentCode: string
   last_login?: Date | string | null
   forgot_password?: boolean
+  resetToken?: string | null
+  resetTokenExpiry?: Date | string | null
   oic_start?: string | null
   oic_end?: string | null
 }
@@ -486,6 +520,8 @@ export type UserUpdateManyMutationInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   last_login?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   forgot_password?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  resetToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  resetTokenExpiry?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   oic_start?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   oic_end?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
 }
@@ -504,6 +540,8 @@ export type UserUncheckedUpdateManyInput = {
   departmentCode?: Prisma.StringFieldUpdateOperationsInput | string
   last_login?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   forgot_password?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  resetToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  resetTokenExpiry?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   oic_start?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   oic_end?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
 }
@@ -522,6 +560,8 @@ export type UserCountOrderByAggregateInput = {
   departmentCode?: Prisma.SortOrder
   last_login?: Prisma.SortOrder
   forgot_password?: Prisma.SortOrder
+  resetToken?: Prisma.SortOrder
+  resetTokenExpiry?: Prisma.SortOrder
   oic_start?: Prisma.SortOrder
   oic_end?: Prisma.SortOrder
 }
@@ -540,6 +580,8 @@ export type UserMaxOrderByAggregateInput = {
   departmentCode?: Prisma.SortOrder
   last_login?: Prisma.SortOrder
   forgot_password?: Prisma.SortOrder
+  resetToken?: Prisma.SortOrder
+  resetTokenExpiry?: Prisma.SortOrder
   oic_start?: Prisma.SortOrder
   oic_end?: Prisma.SortOrder
 }
@@ -558,6 +600,8 @@ export type UserMinOrderByAggregateInput = {
   departmentCode?: Prisma.SortOrder
   last_login?: Prisma.SortOrder
   forgot_password?: Prisma.SortOrder
+  resetToken?: Prisma.SortOrder
+  resetTokenExpiry?: Prisma.SortOrder
   oic_start?: Prisma.SortOrder
   oic_end?: Prisma.SortOrder
 }
@@ -739,6 +783,8 @@ export type UserCreateWithoutDepartmentInput = {
   updatedAt?: Date | string
   last_login?: Date | string | null
   forgot_password?: boolean
+  resetToken?: string | null
+  resetTokenExpiry?: Date | string | null
   oic_start?: string | null
   oic_end?: string | null
   received_notif?: Prisma.NotificationCreateNestedManyWithoutRecipientInput
@@ -761,6 +807,8 @@ export type UserUncheckedCreateWithoutDepartmentInput = {
   updatedAt?: Date | string
   last_login?: Date | string | null
   forgot_password?: boolean
+  resetToken?: string | null
+  resetTokenExpiry?: Date | string | null
   oic_start?: string | null
   oic_end?: string | null
   received_notif?: Prisma.NotificationUncheckedCreateNestedManyWithoutRecipientInput
@@ -813,6 +861,8 @@ export type UserScalarWhereInput = {
   departmentCode?: Prisma.StringFilter<"User"> | string
   last_login?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
   forgot_password?: Prisma.BoolFilter<"User"> | boolean
+  resetToken?: Prisma.StringNullableFilter<"User"> | string | null
+  resetTokenExpiry?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
   oic_start?: Prisma.StringNullableFilter<"User"> | string | null
   oic_end?: Prisma.StringNullableFilter<"User"> | string | null
 }
@@ -830,6 +880,8 @@ export type UserCreateWithoutActivity_logsInput = {
   updatedAt?: Date | string
   last_login?: Date | string | null
   forgot_password?: boolean
+  resetToken?: string | null
+  resetTokenExpiry?: Date | string | null
   oic_start?: string | null
   oic_end?: string | null
   department: Prisma.DepartmentCreateNestedOneWithoutUsersInput
@@ -853,6 +905,8 @@ export type UserUncheckedCreateWithoutActivity_logsInput = {
   departmentCode: string
   last_login?: Date | string | null
   forgot_password?: boolean
+  resetToken?: string | null
+  resetTokenExpiry?: Date | string | null
   oic_start?: string | null
   oic_end?: string | null
   received_notif?: Prisma.NotificationUncheckedCreateNestedManyWithoutRecipientInput
@@ -890,6 +944,8 @@ export type UserUpdateWithoutActivity_logsInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   last_login?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   forgot_password?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  resetToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  resetTokenExpiry?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   oic_start?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   oic_end?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   department?: Prisma.DepartmentUpdateOneRequiredWithoutUsersNestedInput
@@ -913,6 +969,8 @@ export type UserUncheckedUpdateWithoutActivity_logsInput = {
   departmentCode?: Prisma.StringFieldUpdateOperationsInput | string
   last_login?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   forgot_password?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  resetToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  resetTokenExpiry?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   oic_start?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   oic_end?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   received_notif?: Prisma.NotificationUncheckedUpdateManyWithoutRecipientNestedInput
@@ -934,6 +992,8 @@ export type UserCreateWithoutReceived_notifInput = {
   updatedAt?: Date | string
   last_login?: Date | string | null
   forgot_password?: boolean
+  resetToken?: string | null
+  resetTokenExpiry?: Date | string | null
   oic_start?: string | null
   oic_end?: string | null
   department: Prisma.DepartmentCreateNestedOneWithoutUsersInput
@@ -957,6 +1017,8 @@ export type UserUncheckedCreateWithoutReceived_notifInput = {
   departmentCode: string
   last_login?: Date | string | null
   forgot_password?: boolean
+  resetToken?: string | null
+  resetTokenExpiry?: Date | string | null
   oic_start?: string | null
   oic_end?: string | null
   sent_notif?: Prisma.NotificationUncheckedCreateNestedManyWithoutSenderInput
@@ -983,6 +1045,8 @@ export type UserCreateWithoutSent_notifInput = {
   updatedAt?: Date | string
   last_login?: Date | string | null
   forgot_password?: boolean
+  resetToken?: string | null
+  resetTokenExpiry?: Date | string | null
   oic_start?: string | null
   oic_end?: string | null
   department: Prisma.DepartmentCreateNestedOneWithoutUsersInput
@@ -1006,6 +1070,8 @@ export type UserUncheckedCreateWithoutSent_notifInput = {
   departmentCode: string
   last_login?: Date | string | null
   forgot_password?: boolean
+  resetToken?: string | null
+  resetTokenExpiry?: Date | string | null
   oic_start?: string | null
   oic_end?: string | null
   received_notif?: Prisma.NotificationUncheckedCreateNestedManyWithoutRecipientInput
@@ -1043,6 +1109,8 @@ export type UserUpdateWithoutReceived_notifInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   last_login?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   forgot_password?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  resetToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  resetTokenExpiry?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   oic_start?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   oic_end?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   department?: Prisma.DepartmentUpdateOneRequiredWithoutUsersNestedInput
@@ -1066,6 +1134,8 @@ export type UserUncheckedUpdateWithoutReceived_notifInput = {
   departmentCode?: Prisma.StringFieldUpdateOperationsInput | string
   last_login?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   forgot_password?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  resetToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  resetTokenExpiry?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   oic_start?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   oic_end?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sent_notif?: Prisma.NotificationUncheckedUpdateManyWithoutSenderNestedInput
@@ -1098,6 +1168,8 @@ export type UserUpdateWithoutSent_notifInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   last_login?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   forgot_password?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  resetToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  resetTokenExpiry?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   oic_start?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   oic_end?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   department?: Prisma.DepartmentUpdateOneRequiredWithoutUsersNestedInput
@@ -1121,6 +1193,8 @@ export type UserUncheckedUpdateWithoutSent_notifInput = {
   departmentCode?: Prisma.StringFieldUpdateOperationsInput | string
   last_login?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   forgot_password?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  resetToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  resetTokenExpiry?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   oic_start?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   oic_end?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   received_notif?: Prisma.NotificationUncheckedUpdateManyWithoutRecipientNestedInput
@@ -1142,6 +1216,8 @@ export type UserCreateWithoutLogin_logsInput = {
   updatedAt?: Date | string
   last_login?: Date | string | null
   forgot_password?: boolean
+  resetToken?: string | null
+  resetTokenExpiry?: Date | string | null
   oic_start?: string | null
   oic_end?: string | null
   department: Prisma.DepartmentCreateNestedOneWithoutUsersInput
@@ -1165,6 +1241,8 @@ export type UserUncheckedCreateWithoutLogin_logsInput = {
   departmentCode: string
   last_login?: Date | string | null
   forgot_password?: boolean
+  resetToken?: string | null
+  resetTokenExpiry?: Date | string | null
   oic_start?: string | null
   oic_end?: string | null
   received_notif?: Prisma.NotificationUncheckedCreateNestedManyWithoutRecipientInput
@@ -1202,6 +1280,8 @@ export type UserUpdateWithoutLogin_logsInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   last_login?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   forgot_password?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  resetToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  resetTokenExpiry?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   oic_start?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   oic_end?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   department?: Prisma.DepartmentUpdateOneRequiredWithoutUsersNestedInput
@@ -1225,6 +1305,8 @@ export type UserUncheckedUpdateWithoutLogin_logsInput = {
   departmentCode?: Prisma.StringFieldUpdateOperationsInput | string
   last_login?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   forgot_password?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  resetToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  resetTokenExpiry?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   oic_start?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   oic_end?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   received_notif?: Prisma.NotificationUncheckedUpdateManyWithoutRecipientNestedInput
@@ -1246,6 +1328,8 @@ export type UserCreateWithoutMemosCreatedInput = {
   updatedAt?: Date | string
   last_login?: Date | string | null
   forgot_password?: boolean
+  resetToken?: string | null
+  resetTokenExpiry?: Date | string | null
   oic_start?: string | null
   oic_end?: string | null
   department: Prisma.DepartmentCreateNestedOneWithoutUsersInput
@@ -1269,6 +1353,8 @@ export type UserUncheckedCreateWithoutMemosCreatedInput = {
   departmentCode: string
   last_login?: Date | string | null
   forgot_password?: boolean
+  resetToken?: string | null
+  resetTokenExpiry?: Date | string | null
   oic_start?: string | null
   oic_end?: string | null
   received_notif?: Prisma.NotificationUncheckedCreateNestedManyWithoutRecipientInput
@@ -1306,6 +1392,8 @@ export type UserUpdateWithoutMemosCreatedInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   last_login?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   forgot_password?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  resetToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  resetTokenExpiry?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   oic_start?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   oic_end?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   department?: Prisma.DepartmentUpdateOneRequiredWithoutUsersNestedInput
@@ -1329,6 +1417,8 @@ export type UserUncheckedUpdateWithoutMemosCreatedInput = {
   departmentCode?: Prisma.StringFieldUpdateOperationsInput | string
   last_login?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   forgot_password?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  resetToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  resetTokenExpiry?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   oic_start?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   oic_end?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   received_notif?: Prisma.NotificationUncheckedUpdateManyWithoutRecipientNestedInput
@@ -1350,6 +1440,8 @@ export type UserCreateManyDepartmentInput = {
   updatedAt?: Date | string
   last_login?: Date | string | null
   forgot_password?: boolean
+  resetToken?: string | null
+  resetTokenExpiry?: Date | string | null
   oic_start?: string | null
   oic_end?: string | null
 }
@@ -1367,6 +1459,8 @@ export type UserUpdateWithoutDepartmentInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   last_login?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   forgot_password?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  resetToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  resetTokenExpiry?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   oic_start?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   oic_end?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   received_notif?: Prisma.NotificationUpdateManyWithoutRecipientNestedInput
@@ -1389,6 +1483,8 @@ export type UserUncheckedUpdateWithoutDepartmentInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   last_login?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   forgot_password?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  resetToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  resetTokenExpiry?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   oic_start?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   oic_end?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   received_notif?: Prisma.NotificationUncheckedUpdateManyWithoutRecipientNestedInput
@@ -1411,6 +1507,8 @@ export type UserUncheckedUpdateManyWithoutDepartmentInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   last_login?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   forgot_password?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  resetToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  resetTokenExpiry?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   oic_start?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   oic_end?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
 }
@@ -1496,6 +1594,8 @@ export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   departmentCode?: boolean
   last_login?: boolean
   forgot_password?: boolean
+  resetToken?: boolean
+  resetTokenExpiry?: boolean
   oic_start?: boolean
   oic_end?: boolean
   department?: boolean | Prisma.DepartmentDefaultArgs<ExtArgs>
@@ -1521,6 +1621,8 @@ export type UserSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensio
   departmentCode?: boolean
   last_login?: boolean
   forgot_password?: boolean
+  resetToken?: boolean
+  resetTokenExpiry?: boolean
   oic_start?: boolean
   oic_end?: boolean
   department?: boolean | Prisma.DepartmentDefaultArgs<ExtArgs>
@@ -1540,6 +1642,8 @@ export type UserSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensio
   departmentCode?: boolean
   last_login?: boolean
   forgot_password?: boolean
+  resetToken?: boolean
+  resetTokenExpiry?: boolean
   oic_start?: boolean
   oic_end?: boolean
   department?: boolean | Prisma.DepartmentDefaultArgs<ExtArgs>
@@ -1559,11 +1663,13 @@ export type UserSelectScalar = {
   departmentCode?: boolean
   last_login?: boolean
   forgot_password?: boolean
+  resetToken?: boolean
+  resetTokenExpiry?: boolean
   oic_start?: boolean
   oic_end?: boolean
 }
 
-export type UserOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "employee_id" | "email" | "password" | "fname" | "lname" | "role" | "branch" | "createdAt" | "updatedAt" | "departmentCode" | "last_login" | "forgot_password" | "oic_start" | "oic_end", ExtArgs["result"]["user"]>
+export type UserOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "employee_id" | "email" | "password" | "fname" | "lname" | "role" | "branch" | "createdAt" | "updatedAt" | "departmentCode" | "last_login" | "forgot_password" | "resetToken" | "resetTokenExpiry" | "oic_start" | "oic_end", ExtArgs["result"]["user"]>
 export type UserInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   department?: boolean | Prisma.DepartmentDefaultArgs<ExtArgs>
   received_notif?: boolean | Prisma.User$received_notifArgs<ExtArgs>
@@ -1604,6 +1710,8 @@ export type $UserPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
     departmentCode: string
     last_login: Date | null
     forgot_password: boolean
+    resetToken: string | null
+    resetTokenExpiry: Date | null
     oic_start: string | null
     oic_end: string | null
   }, ExtArgs["result"]["user"]>
@@ -2048,6 +2156,8 @@ export interface UserFieldRefs {
   readonly departmentCode: Prisma.FieldRef<"User", 'String'>
   readonly last_login: Prisma.FieldRef<"User", 'DateTime'>
   readonly forgot_password: Prisma.FieldRef<"User", 'Boolean'>
+  readonly resetToken: Prisma.FieldRef<"User", 'String'>
+  readonly resetTokenExpiry: Prisma.FieldRef<"User", 'DateTime'>
   readonly oic_start: Prisma.FieldRef<"User", 'String'>
   readonly oic_end: Prisma.FieldRef<"User", 'String'>
 }

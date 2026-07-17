@@ -38,6 +38,8 @@ model User {
 
   //forgot password flag
   forgot_password   Boolean      @default(false)
+  resetToken        String?      @unique
+  resetTokenExpiry  DateTime?
 
   //activity logs
   activity_logs ActivityLog[]

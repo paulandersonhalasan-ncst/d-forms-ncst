@@ -1056,6 +1056,8 @@ export const UserScalarFieldEnum = {
   departmentCode: 'departmentCode',
   last_login: 'last_login',
   forgot_password: 'forgot_password',
+  resetToken: 'resetToken',
+  resetTokenExpiry: 'resetTokenExpiry',
   oic_start: 'oic_start',
   oic_end: 'oic_end'
 } as const

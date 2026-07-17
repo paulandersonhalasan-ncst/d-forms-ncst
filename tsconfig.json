@@ -29,6 +29,6 @@
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
     "**/*.mts"
-, "route.js"  ],
+, "route.js", "app/lib/email_service.js"  ],
   "exclude": ["node_modules"]
 }
