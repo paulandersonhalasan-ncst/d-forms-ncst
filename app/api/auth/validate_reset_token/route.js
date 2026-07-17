@@ -16,11 +16,11 @@ export async function GET(request) {
       where: {
         resetToken: token,
         resetTokenExpiry: {
-          gt: new Date(),
+          gt: dayjs.utc().toDate(),
         },
       },
     });
-    
+
     console.log('Found user with token:', user);
     console.log('Expiry in DB:', user?.resetTokenExpiry);
     console.log('Is valid?', user?.resetTokenExpiry > new Date());

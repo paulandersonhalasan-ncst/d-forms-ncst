@@ -23,7 +23,7 @@ export async function POST(request) {
       where: {
         resetToken: token,
         resetTokenExpiry: {
-          gt: new Date(), // hindi pa expired
+          gt: dayjs.utc().toDate(),
         },
       },
     });
