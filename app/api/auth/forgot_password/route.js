@@ -52,7 +52,8 @@ export async function POST(request) {
     });
 
     // Build reset link
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL;
+    // const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
     const resetLink = `${baseUrl}/reset_password?token=${resetToken}`;
 
     // Send email
