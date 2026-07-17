@@ -1,5 +1,6 @@
 'use client';
 
+import { Suspense } from 'react';
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
@@ -13,10 +14,13 @@ import {
   Alert,
   Group,
   ThemeIcon,
+  Loader,
+  Center,
 } from '@mantine/core';
 import { IconCheck, IconAlertCircle, IconLock } from '@tabler/icons-react';
 
-export default function ResetPasswordPage() {
+// ✅ I‑separate ang component na may useSearchParams
+function ResetPasswordForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get('token');
@@ -56,10 +60,10 @@ export default function ResetPasswordPage() {
     e.preventDefault();
     setError('');
 
-    // if (newPassword.length < 8) {
-    //   setError('Password must be at least 8 characters.');
-    //   return;
-    // }
+    if (newPassword.length < 8) {
+      setError('Password must be at least 8 characters.');
+      return;
+    }
 
     if (newPassword !== confirmPassword) {
       setError('Passwords do not match.');
@@ -82,7 +86,6 @@ export default function ResetPasswordPage() {
 
       if (data.success) {
         setSuccess(true);
-        // Redirect after 3 seconds
         setTimeout(() => {
           router.push('/');
         }, 3000);
@@ -203,5 +206,19 @@ export default function ResetPasswordPage() {
         </form>
       </Card>
     </Container>
+  );
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense
+      fallback={
+        <Center style={{ height: '100vh' }}>
+          <Loader size="lg" />
+        </Center>
+      }
+    >
+      <ResetPasswordForm />
+    </Suspense>
   );
 }
