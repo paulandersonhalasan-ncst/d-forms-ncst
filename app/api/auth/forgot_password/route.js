@@ -53,7 +53,7 @@ export async function POST(request) {
 
     // Build reset link
     const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
-    const resetLink = `${baseUrl}auth/reset_password?token=${resetToken}`;
+    const resetLink = `${baseUrl}/auth/reset_password?token=${resetToken}`;
 
     // Send email
     const emailSent = await sendPasswordResetEmail(email, resetLink);
