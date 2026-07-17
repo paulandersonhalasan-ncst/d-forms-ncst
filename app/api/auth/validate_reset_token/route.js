@@ -10,6 +10,8 @@ export async function GET(request) {
       return NextResponse.json({ valid: false }, { status: 400 });
     }
 
+    console.log('Validating token:', token);
+    console.log('Current server time:', new Date());
     const user = await prisma.user.findFirst({
       where: {
         resetToken: token,
@@ -18,6 +20,10 @@ export async function GET(request) {
         },
       },
     });
+
+    console.log('Found user with token:', user);
+    console.log('Expiry in DB:', user?.resetTokenExpiry);
+    console.log('Is valid?', user?.resetTokenExpiry > new Date());
 
     return NextResponse.json({ valid: !!user });
   } catch (error) {
