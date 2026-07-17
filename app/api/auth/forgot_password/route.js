@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { prisma } from '../../../../prisma/prisma';
 import { sendPasswordResetEmail } from '../../../lib/email_service';
 import crypto from 'crypto';
+import dayjs from 'dayjs';
+import utc from 'dayjs/plugin/utc';
+dayjs.extend(utc);
 
 export async function POST(request) {
   try {
@@ -31,11 +34,12 @@ export async function POST(request) {
 
     // Generate reset token (random string)
     const resetToken = crypto.randomBytes(32).toString('hex');
-    const resetTokenExpiry = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+    const resetTokenExpiry = dayjs.utc().add(1, 'hour').toDate();
 
-    console.log('datetime for reference: ', Date.now());
     console.log('Token generated:', resetToken);
     console.log('Expiry set to:', resetTokenExpiry);
+    console.log('Current UTC time:', dayjs.utc().format());
+    console.log('Current UTC time (milliseconds):', dayjs.utc().valueOf());
 
     // Save token sa database
     await prisma.user.update({
