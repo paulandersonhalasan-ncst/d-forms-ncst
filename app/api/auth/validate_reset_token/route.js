@@ -20,8 +20,7 @@ export async function GET(request) {
         },
       },
     });
-
-    console.log(Date.now());
+    
     console.log('Found user with token:', user);
     console.log('Expiry in DB:', user?.resetTokenExpiry);
     console.log('Is valid?', user?.resetTokenExpiry > new Date());
