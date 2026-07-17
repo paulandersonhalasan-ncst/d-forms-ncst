@@ -1,5 +1,9 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '../../../../prisma/prisma';
+import bcrypt from 'bcryptjs';
+import dayjs from 'dayjs';
+import utc from 'dayjs/plugin/utc';
+dayjs.extend(utc);
 
 export async function POST(request) {
   try {
@@ -19,6 +23,9 @@ export async function POST(request) {
     //   );
     // }
 
+    console.log('Resetting password for token:', token);
+    console.log('Current server time:', dayjs.utc().format());
+
     const user = await prisma.user.findFirst({
       where: {
         resetToken: token,
@@ -29,22 +36,30 @@ export async function POST(request) {
     });
 
     if (!user) {
+      console.log('❌ Token not found or expired');
       return NextResponse.json(
         { success: false, message: 'Invalid or expired reset token. Please request a new password reset.' },
         { status: 400 }
       );
     }
 
+    console.log('✅ Token valid for user:', user.email);
+
+    // Hash new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
     // Update user password at clear reset token
     await prisma.user.update({
       where: { id: user.id },
       data: {
-        password: newPassword,
+        password: hashedPassword,
         resetToken: null,
         resetTokenExpiry: null,
         forgot_password: false,
       },
     });
+
+    console.log('✅ Password reset successful for:', user.email);
 
     return NextResponse.json({
       success: true,

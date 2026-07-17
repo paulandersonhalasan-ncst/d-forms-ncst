@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '../../../../prisma/prisma';
+import dayjs from 'dayjs';
+import utc from 'dayjs/plugin/utc';
+dayjs.extend(utc);
 
 export async function GET(request) {
   try {
@@ -11,7 +14,8 @@ export async function GET(request) {
     }
 
     console.log('Validating token:', token);
-    console.log('Current server time:', new Date());
+    console.log('Current server time:', dayjs.utc().format());
+
     const user = await prisma.user.findFirst({
       where: {
         resetToken: token,
@@ -21,12 +25,12 @@ export async function GET(request) {
       },
     });
 
-    console.log('Found user with token:', user);
+    console.log('Found user with token:', !!user);
     console.log('Expiry in DB:', user?.resetTokenExpiry);
-    console.log('Is valid?', user?.resetTokenExpiry > new Date());
 
     return NextResponse.json({ valid: !!user });
   } catch (error) {
+    console.error('Validate token error:', error);
     return NextResponse.json({ valid: false }, { status: 500 });
   }
 }
