@@ -203,6 +203,8 @@ export default function IOMDashboardPage() {
   // );
 
   const allMemosLedgerList = isAdminOrSuper ? memos : [];
+
+  const allMemosGlobal = memos;
   
   // ---- Memo lists ----
 
@@ -979,15 +981,24 @@ export default function IOMDashboardPage() {
               Archived / Resolved{' '}
               <Badge size="xs" variant="light" ml={6}>{resolvedMemos.length}</Badge>
             </Tabs.Tab>
+          
+
+            {isAdminOrSuper && (
+              <Tabs.Tab value="all_memos_global" leftSection={<IconInfoCircle size={15} />}>
+                Global View (Admin/Super ONLY){' '}
+                <Badge size="xs" variant="light" ml={6}>{allMemosGlobal.length}</Badge>
+              </Tabs.Tab>
+            )}
+
           </Tabs.List>
 
-          <Tabs.Panel value="all_memos">
+          <Tabs.Panel value="all_memos_global">
             <Alert icon={<IconInfoCircle size={16} />} title="System Administrator Global Ledger View" color="blue" mb="md" radius="md">
               Authorized view only. Tracks every operational transactional memorandum sequence regardless of origin status blocks.
               <br /><br />
               Mga otorisadong tao lamang ang maaaring makakita nito. Binabantayan nito ang lahat ng mga memorandum na pumasok sa NCST E-Forms.
             </Alert>
-            {renderMemoCards(getFilteredMemos(allMemosLedgerList))}
+            {renderMemoCards(getFilteredMemos(allMemosGlobal))}
           </Tabs.Panel>
 
           <Tabs.Panel value="approval">
