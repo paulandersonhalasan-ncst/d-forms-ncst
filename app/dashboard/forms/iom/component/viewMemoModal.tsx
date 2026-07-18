@@ -332,6 +332,14 @@ export default function ViewMemoModal({
           })}
         </Stack>
 
+        {/* Assigned to (array) */}
+          {recipientRow?.assignedToNames && recipientRow.assignedToNames.length > 0 && (
+            <Text size="xs" c="dimmed">
+              <b>Assigned to:</b> {recipientRow.assignedToNames.join(', ')}
+              {recipientRow.assignedAt && ` (${new Date(recipientRow.assignedAt).toLocaleString()})`}
+            </Text>
+          )}
+
         {/* Dynamic footer: Print + Actions + Close */}
         <Group justify="space-between" mt="xl" pt="md" style={{ borderTop: '1px solid var(--mantine-color-gray-3)' }}>
           <Button
@@ -439,14 +447,6 @@ export default function ViewMemoModal({
                       </>
                     )}
                   </>
-                )}
-
-                {/* Assigned to (array) */}
-                {recipientRow?.assignedToNames && recipientRow.assignedToNames.length > 0 && (
-                  <Text size="xs" c="dimmed">
-                    <b>Assigned to:</b> {recipientRow.assignedToNames.join(', ')}
-                    {recipientRow.assignedAt && ` (${new Date(recipientRow.assignedAt).toLocaleString()})`}
-                  </Text>
                 )}
 
                 {/* ===== Sender actions: Verify & Close (non-FYI only) ===== */}

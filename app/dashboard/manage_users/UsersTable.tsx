@@ -763,8 +763,8 @@ export default function UsersTable({ canDelete = false }: UsersTableProps) {
                     fname: getVal(row, "fname", "FIRST_NAME", "first_name", "FirstName"),
                     lname: getVal(row, "lname", "LAST_NAME", "last_name", "LastName"),
                     role: getVal(row, "role", "Role") || "Staff",
-                    departmentCode: getVal(row, "departmentCode", "Department"),
-                    branch: getVal(row, "branch", "Branch") || "MAIN",
+                    departmentCode: (getVal(row, "departmentCode", "Department") || "").toUpperCase(),
+                    branch: (getVal(row, "branch", "Branch") || "MAIN").toUpperCase(),
                   };
 
                   try {
