@@ -102,8 +102,6 @@ export default function CreateMemoModal({
                 label="All departments"
                 checked={sendToAll}
                 onChange={(event) => handleSendToAllChange(event.currentTarget.checked)}
-                
-                // style={{ whiteSpace: 'nowrap' }}
               />
           )}
 
