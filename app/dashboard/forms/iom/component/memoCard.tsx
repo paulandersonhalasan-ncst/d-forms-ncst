@@ -37,6 +37,7 @@ interface MemoCardProps {
   isHeadOrOIC: boolean;
   processOICAllowance: boolean;
   threadCount: number;
+  totalDepartments: number;
   onReply: (memo: Memo) => void;
   onPrint: (memo: Memo) => void;
   onViewThread: (memo: Memo) => void;
@@ -66,7 +67,8 @@ export default function MemoCard({
   onSuperEdit,
   triggerActionPasswordCheck,
   allMemos,
-  departmentStaff
+  departmentStaff,
+  totalDepartments = 0,
 }: MemoCardProps) {
   const amISender = memo.senderId === currentUser?.id;
   const myRecipientInfo = memo.recipients?.find(
@@ -239,7 +241,12 @@ export default function MemoCard({
         {/* Meta info: TO, FROM, CLOSED BY, DATE */}
         <Stack gap={4} my="xs" p="xs" w="100%" bg="light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-7))" style={{ borderRadius: '6px' }}>
           <Text size="xs">
-            <b>TO:</b> {memo.recipients?.map((r) => r.departmentName).join(', ')}
+            <b>TO:</b>{' '}
+              {memo.recipients && memo.recipients.length === totalDepartments && totalDepartments > 0 ? (
+                'All Departments'
+              ) : (
+                memo.recipients?.map((r) => r.departmentName).join(', ') || 'None'
+              )}
           </Text>
           {/* ✅ Idagdag ito — assignment summary para sa lahat */}
           {hasAssignments && (

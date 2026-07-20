@@ -302,7 +302,7 @@ export default function IOMDashboardPage() {
   const inboundMemos = memos.filter((memo) => {
     if (memo.status === 'FOR_APPROVAL' || memo.status === 'CLOSED' || memo.status === 'DENIED') return false;
     return memo.recipients?.some(
-      (r) => (r.departmentName === activeDepartment || processOICAllowance) && r.status === 'PENDING'
+      (r) => r.departmentName === activeDepartment && r.status === 'PENDING'
     );
   });
 
@@ -326,7 +326,7 @@ export default function IOMDashboardPage() {
     if (memo.status === 'FOR_APPROVAL' || memo.status === 'CLOSED' || memo.status === 'DENIED') return false;
     return memo.recipients?.some(
       (r) =>
-        (r.departmentName === activeDepartment || processOICAllowance) &&
+        r.departmentName === activeDepartment &&
         ['ACKNOWLEDGED', 'PROCESSING'].includes(r.status)
     );
   });
@@ -355,7 +355,7 @@ export default function IOMDashboardPage() {
 
     const isRecipientResolved = memo.recipients.some(
       (r) =>
-        (r.departmentName === activeDepartment || processOICAllowance) &&
+        r.departmentName === activeDepartment &&
         ['COMPLETED', 'RESPONDED', 'DENIED', 'CLOSED'].includes(r.status)
     );
 
@@ -972,6 +972,7 @@ export default function IOMDashboardPage() {
               triggerActionPasswordCheck={triggerActionPasswordCheck}
               allMemos={memos}
               departmentStaff={departmentStaff}
+              totalDepartments={departments.length}
             />
           );
         })}
@@ -1165,6 +1166,7 @@ export default function IOMDashboardPage() {
         processOICAllowance={processOICAllowance}
         onPrint={handlePrintMemo}
         triggerActionPasswordCheck={triggerActionPasswordCheck}
+        totalDepartments={departments.length}
       />
 
       <PasswordGateModal

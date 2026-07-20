@@ -40,6 +40,7 @@ interface ViewMemoModalProps {
   isAdminOrSuper: boolean;
   isDepartmentHead: boolean;
   processOICAllowance: boolean;
+  totalDepartments: number;
   onPrint: (memo: Memo) => void;
   triggerActionPasswordCheck: (
     type: 'CREATE' | 'ACKNOWLEDGE' | 'START_PROCESSING' | 'DENY' | 'CLOSED' | 'APPROVE_MEMO' | 'DISAPPROVE_DRAFT' | 'JOIN_PROCESSING' | 'ASSIGN',
@@ -58,6 +59,7 @@ export default function ViewMemoModal({
   processOICAllowance,
   onPrint,
   triggerActionPasswordCheck,
+  totalDepartments = 0
 }: ViewMemoModalProps) {
   if (!memo) return null;
 

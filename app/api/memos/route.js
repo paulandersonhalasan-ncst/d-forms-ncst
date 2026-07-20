@@ -120,8 +120,19 @@ export async function POST(request) {
     const senderFullName = `${authenticatedUser.fname} ${authenticatedUser.lname}`;
     const databaseUserRole = authenticatedUser.role ? authenticatedUser.role.toUpperCase() : "STAFF";
 
+    // ✅ Check kung OIC ang user
+    const isCurrentlyOIC = (() => {
+      if (!authenticatedUser.oic_start || !authenticatedUser.oic_end) return false;
+      const now = new Date();
+      const start = new Date(authenticatedUser.oic_start);
+      const end = new Date(authenticatedUser.oic_end);
+      return now >= start && now <= end;
+    })();
+
     let initialMemoStatus = "APPROVED";
-    if ((databaseUserRole === "STAFF" || databaseUserRole === "USER" || databaseUserRole === "FACULTY") && !parentMemoId) {
+    if (!isCurrentlyOIC && 
+        (databaseUserRole === "STAFF" || databaseUserRole === "USER" || databaseUserRole === "FACULTY") && 
+        !parentMemoId) {
       initialMemoStatus = "FOR_APPROVAL";
     }
 
@@ -131,9 +142,10 @@ export async function POST(request) {
     });
     
     const timestampSuffix = Math.floor(Math.random() * 9000) + 1000;
+    // Palaging may suffix
     const refId = initialMemoStatus === "FOR_APPROVAL" 
       ? `DRAFT-${userDept}-${currentYear}-${String(count + 1).padStart(3, '0')}-${timestampSuffix}`
-      : `${userDept}-${currentYear}-${String(count + 1).padStart(3, '0')}`;
+      : `${userDept}-${currentYear}-${String(count + 1).padStart(3, '0')}-${timestampSuffix}`;
 
     const deadlineAt = priority === 'RUSH' ? new Date(Date.now() + 3 * 24 * 60 * 60 * 1000) : null;
 
