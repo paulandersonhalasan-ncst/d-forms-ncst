@@ -22,7 +22,9 @@ import {
   Box,
   Loader,
   UnstyledButton,
-  SimpleGrid
+  SimpleGrid,
+  Collapse,
+  ActionIcon
 } from '@mantine/core';
 import {
   IconPlus,
@@ -35,7 +37,8 @@ import {
   IconInfoCircle,
   IconMessageReply,
   IconGitBranch,
-  IconUserCheck
+  IconUserCheck,
+  IconChevronDown
 } from '@tabler/icons-react';
 import useSWR from 'swr';
 
@@ -50,6 +53,83 @@ import SuperEditModal from './component/superEditModal';
 
 import { useSearchParams } from 'next/navigation';
 
+function CollapsibleAlert({
+  title,
+  icon,
+  color = "blue",
+  children,
+  defaultOpen = true,
+}: {
+  title: string;
+  icon?: React.ReactNode;
+  color?: string;
+  children: React.ReactNode;
+  defaultOpen?: boolean;
+}) {
+  const [opened, setOpened] = useState(defaultOpen);
+
+  return (
+    <Alert
+      color={color}
+      radius="md"
+      mb="md"
+      p="sm"
+      autoContrast
+      style={{
+        cursor: "pointer",
+        userSelect: "none",
+      }}
+      onClick={() => setOpened((o) => !o)}
+      styles={(theme) => ({
+        root: {
+          border: `1px solid ${theme.colors[color]?.[3] ?? theme.colors.blue[3]}`,
+        },
+        title: {
+          width: "100%",
+        },
+        body: {
+          width: "100%",
+        },
+      })}
+      title={
+        <Group
+          justify="space-between"
+          wrap="nowrap"
+          onClick={() => setOpened((o) => !o)}
+          style={{ cursor: "pointer", width: "100%" }}
+        >
+          <Group gap="xs" wrap="nowrap">
+            {icon}
+
+            <Text fw={500} size="sm">
+              {title}
+            </Text>
+          </Group>
+
+          <ActionIcon variant="subtle" color={color}>
+            <IconChevronDown
+              size={16}
+              style={{
+                transform: opened ? "rotate(180deg)" : "rotate(0deg)",
+                transition: "transform 150ms ease",
+              }}
+            />
+          </ActionIcon>
+        </Group>
+      }
+    >
+      <Collapse expanded={opened}>
+        <Text
+          size="xs"
+          mt="xs"
+          lh={1.6}
+        >
+          {children}
+        </Text>
+      </Collapse>
+    </Alert>
+  );
+}
 export default function IOMDashboardPage() {
   // ---- Disclosure hooks ----
   const [opened, { open, close }] = useDisclosure(false);
@@ -147,6 +227,11 @@ export default function IOMDashboardPage() {
   const isAdminOrSuper = ['ADMIN', 'SUPERUSER', 'Admin', 'SuperUser'].includes(userRole);
   const isDepartmentHead = ['DEPARTMENTHEAD', 'DepartmentHead', 'OIC'].includes(userRole);
 
+  const isHeadOrOIC = isDepartmentHead || isCurrentlyOIC();
+
+
+  console.log("IS CURRENT OIC CHECK: ", isHeadOrOIC);
+
   // ---- SWR for memos with polling (15 seconds) ----
   const { data: memosData, mutate: mutateMemos } = useSWR<Memo[]>(
     '../../../api/memos',
@@ -182,7 +267,7 @@ export default function IOMDashboardPage() {
     const isMine = memo.senderId === currentUser?.id;
 
     // 3. LOGIC PARA SA HEAD / OIC / ADMIN
-    if (isDepartmentHead || processOICAllowance || isAdminOrSuper) {
+    if (isHeadOrOIC || isAdminOrSuper) {
       // Makikita nila sa "Sent by You" kung:
       // a. Sila ang mismong gumawa (isMine)
       // b. Inedit nila yung memo ng staff (isRevisedByHead)
@@ -287,7 +372,7 @@ export default function IOMDashboardPage() {
   const [activeTab, setActiveTab] = useState<string | null>(() => {
     if (urlTab) return urlTab;
     if (isAdminOrSuper) return 'all_memos';
-    if (isDepartmentHead) return 'approval';
+    if (isHeadOrOIC) return 'approval';
     return 'action_board';
   });
 
@@ -301,14 +386,14 @@ export default function IOMDashboardPage() {
     if (!userChangedTab.current) {
       let desired: string | null = null;
       if (isAdminOrSuper) desired = 'all_memos';
-      else if (isDepartmentHead) desired = 'approval';
+      else if (isHeadOrOIC) desired = 'approval';
       else desired = 'action_board';
       if (desired && activeTab !== desired) {
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setActiveTab(desired);
       }
     }
-  }, [isAdminOrSuper, isDepartmentHead, activeTab, urlTab]);
+  }, [isAdminOrSuper, isHeadOrOIC, activeTab, urlTab]);
 
   // ---- Handler para sa pag-click ng tab ----
   const handleTabChange = (value: string | null) => {
@@ -368,7 +453,7 @@ export default function IOMDashboardPage() {
   // I‑fetch ang staff members (same department, exclude current user)
   useEffect(() => {
     const fetchStaff = async () => {
-      if (currentUser?.departmentCode && isDepartmentHead) {
+      if (currentUser?.departmentCode && isHeadOrOIC) {
         try {
           // ✅ Gamitin ang tamang route at parameters
           const res = await fetch(`/api/user/get?sameDepartment=true&role=Staff`);
@@ -382,7 +467,7 @@ export default function IOMDashboardPage() {
       }
     };
     fetchStaff();
-  }, [currentUser?.departmentCode, isDepartmentHead]);
+  }, [currentUser?.departmentCode, isHeadOrOIC]);
 
   // ---- Filter & sort ----
   const getFilteredMemos = (list: Memo[]) => {
@@ -618,6 +703,7 @@ export default function IOMDashboardPage() {
     setSelectedMemoForExpand(memo);
     openExpandNoteModal();
   };
+
 
     const handlePrintMemo = (memo: Memo) => {
       const printWindow = window.open('', '_blank', 'width=800,height=600');
@@ -875,7 +961,7 @@ export default function IOMDashboardPage() {
               currentUser={currentUser}
               activeDepartment={activeDepartment}
               isAdminOrSuper={isAdminOrSuper}
-              isDepartmentHead={isDepartmentHead}
+              isHeadOrOIC={isHeadOrOIC}
               processOICAllowance={processOICAllowance}
               threadCount={threadCount}
               onReply={handleReplyClick}
@@ -943,7 +1029,7 @@ export default function IOMDashboardPage() {
         <Tabs value={activeTab} onChange={handleTabChange} radius="md" variant="pills">
           <Tabs.List mb="lg">
             {/* For Approval - Head only */}
-            {isDepartmentHead && (
+            {isHeadOrOIC && (
               <Tabs.Tab value="approval" leftSection={<IconThumbUp size={15} />}>
                 For Approval{' '}
                 <Badge size="xs" variant="light" ml={6}>{forApprovalMemos.length}</Badge>
@@ -951,7 +1037,7 @@ export default function IOMDashboardPage() {
             )}
             
             {/* Inbound - Head only */}
-            {isDepartmentHead && (
+            {isHeadOrOIC && (
               <Tabs.Tab value="inbound" leftSection={<IconInbox size={15} />}>
                 Inbound{' '}
                 <Badge size="xs" variant="light" ml={6}>{inboundMemos.length}</Badge>
@@ -993,65 +1079,65 @@ export default function IOMDashboardPage() {
           </Tabs.List>
 
           <Tabs.Panel value="all_memos_global">
-            <Alert icon={<IconInfoCircle size={16} />} title="System Administrator Global Ledger View" color="blue" mb="md" radius="md">
+            <CollapsibleAlert  icon={<IconInfoCircle size={16} />} title="System Administrator Global Ledger View" color="blue">
               Authorized view only. Tracks every operational transactional memorandum sequence regardless of origin status blocks.
               <br /><br />
               Mga otorisadong tao lamang ang maaaring makakita nito. Binabantayan nito ang lahat ng mga memorandum na pumasok sa NCST E-Forms.
-            </Alert>
+            </CollapsibleAlert>
             {renderMemoCards(getFilteredMemos(allMemosGlobal))}
           </Tabs.Panel>
 
           <Tabs.Panel value="approval">
-            <Alert icon={<IconInfoCircle size={16} />} title="Super Editor & Approval Command Queue" color="orange" mb="md" radius="md">
+            <CollapsibleAlert  icon={<IconInfoCircle size={16} />} title="Super Editor & Approval Command Queue" color="orange">
               Draft memorandum formulated by department staff. As Department Head, you can click <b><i>Review & Approve</i></b> to modify mistakes or directly finalize contents.
               <br /><br />
               Makikita rito ang mga memorandum na ginawa ng mga staff sa iyong departamento. Maaaring mong pindutin ang <b><i>Review & Approve</i></b> para may ibahin o ayusin bago tuluyang aprubahan.
-            </Alert>
+            </CollapsibleAlert>
             {renderMemoCards(getFilteredMemos(forApprovalMemos), true)}
           </Tabs.Panel>
 
           <Tabs.Panel value="inbound">
-            <Alert icon={<IconInfoCircle size={16} />} title="Incoming External Inbound Queue" color="teal" mb="md" radius="md">
+            <CollapsibleAlert  icon={<IconInfoCircle size={16} />} title="Incoming External Inbound Queue" color="teal">
               Incoming memorandums routed by external entities. Requires Department Head authentication to acknowledge and shift to the public Action Board.
               <br /><br />
               Mga memorandum na galing sa ibang mga departmento na aprubado na ng kanilang Department Head. I-<b><i>Acknowledge</i></b> para mapunta sa Action Board Workspace para aksyunan ng kahit sino sa inyong departamento.
-            </Alert>
+            </CollapsibleAlert>
             {renderMemoCards(getFilteredMemos(inboundMemos))}
           </Tabs.Panel>
 
           <Tabs.Panel value="action_board">
-            <Alert icon={<IconInfoCircle size={16} />} title="Departmental Action Board (Public Staff View)" color="indigo" mb="md" radius="md">
+            <CollapsibleAlert  icon={<IconInfoCircle size={16} />} title="Departmental Action Board (Public Staff View)" color="indigo">
               Memorandums acknowledged by management. <b><i>Visible to all department members</i></b> to collaborate, process, and address.
               <br /><br />
               Mga memorandum na tinaggap at kinilala ng Department Head. <b><i>Kita ng lahat ng mga myembro ng departamento</i></b> para ma-proseso o aksyunan.
-            </Alert>
+            </CollapsibleAlert>
             {renderMemoCards(getFilteredMemos(actionBoardMemos))}
           </Tabs.Panel>
 
           <Tabs.Panel value="assigned_to_me">
-            <Alert icon={<IconInfoCircle size={16} />} title="Assigned to Me" color="grape" mb="md" radius="md">
+            <CollapsibleAlert  icon={<IconInfoCircle size={16} />} title="Assigned to Me" color="grape">
               Memos specifically assigned to you by the Department Head.
               <br /><br />
               Mga memorandum na direktang na‑assign sa iyo ng Department Head.
-            </Alert>
+            </CollapsibleAlert>
             {renderMemoCards(getFilteredMemos(assignedToMeMemos))}
           </Tabs.Panel>
 
           <Tabs.Panel value="outbound">
-            <Alert icon={<IconInfoCircle size={16} />} title="Outbound Memos" color="cyan" mb="md" radius="md">
+            <CollapsibleAlert  icon={<IconInfoCircle size={16} />} title="Outbound Memos" color="cyan">
               Memos sent by your department to other departments.
               <br /><br />
               Mga memorandum na ipinadala ng inyong departamento sa ibang departamento.
-            </Alert>
+            </CollapsibleAlert>
             {renderMemoCards(getFilteredMemos(outboundMemos))}
           </Tabs.Panel>
 
           <Tabs.Panel value="archived">
-            <Alert icon={<IconInfoCircle size={16} />} title="Archived Records Directory" color="green" mb="md" radius="md">
+            <CollapsibleAlert icon={<IconInfoCircle size={16} />} title="Archived Records Directory" color="green">
               Archived historical repository containing fully responded operations or structurally denied state documents.
               <br /><br />
               Koleksyon ng lahat ng mga na-respondehan at tinanggihang memorandum.
-            </Alert>
+            </CollapsibleAlert>
             {renderMemoCards(getFilteredMemos(resolvedMemos))}
           </Tabs.Panel>
         </Tabs>
@@ -1075,7 +1161,7 @@ export default function IOMDashboardPage() {
         currentUser={currentUser}
         activeDepartment={activeDepartment}
         isAdminOrSuper={isAdminOrSuper}
-        isDepartmentHead={isDepartmentHead}
+        isDepartmentHead={isHeadOrOIC}
         processOICAllowance={processOICAllowance}
         onPrint={handlePrintMemo}
         triggerActionPasswordCheck={triggerActionPasswordCheck}

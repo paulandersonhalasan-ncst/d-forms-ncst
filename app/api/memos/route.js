@@ -209,7 +209,7 @@ export async function POST(request) {
     // =========================================================
     try {
       if (initialMemoStatus === "FOR_APPROVAL") {
-        const internalHeads = await getDepartmentUsers(userDept, ['DepartmentHead']);
+        const internalHeads = await getDepartmentUsers(userDept, ['DepartmentHead', 'OIC']);
         if (internalHeads.length > 0) {
           await prisma.notification.createMany({
             data: internalHeads.map(head => ({
@@ -232,7 +232,7 @@ export async function POST(request) {
         });
       } else {
         for (const dept of targetDepts) {
-          const targetHeads = await getDepartmentUsers(dept, ['DepartmentHead']);
+          const targetHeads = await getDepartmentUsers(dept, ['DepartmentHead', 'OIC']);
           if (targetHeads.length > 0) {
             await prisma.notification.createMany({
               data: targetHeads.map(head => ({
@@ -434,7 +434,7 @@ export async function PATCH(request) {
       try {
         const targetDepts = currentMemo.recipients.map(r => r.departmentName);
         for (const dept of targetDepts) {
-          const targetHeads = await getDepartmentUsers(dept, ['DepartmentHead']);
+          const targetHeads = await getDepartmentUsers(dept, ['DepartmentHead', 'OIC']);
           if (targetHeads.length > 0) {
             await prisma.notification.createMany({
               data: targetHeads.map(head => ({

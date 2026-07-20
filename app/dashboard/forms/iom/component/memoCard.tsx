@@ -34,7 +34,7 @@ interface MemoCardProps {
   currentUser: UserContext | null;
   activeDepartment: string;
   isAdminOrSuper: boolean;
-  isDepartmentHead: boolean;
+  isHeadOrOIC: boolean;
   processOICAllowance: boolean;
   threadCount: number;
   onReply: (memo: Memo) => void;
@@ -56,7 +56,7 @@ export default function MemoCard({
   currentUser,
   activeDepartment,
   isAdminOrSuper,
-  isDepartmentHead,
+  isHeadOrOIC,
   processOICAllowance,
   threadCount,
   onReply,
@@ -329,7 +329,7 @@ export default function MemoCard({
 
         <Group gap="xs">
           {/* Approval tab: Department Head actions */}
-          {isApprovalTab && (isDepartmentHead || isAdminOrSuper) && (
+          {isApprovalTab && (isHeadOrOIC || isAdminOrSuper) && (
             <Group gap={4}>
               <Button
                 size="xs"
@@ -352,7 +352,7 @@ export default function MemoCard({
           )}
 
           {/* Recipient actions */}
-          {isDepartmentHead && myRecipientInfo?.status === 'PENDING' && !isApprovalTab && (
+          {isHeadOrOIC && myRecipientInfo?.status === 'PENDING' && !isApprovalTab && (
             <Group gap={4}>
               <Button
                 size="xs"
@@ -383,7 +383,7 @@ export default function MemoCard({
           )}
 
           {/* Staff: Process button (auto‑assign sa sarili) */}
-          {!isDepartmentHead && myRecipientInfo?.status === 'ACKNOWLEDGED' && (
+          {!isHeadOrOIC && myRecipientInfo?.status === 'ACKNOWLEDGED' && (
             <Button
               size="xs"
               color="orange"
@@ -450,7 +450,7 @@ export default function MemoCard({
             return (
               <Group gap={4}>
                 {/* Department Head: Force Complete */}
-                {isDepartmentHead && (isUnderProcessing || isAcknowledged) && (
+                {isHeadOrOIC && (isUnderProcessing || isAcknowledged) && (
                   <Button
                     size="xs"
                     color="teal"
@@ -468,7 +468,7 @@ export default function MemoCard({
                 )}
 
                 {/* Staff: Complete (kapag PROCESSING at nakasali na sa process) */}
-                {isUnderProcessing && !isDepartmentHead && memo.purpose !== 'FYI' && (
+                {isUnderProcessing && !isHeadOrOIC && memo.purpose !== 'FYI' && (
                   <Group gap={4}>
                     {!amIAlreadyProcessing && (
                       <Button
@@ -508,7 +508,7 @@ export default function MemoCard({
           })()}
 
           {/* Department Head: Assign to Staff */ }
-            {isDepartmentHead && myRecipientInfo?.status === 'ACKNOWLEDGED' && (
+            {isHeadOrOIC && myRecipientInfo?.status === 'ACKNOWLEDGED' && (
               <Group gap={4}>
                 <Select
                   size="xs"
