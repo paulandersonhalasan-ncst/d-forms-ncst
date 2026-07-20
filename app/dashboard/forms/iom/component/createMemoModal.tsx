@@ -12,10 +12,12 @@ import {
   Group,
   Button,
   SimpleGrid,
+  Checkbox
 } from '@mantine/core';
 import { UseFormReturnType } from '@mantine/form';
 import { MemoFormValues } from './types';
 import { IconSend } from '@tabler/icons-react';
+import { useState } from 'react';
 
 interface CreateMemoModalProps {
     opened: boolean;
@@ -36,6 +38,22 @@ export default function CreateMemoModal({
   onSubmit,
   isReply,
 }: CreateMemoModalProps) {
+
+  const [sendToAll, setSendToAll] = useState(false);
+
+  // ✅ Handle "Send to All" toggle
+  const handleSendToAllChange = (checked: boolean) => {
+    setSendToAll(checked);
+    if (checked) {
+      // Piliin lahat ng departments
+      const allValues = departments.map(d => d.value);
+      form.setFieldValue('targetDepts', allValues);
+    } else {
+      // I‑clear ang selection
+      form.setFieldValue('targetDepts', []);
+    }
+  };
+
   return (
     <Modal
       opened={opened}
@@ -73,10 +91,21 @@ export default function CreateMemoModal({
             data={departments.filter(d => d.value && d.label)}
             placeholder="Select one or more departments"
             required
-            disabled={isReply}
+            disabled={isReply || sendToAll}
             {...form.getInputProps('targetDepts')}
             searchable
           />
+
+          {/* ✅ Checkbox sa tabi ng MultiSelect */}
+            {!isReply && departments.length > 0 && (
+              <Checkbox
+                label="All departments"
+                checked={sendToAll}
+                onChange={(event) => handleSendToAllChange(event.currentTarget.checked)}
+                
+                // style={{ whiteSpace: 'nowrap' }}
+              />
+          )}
 
           <Textarea
             label="Memorandum Body Content"
