@@ -23,7 +23,7 @@ import {
   Popover,
   UnstyledButton,
   Grid,
-  RollingNumber
+  RollingNumber,
 } from '@mantine/core';
 import { DatePicker } from '@mantine/dates';
 import {
@@ -110,10 +110,6 @@ export default function AnalyticsPage() {
     }
   }, [currentUser]);
 
-  const isAdminOrSuper = currentUser && ['Admin', 'SuperUser'].includes(currentUser.role);
-  const effectiveDept = isAdminOrSuper ? selectedDept : currentUser?.departmentCode;
-  const isDepartmentHead = currentUser && ['DepartmentHead', 'OIC'].includes(currentUser.role);
-
   // --- SWR for memos (to get counts per tab for shortcuts) ---
   const { data: memosData } = useSWR<Memo[]>('/api/memos', fetcher, {
     refreshInterval: 30000,
@@ -121,7 +117,7 @@ export default function AnalyticsPage() {
   });
   const memos: Memo[] = Array.isArray(memosData) ? memosData : [];
 
-  // --- Compute memo lists (same logic as IOM page) ---
+  // --- Compute memo lists (sync with IOM page) ---
   const activeDepartment = currentUser?.departmentCode || '';
   const isCurrentlyOIC = () => {
     if (!currentUser?.oic_start || !currentUser?.oic_end) return false;
@@ -130,23 +126,30 @@ export default function AnalyticsPage() {
     const end = new Date(currentUser.oic_end).getTime();
     return now >= start && now <= end;
   };
-  const processOICAllowance = isCurrentlyOIC();
 
+  const isAdminOrSuper = currentUser && ['Admin', 'SuperUser'].includes(currentUser.role);
+  const isDepartmentHead = currentUser && ['DepartmentHead'].includes(currentUser.role);
+  const isHeadOrOIC = isDepartmentHead || isCurrentlyOIC();
+  const effectiveDept = isAdminOrSuper ? selectedDept : currentUser?.departmentCode;
+
+  // ✅ Memo lists - walang OIC allowance, same sa IOM page
   const forApprovalMemos = useMemo(
     () => memos.filter((m) => m.senderDept === activeDepartment && m.status === 'FOR_APPROVAL'),
     [memos, activeDepartment]
   );
+
   const inboundMemos = useMemo(
     () =>
       memos.filter((m) => {
         if (m.status === 'FOR_APPROVAL' || m.status === 'CLOSED' || m.status === 'DENIED')
           return false;
         return m.recipients?.some(
-          (r) => (r.departmentName === activeDepartment || processOICAllowance) && r.status === 'PENDING'
+          (r) => r.departmentName === activeDepartment && r.status === 'PENDING'
         );
       }),
-    [memos, activeDepartment, processOICAllowance]
+    [memos, activeDepartment]
   );
+
   const outboundMemos = useMemo(
     () =>
       memos.filter((m) => {
@@ -160,6 +163,7 @@ export default function AnalyticsPage() {
       }),
     [memos, activeDepartment]
   );
+
   const actionBoardMemos = useMemo(
     () =>
       memos.filter((m) => {
@@ -167,12 +171,13 @@ export default function AnalyticsPage() {
           return false;
         return m.recipients?.some(
           (r) =>
-            (r.departmentName === activeDepartment || processOICAllowance) &&
+            r.departmentName === activeDepartment &&
             ['ACKNOWLEDGED', 'PROCESSING'].includes(r.status)
         );
       }),
-    [memos, activeDepartment, processOICAllowance]
+    [memos, activeDepartment]
   );
+
   const assignedToMeMemos = useMemo(
     () =>
       memos.filter((m) => {
@@ -187,46 +192,45 @@ export default function AnalyticsPage() {
       }),
     [memos, activeDepartment, currentUser?.id]
   );
+
   const resolvedMemos = useMemo(
     () =>
       memos.filter((m) => {
         if (!m.recipients || m.recipients.length === 0) return false;
+
         if (isAdminOrSuper) {
           return m.recipients.some((r) =>
             ['COMPLETED', 'RESPONDED', 'DENIED', 'CLOSED'].includes(r.status)
           );
         }
+
         const isRecipientResolved = m.recipients.some(
           (r) =>
-            (r.departmentName === activeDepartment || processOICAllowance) &&
+            r.departmentName === activeDepartment &&
             ['COMPLETED', 'RESPONDED', 'DENIED', 'CLOSED'].includes(r.status)
         );
+
         const isSenderResolved =
           m.senderDept === activeDepartment &&
           m.recipients.every((r) =>
             ['COMPLETED', 'RESPONDED', 'DENIED', 'CLOSED'].includes(r.status)
           );
+
         return isRecipientResolved || isSenderResolved;
       }),
-    [memos, activeDepartment, processOICAllowance, isAdminOrSuper]
+    [memos, activeDepartment, isAdminOrSuper]
   );
+
   const allMemosLedgerList = useMemo(
     () => (isAdminOrSuper ? memos : []),
     [memos, isAdminOrSuper]
   );
 
-  // --- Build tab configurations for shortcut cards ---
+  // --- Build tab configurations for shortcut cards (sync with IOM tabs) ---
   const tabConfigs = [];
-  if (isAdminOrSuper) {
-    tabConfigs.push({
-      label: 'All Memos',
-      value: 'all_memos',
-      icon: IconLayersIntersect,
-      color: 'blue',
-      count: allMemosLedgerList.length,
-    });
-  }
-  if (isDepartmentHead) {
+
+  // 1. For Approval - Head/OIC only
+  if (isHeadOrOIC) {
     tabConfigs.push({
       label: 'For Approval',
       value: 'approval',
@@ -234,6 +238,10 @@ export default function AnalyticsPage() {
       color: 'orange',
       count: forApprovalMemos.length,
     });
+  }
+
+  // 2. Inbound - Head/OIC only
+  if (isHeadOrOIC) {
     tabConfigs.push({
       label: 'Inbound',
       value: 'inbound',
@@ -242,6 +250,8 @@ export default function AnalyticsPage() {
       count: inboundMemos.length,
     });
   }
+
+  // 3. Outbound - Everyone
   tabConfigs.push({
     label: 'Outbound',
     value: 'outbound',
@@ -249,6 +259,8 @@ export default function AnalyticsPage() {
     color: 'cyan',
     count: outboundMemos.length,
   });
+
+  // 4. Action Board - Everyone
   tabConfigs.push({
     label: 'Action Board',
     value: 'action_board',
@@ -256,15 +268,17 @@ export default function AnalyticsPage() {
     color: 'indigo',
     count: actionBoardMemos.length,
   });
-  if (!isAdminOrSuper && !isDepartmentHead) {
-    tabConfigs.push({
-      label: 'Assigned to Me',
-      value: 'assigned_to_me',
-      icon: IconUserCheck,
-      color: 'grape',
-      count: assignedToMeMemos.length,
-    });
-  }
+
+  // 5. Assigned to Me - Everyone
+  tabConfigs.push({
+    label: 'Assigned to Me',
+    value: 'assigned_to_me',
+    icon: IconUserCheck,
+    color: 'grape',
+    count: assignedToMeMemos.length,
+  });
+
+  // 6. Archived - Everyone
   tabConfigs.push({
     label: 'Archived',
     value: 'archived',
@@ -272,6 +286,17 @@ export default function AnalyticsPage() {
     color: 'green',
     count: resolvedMemos.length,
   });
+
+  // 7. Global View - Admin/Super only
+  if (isAdminOrSuper) {
+    tabConfigs.push({
+      label: 'Global View',
+      value: 'all_memos_global',
+      icon: IconLayersIntersect,
+      color: 'blue',
+      count: memos.length, // ✅ Lahat ng memos
+    });
+  }
 
   // --- Build API URL for analytics charts (with date filter) ---
   const queryParams = new URLSearchParams({
@@ -290,11 +315,30 @@ export default function AnalyticsPage() {
     }
   }
 
-  const url = `/api/analytics?${queryParams.toString()}`;
+  const url = useMemo(() => {
+      const query = new URLSearchParams({
+          departmentCode: effectiveDept || "",
+          timeRange,
+          ...(timeRange !== "all" &&
+          timeRange !== "custom" && {
+              date: baseDate.toISOString(),
+          }),
+      });
+
+      if (timeRange === "custom") {
+          const [start, end] = customDates;
+
+          if (start) query.append("startDate", dayjs(start).format("YYYY-MM-DD"));
+          if (end) query.append("endDate", dayjs(end).format("YYYY-MM-DD"));
+      }
+
+      return `/api/analytics?${query.toString()}`;
+  }, [effectiveDept, timeRange, baseDate, customDates]);
 
   const { data, error } = useSWR(url, fetcher, {
     refreshInterval: 30000,
     revalidateOnFocus: true,
+    keepPreviousData: true,
   });
 
   // --- Navigation for day/week/month ---
@@ -538,7 +582,8 @@ export default function AnalyticsPage() {
                   return (
                     <Paper
                       key={stat.label}
-                      withBorder p="md"
+                      withBorder
+                      p="md"
                       radius="lg"
                       style={{ borderRadius: theme.radius.md }}
                     >
@@ -547,7 +592,7 @@ export default function AnalyticsPage() {
                           <Text size="xs" c="dimmed" fw={700}>
                             {stat.label}
                           </Text>
-                          <RollingNumber value={stat.value} fw={500} fz={32} />
+                          <RollingNumber value={stat.value} fw={500} fz={32}/>
                         </Stack>
                         <ThemeIcon size={28} radius="md" color={stat.color} variant="light">
                           <Icon size={16} />
@@ -562,40 +607,58 @@ export default function AnalyticsPage() {
             {/* ========== 2. QUICK NAVIGATION SHORTCUTS (Real-time counts) ========== */}
             <Stack gap="xs">
               <Text size="sm" fw={700} c="dimmed">
-                🚀 Quick Navigation to IOM Dashboard
+                E-IOM Shortcuts
               </Text>
-              <Grid grow gap="md" columns={Math.min(tabConfigs.length, 5)}>
+
+              {/* ✅ Isang row lang, pantay-pantay ang laki */}
+              <Group grow wrap="nowrap" gap="md" align="stretch">
                 {tabConfigs.map((config) => {
                   const Icon = config.icon;
                   return (
-                    <Grid.Col key={config.value} span={1}>
-                      <UnstyledButton
-                        onClick={() => router.push(`/dashboard/forms/iom?tab=${config.value}`)}
+                    <UnstyledButton
+                      key={config.value}
+                      onClick={() => router.push(`/dashboard/forms/iom?tab=${config.value}`)}
+                      style={{
+                        flex: 1,
+                        minWidth: 0,
+                        textDecoration: 'none',
+                        cursor: 'pointer',
+                        transition: 'transform 0.2s ease',
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.transform = 'translateY(-4px)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = 'translateY(0)';
+                      }}
+                    >
+                      <Paper
+                        withBorder
+                        radius="xl"
+                        p="lg"
                         style={{
-                          width: '100%',
-                          textDecoration: 'none',
-                          cursor: 'pointer',
-                          transition: 'transform 0.2s ease',
+                          height: '100%',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
                         }}
-                        onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-4px)'; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; }}
                       >
-                        <Paper withBorder radius="xl" p="lg">
-                          <Group justify="space-between">
-                            <Stack gap={0}>
-                              <Text size="sm" c="dimmed">{config.label}</Text>
-                              <RollingNumber value={config.count} fw={900} fz={34} />
-                            </Stack>
-                            <ThemeIcon size={60} radius="xl" color={config.color} variant="light">
-                              <Icon size={30} />
-                            </ThemeIcon>
-                          </Group>
-                        </Paper>
-                      </UnstyledButton>
-                    </Grid.Col>
+                        <Group justify="space-between" style={{ width: '100%' }}>
+                          <Stack gap={0}>
+                            <Text size="xs" fw={700}>
+                              {config.label}
+                            </Text>
+                            <RollingNumber value={config.count} fw={500} fz={32} />
+                          </Stack>
+                          <ThemeIcon size={30} radius="xl" color={config.color} variant="filled">
+                            <Icon size={15} />
+                          </ThemeIcon>
+                        </Group>
+                      </Paper>
+                    </UnstyledButton>
                   );
                 })}
-              </Grid>
+              </Group>
             </Stack>
 
             {/* ========== 3. ANALYTICS CHARTS (Date-Filtered) ========== */}
