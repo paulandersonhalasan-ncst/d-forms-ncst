@@ -24,7 +24,9 @@ import {
   UnstyledButton,
   SimpleGrid,
   Collapse,
-  ActionIcon
+  ActionIcon,
+  SegmentedControl,
+  ScrollArea
 } from '@mantine/core';
 import {
   IconPlus,
@@ -44,6 +46,7 @@ import useSWR from 'swr';
 
 // Import shared types
 import { Priority, Purpose, Memo, UserContext, Department } from './component/types';
+
 // Import components
 import MemoCard from './component/memoCard';
 import CreateMemoModal from './component/createMemoModal';
@@ -130,6 +133,134 @@ function CollapsibleAlert({
     </Alert>
   );
 }
+
+function KanbanBoard({
+  memos,
+  isApprovalTab,
+  currentUser,
+  activeDepartment,
+  isAdminOrSuper,
+  isHeadOrOIC,
+  processOICAllowance,
+  onReply,
+  onPrint,
+  onViewThread,
+  onExpand,
+  onSuperEdit,
+  triggerActionPasswordCheck,
+  allMemos,
+  departmentStaff,
+  totalDepartments,
+}: {
+  memos: Memo[];
+  isApprovalTab: boolean;
+  currentUser: UserContext | null;
+  activeDepartment: string;
+  isAdminOrSuper: boolean;
+  isHeadOrOIC: boolean;
+  processOICAllowance: boolean;
+  onReply: (memo: Memo) => void;
+  onPrint: (memo: Memo) => void;
+  onViewThread: (memo: Memo) => void;
+  onExpand: (memo: Memo) => void;
+  onSuperEdit: (memo: Memo, mode: 'edit' | 'approve') => void;
+  triggerActionPasswordCheck: (
+    type:
+      | 'CREATE'
+      | 'ACKNOWLEDGE'
+      | 'START_PROCESSING'
+      | 'DENY'
+      | 'CLOSED'
+      | 'APPROVE'
+      | 'DISAPPROVE_DRAFT'
+      | 'JOIN_PROCESSING'
+      | 'ASSIGN',
+    data: Record<string, unknown>
+  ) => void;
+  allMemos: Memo[];
+  departmentStaff: { id: string; fname: string; lname: string }[];
+  totalDepartments: number;
+}) {
+  // ✅ Tamang type annotation
+  const groups: Record<Priority, Memo[]> = {
+    ROUTINE: memos.filter((m) => m.priority === 'ROUTINE'),
+    URGENT: memos.filter((m) => m.priority === 'URGENT'),
+    RUSH: memos.filter((m) => m.priority === 'RUSH'),
+  };
+
+  const columnColors: Record<Priority, string> = {
+    ROUTINE: 'blue',
+    URGENT: 'orange',
+    RUSH: 'red',
+  };
+
+  return (
+    <SimpleGrid cols={3} spacing="lg" style={{ alignItems: 'flex-start' }}>
+      {Object.entries(groups).map(([priority, items]) => {
+        // ✅ I-cast ang priority sa tamang type
+        const colorKey = priority as keyof typeof columnColors;
+        const color = columnColors[colorKey];
+
+        return (
+          <Stack key={priority} gap="md" style={{ maxHeight: '100%' }}>
+            <Card
+              withBorder
+              p="sm"
+              bg={`var(--mantine-color-${color}-0)`}
+            >
+              <Group justify="space-between">
+                <Text fw={700} size="sm" c={color}>
+                  {priority}
+                </Text>
+                <Badge color={color}>{items.length}</Badge>
+              </Group>
+            </Card>
+
+            <ScrollArea style={{ height: 'calc(100vh - 380px)' }} type="auto">
+              {items.length === 0 ? (
+                <Text c="dimmed" size="xs" ta="center" py="md">
+                  No memos
+                </Text>
+              ) : (
+                <Stack gap="sm">
+                  {items.map((memo) => {
+                    const rootId = memo.rootMemoId || memo.id;
+                    const threadCount = allMemos.filter(
+                      (m) => m.rootMemoId === rootId || m.id === rootId
+                    ).length;
+                    return (
+                      <MemoCard
+                        key={memo.id}
+                        memo={memo}
+                        isApprovalTab={isApprovalTab}
+                        currentUser={currentUser}
+                        activeDepartment={activeDepartment}
+                        isAdminOrSuper={isAdminOrSuper}
+                        isHeadOrOIC={isHeadOrOIC}
+                        processOICAllowance={processOICAllowance}
+                        threadCount={threadCount}
+                        totalDepartments={totalDepartments}
+                        onReply={onReply}
+                        onPrint={onPrint}
+                        onViewThread={onViewThread}
+                        onExpand={onExpand}
+                        onSuperEdit={onSuperEdit}
+                        triggerActionPasswordCheck={triggerActionPasswordCheck}
+                        allMemos={allMemos}
+                        departmentStaff={departmentStaff}
+                      />
+                    );
+                  })}
+                </Stack>
+              )}
+            </ScrollArea>
+          </Stack>
+        );
+      })}
+    </SimpleGrid>
+  );
+}
+
 export default function IOMDashboardPage() {
   // ---- Disclosure hooks ----
   const [opened, { open, close }] = useDisclosure(false);
@@ -234,7 +365,7 @@ export default function IOMDashboardPage() {
   const isHeadOrOIC = isDepartmentHead || isCurrentlyOIC();
 
 
-  console.log("IS CURRENT OIC CHECK: ", isHeadOrOIC);
+  const [viewMode, setViewMode] = useState<'tile' | 'kanban'>('tile');
 
   // ---- SWR for memos with polling (15 seconds) ----
   const { data: memosData, mutate: mutateMemos } = useSWR<Memo[]>(
@@ -805,7 +936,6 @@ export default function IOMDashboardPage() {
     }
   };
 
-
     const handlePrintMemo = (memo: Memo) => {
       const printWindow = window.open('', '_blank', 'width=800,height=600');
       if (!printWindow) return;
@@ -1089,14 +1219,14 @@ export default function IOMDashboardPage() {
 
   // ---- Main render ----
   return (
-    <Container size="xl" py="lg" pos="relative">
+    <Container fluid py="md" pos="relative">
       <LoadingOverlay visible={pageLoading} zIndex={1000} overlayProps={{ radius: 'sm', blur: 2 }} />
 
-      <Card withBorder radius="lg" p="xl" shadow="sm">
+      <Card withBorder radius="lg" p="lg" shadow="sm" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
         <Group justify="space-between" align="center" mb="xl">
           <Stack gap={2}>
             <Title order={2} fw={800} lts="-0.5px">
-              Inter-office Memorandum Workspace
+              Inter-Office Memorandum Workspace
             </Title>
             <Group gap={6}>
               <Text size="xs" c="dimmed">Active Department Code:</Text>
@@ -1109,146 +1239,334 @@ export default function IOMDashboardPage() {
           </Button>
         </Group>
 
-        {/* Search & Sort */}
-        <Card withBorder radius="md" mb="md" p="sm" bg="light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-8))">
-          <Group justify="space-between" align="flex-end">
-            <TextInput
-              placeholder="REMINDER: This only filters the selected tab..."
-              label="Search Memorandum"
-              value={searchTerm}
-              onChange={(event) => setSearchTerm(event.currentTarget.value)}
-              style={{ flex: 1 }}
-            />
-            <Stack gap={4}>
-              <Text size="xs" fw={500}>Sort by Date Created</Text>
-              <Button
-                variant="light"
-                color={sortByDate === 'NEWEST' ? 'blue' : 'orange'}
-                onClick={() => toggleSortByDate()}
-                style={{ width: 180 }}
-              >
-                {sortByDate === 'NEWEST' ? '📅 Newest First' : '⏳ Oldest First'}
-              </Button>
-            </Stack>
-          </Group>
-        </Card>
+        <Box style={{ flex: 1, overflow: 'hidden' }}>
 
-        {/* Tabs */}
-        <Tabs value={activeTab} onChange={handleTabChange} radius="md" variant="pills">
-          <Tabs.List mb="lg">
-            {/* For Approval - Head only */}
-            {isHeadOrOIC && (
-              <Tabs.Tab value="approval" leftSection={<IconThumbUp size={15} />}>
-                For Approval{' '}
-                <Badge size="xs" variant="light" ml={6}>{forApprovalMemos.length}</Badge>
-              </Tabs.Tab>
-            )}
-            
-            {/* Inbound - Head only */}
-            {isHeadOrOIC && (
-              <Tabs.Tab value="inbound" leftSection={<IconInbox size={15} />}>
-                Inbound{' '}
-                <Badge size="xs" variant="light" ml={6}>{inboundMemos.length}</Badge>
-              </Tabs.Tab>
-            )}
-            
-            {/* Outbound - Everyone */}
-            <Tabs.Tab value="outbound" leftSection={<IconSend size={15} />}>
-              Outbound{' '}
-              <Badge size="xs" variant="light" ml={6}>{outboundMemos.length}</Badge>
-            </Tabs.Tab>
-            
-            {/* Action Board - Everyone (FREE MODE - lahat nakakakita, lahat pwedeng kumilos) */}
-            <Tabs.Tab value="action_board" leftSection={<IconPlayerPlay size={15} />}>
-              Action Board{' '}
-              <Badge size="xs" variant="light" ml={6}>{actionBoardMemos.length}</Badge>
-            </Tabs.Tab>
-            
-            {/* Ipakita sa lahat (except Admin? pero okay lang din) */}
-            <Tabs.Tab value="assigned_to_me" leftSection={<IconUserCheck size={15} />}>
-              Assigned to Me{' '}
-              <Badge size="xs" variant="light" ml={6}>{assignedToMeMemos.length}</Badge>
-            </Tabs.Tab>
-            
-            {/* Archived */}
-            <Tabs.Tab value="archived" leftSection={<IconCircleCheck size={15} />}>
-              Archived / Resolved{' '}
-              <Badge size="xs" variant="light" ml={6}>{resolvedMemos.length}</Badge>
-            </Tabs.Tab>
-          
+          {/* Search & Sort */}
+          <Card withBorder radius="md" mb="md" p="sm" bg="light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-8))">
+            <Group justify="space-between" align="flex-end">
+              <TextInput
+                placeholder="REMINDER: This only filters the selected tab..."
+                label="Search Memorandum"
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.currentTarget.value)}
+                style={{ flex: 1 }}
+              />
+              <Group gap="md">
+                <Stack gap={4}>
+                  <Text size="xs" fw={500}>Sort by Date Created</Text>
+                  <Button
+                    variant="light"
+                    color={sortByDate === 'NEWEST' ? 'blue' : 'orange'}
+                    onClick={() => toggleSortByDate()}
+                    style={{ width: 180 }}
+                  >
+                    {sortByDate === 'NEWEST' ? '📅 Newest First' : '⏳ Oldest First'}
+                  </Button>
+                </Stack>
+                <Stack gap={4}>
+                  <Text size="xs" fw={500}>View</Text>
+                  <SegmentedControl
+                    value={viewMode}
+                    onChange={(val) => setViewMode(val as 'tile' | 'kanban')}
+                    data={[
+                      { label: 'Tile', value: 'tile' },
+                      { label: 'Kanban-Style', value: 'kanban' },
+                    ]}
+                    size="xs"
+                  />
+                </Stack>
+              </Group>
+            </Group>
+          </Card>
 
-            {isAdminOrSuper && (
-              <Tabs.Tab value="all_memos_global" leftSection={<IconInfoCircle size={15} />}>
-                Global View (Admin/Super ONLY){' '}
-                <Badge size="xs" variant="light" ml={6}>{allMemosGlobal.length}</Badge>
-              </Tabs.Tab>
-            )}
+          {/* Tabs */}
+          <ScrollArea
+            style={{
+              height: 'calc(100vh - 280px)', // I-adjust depende sa taas ng header at search bar
+              paddingRight: '4px', // Para hindi mag-cut ang scrollbar
+            }}
+            type="auto"
+          >
+            <Tabs value={activeTab} onChange={handleTabChange} radius="md" variant="pills">
+              <Tabs.List mb="lg">
+                {/* For Approval - Head only */}
+                {isHeadOrOIC && (
+                  <Tabs.Tab value="approval" leftSection={<IconThumbUp size={15} />}>
+                    For Approval{' '}
+                    <Badge size="xs" variant="light" ml={6}>{forApprovalMemos.length}</Badge>
+                  </Tabs.Tab>
+                )}
+                
+                {/* Inbound - Head only */}
+                {isHeadOrOIC && (
+                  <Tabs.Tab value="inbound" leftSection={<IconInbox size={15} />}>
+                    Inbound{' '}
+                    <Badge size="xs" variant="light" ml={6}>{inboundMemos.length}</Badge>
+                  </Tabs.Tab>
+                )}
+                
+                {/* Outbound - Everyone */}
+                <Tabs.Tab value="outbound" leftSection={<IconSend size={15} />}>
+                  Outbound{' '}
+                  <Badge size="xs" variant="light" ml={6}>{outboundMemos.length}</Badge>
+                </Tabs.Tab>
+                
+                {/* Action Board - Everyone (FREE MODE - lahat nakakakita, lahat pwedeng kumilos) */}
+                <Tabs.Tab value="action_board" leftSection={<IconPlayerPlay size={15} />}>
+                  Action Board{' '}
+                  <Badge size="xs" variant="light" ml={6}>{actionBoardMemos.length}</Badge>
+                </Tabs.Tab>
+                
+                {/* Ipakita sa lahat (except Admin? pero okay lang din) */}
+                <Tabs.Tab value="assigned_to_me" leftSection={<IconUserCheck size={15} />}>
+                  Assigned to Me{' '}
+                  <Badge size="xs" variant="light" ml={6}>{assignedToMeMemos.length}</Badge>
+                </Tabs.Tab>
+                
+                {/* Archived */}
+                <Tabs.Tab value="archived" leftSection={<IconCircleCheck size={15} />}>
+                  Archived / Resolved{' '}
+                  <Badge size="xs" variant="light" ml={6}>{resolvedMemos.length}</Badge>
+                </Tabs.Tab>
+              
 
-          </Tabs.List>
+                {isAdminOrSuper && (
+                  <Tabs.Tab value="all_memos_global" leftSection={<IconInfoCircle size={15} />}>
+                    Global View (Admin/Super ONLY){' '}
+                    <Badge size="xs" variant="light" ml={6}>{allMemosGlobal.length}</Badge>
+                  </Tabs.Tab>
+                )}
 
-          <Tabs.Panel value="all_memos_global">
-            <CollapsibleAlert  icon={<IconInfoCircle size={16} />} title="System Administrator Global Ledger View" color="blue">
-              Authorized view only. Tracks every operational transactional memorandum sequence regardless of origin status blocks.
-              <br /><br />
-              Mga otorisadong tao lamang ang maaaring makakita nito. Binabantayan nito ang lahat ng mga memorandum na pumasok sa NCST E-Forms.
-            </CollapsibleAlert>
-            {renderMemoCards(getFilteredMemos(allMemosGlobal))}
-          </Tabs.Panel>
+              </Tabs.List>
 
-          <Tabs.Panel value="approval">
-            <CollapsibleAlert  icon={<IconInfoCircle size={16} />} title="Super Editor & Approval Command Queue" color="orange">
-              Draft memorandum formulated by department staff. As Department Head, you can click <b><i>Review & Approve</i></b> to modify mistakes or directly finalize contents.
-              <br /><br />
-              Makikita rito ang mga memorandum na ginawa ng mga staff sa iyong departamento. Maaaring mong pindutin ang <b><i>Review & Approve</i></b> para may ibahin o ayusin bago tuluyang aprubahan.
-            </CollapsibleAlert>
-            {renderMemoCards(getFilteredMemos(forApprovalMemos), true)}
-          </Tabs.Panel>
+              <Tabs.Panel value="all_memos_global">
+                <CollapsibleAlert  icon={<IconInfoCircle size={16} />} title="System Administrator Global Ledger View" color="blue">
+                  Authorized view only. Tracks every operational transactional memorandum sequence regardless of origin status blocks.
+                  <br /><br />
+                  Mga otorisadong tao lamang ang maaaring makakita nito. Binabantayan nito ang lahat ng mga memorandum na pumasok sa NCST E-Forms.
+                </CollapsibleAlert>
 
-          <Tabs.Panel value="inbound">
-            <CollapsibleAlert  icon={<IconInfoCircle size={16} />} title="Incoming External Inbound Queue" color="teal">
-              Incoming memorandums routed by external entities. Requires Department Head authentication to acknowledge and shift to the public Action Board.
-              <br /><br />
-              Mga memorandum na galing sa ibang mga departmento na aprubado na ng kanilang Department Head. I-<b><i>Acknowledge</i></b> para mapunta sa Action Board Workspace para aksyunan ng kahit sino sa inyong departamento.
-            </CollapsibleAlert>
-            {renderMemoCards(getFilteredMemos(inboundMemos))}
-          </Tabs.Panel>
+                {viewMode === 'tile' ? (
+                  renderMemoCards(getFilteredMemos(allMemosGlobal))
+                ) : (
+                  <KanbanBoard
+                    memos={getFilteredMemos(allMemosGlobal)}
+                    isApprovalTab={false}
+                    currentUser={currentUser}
+                    activeDepartment={activeDepartment}
+                    isAdminOrSuper={isAdminOrSuper}
+                    isHeadOrOIC={isHeadOrOIC}
+                    processOICAllowance={processOICAllowance}
+                    onReply={handleReplyClick}
+                    onPrint={handlePrintMemo}
+                    onViewThread={handleViewThread}
+                    onExpand={handleExpandNoteOpen}
+                    onSuperEdit={triggerSuperEditReview}
+                    triggerActionPasswordCheck={triggerActionPasswordCheck}
+                    allMemos={memos}
+                    departmentStaff={departmentStaff}
+                    totalDepartments={departments.length}
+                  />
+                )}
 
-          <Tabs.Panel value="action_board">
-            <CollapsibleAlert  icon={<IconInfoCircle size={16} />} title="Departmental Action Board (Public Staff View)" color="indigo">
-              Memorandums acknowledged by management. <b><i>Visible to all department members</i></b> to collaborate, process, and address.
-              <br /><br />
-              Mga memorandum na tinaggap at kinilala ng Department Head. <b><i>Kita ng lahat ng mga myembro ng departamento</i></b> para ma-proseso o aksyunan.
-            </CollapsibleAlert>
-            {renderMemoCards(getFilteredMemos(actionBoardMemos))}
-          </Tabs.Panel>
+              </Tabs.Panel>
 
-          <Tabs.Panel value="assigned_to_me">
-            <CollapsibleAlert  icon={<IconInfoCircle size={16} />} title="Assigned to Me" color="grape">
-              Memos specifically assigned to you by the Department Head.
-              <br /><br />
-              Mga memorandum na direktang na‑assign sa iyo ng Department Head.
-            </CollapsibleAlert>
-            {renderMemoCards(getFilteredMemos(assignedToMeMemos))}
-          </Tabs.Panel>
+              <Tabs.Panel value="approval">
+                <CollapsibleAlert  icon={<IconInfoCircle size={16} />} title="Super Editor & Approval Command Queue" color="orange">
+                  Draft memorandum formulated by department staff. As Department Head, you can click <b><i>Review & Approve</i></b> to modify mistakes or directly finalize contents.
+                  <br /><br />
+                  Makikita rito ang mga memorandum na ginawa ng mga staff sa iyong departamento. Maaaring mong pindutin ang <b><i>Review & Approve</i></b> para may ibahin o ayusin bago tuluyang aprubahan.
+                </CollapsibleAlert>
 
-          <Tabs.Panel value="outbound">
-            <CollapsibleAlert  icon={<IconInfoCircle size={16} />} title="Outbound Memos" color="cyan">
-              Memos sent by your department to other departments.
-              <br /><br />
-              Mga memorandum na ipinadala ng inyong departamento sa ibang departamento.
-            </CollapsibleAlert>
-            {renderMemoCards(getFilteredMemos(outboundMemos))}
-          </Tabs.Panel>
+                {viewMode === 'tile' ? (
+                  renderMemoCards(getFilteredMemos(forApprovalMemos), true)
+                ) : (
+                  <KanbanBoard
+                    memos={getFilteredMemos(forApprovalMemos)}
+                    isApprovalTab={true}
+                    currentUser={currentUser}
+                    activeDepartment={activeDepartment}
+                    isAdminOrSuper={isAdminOrSuper}
+                    isHeadOrOIC={isHeadOrOIC}
+                    processOICAllowance={processOICAllowance}
+                    onReply={handleReplyClick}
+                    onPrint={handlePrintMemo}
+                    onViewThread={handleViewThread}
+                    onExpand={handleExpandNoteOpen}
+                    onSuperEdit={triggerSuperEditReview}
+                    triggerActionPasswordCheck={triggerActionPasswordCheck}
+                    allMemos={memos}
+                    departmentStaff={departmentStaff}
+                    totalDepartments={departments.length}
+                  />
+                )}
 
-          <Tabs.Panel value="archived">
-            <CollapsibleAlert icon={<IconInfoCircle size={16} />} title="Archived Records Directory" color="green">
-              Archived historical repository containing fully responded operations or structurally denied state documents.
-              <br /><br />
-              Koleksyon ng lahat ng mga na-respondehan at tinanggihang memorandum.
-            </CollapsibleAlert>
-            {renderMemoCards(getFilteredMemos(resolvedMemos))}
-          </Tabs.Panel>
-        </Tabs>
+              </Tabs.Panel>
+
+              <Tabs.Panel value="inbound">
+                <CollapsibleAlert  icon={<IconInfoCircle size={16} />} title="Incoming External Inbound Queue" color="teal">
+                  Incoming memorandums routed by external entities. Requires Department Head authentication to acknowledge and shift to the public Action Board.
+                  <br /><br />
+                  Mga memorandum na galing sa ibang mga departmento na aprubado na ng kanilang Department Head. I-<b><i>Acknowledge</i></b> para mapunta sa Action Board Workspace para aksyunan ng kahit sino sa inyong departamento.
+                </CollapsibleAlert>
+
+                {viewMode === 'tile' ? (
+                  renderMemoCards(getFilteredMemos(inboundMemos))
+                ) : (
+                  <KanbanBoard
+                    memos={getFilteredMemos(inboundMemos)}
+                    isApprovalTab={false}
+                    currentUser={currentUser}
+                    activeDepartment={activeDepartment}
+                    isAdminOrSuper={isAdminOrSuper}
+                    isHeadOrOIC={isHeadOrOIC}
+                    processOICAllowance={processOICAllowance}
+                    onReply={handleReplyClick}
+                    onPrint={handlePrintMemo}
+                    onViewThread={handleViewThread}
+                    onExpand={handleExpandNoteOpen}
+                    onSuperEdit={triggerSuperEditReview}
+                    triggerActionPasswordCheck={triggerActionPasswordCheck}
+                    allMemos={memos}
+                    departmentStaff={departmentStaff}
+                    totalDepartments={departments.length}
+                  />
+                )}
+
+              </Tabs.Panel>
+
+              <Tabs.Panel value="action_board">
+                <CollapsibleAlert  icon={<IconInfoCircle size={16} />} title="Departmental Action Board (Public Staff View)" color="indigo">
+                  Memorandums acknowledged by management. <b><i>Visible to all department members</i></b> to collaborate, process, and address.
+                  <br /><br />
+                  Mga memorandum na tinaggap at kinilala ng Department Head. <b><i>Kita ng lahat ng mga myembro ng departamento</i></b> para ma-proseso o aksyunan.
+                </CollapsibleAlert>
+                {renderMemoCards(getFilteredMemos(actionBoardMemos))}
+
+                {viewMode === 'tile' ? (
+                  renderMemoCards(getFilteredMemos(actionBoardMemos))
+                ) : (
+                  <KanbanBoard
+                    memos={getFilteredMemos(actionBoardMemos)}
+                    isApprovalTab={false}
+                    currentUser={currentUser}
+                    activeDepartment={activeDepartment}
+                    isAdminOrSuper={isAdminOrSuper}
+                    isHeadOrOIC={isHeadOrOIC}
+                    processOICAllowance={processOICAllowance}
+                    onReply={handleReplyClick}
+                    onPrint={handlePrintMemo}
+                    onViewThread={handleViewThread}
+                    onExpand={handleExpandNoteOpen}
+                    onSuperEdit={triggerSuperEditReview}
+                    triggerActionPasswordCheck={triggerActionPasswordCheck}
+                    allMemos={memos}
+                    departmentStaff={departmentStaff}
+                    totalDepartments={departments.length}
+                  />
+                )}
+
+              </Tabs.Panel>
+
+              <Tabs.Panel value="assigned_to_me">
+                <CollapsibleAlert  icon={<IconInfoCircle size={16} />} title="Assigned to Me" color="grape">
+                  Memos specifically assigned to you by the Department Head.
+                  <br /><br />
+                  Mga memorandum na direktang na‑assign sa iyo ng Department Head.
+                </CollapsibleAlert>
+
+                {viewMode === 'tile' ? (
+                  renderMemoCards(getFilteredMemos(assignedToMeMemos))
+                ) : (
+                  <KanbanBoard
+                    memos={getFilteredMemos(assignedToMeMemos)}
+                    isApprovalTab={false}
+                    currentUser={currentUser}
+                    activeDepartment={activeDepartment}
+                    isAdminOrSuper={isAdminOrSuper}
+                    isHeadOrOIC={isHeadOrOIC}
+                    processOICAllowance={processOICAllowance}
+                    onReply={handleReplyClick}
+                    onPrint={handlePrintMemo}
+                    onViewThread={handleViewThread}
+                    onExpand={handleExpandNoteOpen}
+                    onSuperEdit={triggerSuperEditReview}
+                    triggerActionPasswordCheck={triggerActionPasswordCheck}
+                    allMemos={memos}
+                    departmentStaff={departmentStaff}
+                    totalDepartments={departments.length}
+                  />
+                )}
+
+              </Tabs.Panel>
+
+              <Tabs.Panel value="outbound">
+                <CollapsibleAlert  icon={<IconInfoCircle size={16} />} title="Outbound Memos" color="cyan">
+                  Memos sent by your department to other departments.
+                  <br /><br />
+                  Mga memorandum na ipinadala ng inyong departamento sa ibang departamento.
+                </CollapsibleAlert>
+
+                {viewMode === 'tile' ? (
+                  renderMemoCards(getFilteredMemos(outboundMemos))
+                ) : (
+                  <KanbanBoard
+                    memos={getFilteredMemos(outboundMemos)}
+                    isApprovalTab={false}
+                    currentUser={currentUser}
+                    activeDepartment={activeDepartment}
+                    isAdminOrSuper={isAdminOrSuper}
+                    isHeadOrOIC={isHeadOrOIC}
+                    processOICAllowance={processOICAllowance}
+                    onReply={handleReplyClick}
+                    onPrint={handlePrintMemo}
+                    onViewThread={handleViewThread}
+                    onExpand={handleExpandNoteOpen}
+                    onSuperEdit={triggerSuperEditReview}
+                    triggerActionPasswordCheck={triggerActionPasswordCheck}
+                    allMemos={memos}
+                    departmentStaff={departmentStaff}
+                    totalDepartments={departments.length}
+                  />
+                )}
+
+              </Tabs.Panel>
+
+              <Tabs.Panel value="archived">
+                <CollapsibleAlert icon={<IconInfoCircle size={16} />} title="Archived Records Directory" color="green">
+                  Archived historical repository containing fully responded operations or structurally denied state documents.
+                  <br /><br />
+                  Koleksyon ng lahat ng mga na-respondehan at tinanggihang memorandum.
+                </CollapsibleAlert>
+
+                {viewMode === 'tile' ? (
+                  renderMemoCards(getFilteredMemos(resolvedMemos))
+                ) : (
+                  <KanbanBoard
+                    memos={getFilteredMemos(resolvedMemos)}
+                    isApprovalTab={false}
+                    currentUser={currentUser}
+                    activeDepartment={activeDepartment}
+                    isAdminOrSuper={isAdminOrSuper}
+                    isHeadOrOIC={isHeadOrOIC}
+                    processOICAllowance={processOICAllowance}
+                    onReply={handleReplyClick}
+                    onPrint={handlePrintMemo}
+                    onViewThread={handleViewThread}
+                    onExpand={handleExpandNoteOpen}
+                    onSuperEdit={triggerSuperEditReview}
+                    triggerActionPasswordCheck={triggerActionPasswordCheck}
+                    allMemos={memos}
+                    departmentStaff={departmentStaff}
+                    totalDepartments={departments.length}
+                  />
+                )}
+
+              </Tabs.Panel>
+            </Tabs>
+          </ScrollArea>
+
+        </Box>
       </Card>
 
       {/* ---- Modals ---- */}
@@ -1270,10 +1588,17 @@ export default function IOMDashboardPage() {
         activeDepartment={activeDepartment}
         isAdminOrSuper={isAdminOrSuper}
         isDepartmentHead={isHeadOrOIC}
+        isHeadOrOIC={isHeadOrOIC}
         processOICAllowance={processOICAllowance}
+        totalDepartments={departments.length}
+        isApprovalTab={activeTab === 'approval'}
+        onSuperEdit={triggerSuperEditReview}
+        departmentStaff={departmentStaff}
+        allMemos={memos}
+        onReply={handleReplyClick}
         onPrint={handlePrintMemo}
         triggerActionPasswordCheck={triggerActionPasswordCheck}
-        totalDepartments={departments.length}
+        onViewThread={handleViewThread}
       />
 
       <PasswordGateModal
@@ -1318,7 +1643,7 @@ export default function IOMDashboardPage() {
       />
 
       {/* Thread Timeline Modal */}
-      <Modal opened={threadModalOpened} onClose={closeThreadModal} title="📜 Inter-office Document Thread History" size="lg" radius="md">
+      <Modal opened={threadModalOpened} onClose={closeThreadModal} title="Memorandum Thread History" size="lg" radius="md" zIndex={2000}>
         <Box p="md">
           {activeThreadMemos.length === 0 ? (
             <Loader size="sm" />
