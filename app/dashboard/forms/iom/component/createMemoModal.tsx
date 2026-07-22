@@ -71,6 +71,7 @@ export default function CreateMemoModal({
             placeholder="What will the memorandum be about..."
             required
             {...form.getInputProps('subject')}
+            disabled
           />
 
           <SimpleGrid cols={2}>
