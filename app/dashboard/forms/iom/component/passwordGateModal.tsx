@@ -10,25 +10,23 @@ import {
   FileInput,
   Button,
   Group,
-  Alert,
 } from '@mantine/core';
 import { IconLock, IconFile } from '@tabler/icons-react';
 
 interface PasswordGateModalProps {
-    opened: boolean;
-    onClose: () => void;
-    pendingAction: { type: string; data: Record<string, unknown> } | null;
-    confirmPassword: string;
-    setConfirmPassword: (val: string) => void;
-    passError: string;
-    feedbackNote: string;
-    setFeedbackNote: (val: string) => void;
-    actionAttachment: File | null;
-    setActionAttachment: (file: File | null) => void;
-    submitting: boolean;
-    onSubmit: () => void;
-    zIndex?: number;
-
+  opened: boolean;
+  onClose: () => void;
+  pendingAction: { type: string; data: Record<string, unknown> } | null;
+  confirmPassword: string;
+  setConfirmPassword: (val: string) => void;
+  passError: string;
+  feedbackNote: string;
+  setFeedbackNote: (val: string) => void;
+  actionAttachment: File | null;
+  setActionAttachment: (file: File | null) => void;
+  submitting: boolean;
+  onSubmit: () => void;
+  zIndex?: number;
 }
 
 export default function PasswordGateModal({
@@ -46,6 +44,33 @@ export default function PasswordGateModal({
   onSubmit,
   zIndex = 1000,
 }: PasswordGateModalProps) {
+  const actionType = pendingAction?.type;
+
+  // Determine modal title and colors
+  const isApprove = actionType === 'APPROVE';
+  const isDenyOrDisapprove = actionType === 'DENY' || actionType === 'DISAPPROVE_DRAFT';
+  const isAcknowledge = actionType === 'ACKNOWLEDGE';
+
+  const titleIconColor = isApprove ? 'green' : isDenyOrDisapprove ? 'red' : 'blue';
+  const titleText = isApprove
+    ? 'Approve Memorandum'
+    : isDenyOrDisapprove
+    ? 'Deny / Disapprove'
+    : 'Security Signature Verification';
+
+  const descriptionText = isApprove
+    ? 'Confirm approval of this memorandum. Enter your feedback and signature password.'
+    : isDenyOrDisapprove
+    ? 'Confirm rejection of this memorandum. You must provide a clear reason.'
+    : 'Confirm transaction authorization using your signature password.';
+
+  const buttonColor = isApprove ? 'green' : isDenyOrDisapprove ? 'red' : 'blue';
+  const buttonText = isApprove
+    ? 'Confirm Approval'
+    : isDenyOrDisapprove
+    ? 'Confirm Denial'
+    : 'Confirm Signature Authorization';
+
   return (
     <Modal
       opened={opened}
@@ -53,8 +78,8 @@ export default function PasswordGateModal({
       zIndex={zIndex}
       title={
         <Group gap="xs">
-          <IconLock size={18} color="red" />
-          <Text fw={700}>Security Signature Verification</Text>
+          <IconLock size={18} color={titleIconColor} />
+          <Text fw={700}>{titleText}</Text>
         </Group>
       }
       centered
@@ -63,14 +88,27 @@ export default function PasswordGateModal({
     >
       <Stack gap="sm">
         <Text size="xs" c="dimmed">
-          Confirm transaction authorization status using your cryptography signing phrase key.
+          {descriptionText}
         </Text>
 
-        {/* For DENY / DISAPPROVE_DRAFT – always required */}
-        {(pendingAction?.type === 'DENY' || pendingAction?.type === 'DISAPPROVE_DRAFT') && (
+        {/* ===== APPROVE – required feedback ===== */}
+        {isApprove && (
+          <Textarea
+            label="Approval Feedback / Remarks"
+            placeholder="Enter your approval remarks..."
+            required
+            value={feedbackNote}
+            onChange={(e) => setFeedbackNote(e.currentTarget.value)}
+            rows={3}
+            error={!feedbackNote && passError ? 'Feedback note is required for approval.' : null}
+          />
+        )}
+
+        {/* ===== DENY / DISAPPROVE_DRAFT – required feedback ===== */}
+        {isDenyOrDisapprove && (
           <Textarea
             label="Reason for Denial / Disapproval"
-            placeholder="State the clear reason why this inbound memorandum is rejected..."
+            placeholder="State the clear reason why this memorandum is rejected..."
             required
             value={feedbackNote}
             onChange={(e) => setFeedbackNote(e.currentTarget.value)}
@@ -79,35 +117,34 @@ export default function PasswordGateModal({
           />
         )}
 
-        {/* For all other non-ACKNOWLEDGE actions – required */}
-        {pendingAction?.type !== 'ACKNOWLEDGE' &&
-        pendingAction?.type !== 'DENY' &&
-        pendingAction?.type !== 'DISAPPROVE_DRAFT' && (
-          <Textarea
-            label="Remarks / Feedback Note"
-            placeholder="Enter your remarks here (required)"
-            required
-            value={feedbackNote}
-            onChange={(e) => setFeedbackNote(e.currentTarget.value)}
-            rows={3}
-            error={!feedbackNote && passError ? 'Remarks are required for this action.' : null}
-          />
-        )}
+        {/* ===== Other non-ACKNOWLEDGE actions – required feedback ===== */}
+        {!isApprove &&
+          !isDenyOrDisapprove &&
+          !isAcknowledge && (
+            <Textarea
+              label="Remarks / Feedback Note"
+              placeholder="Enter your remarks here (required)"
+              required
+              value={feedbackNote}
+              onChange={(e) => setFeedbackNote(e.currentTarget.value)}
+              rows={3}
+              error={!feedbackNote && passError ? 'Remarks are required for this action.' : null}
+            />
+          )}
 
-        {/* ACKNOWLEDGE – optional remarks */}
-        {pendingAction?.type === 'ACKNOWLEDGE' && (
+        {/* ===== ACKNOWLEDGE – optional feedback ===== */}
+        {isAcknowledge && (
           <Textarea
-            label="Remarks / Feedback Note"
-            placeholder="Enter your remarks here (required)"
-            required
+            label="Remarks / Feedback Note (Optional)"
+            placeholder="Enter your remarks (optional)"
             value={feedbackNote}
             onChange={(e) => setFeedbackNote(e.currentTarget.value)}
             rows={2}
           />
         )}
 
-        {/* File upload for recipient RESOLVE (not sender closing) */}
-        {/* {pendingAction?.type === 'CLOSED' && !pendingAction?.data?.isSenderClosing && (
+        {/* ===== File upload for recipient CLOSED (optional) =====
+        {actionType === 'CLOSED' && !pendingAction?.data?.isSenderClosing && (
           <FileInput
             label="Supporting Attachment (Optional)"
             description="Upload proof of completion or signed document."
@@ -119,6 +156,7 @@ export default function PasswordGateModal({
           />
         )} */}
 
+        {/* ===== Password ===== */}
         <PasswordInput
           label="Confirm Security Password / Signature"
           placeholder="Enter your password to sign"
@@ -128,8 +166,14 @@ export default function PasswordGateModal({
           required
         />
 
-        <Button fullWidth color="red" loading={submitting} onClick={onSubmit} mt="xs">
-          Confirm Signature Authorization
+        <Button
+          fullWidth
+          color={buttonColor}
+          loading={submitting}
+          onClick={onSubmit}
+          mt="xs"
+        >
+          {buttonText}
         </Button>
       </Stack>
     </Modal>

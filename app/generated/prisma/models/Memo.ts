@@ -42,6 +42,9 @@ export type MemoMinAggregateOutputType = {
   isRevisedByHead: boolean | null
   resolutionMode: $Enums.ResolutionMode | null
   lastActivityAt: Date | null
+  headNote: string | null
+  revisedSubject: string | null
+  revisedHeadNote: string | null
 }
 
 export type MemoMaxAggregateOutputType = {
@@ -62,6 +65,9 @@ export type MemoMaxAggregateOutputType = {
   isRevisedByHead: boolean | null
   resolutionMode: $Enums.ResolutionMode | null
   lastActivityAt: Date | null
+  headNote: string | null
+  revisedSubject: string | null
+  revisedHeadNote: string | null
 }
 
 export type MemoCountAggregateOutputType = {
@@ -83,6 +89,9 @@ export type MemoCountAggregateOutputType = {
   isRevisedByHead: number
   resolutionMode: number
   lastActivityAt: number
+  headNote: number
+  revisedSubject: number
+  revisedHeadNote: number
   _all: number
 }
 
@@ -105,6 +114,9 @@ export type MemoMinAggregateInputType = {
   isRevisedByHead?: true
   resolutionMode?: true
   lastActivityAt?: true
+  headNote?: true
+  revisedSubject?: true
+  revisedHeadNote?: true
 }
 
 export type MemoMaxAggregateInputType = {
@@ -125,6 +137,9 @@ export type MemoMaxAggregateInputType = {
   isRevisedByHead?: true
   resolutionMode?: true
   lastActivityAt?: true
+  headNote?: true
+  revisedSubject?: true
+  revisedHeadNote?: true
 }
 
 export type MemoCountAggregateInputType = {
@@ -146,6 +161,9 @@ export type MemoCountAggregateInputType = {
   isRevisedByHead?: true
   resolutionMode?: true
   lastActivityAt?: true
+  headNote?: true
+  revisedSubject?: true
+  revisedHeadNote?: true
   _all?: true
 }
 
@@ -240,6 +258,9 @@ export type MemoGroupByOutputType = {
   isRevisedByHead: boolean
   resolutionMode: $Enums.ResolutionMode
   lastActivityAt: Date
+  headNote: string | null
+  revisedSubject: string | null
+  revisedHeadNote: string | null
   _count: MemoCountAggregateOutputType | null
   _min: MemoMinAggregateOutputType | null
   _max: MemoMaxAggregateOutputType | null
@@ -282,6 +303,9 @@ export type MemoWhereInput = {
   isRevisedByHead?: Prisma.BoolFilter<"Memo"> | boolean
   resolutionMode?: Prisma.EnumResolutionModeFilter<"Memo"> | $Enums.ResolutionMode
   lastActivityAt?: Prisma.DateTimeFilter<"Memo"> | Date | string
+  headNote?: Prisma.StringNullableFilter<"Memo"> | string | null
+  revisedSubject?: Prisma.StringNullableFilter<"Memo"> | string | null
+  revisedHeadNote?: Prisma.StringNullableFilter<"Memo"> | string | null
   sender?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
   parentMemo?: Prisma.XOR<Prisma.MemoNullableScalarRelationFilter, Prisma.MemoWhereInput> | null
   replies?: Prisma.MemoListRelationFilter
@@ -310,6 +334,9 @@ export type MemoOrderByWithRelationInput = {
   isRevisedByHead?: Prisma.SortOrder
   resolutionMode?: Prisma.SortOrder
   lastActivityAt?: Prisma.SortOrder
+  headNote?: Prisma.SortOrderInput | Prisma.SortOrder
+  revisedSubject?: Prisma.SortOrderInput | Prisma.SortOrder
+  revisedHeadNote?: Prisma.SortOrderInput | Prisma.SortOrder
   sender?: Prisma.UserOrderByWithRelationInput
   parentMemo?: Prisma.MemoOrderByWithRelationInput
   replies?: Prisma.MemoOrderByRelationAggregateInput
@@ -341,6 +368,9 @@ export type MemoWhereUniqueInput = Prisma.AtLeast<{
   isRevisedByHead?: Prisma.BoolFilter<"Memo"> | boolean
   resolutionMode?: Prisma.EnumResolutionModeFilter<"Memo"> | $Enums.ResolutionMode
   lastActivityAt?: Prisma.DateTimeFilter<"Memo"> | Date | string
+  headNote?: Prisma.StringNullableFilter<"Memo"> | string | null
+  revisedSubject?: Prisma.StringNullableFilter<"Memo"> | string | null
+  revisedHeadNote?: Prisma.StringNullableFilter<"Memo"> | string | null
   sender?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
   parentMemo?: Prisma.XOR<Prisma.MemoNullableScalarRelationFilter, Prisma.MemoWhereInput> | null
   replies?: Prisma.MemoListRelationFilter
@@ -369,6 +399,9 @@ export type MemoOrderByWithAggregationInput = {
   isRevisedByHead?: Prisma.SortOrder
   resolutionMode?: Prisma.SortOrder
   lastActivityAt?: Prisma.SortOrder
+  headNote?: Prisma.SortOrderInput | Prisma.SortOrder
+  revisedSubject?: Prisma.SortOrderInput | Prisma.SortOrder
+  revisedHeadNote?: Prisma.SortOrderInput | Prisma.SortOrder
   _count?: Prisma.MemoCountOrderByAggregateInput
   _max?: Prisma.MemoMaxOrderByAggregateInput
   _min?: Prisma.MemoMinOrderByAggregateInput
@@ -396,6 +429,9 @@ export type MemoScalarWhereWithAggregatesInput = {
   isRevisedByHead?: Prisma.BoolWithAggregatesFilter<"Memo"> | boolean
   resolutionMode?: Prisma.EnumResolutionModeWithAggregatesFilter<"Memo"> | $Enums.ResolutionMode
   lastActivityAt?: Prisma.DateTimeWithAggregatesFilter<"Memo"> | Date | string
+  headNote?: Prisma.StringNullableWithAggregatesFilter<"Memo"> | string | null
+  revisedSubject?: Prisma.StringNullableWithAggregatesFilter<"Memo"> | string | null
+  revisedHeadNote?: Prisma.StringNullableWithAggregatesFilter<"Memo"> | string | null
 }
 
 export type MemoCreateInput = {
@@ -414,6 +450,9 @@ export type MemoCreateInput = {
   isRevisedByHead?: boolean
   resolutionMode?: $Enums.ResolutionMode
   lastActivityAt?: Date | string
+  headNote?: string | null
+  revisedSubject?: string | null
+  revisedHeadNote?: string | null
   sender: Prisma.UserCreateNestedOneWithoutMemosCreatedInput
   parentMemo?: Prisma.MemoCreateNestedOneWithoutRepliesInput
   replies?: Prisma.MemoCreateNestedManyWithoutParentMemoInput
@@ -442,6 +481,9 @@ export type MemoUncheckedCreateInput = {
   isRevisedByHead?: boolean
   resolutionMode?: $Enums.ResolutionMode
   lastActivityAt?: Date | string
+  headNote?: string | null
+  revisedSubject?: string | null
+  revisedHeadNote?: string | null
   replies?: Prisma.MemoUncheckedCreateNestedManyWithoutParentMemoInput
   threadMembers?: Prisma.MemoUncheckedCreateNestedManyWithoutRootMemoInput
   recipients?: Prisma.MemoRecipientStatusUncheckedCreateNestedManyWithoutMemoInput
@@ -464,6 +506,9 @@ export type MemoUpdateInput = {
   isRevisedByHead?: Prisma.BoolFieldUpdateOperationsInput | boolean
   resolutionMode?: Prisma.EnumResolutionModeFieldUpdateOperationsInput | $Enums.ResolutionMode
   lastActivityAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  headNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  revisedSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  revisedHeadNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sender?: Prisma.UserUpdateOneRequiredWithoutMemosCreatedNestedInput
   parentMemo?: Prisma.MemoUpdateOneWithoutRepliesNestedInput
   replies?: Prisma.MemoUpdateManyWithoutParentMemoNestedInput
@@ -492,6 +537,9 @@ export type MemoUncheckedUpdateInput = {
   isRevisedByHead?: Prisma.BoolFieldUpdateOperationsInput | boolean
   resolutionMode?: Prisma.EnumResolutionModeFieldUpdateOperationsInput | $Enums.ResolutionMode
   lastActivityAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  headNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  revisedSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  revisedHeadNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   replies?: Prisma.MemoUncheckedUpdateManyWithoutParentMemoNestedInput
   threadMembers?: Prisma.MemoUncheckedUpdateManyWithoutRootMemoNestedInput
   recipients?: Prisma.MemoRecipientStatusUncheckedUpdateManyWithoutMemoNestedInput
@@ -517,6 +565,9 @@ export type MemoCreateManyInput = {
   isRevisedByHead?: boolean
   resolutionMode?: $Enums.ResolutionMode
   lastActivityAt?: Date | string
+  headNote?: string | null
+  revisedSubject?: string | null
+  revisedHeadNote?: string | null
 }
 
 export type MemoUpdateManyMutationInput = {
@@ -535,6 +586,9 @@ export type MemoUpdateManyMutationInput = {
   isRevisedByHead?: Prisma.BoolFieldUpdateOperationsInput | boolean
   resolutionMode?: Prisma.EnumResolutionModeFieldUpdateOperationsInput | $Enums.ResolutionMode
   lastActivityAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  headNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  revisedSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  revisedHeadNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
 }
 
 export type MemoUncheckedUpdateManyInput = {
@@ -556,6 +610,9 @@ export type MemoUncheckedUpdateManyInput = {
   isRevisedByHead?: Prisma.BoolFieldUpdateOperationsInput | boolean
   resolutionMode?: Prisma.EnumResolutionModeFieldUpdateOperationsInput | $Enums.ResolutionMode
   lastActivityAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  headNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  revisedSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  revisedHeadNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
 }
 
 export type MemoListRelationFilter = {
@@ -600,6 +657,9 @@ export type MemoCountOrderByAggregateInput = {
   isRevisedByHead?: Prisma.SortOrder
   resolutionMode?: Prisma.SortOrder
   lastActivityAt?: Prisma.SortOrder
+  headNote?: Prisma.SortOrder
+  revisedSubject?: Prisma.SortOrder
+  revisedHeadNote?: Prisma.SortOrder
 }
 
 export type MemoMaxOrderByAggregateInput = {
@@ -620,6 +680,9 @@ export type MemoMaxOrderByAggregateInput = {
   isRevisedByHead?: Prisma.SortOrder
   resolutionMode?: Prisma.SortOrder
   lastActivityAt?: Prisma.SortOrder
+  headNote?: Prisma.SortOrder
+  revisedSubject?: Prisma.SortOrder
+  revisedHeadNote?: Prisma.SortOrder
 }
 
 export type MemoMinOrderByAggregateInput = {
@@ -640,6 +703,9 @@ export type MemoMinOrderByAggregateInput = {
   isRevisedByHead?: Prisma.SortOrder
   resolutionMode?: Prisma.SortOrder
   lastActivityAt?: Prisma.SortOrder
+  headNote?: Prisma.SortOrder
+  revisedSubject?: Prisma.SortOrder
+  revisedHeadNote?: Prisma.SortOrder
 }
 
 export type MemoScalarRelationFilter = {
@@ -874,6 +940,9 @@ export type MemoCreateWithoutSenderInput = {
   isRevisedByHead?: boolean
   resolutionMode?: $Enums.ResolutionMode
   lastActivityAt?: Date | string
+  headNote?: string | null
+  revisedSubject?: string | null
+  revisedHeadNote?: string | null
   parentMemo?: Prisma.MemoCreateNestedOneWithoutRepliesInput
   replies?: Prisma.MemoCreateNestedManyWithoutParentMemoInput
   rootMemo?: Prisma.MemoCreateNestedOneWithoutThreadMembersInput
@@ -900,6 +969,9 @@ export type MemoUncheckedCreateWithoutSenderInput = {
   isRevisedByHead?: boolean
   resolutionMode?: $Enums.ResolutionMode
   lastActivityAt?: Date | string
+  headNote?: string | null
+  revisedSubject?: string | null
+  revisedHeadNote?: string | null
   replies?: Prisma.MemoUncheckedCreateNestedManyWithoutParentMemoInput
   threadMembers?: Prisma.MemoUncheckedCreateNestedManyWithoutRootMemoInput
   recipients?: Prisma.MemoRecipientStatusUncheckedCreateNestedManyWithoutMemoInput
@@ -954,6 +1026,9 @@ export type MemoScalarWhereInput = {
   isRevisedByHead?: Prisma.BoolFilter<"Memo"> | boolean
   resolutionMode?: Prisma.EnumResolutionModeFilter<"Memo"> | $Enums.ResolutionMode
   lastActivityAt?: Prisma.DateTimeFilter<"Memo"> | Date | string
+  headNote?: Prisma.StringNullableFilter<"Memo"> | string | null
+  revisedSubject?: Prisma.StringNullableFilter<"Memo"> | string | null
+  revisedHeadNote?: Prisma.StringNullableFilter<"Memo"> | string | null
 }
 
 export type MemoCreateWithoutRepliesInput = {
@@ -972,6 +1047,9 @@ export type MemoCreateWithoutRepliesInput = {
   isRevisedByHead?: boolean
   resolutionMode?: $Enums.ResolutionMode
   lastActivityAt?: Date | string
+  headNote?: string | null
+  revisedSubject?: string | null
+  revisedHeadNote?: string | null
   sender: Prisma.UserCreateNestedOneWithoutMemosCreatedInput
   parentMemo?: Prisma.MemoCreateNestedOneWithoutRepliesInput
   rootMemo?: Prisma.MemoCreateNestedOneWithoutThreadMembersInput
@@ -999,6 +1077,9 @@ export type MemoUncheckedCreateWithoutRepliesInput = {
   isRevisedByHead?: boolean
   resolutionMode?: $Enums.ResolutionMode
   lastActivityAt?: Date | string
+  headNote?: string | null
+  revisedSubject?: string | null
+  revisedHeadNote?: string | null
   threadMembers?: Prisma.MemoUncheckedCreateNestedManyWithoutRootMemoInput
   recipients?: Prisma.MemoRecipientStatusUncheckedCreateNestedManyWithoutMemoInput
   history?: Prisma.MemoHistoryUncheckedCreateNestedManyWithoutMemoInput
@@ -1025,6 +1106,9 @@ export type MemoCreateWithoutParentMemoInput = {
   isRevisedByHead?: boolean
   resolutionMode?: $Enums.ResolutionMode
   lastActivityAt?: Date | string
+  headNote?: string | null
+  revisedSubject?: string | null
+  revisedHeadNote?: string | null
   sender: Prisma.UserCreateNestedOneWithoutMemosCreatedInput
   replies?: Prisma.MemoCreateNestedManyWithoutParentMemoInput
   rootMemo?: Prisma.MemoCreateNestedOneWithoutThreadMembersInput
@@ -1051,6 +1135,9 @@ export type MemoUncheckedCreateWithoutParentMemoInput = {
   isRevisedByHead?: boolean
   resolutionMode?: $Enums.ResolutionMode
   lastActivityAt?: Date | string
+  headNote?: string | null
+  revisedSubject?: string | null
+  revisedHeadNote?: string | null
   replies?: Prisma.MemoUncheckedCreateNestedManyWithoutParentMemoInput
   threadMembers?: Prisma.MemoUncheckedCreateNestedManyWithoutRootMemoInput
   recipients?: Prisma.MemoRecipientStatusUncheckedCreateNestedManyWithoutMemoInput
@@ -1083,6 +1170,9 @@ export type MemoCreateWithoutThreadMembersInput = {
   isRevisedByHead?: boolean
   resolutionMode?: $Enums.ResolutionMode
   lastActivityAt?: Date | string
+  headNote?: string | null
+  revisedSubject?: string | null
+  revisedHeadNote?: string | null
   sender: Prisma.UserCreateNestedOneWithoutMemosCreatedInput
   parentMemo?: Prisma.MemoCreateNestedOneWithoutRepliesInput
   replies?: Prisma.MemoCreateNestedManyWithoutParentMemoInput
@@ -1110,6 +1200,9 @@ export type MemoUncheckedCreateWithoutThreadMembersInput = {
   isRevisedByHead?: boolean
   resolutionMode?: $Enums.ResolutionMode
   lastActivityAt?: Date | string
+  headNote?: string | null
+  revisedSubject?: string | null
+  revisedHeadNote?: string | null
   replies?: Prisma.MemoUncheckedCreateNestedManyWithoutParentMemoInput
   recipients?: Prisma.MemoRecipientStatusUncheckedCreateNestedManyWithoutMemoInput
   history?: Prisma.MemoHistoryUncheckedCreateNestedManyWithoutMemoInput
@@ -1136,6 +1229,9 @@ export type MemoCreateWithoutRootMemoInput = {
   isRevisedByHead?: boolean
   resolutionMode?: $Enums.ResolutionMode
   lastActivityAt?: Date | string
+  headNote?: string | null
+  revisedSubject?: string | null
+  revisedHeadNote?: string | null
   sender: Prisma.UserCreateNestedOneWithoutMemosCreatedInput
   parentMemo?: Prisma.MemoCreateNestedOneWithoutRepliesInput
   replies?: Prisma.MemoCreateNestedManyWithoutParentMemoInput
@@ -1162,6 +1258,9 @@ export type MemoUncheckedCreateWithoutRootMemoInput = {
   isRevisedByHead?: boolean
   resolutionMode?: $Enums.ResolutionMode
   lastActivityAt?: Date | string
+  headNote?: string | null
+  revisedSubject?: string | null
+  revisedHeadNote?: string | null
   replies?: Prisma.MemoUncheckedCreateNestedManyWithoutParentMemoInput
   threadMembers?: Prisma.MemoUncheckedCreateNestedManyWithoutRootMemoInput
   recipients?: Prisma.MemoRecipientStatusUncheckedCreateNestedManyWithoutMemoInput
@@ -1205,6 +1304,9 @@ export type MemoUpdateWithoutRepliesInput = {
   isRevisedByHead?: Prisma.BoolFieldUpdateOperationsInput | boolean
   resolutionMode?: Prisma.EnumResolutionModeFieldUpdateOperationsInput | $Enums.ResolutionMode
   lastActivityAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  headNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  revisedSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  revisedHeadNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sender?: Prisma.UserUpdateOneRequiredWithoutMemosCreatedNestedInput
   parentMemo?: Prisma.MemoUpdateOneWithoutRepliesNestedInput
   rootMemo?: Prisma.MemoUpdateOneWithoutThreadMembersNestedInput
@@ -1232,6 +1334,9 @@ export type MemoUncheckedUpdateWithoutRepliesInput = {
   isRevisedByHead?: Prisma.BoolFieldUpdateOperationsInput | boolean
   resolutionMode?: Prisma.EnumResolutionModeFieldUpdateOperationsInput | $Enums.ResolutionMode
   lastActivityAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  headNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  revisedSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  revisedHeadNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   threadMembers?: Prisma.MemoUncheckedUpdateManyWithoutRootMemoNestedInput
   recipients?: Prisma.MemoRecipientStatusUncheckedUpdateManyWithoutMemoNestedInput
   history?: Prisma.MemoHistoryUncheckedUpdateManyWithoutMemoNestedInput
@@ -1280,6 +1385,9 @@ export type MemoUpdateWithoutThreadMembersInput = {
   isRevisedByHead?: Prisma.BoolFieldUpdateOperationsInput | boolean
   resolutionMode?: Prisma.EnumResolutionModeFieldUpdateOperationsInput | $Enums.ResolutionMode
   lastActivityAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  headNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  revisedSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  revisedHeadNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sender?: Prisma.UserUpdateOneRequiredWithoutMemosCreatedNestedInput
   parentMemo?: Prisma.MemoUpdateOneWithoutRepliesNestedInput
   replies?: Prisma.MemoUpdateManyWithoutParentMemoNestedInput
@@ -1307,6 +1415,9 @@ export type MemoUncheckedUpdateWithoutThreadMembersInput = {
   isRevisedByHead?: Prisma.BoolFieldUpdateOperationsInput | boolean
   resolutionMode?: Prisma.EnumResolutionModeFieldUpdateOperationsInput | $Enums.ResolutionMode
   lastActivityAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  headNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  revisedSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  revisedHeadNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   replies?: Prisma.MemoUncheckedUpdateManyWithoutParentMemoNestedInput
   recipients?: Prisma.MemoRecipientStatusUncheckedUpdateManyWithoutMemoNestedInput
   history?: Prisma.MemoHistoryUncheckedUpdateManyWithoutMemoNestedInput
@@ -1344,6 +1455,9 @@ export type MemoCreateWithoutRecipientsInput = {
   isRevisedByHead?: boolean
   resolutionMode?: $Enums.ResolutionMode
   lastActivityAt?: Date | string
+  headNote?: string | null
+  revisedSubject?: string | null
+  revisedHeadNote?: string | null
   sender: Prisma.UserCreateNestedOneWithoutMemosCreatedInput
   parentMemo?: Prisma.MemoCreateNestedOneWithoutRepliesInput
   replies?: Prisma.MemoCreateNestedManyWithoutParentMemoInput
@@ -1371,6 +1485,9 @@ export type MemoUncheckedCreateWithoutRecipientsInput = {
   isRevisedByHead?: boolean
   resolutionMode?: $Enums.ResolutionMode
   lastActivityAt?: Date | string
+  headNote?: string | null
+  revisedSubject?: string | null
+  revisedHeadNote?: string | null
   replies?: Prisma.MemoUncheckedCreateNestedManyWithoutParentMemoInput
   threadMembers?: Prisma.MemoUncheckedCreateNestedManyWithoutRootMemoInput
   history?: Prisma.MemoHistoryUncheckedCreateNestedManyWithoutMemoInput
@@ -1408,6 +1525,9 @@ export type MemoUpdateWithoutRecipientsInput = {
   isRevisedByHead?: Prisma.BoolFieldUpdateOperationsInput | boolean
   resolutionMode?: Prisma.EnumResolutionModeFieldUpdateOperationsInput | $Enums.ResolutionMode
   lastActivityAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  headNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  revisedSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  revisedHeadNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sender?: Prisma.UserUpdateOneRequiredWithoutMemosCreatedNestedInput
   parentMemo?: Prisma.MemoUpdateOneWithoutRepliesNestedInput
   replies?: Prisma.MemoUpdateManyWithoutParentMemoNestedInput
@@ -1435,6 +1555,9 @@ export type MemoUncheckedUpdateWithoutRecipientsInput = {
   isRevisedByHead?: Prisma.BoolFieldUpdateOperationsInput | boolean
   resolutionMode?: Prisma.EnumResolutionModeFieldUpdateOperationsInput | $Enums.ResolutionMode
   lastActivityAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  headNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  revisedSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  revisedHeadNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   replies?: Prisma.MemoUncheckedUpdateManyWithoutParentMemoNestedInput
   threadMembers?: Prisma.MemoUncheckedUpdateManyWithoutRootMemoNestedInput
   history?: Prisma.MemoHistoryUncheckedUpdateManyWithoutMemoNestedInput
@@ -1456,6 +1579,9 @@ export type MemoCreateWithoutHistoryInput = {
   isRevisedByHead?: boolean
   resolutionMode?: $Enums.ResolutionMode
   lastActivityAt?: Date | string
+  headNote?: string | null
+  revisedSubject?: string | null
+  revisedHeadNote?: string | null
   sender: Prisma.UserCreateNestedOneWithoutMemosCreatedInput
   parentMemo?: Prisma.MemoCreateNestedOneWithoutRepliesInput
   replies?: Prisma.MemoCreateNestedManyWithoutParentMemoInput
@@ -1483,6 +1609,9 @@ export type MemoUncheckedCreateWithoutHistoryInput = {
   isRevisedByHead?: boolean
   resolutionMode?: $Enums.ResolutionMode
   lastActivityAt?: Date | string
+  headNote?: string | null
+  revisedSubject?: string | null
+  revisedHeadNote?: string | null
   replies?: Prisma.MemoUncheckedCreateNestedManyWithoutParentMemoInput
   threadMembers?: Prisma.MemoUncheckedCreateNestedManyWithoutRootMemoInput
   recipients?: Prisma.MemoRecipientStatusUncheckedCreateNestedManyWithoutMemoInput
@@ -1520,6 +1649,9 @@ export type MemoUpdateWithoutHistoryInput = {
   isRevisedByHead?: Prisma.BoolFieldUpdateOperationsInput | boolean
   resolutionMode?: Prisma.EnumResolutionModeFieldUpdateOperationsInput | $Enums.ResolutionMode
   lastActivityAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  headNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  revisedSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  revisedHeadNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sender?: Prisma.UserUpdateOneRequiredWithoutMemosCreatedNestedInput
   parentMemo?: Prisma.MemoUpdateOneWithoutRepliesNestedInput
   replies?: Prisma.MemoUpdateManyWithoutParentMemoNestedInput
@@ -1547,6 +1679,9 @@ export type MemoUncheckedUpdateWithoutHistoryInput = {
   isRevisedByHead?: Prisma.BoolFieldUpdateOperationsInput | boolean
   resolutionMode?: Prisma.EnumResolutionModeFieldUpdateOperationsInput | $Enums.ResolutionMode
   lastActivityAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  headNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  revisedSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  revisedHeadNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   replies?: Prisma.MemoUncheckedUpdateManyWithoutParentMemoNestedInput
   threadMembers?: Prisma.MemoUncheckedUpdateManyWithoutRootMemoNestedInput
   recipients?: Prisma.MemoRecipientStatusUncheckedUpdateManyWithoutMemoNestedInput
@@ -1570,6 +1705,9 @@ export type MemoCreateManySenderInput = {
   isRevisedByHead?: boolean
   resolutionMode?: $Enums.ResolutionMode
   lastActivityAt?: Date | string
+  headNote?: string | null
+  revisedSubject?: string | null
+  revisedHeadNote?: string | null
 }
 
 export type MemoUpdateWithoutSenderInput = {
@@ -1588,6 +1726,9 @@ export type MemoUpdateWithoutSenderInput = {
   isRevisedByHead?: Prisma.BoolFieldUpdateOperationsInput | boolean
   resolutionMode?: Prisma.EnumResolutionModeFieldUpdateOperationsInput | $Enums.ResolutionMode
   lastActivityAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  headNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  revisedSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  revisedHeadNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   parentMemo?: Prisma.MemoUpdateOneWithoutRepliesNestedInput
   replies?: Prisma.MemoUpdateManyWithoutParentMemoNestedInput
   rootMemo?: Prisma.MemoUpdateOneWithoutThreadMembersNestedInput
@@ -1614,6 +1755,9 @@ export type MemoUncheckedUpdateWithoutSenderInput = {
   isRevisedByHead?: Prisma.BoolFieldUpdateOperationsInput | boolean
   resolutionMode?: Prisma.EnumResolutionModeFieldUpdateOperationsInput | $Enums.ResolutionMode
   lastActivityAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  headNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  revisedSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  revisedHeadNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   replies?: Prisma.MemoUncheckedUpdateManyWithoutParentMemoNestedInput
   threadMembers?: Prisma.MemoUncheckedUpdateManyWithoutRootMemoNestedInput
   recipients?: Prisma.MemoRecipientStatusUncheckedUpdateManyWithoutMemoNestedInput
@@ -1638,6 +1782,9 @@ export type MemoUncheckedUpdateManyWithoutSenderInput = {
   isRevisedByHead?: Prisma.BoolFieldUpdateOperationsInput | boolean
   resolutionMode?: Prisma.EnumResolutionModeFieldUpdateOperationsInput | $Enums.ResolutionMode
   lastActivityAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  headNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  revisedSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  revisedHeadNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
 }
 
 export type MemoCreateManyParentMemoInput = {
@@ -1658,6 +1805,9 @@ export type MemoCreateManyParentMemoInput = {
   isRevisedByHead?: boolean
   resolutionMode?: $Enums.ResolutionMode
   lastActivityAt?: Date | string
+  headNote?: string | null
+  revisedSubject?: string | null
+  revisedHeadNote?: string | null
 }
 
 export type MemoCreateManyRootMemoInput = {
@@ -1678,6 +1828,9 @@ export type MemoCreateManyRootMemoInput = {
   isRevisedByHead?: boolean
   resolutionMode?: $Enums.ResolutionMode
   lastActivityAt?: Date | string
+  headNote?: string | null
+  revisedSubject?: string | null
+  revisedHeadNote?: string | null
 }
 
 export type MemoUpdateWithoutParentMemoInput = {
@@ -1696,6 +1849,9 @@ export type MemoUpdateWithoutParentMemoInput = {
   isRevisedByHead?: Prisma.BoolFieldUpdateOperationsInput | boolean
   resolutionMode?: Prisma.EnumResolutionModeFieldUpdateOperationsInput | $Enums.ResolutionMode
   lastActivityAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  headNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  revisedSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  revisedHeadNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sender?: Prisma.UserUpdateOneRequiredWithoutMemosCreatedNestedInput
   replies?: Prisma.MemoUpdateManyWithoutParentMemoNestedInput
   rootMemo?: Prisma.MemoUpdateOneWithoutThreadMembersNestedInput
@@ -1722,6 +1878,9 @@ export type MemoUncheckedUpdateWithoutParentMemoInput = {
   isRevisedByHead?: Prisma.BoolFieldUpdateOperationsInput | boolean
   resolutionMode?: Prisma.EnumResolutionModeFieldUpdateOperationsInput | $Enums.ResolutionMode
   lastActivityAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  headNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  revisedSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  revisedHeadNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   replies?: Prisma.MemoUncheckedUpdateManyWithoutParentMemoNestedInput
   threadMembers?: Prisma.MemoUncheckedUpdateManyWithoutRootMemoNestedInput
   recipients?: Prisma.MemoRecipientStatusUncheckedUpdateManyWithoutMemoNestedInput
@@ -1746,6 +1905,9 @@ export type MemoUncheckedUpdateManyWithoutParentMemoInput = {
   isRevisedByHead?: Prisma.BoolFieldUpdateOperationsInput | boolean
   resolutionMode?: Prisma.EnumResolutionModeFieldUpdateOperationsInput | $Enums.ResolutionMode
   lastActivityAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  headNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  revisedSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  revisedHeadNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
 }
 
 export type MemoUpdateWithoutRootMemoInput = {
@@ -1764,6 +1926,9 @@ export type MemoUpdateWithoutRootMemoInput = {
   isRevisedByHead?: Prisma.BoolFieldUpdateOperationsInput | boolean
   resolutionMode?: Prisma.EnumResolutionModeFieldUpdateOperationsInput | $Enums.ResolutionMode
   lastActivityAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  headNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  revisedSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  revisedHeadNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sender?: Prisma.UserUpdateOneRequiredWithoutMemosCreatedNestedInput
   parentMemo?: Prisma.MemoUpdateOneWithoutRepliesNestedInput
   replies?: Prisma.MemoUpdateManyWithoutParentMemoNestedInput
@@ -1790,6 +1955,9 @@ export type MemoUncheckedUpdateWithoutRootMemoInput = {
   isRevisedByHead?: Prisma.BoolFieldUpdateOperationsInput | boolean
   resolutionMode?: Prisma.EnumResolutionModeFieldUpdateOperationsInput | $Enums.ResolutionMode
   lastActivityAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  headNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  revisedSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  revisedHeadNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   replies?: Prisma.MemoUncheckedUpdateManyWithoutParentMemoNestedInput
   threadMembers?: Prisma.MemoUncheckedUpdateManyWithoutRootMemoNestedInput
   recipients?: Prisma.MemoRecipientStatusUncheckedUpdateManyWithoutMemoNestedInput
@@ -1814,6 +1982,9 @@ export type MemoUncheckedUpdateManyWithoutRootMemoInput = {
   isRevisedByHead?: Prisma.BoolFieldUpdateOperationsInput | boolean
   resolutionMode?: Prisma.EnumResolutionModeFieldUpdateOperationsInput | $Enums.ResolutionMode
   lastActivityAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  headNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  revisedSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  revisedHeadNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
 }
 
 
@@ -1893,6 +2064,9 @@ export type MemoSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   isRevisedByHead?: boolean
   resolutionMode?: boolean
   lastActivityAt?: boolean
+  headNote?: boolean
+  revisedSubject?: boolean
+  revisedHeadNote?: boolean
   sender?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   parentMemo?: boolean | Prisma.Memo$parentMemoArgs<ExtArgs>
   replies?: boolean | Prisma.Memo$repliesArgs<ExtArgs>
@@ -1922,6 +2096,9 @@ export type MemoSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensio
   isRevisedByHead?: boolean
   resolutionMode?: boolean
   lastActivityAt?: boolean
+  headNote?: boolean
+  revisedSubject?: boolean
+  revisedHeadNote?: boolean
   sender?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   parentMemo?: boolean | Prisma.Memo$parentMemoArgs<ExtArgs>
   rootMemo?: boolean | Prisma.Memo$rootMemoArgs<ExtArgs>
@@ -1946,6 +2123,9 @@ export type MemoSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensio
   isRevisedByHead?: boolean
   resolutionMode?: boolean
   lastActivityAt?: boolean
+  headNote?: boolean
+  revisedSubject?: boolean
+  revisedHeadNote?: boolean
   sender?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   parentMemo?: boolean | Prisma.Memo$parentMemoArgs<ExtArgs>
   rootMemo?: boolean | Prisma.Memo$rootMemoArgs<ExtArgs>
@@ -1970,9 +2150,12 @@ export type MemoSelectScalar = {
   isRevisedByHead?: boolean
   resolutionMode?: boolean
   lastActivityAt?: boolean
+  headNote?: boolean
+  revisedSubject?: boolean
+  revisedHeadNote?: boolean
 }
 
-export type MemoOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "referenceId" | "subject" | "content" | "priority" | "purpose" | "senderId" | "senderName" | "senderDept" | "createdAt" | "deadlineAt" | "attachmentPaths" | "status" | "parentMemoId" | "rootMemoId" | "isRevisedByHead" | "resolutionMode" | "lastActivityAt", ExtArgs["result"]["memo"]>
+export type MemoOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "referenceId" | "subject" | "content" | "priority" | "purpose" | "senderId" | "senderName" | "senderDept" | "createdAt" | "deadlineAt" | "attachmentPaths" | "status" | "parentMemoId" | "rootMemoId" | "isRevisedByHead" | "resolutionMode" | "lastActivityAt" | "headNote" | "revisedSubject" | "revisedHeadNote", ExtArgs["result"]["memo"]>
 export type MemoInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   sender?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   parentMemo?: boolean | Prisma.Memo$parentMemoArgs<ExtArgs>
@@ -2024,6 +2207,9 @@ export type $MemoPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
     isRevisedByHead: boolean
     resolutionMode: $Enums.ResolutionMode
     lastActivityAt: Date
+    headNote: string | null
+    revisedSubject: string | null
+    revisedHeadNote: string | null
   }, ExtArgs["result"]["memo"]>
   composites: {}
 }
@@ -2472,6 +2658,9 @@ export interface MemoFieldRefs {
   readonly isRevisedByHead: Prisma.FieldRef<"Memo", 'Boolean'>
   readonly resolutionMode: Prisma.FieldRef<"Memo", 'ResolutionMode'>
   readonly lastActivityAt: Prisma.FieldRef<"Memo", 'DateTime'>
+  readonly headNote: Prisma.FieldRef<"Memo", 'String'>
+  readonly revisedSubject: Prisma.FieldRef<"Memo", 'String'>
+  readonly revisedHeadNote: Prisma.FieldRef<"Memo", 'String'>
 }
     
 

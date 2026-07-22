@@ -82,6 +82,9 @@ export interface Memo {
     actorRole: string; // 'SENDER' | 'RECIPIENT' | 'ADMIN'
     departmentName?: string | null;
   }[];
+  headNote?: string | null;
+  revisedSubject?: string | null;
+  revisedHeadNote?: string | null;
 }
 
 export interface Department {

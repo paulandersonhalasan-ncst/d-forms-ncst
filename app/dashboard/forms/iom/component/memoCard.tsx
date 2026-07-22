@@ -12,7 +12,8 @@ import {
   Divider,
   UnstyledButton,
   SimpleGrid,
-  Select
+  Select,
+  Alert
 } from '@mantine/core';
 import {
   IconGitBranch,
@@ -24,7 +25,7 @@ import {
   IconEdit,
   IconDownload,
   IconThumbUp,
-  IconCircleCheck
+  IconInfoCircle
 } from '@tabler/icons-react';
 import { Memo, UserContext } from './types';
 
@@ -42,9 +43,9 @@ interface MemoCardProps {
   onPrint: (memo: Memo) => void;
   onViewThread: (memo: Memo) => void;
   onExpand: (memo: Memo) => void;
-  onSuperEdit: (memo: Memo) => void;
+  onSuperEdit: (memo: Memo, mode: 'edit' | 'approve') => void;
   triggerActionPasswordCheck: (
-    type: 'CREATE' | 'ACKNOWLEDGE' | 'START_PROCESSING' | 'DENY' | 'CLOSED' | 'APPROVE_MEMO' | 'DISAPPROVE_DRAFT' | 'JOIN_PROCESSING' | 'ASSIGN',
+    type: 'CREATE' | 'ACKNOWLEDGE' | 'START_PROCESSING' | 'DENY' | 'CLOSED' | 'APPROVE' | 'DISAPPROVE_DRAFT' | 'JOIN_PROCESSING' | 'ASSIGN',
     data: Record<string, unknown>
   ) => void;
   allMemos: Memo[];
@@ -83,6 +84,8 @@ export default function MemoCard({
     memo.recipients?.every((r) => ['COMPLETED', 'RESPONDED', 'DENIED', 'CLOSED'].includes(r.status));
   const disableReply =
     !isAdminOrSuper && (isMemoResolvedForMe || isAllResolved || memo.status === 'FOR_APPROVAL');
+  
+  const hasAmended = !!(memo.revisedSubject || memo.revisedHeadNote || memo.isRevisedByHead);
 
   // Priority / deadline badge
   let badgeText: string = memo.priority;
@@ -139,6 +142,10 @@ export default function MemoCard({
   });
 
   const [assignedStaffId, setAssignedStaffId] = useState<string | null>(null);
+
+  const displaySubject = memo.revisedSubject || memo.subject;
+
+  const hasPendingRevisions = !!(memo.revisedSubject || memo.revisedHeadNote);
 
   return (
     <Card
@@ -227,6 +234,11 @@ export default function MemoCard({
                 Assigned to: {myRecipientInfo.assignedToNames.join(', ')}
               </Badge>
             )}
+            {hasAmended && (
+              <Badge color="grape" variant="light" size="xs">
+                Amended by Head
+              </Badge>
+            )}
           </Group>
           <Group gap="xs">
             <Badge color="cyan" variant="light" size="sm">
@@ -259,11 +271,6 @@ export default function MemoCard({
               <b>FROM:</b> {memo.senderName} ({memo.sender?.branch ? `${memo.sender.branch} - ` : ''}
               {memo.senderDept})
             </Text>
-            {memo.isRevisedByHead && (
-              <Badge color="grape" variant="light" size="9px" radius="sm">
-                Amended by Head
-              </Badge>
-            )}
           </Group>
           {memo.recipients?.some(r => r.status === 'CLOSED') && (
             <Text size="xs" c="dimmed">
@@ -292,7 +299,7 @@ export default function MemoCard({
         </Stack>
 
         <Text fz="sm" fw={700} mt="xs" w="100%" lineClamp={1}>
-          SUBJECT: {memo.subject}
+          SUBJECT: {displaySubject}
         </Text>
 
         <Divider my="xs" w="100%" style={{ opacity: 0.5 }} />
@@ -341,10 +348,21 @@ export default function MemoCard({
               <Button
                 size="xs"
                 color="indigo"
+                variant="light"
                 leftSection={<IconEdit size={13} />}
-                onClick={() => onSuperEdit(memo)}
+                onClick={() => onSuperEdit(memo, 'edit')}
               >
-                Review & Approve
+                Revise
+              </Button>
+              <Button
+                size="xs"
+                color="green"
+                leftSection={<IconThumbUp size={13} />}
+                onClick={() =>
+                  triggerActionPasswordCheck('APPROVE', { memoId: memo.id })
+                }
+              >
+                Approve
               </Button>
               <Button
                 size="xs"

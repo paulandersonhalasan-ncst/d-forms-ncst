@@ -43,7 +43,7 @@ interface ViewMemoModalProps {
   totalDepartments: number;
   onPrint: (memo: Memo) => void;
   triggerActionPasswordCheck: (
-    type: 'CREATE' | 'ACKNOWLEDGE' | 'START_PROCESSING' | 'DENY' | 'CLOSED' | 'APPROVE_MEMO' | 'DISAPPROVE_DRAFT' | 'JOIN_PROCESSING' | 'ASSIGN',
+    type: 'CREATE' | 'ACKNOWLEDGE' | 'START_PROCESSING' | 'DENY' | 'CLOSED' | 'APPROVE' | 'DISAPPROVE_DRAFT' | 'JOIN_PROCESSING' | 'ASSIGN',
     data: Record<string, unknown>
   ) => void;
 }
@@ -84,11 +84,16 @@ export default function ViewMemoModal({
   const currentUserName = currentUser ? `${currentUser.fname} ${currentUser.lname}` : '';
   const amIAlreadyProcessing = recipientRow?.processedByName?.includes(currentUserName) || false;
 
+  const displaySubject = memo.revisedSubject || memo.subject;
+  const displayHeadNote = memo.revisedHeadNote || memo.headNote;
+
+  const hasAmended = !!(memo.revisedSubject || memo.revisedHeadNote || memo.isRevisedByHead);
+
   return (
     <Modal
       opened={opened}
       onClose={onClose}
-      title={memo.subject}
+      title={displaySubject}
       size="lg"
       radius="md"
     >
@@ -105,7 +110,7 @@ export default function ViewMemoModal({
               <Text size="xs">
                 <b>From:</b> {memo.senderName} ({memo.senderDept})
               </Text>
-              {memo.isRevisedByHead && (
+              {hasAmended && (
                 <Badge color="grape" size="xs" variant="light">
                   Amended by Head
                 </Badge>
@@ -129,7 +134,7 @@ export default function ViewMemoModal({
 
           <Divider my="sm" />
           <Text size="sm" fw={700} mb="xs">
-            SUBJECT: {memo.subject}
+            SUBJECT: {displaySubject}   {/* ← palitan ang memo.subject */}
           </Text>
           <Text size="sm" style={{ whiteSpace: 'pre-wrap' }} c="dimmed">
             {memo.content}

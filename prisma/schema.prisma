@@ -167,6 +167,11 @@ model Memo {
   history MemoHistory[]
 
   lastActivityAt DateTime @default(now())
+  
+  headNote         String?   @db.Text
+
+  revisedSubject    String?    // Head's revised subject (null = no revision)
+  revisedHeadNote   String?    @db.Text // Head's notes (null = no notes)
 
   @@index([senderId])
   @@index([createdAt])
@@ -317,4 +322,5 @@ enum MemoHistoryAction {
     REPLIED
     REVISED_BY_HEAD
     ASSIGNED
+    REVERTED
 }

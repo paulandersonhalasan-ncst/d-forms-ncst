@@ -1131,7 +1131,10 @@ export const MemoScalarFieldEnum = {
   rootMemoId: 'rootMemoId',
   isRevisedByHead: 'isRevisedByHead',
   resolutionMode: 'resolutionMode',
-  lastActivityAt: 'lastActivityAt'
+  lastActivityAt: 'lastActivityAt',
+  headNote: 'headNote',
+  revisedSubject: 'revisedSubject',
+  revisedHeadNote: 'revisedHeadNote'
 } as const
 
 export type MemoScalarFieldEnum = (typeof MemoScalarFieldEnum)[keyof typeof MemoScalarFieldEnum]

@@ -161,7 +161,7 @@ export default function IOMDashboardPage() {
       | 'START_PROCESSING'
       | 'DENY'
       | 'CLOSED'
-      | 'APPROVE_MEMO'
+      | 'APPROVE'
       | 'DISAPPROVE_DRAFT'
       | 'JOIN_PROCESSING'
       | 'ASSIGN';
@@ -190,6 +190,10 @@ export default function IOMDashboardPage() {
 
   const searchParams = useSearchParams();
   const urlTab = searchParams.get('tab');
+
+  const [superEditMode, setSuperEditMode] = useState<'edit' | 'approve'>('approve');
+
+  const [reverting, setReverting] = useState(false);
 
   const fetcher = (url: string) => fetch(url).then(res => res.json());
 
@@ -498,7 +502,7 @@ export default function IOMDashboardPage() {
       | 'START_PROCESSING'
       | 'DENY'
       | 'CLOSED'
-      | 'APPROVE_MEMO'
+      | 'APPROVE'
       | 'DISAPPROVE_DRAFT'
       | 'JOIN_PROCESSING'
       | 'ASSIGN',
@@ -529,6 +533,16 @@ export default function IOMDashboardPage() {
       formData.append('feedbackNote', feedbackNote || headNote || '');
       const isSenderClosing = pendingAction?.data?.isSenderClosing ? 'true' : 'false';
       formData.append('isSenderClosing', isSenderClosing);
+
+      // ✅ Idagdag ito para sa APPROVE
+      if (pendingAction?.type === 'APPROVE') {
+        const memoId = pendingAction.data.memoId as string;
+        const currentMemo = memos.find(m => m.id === memoId);
+        if (currentMemo) {
+          const retainedAtts = currentMemo.attachmentPaths || [];
+          formData.append('retainedAttachments', JSON.stringify(retainedAtts));
+        }
+      }
 
       if (pendingAction?.type === 'ASSIGN' && pendingAction?.data?.assignedToId) {
         formData.append('assignedToId', String(pendingAction.data.assignedToId));
@@ -588,7 +602,8 @@ export default function IOMDashboardPage() {
         } else {
           closeExpandNoteModal();
         }
-        mutateMemos();
+        // ✅ I-force ang revalidation
+        await mutateMemos(undefined, { revalidate: true });
         window.dispatchEvent(new Event('refresh-notifications'));
         alert(`Success! Memo has been ${pendingAction?.type === 'CREATE' ? 'created' : 'processed'}.`);
       } else {
@@ -602,17 +617,27 @@ export default function IOMDashboardPage() {
     }
   };
 
-  const triggerSuperEditReview = (memo: Memo) => {
+  const triggerSuperEditReview = (memo: Memo, mode: 'edit' | 'approve' = 'approve') => {
     setHeadSelectedMemoId(memo.id);
-    setHeadEditSubject(memo.subject);
+    // Gumamit ng revised kung mayroon
+    setHeadEditSubject(memo.revisedSubject || memo.subject);
     setHeadEditContent(memo.content);
-    setHeadNote('');
+    setHeadNote(memo.revisedHeadNote || memo.headNote || '');
     setFeedbackNote('');
     setRetainedAttachments(memo.attachmentPaths || []);
     setHeadNewAttachments([]);
     setConfirmPassword('');
     setPassError('');
+    setSuperEditMode(mode);
     openSuperEditModal();
+  };
+
+  const handleSuperEditSubmit = () => {
+    if (superEditMode === 'edit') {
+      handleSuperEditSaveRevision();
+    } else {
+      handleSuperEditAndApproveSubmit();
+    }
   };
 
     const handleSuperEditAndApproveSubmit = async () => {
@@ -704,6 +729,82 @@ export default function IOMDashboardPage() {
     openExpandNoteModal();
   };
 
+  const handleSuperEditSaveRevision = async () => {
+    if (!confirmPassword) {
+      setPassError('Signature password is required.');
+      return;
+    }
+    setSubmitting(true);
+    setPassError('');
+    try {
+      const formData = new FormData();
+      formData.append('memoId', headSelectedMemoId);
+      formData.append('action', 'REVISE_DRAFT');
+      formData.append('password', confirmPassword);
+      formData.append('subject', headEditSubject);
+      // ⚠️ HUWAG isama ang content – backend ang bahala sa original content
+      formData.append('headNote', headNote || '');
+      if (feedbackNote) formData.append('feedbackNote', feedbackNote);
+      formData.append('retainedAttachments', JSON.stringify(retainedAttachments));
+      headNewAttachments.forEach((file) => {
+        formData.append('headNewAttachments', file);
+      });
+
+      const response = await fetch('../../../api/memos', {
+        method: 'PATCH',
+        body: formData,
+      });
+      const result = await response.json();
+      if (response.ok) {
+        alert('Draft updated successfully!');
+        closeSuperEditModal();
+        mutateMemos();
+      } else {
+        setPassError(result.message || 'Update failed.');
+      }
+    } catch (err) {
+      console.error(err);
+      setPassError('System error.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleRevertAndSave = async () => {
+    if (!confirm('Revert all changes? This will discard your edits and restore the original draft.')) return;
+    if (!confirmPassword) {
+      setPassError('Signature password is required to revert.');
+      return;
+    }
+    setReverting(true);
+    setPassError('');
+    try {
+      const formData = new FormData();
+      formData.append('memoId', headSelectedMemoId);
+      formData.append('action', 'REVERT_TO_ORIGINAL');
+      formData.append('password', confirmPassword);
+      // Huwag nang magdagdag ng subject o headNote
+
+      const response = await fetch('../../../api/memos', {
+        method: 'PATCH',
+        body: formData,
+      });
+      const result = await response.json();
+      if (response.ok) {
+        alert('Memo reverted to original draft.');
+        closeSuperEditModal();
+        mutateMemos();
+      } else {
+        setPassError(result.message || 'Revert failed.');
+      }
+    } catch (err) {
+      console.error(err);
+      setPassError('System error.');
+    } finally {
+      setReverting(false);
+    }
+  };
+
 
     const handlePrintMemo = (memo: Memo) => {
       const printWindow = window.open('', '_blank', 'width=800,height=600');
@@ -726,9 +827,15 @@ export default function IOMDashboardPage() {
       //   </div>
       // ` : '';
 
-      const revisionNotice = memo.isRevisedByHead
-        ? `<div style="margin-top:12px;padding:8px 12px;border:1px solid #70438a;background-color:#fcf8ff;font-size:12px;color:#70438a;"><strong>⚠️ AMENDMENT NOTICE:</strong> This draft was officially reviewed, modified, and finalized by the Department Head prior to system broadcast.</div>`
-        : '';
+      const printSubject = memo.revisedSubject || memo.subject;
+      const printHeadNote = memo.revisedHeadNote || memo.headNote;
+
+      const headNoteHtml = printHeadNote ? `
+        <div style="margin-top:16px;padding:10px 14px;border-left:3px solid #70438a;background-color:#fcf8ff;">
+          <strong>Department Head Notes:</strong>
+          <div style="white-space:pre-wrap;">${printHeadNote}</div>
+        </div>
+      ` : '';
 
       const attachmentNotice =
         memo.attachmentPaths && memo.attachmentPaths.length > 0
@@ -916,10 +1023,10 @@ export default function IOMDashboardPage() {
               <tr><td class="meta-label">TO (TARGET):</td><td>${recipientDepts}</td></tr>
               <tr><td class="meta-label">PRIORITY:</td><td>[${memo.priority}]</td></tr>
               <tr><td class="meta-label">PURPOSE:</td><td>${memo.purpose || 'N/A'}</td></tr>
-              <tr><td class="meta-label">SUBJECT:</td><td><strong>${memo.subject}</strong></td></tr>
+              <tr><td class="meta-label">SUBJECT:</td><td><strong>${printSubject}</strong></td></tr>
             </table>
             
-            ${revisionNotice}
+            ${headNoteHtml}
             
             <div class="content-box">${memo.content.replace(/\n/g, '<br>')}</div>
             
@@ -1188,12 +1295,13 @@ export default function IOMDashboardPage() {
       <SuperEditModal
         opened={superEditOpened}
         onClose={closeSuperEditModal}
+        mode={superEditMode}
         subject={headEditSubject}
         setSubject={setHeadEditSubject}
         content={headEditContent}
-        setContent={setHeadEditContent}
-        setHeadNote={setHeadNote}
+        setContent={setHeadEditContent}          // kasama kahit hindi ginagamit
         headNote={headNote}
+        setHeadNote={setHeadNote}
         feedbackNote={feedbackNote}
         setFeedbackNote={setFeedbackNote}
         retainedAttachments={retainedAttachments}
@@ -1204,7 +1312,9 @@ export default function IOMDashboardPage() {
         setConfirmPassword={setConfirmPassword}
         passError={passError}
         submitting={submitting}
-        onSubmit={handleSuperEditAndApproveSubmit}
+        onSubmit={handleSuperEditSubmit}
+        onRevert={handleRevertAndSave}
+        reverting={reverting}
       />
 
       {/* Thread Timeline Modal */}
@@ -1217,14 +1327,13 @@ export default function IOMDashboardPage() {
               {activeThreadMemos.map((tMemo) => (
                 <Timeline.Item
                   key={tMemo.id}
-                  bullet={<IconMessageReply size={12} />}
                   title={
                     <Group justify="space-between" w="100%">
                       <Group gap="xs">
                         <Text size="sm" fw={700}>
-                          {tMemo.referenceId || 'DRAFT'} - {tMemo.subject}
+                          {tMemo.referenceId || 'DRAFT'} - {tMemo.revisedSubject || tMemo.subject}
                         </Text>
-                        {tMemo.isRevisedByHead && (
+                        {(tMemo.revisedSubject || tMemo.revisedHeadNote || tMemo.isRevisedByHead) && (
                           <Badge color="grape" size="9px" radius="xs" variant="light">
                             Amended
                           </Badge>

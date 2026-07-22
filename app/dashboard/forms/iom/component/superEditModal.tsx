@@ -23,12 +23,15 @@ import { IconEdit, IconInfoCircle, IconFile, IconTrash, IconThumbUp } from '@tab
 interface SuperEditModalProps {
   opened: boolean;
   onClose: () => void;
+  mode: 'edit' | 'approve';
   subject: string;
   setSubject: (val: string) => void;
   content: string;
-  setContent: (val: string) => void;
+  setContent: (val: string) => void; // hindi na ginagamit, nandito lang para sa type
   headNote: string;
   setHeadNote: (val: string) => void;
+  feedbackNote: string;
+  setFeedbackNote: (val: string) => void;
   retainedAttachments: string[];
   setRetainedAttachments: (val: string[] | ((prev: string[]) => string[])) => void;
   newAttachments: File[];
@@ -38,19 +41,22 @@ interface SuperEditModalProps {
   passError: string;
   submitting: boolean;
   onSubmit: () => void;
-  feedbackNote: string;
-  setFeedbackNote: (val: string) => void;
+  onRevert: () => void;
+  reverting?: boolean;
 }
 
 export default function SuperEditModal({
   opened,
   onClose,
+  mode,
   subject,
   setSubject,
   content,
-  setContent,
+  setContent, // hindi ginagamit
   headNote,
   setHeadNote,
+  feedbackNote,
+  setFeedbackNote,
   retainedAttachments,
   setRetainedAttachments,
   newAttachments,
@@ -60,27 +66,36 @@ export default function SuperEditModal({
   passError,
   submitting,
   onSubmit,
-  feedbackNote,
-  setFeedbackNote
+  reverting = false,
+  onRevert,
 }: SuperEditModalProps) {
+  const isEditMode = mode === 'edit';
+
   return (
     <Modal
       opened={opened}
       onClose={onClose}
       title={
         <Group gap="xs">
-          <IconEdit size={18} color="indigo" />
-          <Text fw={700}>Review, Edit & Authorize Dispatch</Text>
+          <IconEdit size={18} color={isEditMode ? 'blue' : 'indigo'} />
+          <Text fw={700}>
+            {isEditMode ? 'Revise Draft' : 'Approve & Dispatch'}
+          </Text>
         </Group>
       }
       size="lg"
       radius="md"
     >
       <Stack gap="md">
-        <Alert icon={<IconInfoCircle size={16} />} title="Super Editor Review" color="indigo" radius="md">
-          As Department Head, you can include your own <b>additional notes</b> to this draft. The original content will remain.
-          <br />
-          <Badge color="grape" size="xs" variant="filled" mt={4}>Original content is read-only</Badge>
+        <Alert
+          icon={<IconInfoCircle size={16} />}
+          title={isEditMode ? 'Edit Draft' : 'Review & Dispatch'}
+          color={isEditMode ? 'blue' : 'indigo'}
+          radius="md"
+        >
+          {isEditMode
+            ? 'Edit the subject and add your notes. The draft will remain pending approval.'
+            : 'Finalize the memo. Your head note will be appended to the content.'}
         </Alert>
 
         <TextInput
@@ -90,7 +105,7 @@ export default function SuperEditModal({
           required
         />
 
-        {/* ✅ Original content - read only */}
+        {/* Original content - read only */}
         <Textarea
           label="Original Memorandum Body Content (Read-Only)"
           value={content}
@@ -100,7 +115,7 @@ export default function SuperEditModal({
           styles={{ input: { backgroundColor: 'var(--mantine-color-gray-1)' } }}
         />
 
-        {/* ✅ Head Note - additional remarks */}
+        {/* Head Note - additional remarks */}
         <Textarea
           label="Department Head Notes (Optional)"
           placeholder="Add your feedback, corrections, or additional instructions here..."
@@ -108,20 +123,34 @@ export default function SuperEditModal({
           onChange={(e) => setHeadNote(e.currentTarget.value)}
           minRows={3}
           autosize
-          required
-          description="This note will be appended to the memo content and visible to all recipients."
+          description={
+            isEditMode
+              ? 'Stored separately; will be appended on approval.'
+              : 'Will be appended to the memo content.'
+          }
         />
 
+        {/* Feedback note - required only for approve mode */}
         <Textarea
-          label="Feedback Note (Required)"
-          placeholder="State your reason or feedback for this approval..."
-          required
+          label="Feedback Note"
+          placeholder={
+            isEditMode
+              ? 'Optional feedback for the staff...'
+              : 'State your reason or feedback for this approval...'
+          }
           value={feedbackNote}
           onChange={(e) => setFeedbackNote(e.currentTarget.value)}
           minRows={2}
-          description="This will be recorded in the audit trail and visible to all parties."
+          required={!isEditMode}
+          description={
+            isEditMode
+              ? 'Optional – will be recorded in audit trail.'
+              : 'This will be recorded in the audit trail and visible to all parties.'
+          }
+          error={!isEditMode && !feedbackNote && passError ? 'Feedback note is required for approval.' : null}
         />
 
+        {/* Attachments */}
         <Stack>
           <Text fw={600}>Current Attachments</Text>
           <Stack gap="xs">
@@ -199,11 +228,21 @@ export default function SuperEditModal({
         />
 
         <Group justify="flex-end" mt="md">
+          {isEditMode && (
+            <Button variant="outline" color="gray" onClick={onRevert} loading={reverting}>
+              Revert to Original
+            </Button>
+          )}
           <Button variant="light" color="gray" onClick={onClose}>
             Cancel
           </Button>
-          <Button color="indigo" loading={submitting} leftSection={<IconThumbUp size={16} />} onClick={onSubmit}>
-            Approve, Sign & Dispatch
+          <Button
+            color={isEditMode ? 'blue' : 'green'}
+            loading={submitting}
+            leftSection={isEditMode ? <IconEdit size={16} /> : <IconThumbUp size={16} />}
+            onClick={onSubmit}
+          >
+            {isEditMode ? 'Save Revision' : 'Approve & Dispatch'}
           </Button>
         </Group>
       </Stack>

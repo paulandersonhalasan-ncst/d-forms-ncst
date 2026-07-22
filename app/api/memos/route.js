@@ -120,6 +120,8 @@ export async function POST(request) {
     const senderFullName = `${authenticatedUser.fname} ${authenticatedUser.lname}`;
     const databaseUserRole = authenticatedUser.role ? authenticatedUser.role.toUpperCase() : "STAFF";
 
+    const actionsRequiringFeedback = ['APPROVE', 'DENY', 'CLOSED', 'DISAPPROVE_DRAFT'];
+
     // ✅ Check kung OIC ang user
     const isCurrentlyOIC = (() => {
       if (!authenticatedUser.oic_start || !authenticatedUser.oic_end) return false;
@@ -299,7 +301,6 @@ export async function PATCH(request) {
     // 📎 FILE UPLOAD & FORMDATA PROCESSING
     // =================================================================================
     if (contentType.includes("multipart/form-data")) {
-
       const formData = await request.formData();
       memoId = formData.get("memoId");
       departmentName = formData.get("departmentName");
@@ -360,14 +361,17 @@ export async function PATCH(request) {
       assignedToId = body.assignedToId || null;
     }
 
-    // Common validations
+    // =================================================================================
+    // 1. COMMON VALIDATIONS
+    // =================================================================================
     if (!password) {
       return NextResponse.json({ success: false, message: "Password signature required" }, { status: 400 });
     }
 
-    // ✅ Require feedback note for all actions except ACKNOWLEDGE
+    // ✅ Feedback validation – required for certain actions, optional for ACKNOWLEDGE, CREATE, REVISE_DRAFT
     const trimmedFeedback = feedbackNote ? feedbackNote.trim() : '';
-    if (action !== 'ACKNOWLEDGE' && action !== 'CREATE' && !trimmedFeedback) {
+    const actionsRequiringFeedback = ['APPROVE', 'DENY', 'CLOSED', 'DISAPPROVE_DRAFT'];
+    if (actionsRequiringFeedback.includes(action) && !trimmedFeedback) {
       return NextResponse.json({ 
         success: false, 
         message: "Remarks/Feedback note is required for this action." 
@@ -400,47 +404,101 @@ export async function PATCH(request) {
     const targetRecipient = currentMemo.recipients.find(r => r.departmentName === departmentName);
 
     // =================================================================================
-    // ⚙️ WORKFLOW LOGIC ENGINE
+    // 2. PERMISSION & STATUS CHECKS PARA SA REVISE_DRAFT
+    // =================================================================================
+    if (action === 'REVISE_DRAFT') {
+      // 1. Only Department Head or OIC can revise
+      const isHead = ['DEPARTMENTHEAD', 'OIC', 'DEPARTMENT_HEAD'].includes(authenticatedUser.role?.toUpperCase());
+      const isOIC = (() => {
+        if (!authenticatedUser.oic_start || !authenticatedUser.oic_end) return false;
+        const now = new Date();
+        const start = new Date(authenticatedUser.oic_start);
+        const end = new Date(authenticatedUser.oic_end);
+        return now >= start && now <= end;
+      })();
+      if (!isHead && !isOIC) {
+        return NextResponse.json({ success: false, message: "Only Department Head or OIC can revise drafts" }, { status: 403 });
+      }
+
+      // 2. Only memos in 'FOR_APPROVAL' status can be revised
+      if (currentMemo.status !== 'FOR_APPROVAL') {
+        return NextResponse.json({ success: false, message: "Only drafts pending approval can be revised" }, { status: 400 });
+      }
+    }
+
+    // =================================================================================
+    // 3. WORKFLOW LOGIC ENGINE
     // =================================================================================
     if (action === 'CREATE') {
-      // Draft creation defaults
+      // handled in POST – nothing to do here
     } else if (action === 'DISAPPROVE' || action === 'DISAPPROVE_DRAFT') {
-      // Disapprove draft – set memo to DRAFT
       memoUpdateData = { status: 'DRAFT' };
       historyActionType = "DISAPPROVED";
-      // feedback note will be saved in memoHistory later
-    } else if (action === 'APPROVE') {
+    } else if (action === 'REVISE_DRAFT') {
       const finalSubject = newSubject || currentMemo.subject;
-      const finalContent = newContent || currentMemo.content;
+      const finalHeadNote = headNote || '';
 
-      let finalContentWithNote = finalContent;
-      if (headNote && headNote.trim()) {
-        finalContentWithNote = `${finalContent}\n\n---\nDepartment Head Notes:\n${headNote}`;
-      }
-
-      const hasHeadNote = !!(headNote && headNote.trim().length > 0);
-      const isRevised = (finalSubject !== currentMemo.subject) || hasHeadNote;
-      
       const retained = retainedAttachments || [];
       const allAttachments = [...retained, ...attachmentPaths];
-      
-      // ✅ Simpleng fix: tanggalin lang ang "DRAFT-" prefix
-      let newReferenceId = currentMemo.referenceId;
-      if (currentMemo.referenceId?.startsWith('DRAFT-')) {
-        newReferenceId = currentMemo.referenceId.substring(6); // "DRAFT-" = 6 chars
+
+      const subjectChanged = finalSubject !== currentMemo.subject;
+      const headNoteChanged = finalHeadNote !== (currentMemo.headNote || '');
+      const attachmentsChanged = JSON.stringify(allAttachments) !== JSON.stringify(currentMemo.attachmentPaths || []);
+
+      memoUpdateData = {
+        revisedSubject: newSubject || null,        // if empty, set to null
+        revisedHeadNote: headNote || null,         // if empty, set to null
+        attachmentPaths: allAttachments,
+      };
+      historyActionType = "REVISED_BY_HEAD";
+    } else if (action === 'REVERT_TO_ORIGINAL') {
+        memoUpdateData = {
+        revisedSubject: null,
+        revisedHeadNote: null,
+      };
+      historyActionType = "REVERTED";
+    } else if (action === 'APPROVE') {
+      // Use revised values if present, otherwise original
+      const finalSubject = currentMemo.revisedSubject || currentMemo.subject;
+      const finalHeadNote = currentMemo.revisedHeadNote || currentMemo.headNote || '';
+      let finalContent = newContent || currentMemo.content;
+
+      if (finalHeadNote.trim()) {
+        finalContent = `${finalContent}\n\n---\nDepartment Head Notes:\n${finalHeadNote}`;
       }
+
+      // Merge attachments: retained + newly uploaded
+      const retained = retainedAttachments || [];
+      const allAttachments = [...retained, ...attachmentPaths];
+
+      // Debug logs
+      console.log('retainedAttachments:', retainedAttachments);
+      console.log('attachmentPaths (new):', attachmentPaths);
+      console.log('allAttachments:', allAttachments);
+
+      // Remove DRAFT- prefix from reference ID if present
+      let newReferenceId = currentMemo.referenceId;
+      if (newReferenceId?.startsWith('DRAFT-')) {
+        newReferenceId = newReferenceId.substring(6);
+      }
+
+      // Check if any changes were made (for isRevisedByHead)
+      const subjectChanged = finalSubject !== currentMemo.subject;
+      const headNoteExists = finalHeadNote.trim().length > 0;
+      const attachmentsChanged = JSON.stringify(allAttachments) !== JSON.stringify(currentMemo.attachmentPaths || []);
 
       memoUpdateData = {
         status: 'APPROVED',
         subject: finalSubject,
-        content: finalContentWithNote,
-        isRevisedByHead: isRevised,
+        content: finalContent,
         attachmentPaths: allAttachments,
-        referenceId: newReferenceId
+        referenceId: newReferenceId,
+        headNote: finalHeadNote,
+        revisedSubject: null,
+        revisedHeadNote: null,
+        isRevisedByHead: subjectChanged || headNoteExists || attachmentsChanged,
       };
       historyActionType = "APPROVED";
-
-      console.log('🧪 isRevised value:', isRevised, 'type:', typeof isRevised);
 
       // Notifications for recipients
       try {
@@ -474,10 +532,9 @@ export async function PATCH(request) {
       }
     } else {
       // ============================================================
-      // 🟡 WORKFLOW PARA SA MGA ACTION (ACKNOWLEDGE, START_PROCESSING, CLOSED, DENY)
+      // 🟡 WORKFLOW PARA SA MGA RECIPIENT ACTIONS (ACKNOWLEDGE, START_PROCESSING, CLOSED, DENY, JOIN_PROCESSING, ASSIGN)
       // ============================================================
 
-      // 🆕 I-check kung FYI o Non-FYI
       if (currentMemo.purpose === 'FYI') {
         // ========== FYI WORKFLOW ==========
         if (action === 'ACKNOWLEDGE') {
@@ -498,7 +555,6 @@ export async function PATCH(request) {
           if (!targetRecipient) {
             return NextResponse.json({ success: false, message: "Department not a recipient" }, { status: 400 });
           }
-          // REQUIRE feedback note for DENY
           if (!feedbackNote) {
             return NextResponse.json({ success: false, message: "Feedback note is required for denial" }, { status: 400 });
           }
@@ -557,7 +613,6 @@ export async function PATCH(request) {
           if (!targetRecipient) {
             return NextResponse.json({ success: false, message: "Department not a recipient" }, { status: 400 });
           }
-
           if (!['PROCESSING', 'ACKNOWLEDGED'].includes(targetRecipient.status)) {
             return NextResponse.json({
               success: false,
@@ -565,7 +620,6 @@ export async function PATCH(request) {
             }, { status: 400 });
           }
 
-          // ✅ I‑add ang current user sa assigned lists kung wala pa
           const currentAssignedIds = targetRecipient.assignedToIds || [];
           const currentAssignedNames = targetRecipient.assignedToNames || [];
 
@@ -586,18 +640,15 @@ export async function PATCH(request) {
             feedbackNote: feedbackNote || `Joined processing by ${employeeName}`,
             assignedToIds: currentAssignedIds,
             assignedToNames: currentAssignedNames,
-            // Huwag baguhin ang status, mananatiling PROCESSING
           };
           historyActionType = "PROCESSING_JOINED";
         } else if (action === 'CLOSED') {
           if (isSenderClosing) {
             // ===== SENDER CLOSING =====
-            // Kunin ang pinakabagong recipients
             const freshRecipients = await prisma.memoRecipientStatus.findMany({
               where: { memoId: memoId }
             });
 
-            // Suriin kung lahat ng recipients ay tapos na (completed o denied)
             const allDone = freshRecipients.every(r => {
               if (['CLOSED', 'DENIED', 'COMPLETED'].includes(r.status)) return true;
               if (r.status === 'PROCESSING' && r.recipientConfirmedAt) return true;
@@ -611,7 +662,6 @@ export async function PATCH(request) {
               }, { status: 400 });
             }
 
-            // I-update ang bawat eligible recipient (PROCESSING na may confirmed)
             const eligibleRecipients = freshRecipients.filter(r =>
               r.status === 'PROCESSING' && r.recipientConfirmedAt
             );
@@ -632,7 +682,6 @@ export async function PATCH(request) {
               });
             }
 
-            // I-update ang memo status
             memoUpdateData = {
               status: 'CLOSED',
               lastActivityAt: now
@@ -658,7 +707,6 @@ export async function PATCH(request) {
           if (!targetRecipient) {
             return NextResponse.json({ success: false, message: "Department not a recipient" }, { status: 400 });
           }
-          // REQUIRE feedback note for DENY
           if (!feedbackNote) {
             return NextResponse.json({ success: false, message: "Feedback note is required for denial" }, { status: 400 });
           }
@@ -673,11 +721,6 @@ export async function PATCH(request) {
         } else if (action === 'ASSIGN') {
           if (!targetRecipient) {
             return NextResponse.json({ success: false, message: "Department not a recipient" }, { status: 400 });
-          }
-
-          // ✅ gamitin ang outer variable na na‑set na
-          if (!assignedToId) {
-            return NextResponse.json({ success: false, message: "No staff selected for assignment" }, { status: 400 });
           }
 
           if (!assignedToId) {
@@ -716,11 +759,10 @@ export async function PATCH(request) {
     }
 
     // =================================================================================
-    // 3. DATABASE TRANSACTIONS
+    // 4. DATABASE TRANSACTIONS
     // =================================================================================
     let updatedStatus = null;
 
-    // Update recipient status if needed
     if (Object.keys(recipientUpdateData).length > 0 && !skipRecipientUpdate) {
       updatedStatus = await prisma.memoRecipientStatus.update({
         where: {
@@ -733,8 +775,6 @@ export async function PATCH(request) {
       });
     }
 
-    // 🆕 Check if all recipients are now closed (for both FYI and Non-FYI)
-    // Pero kung skipRecipientUpdate (sender closing), hindi na natin kailangan i-check ulit
     if (!skipRecipientUpdate) {
       const allRecipients = await prisma.memoRecipientStatus.findMany({
         where: { memoId: memoId }
@@ -746,13 +786,13 @@ export async function PATCH(request) {
 
       if (allClosed) {
         memoUpdateData = {
+          ...memoUpdateData,
           status: 'CLOSED',
           lastActivityAt: now
         };
       }
     }
 
-    // Update memo status if needed
     if (Object.keys(memoUpdateData).length > 0) {
       await prisma.memo.update({
         where: { id: memoId },
@@ -761,7 +801,7 @@ export async function PATCH(request) {
     }
 
     // =================================================================================
-    // 4. AUDIT TRAIL & NOTIFICATIONS
+    // 5. AUDIT TRAIL & NOTIFICATIONS
     // =================================================================================
     const memoRefString = currentMemo.referenceId || currentMemo.id.substring(0, 8).toUpperCase();
     await prisma.memoHistory.create({
@@ -776,38 +816,43 @@ export async function PATCH(request) {
       }
     });
 
-    // Notifications
-    try {
-      let notificationPayload = { recipientId: currentMemo.senderId, title: "", message: "" };
-      if (action === 'ACKNOWLEDGE') {
-        notificationPayload.title = "Document Acknowledged";
-        notificationPayload.message = `Department ${departmentName} acknowledged memo ${memoRefString}.`;
-      } else if (action === 'CLOSED') {
-        if (isSenderClosing) {
-          notificationPayload.title = "Memo Closed by Sender";
-          notificationPayload.message = `Memo ${memoRefString} has been closed by sender.`;
-        } else {
-          notificationPayload.title = "Action Item Completed";
-          notificationPayload.message = `Department ${departmentName} completed memo ${memoRefString}.`;
-        }
-      } else if (action === 'DENY') {
-        notificationPayload.title = "Inbound Transaction Denied";
-        notificationPayload.message = `Memo ${memoRefString} denied by ${departmentName}.`;
-      }
-
-      if (notificationPayload.title) {
-        await prisma.notification.create({
-          data: {
-            title: notificationPayload.title,
-            message: notificationPayload.message,
-            isRead: false,
-            recipientId: notificationPayload.recipientId,
-            senderId: authenticatedUser.id
+    // Notifications (skip for REVISE_DRAFT)
+    if (action !== 'REVISE_DRAFT' && action !== 'REVERT_TO_ORIGINAL') {
+      try {
+        let notificationPayload = { recipientId: currentMemo.senderId, title: "", message: "" };
+        if (action === 'ACKNOWLEDGE') {
+          notificationPayload.title = "Document Acknowledged";
+          notificationPayload.message = `Department ${departmentName} acknowledged memo ${memoRefString}.`;
+        } else if (action === 'CLOSED') {
+          if (isSenderClosing) {
+            notificationPayload.title = "Memo Closed by Sender";
+            notificationPayload.message = `Memo ${memoRefString} has been closed by sender.`;
+          } else {
+            notificationPayload.title = "Action Item Completed";
+            notificationPayload.message = `Department ${departmentName} completed memo ${memoRefString}.`;
           }
-        });
+        } else if (action === 'DENY') {
+          notificationPayload.title = "Inbound Transaction Denied";
+          notificationPayload.message = `Memo ${memoRefString} denied by ${departmentName}.`;
+        } else if (action === 'APPROVE') {
+          // Notifications already sent above; skip here to avoid duplicate
+          // You can keep this or remove; but not needed as already sent in APPROVE block.
+        }
+
+        if (notificationPayload.title) {
+          await prisma.notification.create({
+            data: {
+              title: notificationPayload.title,
+              message: notificationPayload.message,
+              isRead: false,
+              recipientId: notificationPayload.recipientId,
+              senderId: authenticatedUser.id
+            }
+          });
+        }
+      } catch (err) {
+        console.error("Notification Failed:", err);
       }
-    } catch (err) {
-      console.error("Notification Failed:", err);
     }
 
     try {
