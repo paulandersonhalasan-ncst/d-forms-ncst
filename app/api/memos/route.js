@@ -4,6 +4,20 @@ import { logActivity } from "../../lib/logger";
 import { jwtVerify } from "jose";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
+import {
+  sendMemoSubmittedForApproval,
+  sendMemoInbound,
+  sendReplyNotification,
+  sendMemoApproved,
+  sendMemoAcknowledged,
+  sendMemoProcessingStarted,
+  sendMemoAssigned,
+  sendMemoClosed,
+  getDepartmentHeads,
+  getDepartmentHeadsIds
+} from '../../lib/email_notification';
+import { sendEmailWithRetry } from '../../lib/email_service';
+
 
 async function getAuthenticatedUser(request) {
   const cookieHeader = request.headers.get("cookie") || "";
@@ -223,7 +237,7 @@ export async function POST(request) {
     // =========================================================
     try {
       if (initialMemoStatus === "FOR_APPROVAL") {
-        const internalHeads = await getDepartmentUsers(userDept, ['DepartmentHead', 'OIC']);
+        const internalHeads = await getDepartmentHeadsIds(userDept);
         if (internalHeads.length > 0) {
           await prisma.notification.createMany({
             data: internalHeads.map(head => ({
@@ -246,7 +260,7 @@ export async function POST(request) {
         });
       } else {
         for (const dept of targetDepts) {
-          const targetHeads = await getDepartmentUsers(dept, ['DepartmentHead', 'OIC']);
+          const targetHeads = await getDepartmentHeadsIds(dept);
           if (targetHeads.length > 0) {
             await prisma.notification.createMany({
               data: targetHeads.map(head => ({
@@ -261,6 +275,46 @@ export async function POST(request) {
         }
       }
     } catch (notifErr) { console.error("❌ Notification Generation Failed (POST):", notifErr); }
+
+    // =========================================================
+    // EMAIL NOTIFICATIONS (POST) – CORRECTED
+    // =========================================================
+    try {
+      const staffUser = authenticatedUser; // sender
+
+      if (initialMemoStatus === 'FOR_APPROVAL') {
+        // Notify department heads (including active OIC) of sender's department
+        await sendMemoSubmittedForApproval(staffUser, newMemo);
+      } else {
+        // APPROVED immediately – notify recipient department heads (including OIC)
+        for (const dept of targetDepts) {
+          const heads = await getDepartmentHeads(dept); // returns [{ email, fname, lname }]
+          if (heads.length > 0) {
+            await sendMemoInbound(heads, finalMemo);
+          }
+        }
+      }
+
+      // If this is a reply (parentMemoId present), notify the original sender
+      if (parentMemoId && parentMemoId !== 'null') {
+        const originalMemo = await prisma.memo.findUnique({
+          where: { id: parentMemoId },
+          select: { senderId: true },
+        });
+        if (originalMemo) {
+          const originalSender = await prisma.user.findUnique({
+            where: { id: originalMemo.senderId },
+            select: { email: true },
+          });
+          if (originalSender) {
+            await sendReplyNotification(originalSender, finalMemo);
+          }
+        }
+      }
+    } catch (emailErr) {
+      console.error('❌ Email Notification Failed (POST):', emailErr);
+      // Do not break the request; just log
+    }
 
     try {
       await logActivity({
@@ -500,11 +554,32 @@ export async function PATCH(request) {
       };
       historyActionType = "APPROVED";
 
+      // ✅ Send inbound emails to all recipient departments
+      try {
+        const targetDepts = currentMemo.recipients.map(r => r.departmentName);
+        for (const dept of targetDepts) {
+          const heads = await getDepartmentHeads(dept);
+          if (heads.length > 0) {
+            // Gumamit ng updated memo data (finalSubject, allAttachments, etc.)
+            const approvedMemo = {
+              ...currentMemo,
+              subject: finalSubject,
+              content: finalContent,
+              attachmentPaths: allAttachments,
+              referenceId: newReferenceId,
+            };
+            await sendMemoInbound(heads, approvedMemo);
+          }
+        }
+      } catch (emailErr) {
+        console.error('❌ Email notification to recipients failed after approval:', emailErr);
+      }
+
       // Notifications for recipients
       try {
         const targetDepts = currentMemo.recipients.map(r => r.departmentName);
         for (const dept of targetDepts) {
-          const targetHeads = await getDepartmentUsers(dept, ['DepartmentHead', 'OIC']);
+          const targetHeads = await getDepartmentHeadsIds(dept);
           if (targetHeads.length > 0) {
             await prisma.notification.createMany({
               data: targetHeads.map(head => ({
@@ -551,6 +626,25 @@ export async function PATCH(request) {
             attachmentPaths: attachmentPaths.length > 0 ? attachmentPaths : undefined
           };
           historyActionType = "CLOSED";
+
+          // Send email to sender
+          try {
+            const sender = await prisma.user.findUnique({
+              where: { id: currentMemo.senderId },
+              select: { email: true, fname: true, lname: true },
+            });
+            if (sender) {
+              await sendMemoAcknowledged(
+                sender,
+                currentMemo,
+                departmentName,
+                employeeName
+              );
+            }
+          } catch (emailErr) {
+            console.error('❌ Email Notification Failed (ACKNOWLEDGE):', emailErr);
+          }
+
         } else if (action === 'DENY') {
           if (!targetRecipient) {
             return NextResponse.json({ success: false, message: "Department not a recipient" }, { status: 400 });
@@ -582,6 +676,25 @@ export async function PATCH(request) {
             acknowledgedByName: employeeName,
           };
           historyActionType = "ACKNOWLEDGED";
+
+          // Send email to sender
+          try {
+            const sender = await prisma.user.findUnique({
+              where: { id: currentMemo.senderId },
+              select: { email: true, fname: true, lname: true },
+            });
+            if (sender) {
+              await sendMemoAcknowledged(
+                sender,
+                currentMemo,
+                departmentName,
+                employeeName
+              );
+            }
+          } catch (emailErr) {
+            console.error('❌ Email Notification Failed (ACKNOWLEDGE):', emailErr);
+          }
+
         } else if (action === 'START_PROCESSING') {
           if (!targetRecipient) {
             return NextResponse.json({ success: false, message: "Department not a recipient" }, { status: 400 });
@@ -609,6 +722,24 @@ export async function PATCH(request) {
             assignedAt: targetRecipient.assignedAt || now,
           };
           historyActionType = "PROCESSING_STARTED";
+
+          // Send email to sender
+          try {
+            const sender = await prisma.user.findUnique({
+              where: { id: currentMemo.senderId },
+              select: { email: true, fname: true, lname: true },
+            });
+            if (sender) {
+              await sendMemoProcessingStarted(
+                sender,
+                currentMemo,
+                authenticatedUser // processor
+              );
+            }
+          } catch (emailErr) {
+            console.error('❌ Email Notification Failed (START_PROCESSING):', emailErr);
+          }
+
         } else if (action === 'JOIN_PROCESSING') {
           if (!targetRecipient) {
             return NextResponse.json({ success: false, message: "Department not a recipient" }, { status: 400 });
@@ -642,6 +773,41 @@ export async function PATCH(request) {
             assignedToNames: currentAssignedNames,
           };
           historyActionType = "PROCESSING_JOINED";
+
+          try {
+            // If the closer is not the sender, notify sender
+            if (!isSenderClosing && authenticatedUser.id !== currentMemo.senderId) {
+              const sender = await prisma.user.findUnique({
+                where: { id: currentMemo.senderId },
+                select: { email: true, fname: true, lname: true },
+              });
+              if (sender) {
+                await sendMemoClosed(
+                  sender,
+                  currentMemo,
+                  employeeName,
+                  departmentName
+                );
+              }
+            }
+            // Always notify sender's department heads
+            const senderDeptHeads = await getDepartmentHeads(currentMemo.senderDept);
+            if (senderDeptHeads.length > 0) {
+              const subject = `🔒 Memo Closed – ${currentMemo.referenceId}`;
+              const html = `
+                <h2>Memo Closed</h2>
+                <p><strong>Closed by:</strong> ${employeeName} (${departmentName || currentMemo.senderDept})</p>
+                <p><strong>Subject:</strong> ${currentMemo.subject}</p>
+                <p><strong>Reference:</strong> ${currentMemo.referenceId}</p>
+              `;
+              for (const head of senderDeptHeads) {
+                await sendEmailWithRetry({ to: head.email, subject, html });
+              }
+            }
+          } catch (emailErr) {
+            console.error('❌ Email Notification Failed (CLOSED):', emailErr);
+          }
+
         } else if (action === 'CLOSED') {
           if (isSenderClosing) {
             // ===== SENDER CLOSING =====
@@ -752,6 +918,19 @@ export async function PATCH(request) {
             feedbackNote: feedbackNote || `Assigned to ${assignedName}`
           };
           historyActionType = "ASSIGNED";
+
+          // Send email to assigned staff
+          try {
+            const assignedUser = await prisma.user.findUnique({
+              where: { id: assignedToId },
+              select: { email: true, fname: true, lname: true },
+            });
+            if (assignedUser) {
+              await sendMemoAssigned(assignedUser, currentMemo);
+            }
+          } catch (emailErr) {
+            console.error('❌ Email Notification Failed (ASSIGN):', emailErr);
+          }
         } else {
           return NextResponse.json({ success: false, message: `Unknown action: ${action}` }, { status: 400 });
         }

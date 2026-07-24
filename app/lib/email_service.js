@@ -1,7 +1,14 @@
 import nodemailer from 'nodemailer';
 
 // ✅ Parse SMTP accounts from environment variable
-const SMTP_ACCOUNTS = JSON.parse(process.env.SMTP_ACCOUNTS || '[]');
+let SMTP_ACCOUNTS = [];
+try {
+  SMTP_ACCOUNTS = JSON.parse(process.env.SMTP_ACCOUNTS || '[]');
+} catch (error) {
+  console.error('❌ Failed to parse SMTP_ACCOUNTS:', error.message);
+  console.warn('⚠️ Using empty SMTP_ACCOUNTS array. Email sending will fail.');
+  SMTP_ACCOUNTS = [];
+}
 
 let currentAccountIndex = 0;
 

@@ -2,6 +2,8 @@
 import { prisma } from "../../../../prisma/prisma";
 import { logActivity } from "../../../lib/logger";
 import { SignJWT } from "jose";
+import { sendFailedLoginAlert } from '../../../lib/email_notification';
+
 
 export async function POST(request) {
   const ip = request.headers.get("x-forwarded-for") || "127.0.0.1";
@@ -81,6 +83,12 @@ export async function POST(request) {
         // trigger logic to dept head and admin
         if (failedAttempts >= 5) {
           console.log(`🚨 SECURITY ALERT! Ang user [${currentUser.fname}] [${currentUser.lname}] of ${currentUser.department} ay may ${failedAttempts} na sunod-sunod na maling login sa loob ng 10 minuto!`);
+          // Send email notification
+          try {
+            await sendFailedLoginAlert(currentUser, failedAttempts, ip);
+          } catch (emailErr) {
+            console.error('❌ Failed to send security alert email:', emailErr);
+          }
         }
       }
 
