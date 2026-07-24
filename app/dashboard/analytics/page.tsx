@@ -24,6 +24,7 @@ import {
   UnstyledButton,
   Grid,
   RollingNumber,
+  HoverCard
 } from '@mantine/core';
 import { DatePicker } from '@mantine/dates';
 import {
@@ -38,7 +39,7 @@ import {
   IconPlayerPlay,
   IconUserCheck,
   IconCircleCheck,
-  IconLayersIntersect,
+  IconLayersIntersect
 } from '@tabler/icons-react';
 import useSWR from 'swr';
 import { PieChart, LineChart, BarChart } from '@mantine/charts';
@@ -550,55 +551,85 @@ export default function AnalyticsPage() {
               <Text size="sm" fw={700} c="dimmed">
                 Analytics Overview
               </Text>
-              {/* Analytics Overview (simple tiles) */}
-              <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }}>
+
+              <SimpleGrid cols={5} spacing="md">
                 {[
                   {
                     label: 'Total Memos',
                     value: analytics.overview.total,
                     icon: IconFileText,
                     color: 'blue',
+                    description: `Kabuuang bilang ng mga memorandum na nilikha sa loob ng napiling date.`,
                   },
                   {
                     label: 'Sent',
                     value: analytics.overview.sent,
                     icon: IconSend,
                     color: 'cyan',
+                    description: `Bilang ng mga memorandum na ipinadala ng inyong departamento (${activeDepartment}) sa ibang departamento sa loob ng napiling date.`,
                   },
                   {
                     label: 'Received',
                     value: analytics.overview.received,
                     icon: IconInbox,
                     color: 'grape',
+                    description: `Bilang ng mga memorandum na natanggap ng inyong departamento (${activeDepartment}) mula sa ibang departamento sa loob ng napiling date.`,
                   },
                   {
                     label: 'Active',
                     value: analytics.overview.active,
                     icon: IconTrendingUp,
                     color: 'green',
+                    description: `Bilang ng mga memorandum na kasalukuyang aktibo (hindi pa tapos ang proseso) sa inyong departamento (${activeDepartment}) sa loob ng napiling date.`,
+                  },
+                  {
+                    label: 'Resolved',
+                    value: analytics.overview.resolved,
+                    icon: IconCircleCheck,
+                    color: 'teal',
+                    description: `Bilang ng mga memorandum na na-resolve sa loob ng napiling date range. Kasama rito ang mga na-COMPLETED, CLOSED, at DENIED sa loob ng napiling panahon.`,
                   },
                 ].map((stat) => {
                   const Icon = stat.icon;
                   return (
-                    <Paper
-                      key={stat.label}
-                      withBorder
-                      p="md"
-                      radius="lg"
-                      style={{ borderRadius: theme.radius.md }}
-                    >
-                      <Group justify="space-between">
-                        <Stack gap={0}>
-                          <Text size="xs" c="dimmed" fw={700}>
-                            {stat.label}
-                          </Text>
-                          <RollingNumber value={stat.value} fw={500} fz={32}/>
-                        </Stack>
-                        <ThemeIcon size={28} radius="md" color={stat.color} variant="light">
-                          <Icon size={16} />
-                        </ThemeIcon>
-                      </Group>
-                    </Paper>
+                    <HoverCard key={stat.label} width={320} shadow="md" position="top" withArrow>
+                      <HoverCard.Target>
+                        <Paper
+                          withBorder
+                          p="md"
+                          radius="lg"
+                          style={{
+                            borderRadius: theme.radius.md,
+                            cursor: 'help',
+                            height: '100%',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            justifyContent: 'center',
+                            flex: 1,
+                          }}
+                        >
+                          <Group justify="space-between" wrap="nowrap">
+                            <Stack gap={0}>
+                              <Text size="xs" c="dimmed" fw={700}>
+                                {stat.label}
+                              </Text>
+                              <RollingNumber value={stat.value} fw={500} fz={32} />
+                            </Stack>
+                            <ThemeIcon size={28} radius="md" color={stat.color} variant="light">
+                              <Icon size={16} />
+                            </ThemeIcon>
+                          </Group>
+                        </Paper>
+                      </HoverCard.Target>
+                      <HoverCard.Dropdown>
+                        <Text size="sm" fw={600} mb={4}>
+                          {stat.label}
+                        </Text>
+                        <Text size="xs" c="dimmed" lh={1.5}>
+                          {stat.description}
+                        </Text>
+                      </HoverCard.Dropdown>
+                    </HoverCard>
                   );
                 })}
               </SimpleGrid>

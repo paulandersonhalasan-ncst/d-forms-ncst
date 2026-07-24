@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Table, Badge, Card, Text, Group, Stack, Code, ScrollArea, TextInput, UnstyledButton, Button, LoadingOverlay, SegmentedControl } from "@mantine/core";
 import { IconSearch, IconTerminal2, IconChevronDown, IconChevronUp, IconSelector, IconDownload } from "@tabler/icons-react";
 import {
@@ -125,6 +125,36 @@ function formatIP(ip: string | null) {
   return <Text size="xs" c="dimmed" style={{ wordBreak: "break-all" }}>{ip}</Text>;
 }
 
+// 🎯 Helper: I-extract ang unique actions mula sa logs
+function getUniqueActions(logs: AuditLog[]): string[] {
+  const actions = new Set<string>();
+  logs.forEach(log => {
+    if (log.action) {
+      const normalized = log.action.toUpperCase();
+      actions.add(normalized);
+    }
+  });
+  return Array.from(actions).sort();
+}
+
+// 🎯 Helper: Get display name for action
+function getActionDisplayName(action: string): string {
+  const normalized = action.toUpperCase();
+  const map: Record<string, string> = {
+    "LOGIN_SUCCESS": "Login Success",
+    "LOGIN_FAILURE": "Login Failed",
+    "LOGOUT": "Logout",
+    "EDIT_USERS": "Modify Account",
+    "USER_UPDATE": "Modify Account",
+    "CHANGE_PASSWORD": "Modify Account",
+    "USER_CREATE": "Create User",
+    "ASSIGN_OIC": "Assign OIC",
+    "REVOKE_OIC": "Revoke OIC",
+    "DEPT_UPDATE": "Dept Update",
+  };
+  return map[normalized] || action;
+}
+
 export default function AuditLogsTable() {
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
@@ -142,42 +172,19 @@ export default function AuditLogsTable() {
     [string | null, string | null]
   >([null, null]);
 
+  // Fetch logs
   useEffect(() => {
     async function fetchLogs() {
       try {
         setLoading(true);
-
-        const query =
-          new URLSearchParams();
-
-        query.set(
-          "timeRange",
-          timeRange
-        );
-
-        if (
-          timeRange === "custom" &&
-          customDates[0] &&
-          customDates[1]
-        ) {
-          query.set(
-            "startDate",
-            customDates[0]
-          );
-
-          query.set(
-            "endDate",
-            customDates[1]
-          );
+        const query = new URLSearchParams();
+        query.set("timeRange", timeRange);
+        if (timeRange === "custom" && customDates[0] && customDates[1]) {
+          query.set("startDate", customDates[0]);
+          query.set("endDate", customDates[1]);
         }
-
-        const res = await fetch(
-          `/api/auditlogs/get?${query.toString()}`
-        );
-
-        const json =
-          await res.json();
-
+        const res = await fetch(`/api/auditlogs/get?${query.toString()}`);
+        const json = await res.json();
         if (json.success) {
           setLogs(json.data);
         }
@@ -187,12 +194,8 @@ export default function AuditLogsTable() {
         setLoading(false);
       }
     }
-
     fetchLogs();
-  }, [
-    timeRange,
-    customDates,
-  ]);
+  }, [timeRange, customDates]);
 
   const handleSort = (field: SortField) => {
     const reversed = field === sortField ? !reverseSortDirection : false;
@@ -200,7 +203,7 @@ export default function AuditLogsTable() {
     setSortField(field);
   };
 
-  // 1. Filtering Block
+  // 1. Filtering Block (search only, no action filter)
   const filteredLogs = logs.filter((log) => {
     const term = search.trim().toLowerCase();
     if (!term) return true;
@@ -237,49 +240,72 @@ export default function AuditLogsTable() {
       : left.localeCompare(right, undefined, { numeric: true, sensitivity: 'base' });
   });
 
-  // 🎯 XLSX EXPORT HANDLER FOR AUDIT LOGS
+  // 🎯 EXPORT PER ACTION TYPE (AUTO-SEGREGATE) – gamit ang LAHAT ng logs (hindi filtered)
   const handleExportXLSX = async () => {
     try {
       setExporting(true);
       const XLSX = await import("xlsx");
-      
-      // I-flatten ang format ng logs para maging malinis ang columns sa Excel file
-      const toExport = sortedLogs.map((log) => {
-        // Kunin ang pinalaking readable text para sa details column
-        let readableDetails = log.details || "";
-        try {
-          if (log.details) {
-            const parsed = JSON.parse(log.details);
-            if ((log.action === "EDIT_USERS" || log.action === "ASSIGN_OIC" || log.action === "REVOKE_OIC") && parsed.updated) {
-              readableDetails = `In-update ang user account (ID: ${Array.isArray(parsed.updated) ? parsed.updated.join(", ") : parsed.updated})`;
+
+      // Kunin ang lahat ng unique actions mula sa LAHAT ng logs
+      const allActions = getUniqueActions(logs);
+      const exportedFiles: string[] = [];
+
+      for (const action of allActions) {
+        const actionLogs = logs.filter(log => log.action.toUpperCase() === action);
+        if (actionLogs.length === 0) continue;
+
+        const displayName = getActionDisplayName(action);
+        
+        const toExport = actionLogs.map((log) => {
+          let readableDetails = log.details || "";
+          try {
+            if (log.details) {
+              const parsed = JSON.parse(log.details);
+              if ((log.action === "EDIT_USERS" || log.action === "ASSIGN_OIC" || log.action === "REVOKE_OIC") && parsed.updated) {
+                readableDetails = `In-update ang user account (ID: ${Array.isArray(parsed.updated) ? parsed.updated.join(", ") : parsed.updated})`;
+              }
             }
+          } catch {
+            readableDetails = log.details || "";
           }
-        } catch {
-          readableDetails = log.details || "";
-        }
 
-        return {
-          "Log ID": log.id,
-          "Employee ID": log.user?.employee_id || "N/A",
-          "Actor Name": log.user ? `${log.user.fname} ${log.user.lname}` : "System / Guest",
-          "Email": log.email || "N/A",
-          "Role": log.user?.role || "N/A",
-          "Department": log.user?.departmentCode || "N/A",
-          "Branch": log.user?.branch || "N/A",
-          "Action Triggered": log.action,
-          "Activity Details": readableDetails,
-          "Raw JSON Details": log.details || "",
-          "IP Address": log.ipAddress || "Unknown",
-          "Timestamp": new Date(log.createdAt).toLocaleString("en-US"),
-        };
-      });
+          return {
+            "Log ID": log.id,
+            "Employee ID": log.user?.employee_id || "N/A",
+            "Actor Name": log.user ? `${log.user.fname} ${log.user.lname}` : "System / Guest",
+            "Email": log.email || "N/A",
+            "Role": log.user?.role || "N/A",
+            "Department": log.user?.departmentCode || "N/A",
+            "Branch": log.user?.branch || "N/A",
+            "Action Triggered": log.action,
+            "Activity Details": readableDetails,
+            "IP Address": log.ipAddress || "Unknown",
+            "Timestamp": new Date(log.createdAt).toLocaleString("en-US"),
+          };
+        });
 
-      const ws = XLSX.utils.json_to_sheet(toExport);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Audit Logs");
-      
-      // I-save ang file na may kasamang kasalukuyang petsa
-      XLSX.writeFile(wb, `audit_logs_${new Date().toISOString().slice(0, 10)}.xlsx`);
+        const ws = XLSX.utils.json_to_sheet(toExport);
+        ws['!cols'] = [
+          { wch: 15 }, { wch: 15 }, { wch: 25 }, { wch: 30 },
+          { wch: 15 }, { wch: 20 }, { wch: 15 }, { wch: 30 },
+          { wch: 50 }, { wch: 20 }, { wch: 25 }
+        ];
+
+        const wb = XLSX.utils.book_new();
+        const sheetName = displayName.slice(0, 31);
+        XLSX.utils.book_append_sheet(wb, ws, sheetName);
+
+        const safeFileName = action.replace(/[^a-zA-Z0-9]/g, '_');
+        const fileName = `${safeFileName}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+        XLSX.writeFile(wb, fileName);
+        exportedFiles.push(fileName);
+      }
+
+      if (exportedFiles.length === 0) {
+        alert("No logs to export.");
+      } else {
+        alert(`✅ Exported ${exportedFiles.length} file(s):\n${exportedFiles.join('\n')}`);
+      }
     } catch (err) {
       console.error(err);
       alert("XLSX export failed. Make sure 'xlsx' package is installed.");
@@ -290,7 +316,6 @@ export default function AuditLogsTable() {
 
   const rows = sortedLogs.map((log) => (
     <Table.Tr key={log.id}>
-      {/* User Card */}
       <Table.Td style={{ verticalAlign: "top" }}>
         <Stack gap={2}>
           {log.user ? (
@@ -325,18 +350,14 @@ export default function AuditLogsTable() {
         </Stack>
       </Table.Td>
 
-      {/* Action */}
       <Table.Td style={{ verticalAlign: "top" }}>{getActionBadge(log.action)}</Table.Td>
 
-      {/* Activity Details */}
       <Table.Td style={{ verticalAlign: "top" }}>
         <ExpandableDetails action={log.action} detailsStr={log.details} />
       </Table.Td>
 
-      {/* IP Address */}
       <Table.Td style={{ verticalAlign: "top" }}>{formatIP(log.ipAddress)}</Table.Td>
 
-      {/* Timestamp */}
       <Table.Td style={{ verticalAlign: "top" }}>
         <Text size="sm" fw={500}>
           {new Date(log.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
@@ -349,60 +370,30 @@ export default function AuditLogsTable() {
   ));
 
   return (
-    <Card
-      withBorder
-      shadow="sm"
-      radius="md"
-      p="md"
-      pos="relative"
-    >
-      <LoadingOverlay
-        visible={loading}
-        zIndex={100}
-        overlayProps={{ blur: 2 }}
-        loaderProps={{ size: "lg" }}
-      />
+    <Card withBorder shadow="sm" radius="md" p="md" pos="relative">
+      <LoadingOverlay visible={loading} zIndex={100} overlayProps={{ blur: 2 }} loaderProps={{ size: "lg" }} />
       <Stack gap="md">
-        <Group justify="space-between" align="center">
+        <Group justify="space-between" align="flex-start">
           <div>
             <Group gap="xs">
               <IconTerminal2 size={22} style={{ color: "var(--mantine-color-blue-6)" }} />
               <Text size="xl" fw={700}>System Audit Logs</Text>
             </Group>
             <Text size="xs" c="dimmed">
-              This is a table of all activity logs throughout NCST E-Forms. For Admin/SuperUser access only. Contact your Department Head/NCST E-Forms Admin if you are not supposed to access this feature.
+              This is a table of all activity logs throughout NCST E-Forms. For Admin/SuperUser access only.
             </Text>
           </div>
 
           <Group gap="sm" wrap="wrap">
             <SegmentedControl
               value={timeRange}
-              onChange={(value) =>
-                setTimeRange(
-                  value as typeof timeRange
-                )
-              }
+              onChange={(value) => setTimeRange(value as typeof timeRange)}
               data={[
-                {
-                  label: "Today",
-                  value: "day",
-                },
-                {
-                  label: "Week",
-                  value: "week",
-                },
-                {
-                  label: "Month",
-                  value: "month",
-                },
-                {
-                  label: "Custom",
-                  value: "custom",
-                },
-                {
-                  label: "All",
-                  value: "all",
-                },
+                { label: "Today", value: "day" },
+                { label: "Week", value: "week" },
+                { label: "Month", value: "month" },
+                { label: "Custom", value: "custom" },
+                { label: "All", value: "all" },
               ]}
             />
 
@@ -415,30 +406,31 @@ export default function AuditLogsTable() {
               />
             )}
           </Group>
-          
-          {/* 🎯 RIGHT-SIDE ACTION CONTROLS */}
-          <Group gap="sm">
-            <TextInput
-              placeholder="Search email, name, action..."
-              value={search}
-              onChange={(e) => setSearch(e.currentTarget.value)}
-              leftSection={<IconSearch size={16} />}
-              w={300}
-            />
-            <Button 
-              variant="light" 
-              color="green" 
-              leftSection={<IconDownload size={16} />} 
-              onClick={handleExportXLSX}
-              loading={exporting}
-              disabled={loading || sortedLogs.length === 0}
-            >
-              Export XLSX
-            </Button>
-          </Group>
         </Group>
 
-        <ScrollArea h="calc(100vh - 250px)">
+        {/* 🎯 FILTER CONTROLS (no action filter) */}
+        <Group gap="md" align="flex-end" wrap="wrap">
+          <TextInput
+            placeholder="Search email, name, action, details..."
+            value={search}
+            onChange={(e) => setSearch(e.currentTarget.value)}
+            leftSection={<IconSearch size={16} />}
+            style={{ flex: 1, minWidth: 200 }}
+          />
+
+          <Button 
+            variant="light" 
+            color="green" 
+            leftSection={<IconDownload size={16} />} 
+            onClick={handleExportXLSX}
+            loading={exporting}
+            disabled={loading || sortedLogs.length === 0}
+          >
+            Export XLSX
+          </Button>
+        </Group>
+
+        <ScrollArea h="calc(100vh - 350px)">
           <Table 
             highlightOnHover 
             striped 

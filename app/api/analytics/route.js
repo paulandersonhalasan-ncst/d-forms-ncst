@@ -322,6 +322,20 @@ export async function GET(request) {
       }
     });
 
+    const resolved = await prisma.memoRecipientStatus.count({
+      where: {
+        departmentName: targetDept,
+        status: { in: ['CLOSED', 'COMPLETED', 'DENIED', 'RESPONDED'] },
+        OR: [
+          { closedAt: { gte: startDate, lte: endDate } },
+          { completedAt: { gte: startDate, lte: endDate } },
+          { deniedAt: { gte: startDate, lte: endDate } },
+        ]
+      }
+    });
+
+    console.log("DEBUG RESOLVED COUNT : ", resolved);
+
     const recipientMap = new Map();
     outgoingMemos.forEach(memo => {
       memo.recipients.forEach(recipient => {
@@ -362,6 +376,7 @@ export async function GET(request) {
           sent: totalSent,
           received: totalReceived,
           active: active,
+          resolved: resolved
         },
         statusDistribution,
         priorityDistribution,
