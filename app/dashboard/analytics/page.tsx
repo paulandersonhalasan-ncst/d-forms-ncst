@@ -445,7 +445,7 @@ export default function AnalyticsPage() {
   const textColor = isDark ? theme.white : theme.black;
 
   return (
-    <Container size="xl" py="lg">
+    <Container fluid py="md" pos="relative">
       <Card
         withBorder
         radius="lg"

@@ -1441,7 +1441,6 @@ export default function IOMDashboardPage() {
                   <br /><br />
                   Mga memorandum na tinaggap at kinilala ng Department Head. <b><i>Kita ng lahat ng mga myembro ng departamento</i></b> para ma-proseso o aksyunan.
                 </CollapsibleAlert>
-                {renderMemoCards(getFilteredMemos(actionBoardMemos))}
 
                 {viewMode === 'tile' ? (
                   renderMemoCards(getFilteredMemos(actionBoardMemos))
