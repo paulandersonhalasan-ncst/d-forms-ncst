@@ -39,13 +39,15 @@ import {
   IconPlayerPlay,
   IconUserCheck,
   IconCircleCheck,
-  IconLayersIntersect
+  IconLayersIntersect,
+  IconFileExport 
 } from '@tabler/icons-react';
 import useSWR from 'swr';
 import { PieChart, LineChart, BarChart } from '@mantine/charts';
 import { UserContext, Memo } from '../../dashboard/forms/iom/component/types';
 import dayjs from 'dayjs';
 import { useRouter } from 'next/navigation';
+import dynamic from 'next/dynamic';
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
@@ -67,6 +69,8 @@ export default function AnalyticsPage() {
   // Custom date range as [start, end] in 'YYYY-MM-DD' format
   const [customDates, setCustomDates] = useState<[string | null, string | null]>([null, null]);
   const [datePickerOpened, setDatePickerOpened] = useState(false);
+
+  const [exporting, setExporting] = useState(false);
 
   const router = useRouter();
 
@@ -315,7 +319,7 @@ export default function AnalyticsPage() {
       queryParams.append('endDate', dayjs(end).format('YYYY-MM-DD'));
     }
   }
-
+  
   const url = useMemo(() => {
       const query = new URLSearchParams({
           departmentCode: effectiveDept || "",
@@ -445,6 +449,186 @@ export default function AnalyticsPage() {
   const cardBorder = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)';
   const textColor = isDark ? theme.white : theme.black;
 
+  const getDateRange = (): { start: Date; end: Date } => {
+    const now = new Date();
+    let start: Date, end: Date;
+
+    if (timeRange === 'all') {
+      start = new Date(0);
+      end = new Date();
+    } else if (timeRange === 'custom') {
+      const [s, e] = customDates;
+      start = s ? new Date(`${s}T00:00:00`) : new Date(0);
+      end = e ? new Date(`${e}T23:59:59.999`) : new Date();
+    } else {
+      const base = new Date(baseDate);
+      if (timeRange === 'day') {
+        start = new Date(base);
+        start.setHours(0, 0, 0, 0);
+        end = new Date(base);
+        end.setHours(23, 59, 59, 999);
+      } else if (timeRange === 'week') {
+        const day = base.getDay();
+        const diff = base.getDate() - day + (day === 0 ? -6 : 1);
+        start = new Date(base);
+        start.setDate(diff);
+        start.setHours(0, 0, 0, 0);
+        end = new Date(start);
+        end.setDate(start.getDate() + 6);
+        end.setHours(23, 59, 59, 999);
+      } else if (timeRange === 'month') {
+        start = new Date(base.getFullYear(), base.getMonth(), 1);
+        end = new Date(base.getFullYear(), base.getMonth() + 1, 0);
+        end.setHours(23, 59, 59, 999);
+      } else {
+        // 🔒 Fallback – should never happen, but satisfies TypeScript
+        start = new Date(base);
+        start.setHours(0, 0, 0, 0);
+        end = new Date(base);
+        end.setHours(23, 59, 59, 999);
+      }
+    }
+    return { start, end };
+  };
+
+  const handleExportXLSX = async () => {
+    if (!analytics) return;
+    setExporting(true);
+    try {
+      const XLSX = await import('xlsx');
+
+      const { start, end } = getDateRange();
+      const dept = effectiveDept || '';
+
+      // --- I-filter ang lahat ng memo na nasa date range ---
+      const allMemos = memosData || [];
+      const filteredMemos = allMemos.filter((memo) => {
+        const createdAt = new Date(memo.createdAt);
+        return createdAt >= start && createdAt <= end;
+      });
+
+      // --- Tukuyin ang mga kategorya ---
+      // 1. Created: lahat ng memo na ginawa ng departamento (senderDept === dept)
+      const createdMemos = filteredMemos.filter((m) => m.senderDept === dept);
+
+      // 2. Sent: pareho lang sa Created, pero para maging malinaw sa Excel, tawagin nating "Sent" (ito ay lumalabas sa overview)
+      const sentMemos = createdMemos; // Pareho lang
+
+      // 3. Received: mga memo na natanggap ng departamento (may recipient na departmentName === dept)
+      const receivedMemos = filteredMemos.filter((m) =>
+        m.recipients?.some((r) => r.departmentName === dept)
+      );
+
+      // 4. Active: mga memo na may recipient status na ACKNOWLEDGED o PROCESSING
+      const activeMemos = filteredMemos.filter((m) =>
+        m.recipients?.some(
+          (r) =>
+            r.departmentName === dept &&
+            ['ACKNOWLEDGED', 'PROCESSING'].includes(r.status)
+        )
+      );
+
+      // 5. Resolved: mga memo na may recipient status na COMPLETED, CLOSED, o DENIED
+      const resolvedMemos = filteredMemos.filter((m) =>
+        m.recipients?.some(
+          (r) =>
+            r.departmentName === dept &&
+            ['COMPLETED', 'CLOSED', 'DENIED'].includes(r.status)
+        )
+      );
+
+      // --- Helper: gawing array ng rows para sa Excel ---
+      const headers = [
+        'Reference ID',
+        'Subject',
+        'Sender Name',
+        'Sender Dept',
+        'Status',
+        'Priority',
+        'Purpose',
+        'Created At',
+        'Recipients',
+      ];
+
+      const memoToRow = (memo: Memo) => [
+        memo.referenceId || '',
+        memo.subject || '',
+        memo.senderName || '',
+        memo.senderDept || '',
+        memo.status || '',
+        memo.priority || '',
+        memo.purpose || '',
+        dayjs(memo.createdAt).format('YYYY-MM-DD HH:mm'),
+        memo.recipients?.map((r) => r.departmentName).join(', ') || '',
+      ];
+
+      // --- Buuin ang worksheet data ---
+      const wsData: (string | number)[][] = [];
+
+      // 1. Overview
+      const overview = analytics.overview;
+      wsData.push(['ANALYTICS OVERVIEW']);
+      wsData.push(['Memos Created', overview.total]);
+      wsData.push(['Sent', overview.sent]);
+      wsData.push(['Received', overview.received]);
+      wsData.push(['Active', overview.active]);
+      wsData.push(['Resolved', overview.resolved]);
+      wsData.push([]);
+
+      // 2. Memo List - Created (Sent)
+      wsData.push(['MEMO LIST - CREATED (SENT)']);
+      wsData.push(headers);
+      createdMemos.forEach((memo) => wsData.push(memoToRow(memo)));
+      wsData.push([]);
+
+      // 3. Memo List - Received
+      wsData.push(['MEMO LIST - RECEIVED']);
+      wsData.push(headers);
+      receivedMemos.forEach((memo) => wsData.push(memoToRow(memo)));
+      wsData.push([]);
+
+      // 4. Memo List - Active
+      wsData.push(['MEMO LIST - ACTIVE']);
+      wsData.push(headers);
+      activeMemos.forEach((memo) => wsData.push(memoToRow(memo)));
+      wsData.push([]);
+
+      // 5. Memo List - Resolved
+      wsData.push(['MEMO LIST - RESOLVED']);
+      wsData.push(headers);
+      resolvedMemos.forEach((memo) => wsData.push(memoToRow(memo)));
+      wsData.push([]);
+
+      // --- Gumawa ng worksheet ---
+      const ws = XLSX.utils.aoa_to_sheet(wsData);
+      ws['!cols'] = [
+        { wch: 20 },
+        { wch: 30 },
+        { wch: 25 },
+        { wch: 15 },
+        { wch: 12 },
+        { wch: 12 },
+        { wch: 15 },
+        { wch: 20 },
+        { wch: 40 },
+      ];
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Analytics');
+
+      const dateStr = dayjs().format('YYYY-MM-DD');
+      const fileName = `analytics_${dept || 'all'}_${dateStr}.xlsx`;
+      XLSX.writeFile(wb, fileName);
+
+      alert(`✅ Exported ${createdMemos.length} created, ${receivedMemos.length} received, ${activeMemos.length} active, ${resolvedMemos.length} resolved memos to ${fileName}`);
+    } catch (err) {
+      console.error(err);
+      alert('Export failed. Make sure xlsx package is installed.');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <Container fluid py="md" pos="relative">
       <Card
@@ -537,7 +721,19 @@ export default function AnalyticsPage() {
                   onChange={setCustomDates}
                 />
               )}
+
             </Stack>
+
+            <Button
+                variant="light"
+                color="green"
+                leftSection={<IconFileExport size={16} />}
+                onClick={handleExportXLSX}
+                loading={exporting}
+                disabled={!analytics || exporting}
+              >
+                Export to Excel
+            </Button>
           </Group>
         </Paper>
 
@@ -555,7 +751,7 @@ export default function AnalyticsPage() {
               <SimpleGrid cols={5} spacing="md">
                 {[
                   {
-                    label: 'Total Memos',
+                    label: 'Memos Created',
                     value: analytics.overview.total,
                     icon: IconFileText,
                     color: 'blue',
