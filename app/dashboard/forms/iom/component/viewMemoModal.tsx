@@ -142,6 +142,7 @@ export default function ViewMemoModal({
       title={displaySubject}
       size="lg"
       radius="md"
+      zIndex={3000}
     >
       <Stack gap="md">
         <Card withBorder p="md" bg="light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-8))">
@@ -591,7 +592,10 @@ export default function ViewMemoModal({
                 }))}
                 value={assignedStaffId}
                 onChange={setAssignedStaffId}
-                style={{ width: 120 }}
+                style={{ width: 120}}
+                styles={{
+                  dropdown: { zIndex: 5000 },
+                }}
               />
               <Button
                 size="xs"

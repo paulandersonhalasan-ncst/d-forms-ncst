@@ -1613,7 +1613,7 @@ export default function IOMDashboardPage() {
         setActionAttachment={setActionAttachment}
         submitting={submitting}
         onSubmit={handlePasswordGateVerificationSubmit}
-        zIndex={1000}
+        zIndex={5000}
       />
 
       <SuperEditModal

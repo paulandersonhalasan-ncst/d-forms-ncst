@@ -13,6 +13,8 @@ import {
   sendMemoProcessingStarted,
   sendMemoAssigned,
   sendMemoClosed,
+  sendMemoCompleted,
+  sendMemoDenied,
   getDepartmentHeads,
   getDepartmentHeadsIds
 } from '../../lib/email_notification';
@@ -660,6 +662,24 @@ export async function PATCH(request) {
             feedbackNote: feedbackNote
           };
           historyActionType = "DENIED";
+
+          try {
+            const sender = await prisma.user.findUnique({
+              where: { id: currentMemo.senderId },
+              select: { email: true, fname: true, lname: true },
+            });
+            if (sender) {
+              await sendMemoDenied(
+                sender,
+                currentMemo,
+                departmentName,
+                employeeName,
+                feedbackNote || 'No reason provided.'
+              );
+            }
+          } catch (emailErr) {
+            console.error('❌ Email Notification Failed (DENY):', emailErr);
+          }
         } else {
           return NextResponse.json({ success: false, message: `Action "${action}" not allowed for FYI memos` }, { status: 400 });
         }
@@ -868,6 +888,24 @@ export async function PATCH(request) {
               attachmentPaths: attachmentPaths.length > 0 ? attachmentPaths : undefined
             };
             historyActionType = "COMPLETED";
+
+            try {
+              const sender = await prisma.user.findUnique({
+                where: { id: currentMemo.senderId },
+                select: { email: true, fname: true, lname: true },
+              });
+              if (sender) {
+                await sendMemoCompleted(
+                  sender,
+                  currentMemo,
+                  departmentName,
+                  employeeName,
+                  feedbackNote
+                );
+              }
+            } catch (emailErr) {
+              console.error('❌ Email Notification Failed (COMPLETED):', emailErr);
+            }
           }
         } else if (action === 'DENY') {
           if (!targetRecipient) {
@@ -884,6 +922,24 @@ export async function PATCH(request) {
             feedbackNote: feedbackNote
           };
           historyActionType = "DENIED";
+
+          try {
+            const sender = await prisma.user.findUnique({
+              where: { id: currentMemo.senderId },
+              select: { email: true, fname: true, lname: true },
+            });
+            if (sender) {
+              await sendMemoDenied(
+                sender,
+                currentMemo,
+                departmentName,
+                employeeName,
+                feedbackNote || 'No reason provided.'
+              );
+            }
+          } catch (emailErr) {
+            console.error('❌ Email Notification Failed (FYI DENY):', emailErr);
+          }
         } else if (action === 'ASSIGN') {
           if (!targetRecipient) {
             return NextResponse.json({ success: false, message: "Department not a recipient" }, { status: 400 });

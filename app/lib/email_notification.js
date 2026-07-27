@@ -167,6 +167,38 @@ export async function sendReplyNotification(originalSender, replyMemo) {
 }
 
 // ============================================
+// Memo Denied / Completed Notifications
+// ============================================
+
+export async function sendMemoDenied(sender, memo, departmentName, deniedBy, reason) {
+  const subject = `🚫 Memo Denied – ${memo.referenceId}`;
+  const html = `
+    <h2>Memo Denied</h2>
+    <p><strong>Denied by:</strong> ${deniedBy} (${departmentName})</p>
+    <p><strong>Reason:</strong> ${reason || 'No reason provided.'}</p>
+    <p><strong>Subject:</strong> ${memo.subject}</p>
+    <p><strong>Reference:</strong> ${memo.referenceId}</p>
+    <p>Please review the denial and take necessary action.</p>
+    <p><a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/forms/iom?tab=outbound">View Memo</a></p>
+  `;
+  await sendEmailWithRetry({ to: sender.email, subject, html });
+}
+
+export async function sendMemoCompleted(sender, memo, departmentName, completedBy, feedbackNote) {
+  const subject = `✅ Memo Completed – ${memo.referenceId}`;
+  const html = `
+    <h2>Memo Completed</h2>
+    <p><strong>Completed by:</strong> ${completedBy} (${departmentName})</p>
+    <p><strong>Subject:</strong> ${memo.subject}</p>
+    <p><strong>Reference:</strong> ${memo.referenceId}</p>
+    <p><strong>Remarks:</strong> ${feedbackNote}</p>
+    <p>The memo has been marked as completed by the recipient department.</p>
+    <p><a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/forms/iom?tab=outbound">View Memo</a></p>
+  `;
+  await sendEmailWithRetry({ to: sender.email, subject, html });
+}
+
+// ============================================
 // Security Alert: Failed Login Attempts
 // ============================================
 
