@@ -1145,7 +1145,7 @@ export default function IOMDashboardPage() {
             </style>
           </head>
           <body>
-            <div class="header">NCST E-FORMS | INTER-OFFICE MEMORANDUM<br>==========================</div>
+            <div class="header">NCST D-FORMS | INTER-OFFICE MEMORANDUM<br>==========================</div>
             <table class="meta-table">
               <tr><td class="meta-label">REF ID:</td><td><strong>${memo.referenceId || 'DRAFT (PENDING APPROVAL)'}</strong></td></tr>
               <tr><td class="meta-label">DATE CREATED:</td><td>${new Date(memo.createdAt).toLocaleString()}</td></tr>
@@ -1343,7 +1343,7 @@ export default function IOMDashboardPage() {
                 <CollapsibleAlert  icon={<IconInfoCircle size={16} />} title="System Administrator Global Ledger View" color="blue">
                   Authorized view only. Tracks every operational transactional memorandum sequence regardless of origin status blocks.
                   <br /><br />
-                  Mga otorisadong tao lamang ang maaaring makakita nito. Binabantayan nito ang lahat ng mga memorandum na pumasok sa NCST E-Forms.
+                  Mga otorisadong tao lamang ang maaaring makakita nito. Binabantayan nito ang lahat ng mga memorandum na pumasok sa NCST D-Forms.
                 </CollapsibleAlert>
 
                 {viewMode === 'tile' ? (

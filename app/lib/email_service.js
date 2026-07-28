@@ -43,7 +43,7 @@ export async function sendEmailWithRetry(options, retries = 2) {
       const account = SMTP_ACCOUNTS[currentAccountIndex === 0 ? SMTP_ACCOUNTS.length - 1 : currentAccountIndex - 1];
       
       await transporter.sendMail({
-        from: `"NCST E-Forms" <${account.user}>`,
+        from: `"NCST D-Forms" <${account.user}>`,
         to: options.to,
         subject: options.subject,
         text: options.text || options.html.replace(/<[^>]*>/g, ''),
@@ -65,12 +65,12 @@ export async function sendEmailWithRetry(options, retries = 2) {
 export async function sendPasswordResetEmail(email, resetLink) {
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
-      <h2 style="color: #1a3a5c;">NCST E-Forms</h2>
+      <h2 style="color: #1a3a5c;">NCST D-Forms</h2>
       <h3 style="color: #333;">Password Reset Request</h3>
       
       <p>Hello,</p>
       
-      <p>We received a request to reset your password for your NCST E-Forms account.</p>
+      <p>We received a request to reset your password for your NCST D-Forms account.</p>
       
       <p>Click the button below to reset your password:</p>
       
@@ -98,7 +98,7 @@ export async function sendPasswordResetEmail(email, resetLink) {
 
   return sendEmailWithRetry({
     to: email,
-    subject: '🔐 NCST E-Forms - Password Reset',
+    subject: '🔐 NCST D-Forms - Password Reset',
     html,
   });
 }

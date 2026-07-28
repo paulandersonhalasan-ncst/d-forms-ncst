@@ -189,7 +189,7 @@ export default function Sidebar({ role, email, fname, lname, oic_start, oic_end 
                 <Group justify="space-between">
                     <Group align="center" gap="sm">
                         <Image src="/favicon.ico" alt="NCST logo" style={{ width: 24, height: 24, borderRadius: 4 }} />
-                        <Text fw={800} size="xl">NCST E-FORMS</Text>
+                        <Text fw={800} size="xl">NCST D-FORMS</Text>
                     </Group>
                     {mounted && (
                     <Clock

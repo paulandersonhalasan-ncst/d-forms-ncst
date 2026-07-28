@@ -220,7 +220,7 @@ export default function SuperEditModal({
 
         <PasswordInput
           label="Your Signature Security Password"
-          placeholder="Your NCST E-Forms password..."
+          placeholder="Your NCST D-Forms password..."
           required
           value={confirmPassword}
           onChange={(e) => setConfirmPassword(e.currentTarget.value)}

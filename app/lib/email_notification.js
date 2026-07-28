@@ -71,7 +71,7 @@ export async function sendMemoSubmittedForApproval(staff, memo) {
     <p><strong>From:</strong> ${staff.fname} ${staff.lname} (${memo.senderDept})</p>
     <p><strong>Subject:</strong> ${memo.subject}</p>
     <p><strong>Reference:</strong> ${memo.referenceId}</p>
-    <p>Please review and approve this memo via the E-Forms dashboard.</p>
+    <p>Please review and approve this memo via the D-Forms dashboard.</p>
     <p><a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/forms/iom?tab=approval">Click here to review</a></p>
   `;
 

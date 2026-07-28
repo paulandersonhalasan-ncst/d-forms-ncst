@@ -380,7 +380,7 @@ export default function AuditLogsTable() {
               <Text size="xl" fw={700}>System Audit Logs</Text>
             </Group>
             <Text size="xs" c="dimmed">
-              This is a table of all activity logs throughout NCST E-Forms. For Admin/SuperUser access only.
+              This is a table of all activity logs throughout NCST D-Forms. For Admin/SuperUser access only.
             </Text>
           </div>
 

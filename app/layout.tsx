@@ -10,8 +10,8 @@ import { NotificationProvider } from './components/notifications/NotificationPro
 
 
 export const metadata = {
-  title: 'NCST | E-FORMS',
-  description: 'Digital Forms System of National College of Science and Technology - Main',
+  title: 'NCST D-FORMS',
+  description: 'Digital Forms System of National College of Science and Technology',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
