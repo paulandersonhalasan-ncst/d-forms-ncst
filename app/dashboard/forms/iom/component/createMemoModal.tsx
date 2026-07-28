@@ -129,7 +129,7 @@ export default function CreateMemoModal({
               Cancel
             </Button>
             <Button type="submit" loading={submitting} leftSection={<IconSend size={16} />}>
-              Authorize & Transmit
+              Submit for Review
             </Button>
           </Group>
         </Stack>

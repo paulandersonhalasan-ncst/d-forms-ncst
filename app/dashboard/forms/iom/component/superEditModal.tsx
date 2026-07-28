@@ -85,6 +85,7 @@ export default function SuperEditModal({
       }
       size="lg"
       radius="md"
+      zIndex={5000}
     >
       <Stack gap="md">
         <Alert
