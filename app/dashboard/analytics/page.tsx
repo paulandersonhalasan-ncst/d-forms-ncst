@@ -446,7 +446,9 @@ export default function AnalyticsPage() {
 
   // --- Theme variables ---
   const cardBg = isDark ? theme.colors.dark[7] : theme.white;
+  const cardBgNested = isDark ? theme.colors.dark[6] : theme.colors.gray[0];
   const cardBorder = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)';
+  const cardBorderNested = isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)';
   const textColor = isDark ? theme.white : theme.black;
 
   const getDateRange = (): { start: Date; end: Date } => {
@@ -657,8 +659,8 @@ export default function AnalyticsPage() {
           p="lg"
           mb="lg"
           style={{
-            background: cardBg,
-            borderColor: cardBorder,
+            background: cardBgNested,
+            borderColor: cardBorderNested,
           }}
         >
           <Group align="flex-end" wrap="wrap" gap="md">
@@ -802,6 +804,8 @@ export default function AnalyticsPage() {
                             flexDirection: 'column',
                             justifyContent: 'center',
                             flex: 1,
+                            background: cardBgNested,
+                            borderColor: cardBorderNested,
                           }}
                         >
                           <Group justify="space-between" wrap="nowrap">
@@ -868,6 +872,8 @@ export default function AnalyticsPage() {
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'space-between',
+                          background: cardBgNested,
+                          borderColor: cardBorderNested,
                         }}
                       >
                         <Group justify="space-between" style={{ width: '100%' }}>
@@ -900,7 +906,7 @@ export default function AnalyticsPage() {
                   withBorder
                   p="md"
                   radius="md"
-                  style={{ backgroundColor: cardBg, borderColor: cardBorder }}
+                  style={{ backgroundColor: cardBgNested, borderColor: cardBorderNested }}
                 >
                   <Text fw={600} mb="md" style={{ color: textColor }}>
                     Status Distribution
@@ -938,7 +944,7 @@ export default function AnalyticsPage() {
                   withBorder
                   p="md"
                   radius="md"
-                  style={{ backgroundColor: cardBg, borderColor: cardBorder }}
+                  style={{ backgroundColor: cardBgNested, borderColor: cardBorderNested }}
                 >
                   <Text fw={600} mb="md" style={{ color: textColor }}>
                     Priority Distribution
@@ -976,7 +982,7 @@ export default function AnalyticsPage() {
                   withBorder
                   p="md"
                   radius="md"
-                  style={{ backgroundColor: cardBg, borderColor: cardBorder }}
+                  style={{ backgroundColor: cardBgNested, borderColor: cardBorderNested }}
                 >
                   <Text fw={600} mb="md" style={{ color: textColor }}>
                     Purpose Distribution
@@ -1016,7 +1022,7 @@ export default function AnalyticsPage() {
                 withBorder
                 p="md"
                 radius="md"
-                style={{ backgroundColor: cardBg, borderColor: cardBorder }}
+                style={{ backgroundColor: cardBgNested, borderColor: cardBorderNested }}
               >
                 <Text fw={600} mb="md" style={{ color: textColor }}>
                   {timeRange === 'day' ? 'Hourly Memo Activity' : 'Memo Trends'}
@@ -1097,7 +1103,7 @@ export default function AnalyticsPage() {
                   withBorder
                   p="md"
                   radius="md"
-                  style={{ backgroundColor: cardBg, borderColor: cardBorder }}
+                  style={{ backgroundColor: cardBgNested, borderColor: cardBorderNested }}
                 >
                   <Text fw={600} mb="md" style={{ color: textColor }}>
                     Top Senders (Incoming)
@@ -1173,7 +1179,7 @@ export default function AnalyticsPage() {
                   withBorder
                   p="md"
                   radius="md"
-                  style={{ backgroundColor: cardBg, borderColor: cardBorder }}
+                  style={{ backgroundColor: cardBgNested, borderColor: cardBorderNested }}
                 >
                   <Text fw={600} mb="md" style={{ color: textColor }}>
                     Top Recipients (Outgoing)
@@ -1250,7 +1256,15 @@ export default function AnalyticsPage() {
               </SimpleGrid>
 
               {/* Average Processing Time */}
-              <Paper withBorder radius="xl" p="xl">
+              <Paper
+                withBorder
+                radius="xl"
+                p="xl"
+                style={{
+                  background: cardBgNested,
+                  borderColor: cardBorderNested,
+                }}
+              >
                 <Group justify="space-between">
                   <Stack gap={0}>
                     <Text fw={700}>Average Processing Time</Text>

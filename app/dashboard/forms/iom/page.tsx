@@ -189,7 +189,7 @@ function KanbanBoard({
   };
 
   const columnColors: Record<Priority, string> = {
-    ROUTINE: 'blue',
+    ROUTINE: 'regalNavy',
     URGENT: 'orange',
     RUSH: 'red',
   };
@@ -203,16 +203,20 @@ function KanbanBoard({
 
         return (
           <Stack key={priority} gap="md" style={{ maxHeight: '100%' }}>
-            <Card
-              withBorder
-              p="sm"
-              bg={`var(--mantine-color-${color}-0)`}
-            >
+            <Card withBorder p="sm" style={{ backgroundColor: `light-dark(var(--mantine-color-${color}-0), var(--mantine-color-${color}-9))` }}>
               <Group justify="space-between">
-                <Text fw={700} size="sm" c={color}>
+                <Text fw={700} size="sm" style={{ color: `light-dark(var(--mantine-color-${color}-9), var(--mantine-color-${color}-0))` }}>
                   {priority}
                 </Text>
-                <Badge color={color}>{items.length}</Badge>
+                <Badge
+                  variant="filled"
+                  style={{
+                    backgroundColor: `light-dark(var(--mantine-color-${color}-9), var(--mantine-color-${color}-0))`,
+                    color: `light-dark(var(--mantine-color-${color}-0), var(--mantine-color-${color}-9))`,
+                  }}
+                >
+                  {items.length}
+                </Badge>
               </Group>
             </Card>
 

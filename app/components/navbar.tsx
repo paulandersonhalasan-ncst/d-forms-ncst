@@ -10,9 +10,10 @@ import {
     IconMoon,  
     IconLogs,
     IconUser,
-    IconBellRinging
+    IconBellRinging,
+    IconDeviceDesktop  
 } from "@tabler/icons-react";
-import { Code, Group, ScrollArea, Text, UnstyledButton, NavLink, useMantineColorScheme, Image, Switch, Badge } from "@mantine/core";
+import { Code, Group, ScrollArea, Text, UnstyledButton, NavLink, useMantineColorScheme, Image, Switch, Badge, SegmentedControl } from "@mantine/core";
 
 import React, { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
@@ -89,12 +90,60 @@ const schoolMenuData: MenuItem[] = [
 
 export default function Sidebar({ role, email, fname, lname, oic_start, oic_end }: SidebarProps) {
     const [isCurrentlyOIC, setIsCurrentlyOIC] = useState<boolean>(false);
-    const { colorScheme, setColorScheme } = useMantineColorScheme({ keepTransitions: true });
 
     const router = useRouter();
     const pathname = usePathname();
     const [hoverKey, setHoverKey] = useState<string | null>(null);
     const [mounted, setMounted] = useState(false);
+
+    const { colorScheme, setColorScheme, clearColorScheme } = useMantineColorScheme({ keepTransitions: true });
+
+   const [themeMode, setThemeMode] = useState<
+        'light' | 'dark' | 'system'
+    >(() => {
+        if (typeof window === 'undefined') {
+            return 'light';
+        }
+
+        return (
+            (localStorage.getItem('theme-preference') as
+                | 'light'
+                | 'dark'
+                | null) ?? 'light'
+        );
+    });
+
+    // I‑sync ang Mantine scheme tuwing nagbabago ang themeMode
+    useEffect(() => {
+        if (themeMode === 'system') {
+            clearColorScheme();
+        } else {
+            setColorScheme(themeMode);
+        }
+    }, [themeMode]);
+    
+    const handleThemeChange = (value: string) => {
+        const mode = value as 'light' | 'dark' | 'system';
+
+        setThemeMode(mode);
+
+        if (mode === 'system') {
+            localStorage.removeItem('theme-preference');
+            clearColorScheme();
+        } else {
+            localStorage.setItem(
+                'theme-preference',
+                mode
+            );
+
+            setColorScheme(mode);
+        }
+    };
+
+    const resolvedTheme =
+    themeMode === 'system'
+        ? colorScheme
+        : themeMode;
 
     // 🟢 Kunin ang unread count mula sa context
     const { unreadCount } = useNotifications();
@@ -327,7 +376,7 @@ export default function Sidebar({ role, email, fname, lname, oic_start, oic_end 
                 </div>
             </ScrollArea>
 
-            {/* FOOTER: User ID at Logout Button */}
+            {/* FOOTER: User ID at Theme Toggle at Logout Button */}
             <div style={{ 
                 padding: 20, 
                 borderTop: role === "Staff" ? "1px solid rgba(0,0,0,0.08)" : "1px solid rgba(255,255,255,0.08)",
@@ -339,44 +388,58 @@ export default function Sidebar({ role, email, fname, lname, oic_start, oic_end 
                     Logged in: <b>{email} | {lname}, {fname}</b>
                 </div>
 
-                <UnstyledButton
-                    onClick={() => setColorScheme(colorScheme === 'dark' ? 'light' : 'dark')}
-                    style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        padding: "8px 12px",
-                        borderRadius: 6,
-                        background: "rgba(0, 0, 0, 0.2)",
-                        color: textColor,
-                        width: "100%"
-                    }}
-                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "rgba(0, 0, 0, 0.1)"}
-                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "rgba(0, 0, 0, 0.2)"}
-                >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {/* 🎯 THEME TOGGLE: SegmentedControl with Light, Dark, System */}
+                <div style={{ 
+                    padding: "6px 10px", 
+                    borderRadius: 6, 
+                    background: resolvedTheme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)',
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between"
+                }}>
+                    <Group gap="xs">
                         {mounted ? (
-                            colorScheme === 'dark' ? (
-                                <IconMoon size={16} stroke={2} color={textColor} />
-                            ) : (
-                                <IconSun size={16} stroke={2} color={textColor} />
-                            )
+                            resolvedTheme === 'dark' ? <IconMoon size={16} stroke={2} color={textColor} /> :
+                            <IconSun size={16} stroke={2} color={textColor} />
                         ) : (
                             <IconSun size={16} stroke={2} color={textColor} />
                         )}
-                        <span style={{ fontSize: "14px", fontWeight: 500 }}>
-                            {mounted ? (colorScheme === 'dark' ? 'Dark Mode' : 'Light Mode') : 'Toggle Theme'}
-                        </span>
-                    </div>
+                    </Group>
 
-                    <Switch
-                        checked={mounted ? colorScheme === 'dark' : false}
-                        onChange={() => setColorScheme(colorScheme === 'dark' ? 'light' : 'dark')}
-                        size="sm"
-                        color="violet"
-                        style={{ pointerEvents: 'none' }}
+                    <SegmentedControl
+                        size="xs"
+                        radius="md"
+                        value={themeMode}
+                        onChange={handleThemeChange}
+                        data={[
+                            { label: 'Light', value: 'light' },
+                            { label: 'Dark', value: 'dark' }
+                        ]}
+                        color={sidebarBg}
+                        style={{
+                            background: resolvedTheme === 'light' 
+                                ? 'rgba(255,255,255,0.1)' 
+                                : 'rgba(0,0,0,0.06)',
+                            border: resolvedTheme === 'dark' 
+                                ? '1px solid rgba(255,255,255,0.15)' 
+                                : '1px solid rgba(0,0,0,0.1)',
+                            flex: 1,
+                            marginLeft: 8
+                        }}
+                        styles={{
+                            label: {
+                                color: textColor,
+                                fontWeight: 500,
+                                fontSize: "11px",
+                                padding: "2px 8px"
+                            },
+                            control: {
+                                border: "none",
+                                background: "transparent"
+                            }
+                        }}
                     />
-                </UnstyledButton>
+                </div>
 
                 <UnstyledButton
                     onClick={handleLogout}
