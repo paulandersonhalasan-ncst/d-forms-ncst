@@ -412,23 +412,22 @@ export default function Sidebar({ role, email, fname, lname, oic_start, oic_end 
                         value={themeMode}
                         onChange={handleThemeChange}
                         data={[
-                            { label: 'Light', value: 'light' },
-                            { label: 'Dark', value: 'dark' }
+                            { label: '☀️', value: 'light' },
+                            { label: '🌙', value: 'dark' }
                         ]}
-                        color={sidebarBg}
+                        color="violet"
                         style={{
                             background: resolvedTheme === 'light' 
-                                ? 'rgba(255,255,255,0.1)' 
-                                : 'rgba(0,0,0,0.06)',
+                                ? 'rgba(255,255,255,0.15)' 
+                                : 'rgba(0,0,0,0.15)',
                             border: resolvedTheme === 'dark' 
                                 ? '1px solid rgba(255,255,255,0.15)' 
-                                : '1px solid rgba(0,0,0,0.1)',
+                                : '1px solid rgba(0,0,0,0.08)',
                             flex: 1,
                             marginLeft: 8
                         }}
                         styles={{
                             label: {
-                                color: textColor,
                                 fontWeight: 500,
                                 fontSize: "11px",
                                 padding: "2px 8px"
