@@ -219,7 +219,7 @@ function KanbanBoard({
             <ScrollArea style={{ height: 'calc(100vh - 380px)' }} type="auto">
               {items.length === 0 ? (
                 <Text c="dimmed" size="xs" ta="center" py="md">
-                  No memos
+                  No {priority.toLowerCase()} memos
                 </Text>
               ) : (
                 <Stack gap="sm">
@@ -609,15 +609,31 @@ export default function IOMDashboardPage() {
     const filtered = list.filter((memo) => {
       const searchLower = searchTerm.toLowerCase();
       if (!searchLower) return true;
-      
-      return (
+
+      // Basic fields
+      const basicMatch =
         memo.subject?.toLowerCase().includes(searchLower) ||
         memo.referenceId?.toLowerCase().includes(searchLower) ||
         memo.content?.toLowerCase().includes(searchLower) ||
         memo.senderName?.toLowerCase().includes(searchLower) ||
-        memo.sender?.branch?.toLowerCase().includes(searchLower) // ✅ Optional chaining
+        memo.sender?.branch?.toLowerCase().includes(searchLower) ||
+        memo.recipients?.some((r) => r.departmentName?.toLowerCase().includes(searchLower));
+
+      if (basicMatch) return true;
+
+      const recipientRemarkMatch = memo.recipients?.some((r) =>
+        r.feedbackNote?.toLowerCase().includes(searchLower)
       );
+      if (recipientRemarkMatch) return true;
+
+      const historyRemarkMatch = memo.history?.some((h) =>
+        h.remarks?.toLowerCase().includes(searchLower)
+      );
+      if (historyRemarkMatch) return true;
+
+      return false;
     });
+
     return [...filtered].sort((a, b) => {
       const dateA = new Date(a.createdAt).getTime();
       const dateB = new Date(b.createdAt).getTime();
@@ -1245,7 +1261,7 @@ export default function IOMDashboardPage() {
           <Card withBorder radius="md" mb="md" p="sm" bg="light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-8))">
             <Group justify="space-between" align="flex-end">
               <TextInput
-                placeholder="REMINDER: This only filters the selected tab..."
+                placeholder="Search for subject, Memo content, department, reply..."
                 label="Search Memorandum"
                 value={searchTerm}
                 onChange={(event) => setSearchTerm(event.currentTarget.value)}
