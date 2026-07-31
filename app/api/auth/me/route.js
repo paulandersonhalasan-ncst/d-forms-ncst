@@ -33,6 +33,8 @@ export async function GET(request) {
         oic_end: user.oic_end
       };
 
+      console.log("debug user role: ", user.role);
+
       return Response.json({ success: true, data: safeUser });
     } catch (err) {
       console.error("me route jwt verify failed:", err);

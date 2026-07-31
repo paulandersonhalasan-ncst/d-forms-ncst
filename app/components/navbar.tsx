@@ -11,7 +11,8 @@ import {
     IconLogs,
     IconUser,
     IconBellRinging,
-    IconDeviceDesktop  
+    IconDeviceDesktop,
+    IconDatabaseExport
 } from "@tabler/icons-react";
 import { Code, Group, ScrollArea, Text, UnstyledButton, NavLink, useMantineColorScheme, Image, Switch, Badge, SegmentedControl } from "@mantine/core";
 
@@ -85,6 +86,12 @@ const schoolMenuData: MenuItem[] = [
         icon: IconUser, 
         link: "/dashboard/manage_staff",
         allowedRoles: ["OIC", "DepartmentHead"]
+    },
+    { 
+    label: "Backup Data", 
+    icon: IconDatabaseExport, 
+    link: "/dashboard/super/backup",
+    allowedRoles: ["SuperUser"]
     }
 ];
 
@@ -388,57 +395,58 @@ export default function Sidebar({ role, email, fname, lname, oic_start, oic_end 
                     Logged in: <b>{email} | {lname}, {fname}</b>
                 </div>
 
-                {/* 🎯 THEME TOGGLE: SegmentedControl with Light, Dark, System */}
-                <div style={{ 
-                    padding: "6px 10px", 
-                    borderRadius: 6, 
-                    background: resolvedTheme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)',
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between"
-                }}>
-                    <Group gap="xs">
-                        {mounted ? (
-                            resolvedTheme === 'dark' ? <IconMoon size={16} stroke={2} color={textColor} /> :
-                            <IconSun size={16} stroke={2} color={textColor} />
-                        ) : (
-                            <IconSun size={16} stroke={2} color={textColor} />
-                        )}
-                    </Group>
+                {/* 🎯 THEME TOGGLE: SegmentedControl with Light, Dark */}
+                {mounted && (
+                    <div style={{ 
+                        padding: "6px 10px", 
+                        borderRadius: 6, 
+                        background: resolvedTheme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)',
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between"
+                    }}>
+                        <Group gap="xs">
+                            {resolvedTheme === 'dark' ? (
+                                <IconMoon size={16} stroke={2} color={textColor} />
+                            ) : (
+                                <IconSun size={16} stroke={2} color={textColor} />
+                            )}
+                        </Group>
 
-                    <SegmentedControl
-                        size="xs"
-                        radius="md"
-                        value={themeMode}
-                        onChange={handleThemeChange}
-                        data={[
-                            { label: '☀️', value: 'light' },
-                            { label: '🌙', value: 'dark' }
-                        ]}
-                        color="violet"
-                        style={{
-                            background: resolvedTheme === 'light' 
-                                ? 'rgba(255,255,255,0.15)' 
-                                : 'rgba(0,0,0,0.15)',
-                            border: resolvedTheme === 'dark' 
-                                ? '1px solid rgba(255,255,255,0.15)' 
-                                : '1px solid rgba(0,0,0,0.08)',
-                            flex: 1,
-                            marginLeft: 8
-                        }}
-                        styles={{
-                            label: {
-                                fontWeight: 500,
-                                fontSize: "11px",
-                                padding: "2px 8px"
-                            },
-                            control: {
-                                border: "none",
-                                background: "transparent"
-                            }
-                        }}
-                    />
-                </div>
+                        <SegmentedControl
+                            size="xs"
+                            radius="md"
+                            value={themeMode}
+                            onChange={handleThemeChange}
+                            data={[
+                                { label: '☀️', value: 'light' },
+                                { label: '🌙', value: 'dark' }
+                            ]}
+                            color="violet"
+                            style={{
+                                background: resolvedTheme === 'light' 
+                                    ? 'rgba(255,255,255,0.15)' 
+                                    : 'rgba(0,0,0,0.15)',
+                                border: resolvedTheme === 'dark' 
+                                    ? '1px solid rgba(255,255,255,0.15)' 
+                                    : '1px solid rgba(0,0,0,0.08)',
+                                flex: 1,
+                                marginLeft: 8
+                            }}
+                            styles={{
+                                label: {
+                                    fontWeight: 500,
+                                    fontSize: "11px",
+                                    padding: "2px 8px"
+                                },
+                                control: {
+                                    border: "none",
+                                    background: "transparent"
+                                }
+                            }}
+                        />
+                    </div>
+                )}
 
                 <UnstyledButton
                     onClick={handleLogout}

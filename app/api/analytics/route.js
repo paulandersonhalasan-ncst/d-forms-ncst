@@ -325,13 +325,13 @@ export async function GET(request) {
     const resolved = await prisma.memoRecipientStatus.count({
       where: {
         departmentName: targetDept,
-        status: { in: ['CLOSED', 'COMPLETED', 'DENIED', 'RESPONDED'] },
+        status: { in: ['COMPLETED', 'CLOSED', 'DENIED'] },
         OR: [
-          { closedAt: { gte: startDate, lte: endDate } },
           { completedAt: { gte: startDate, lte: endDate } },
+          { closedAt: { gte: startDate, lte: endDate } },
           { deniedAt: { gte: startDate, lte: endDate } },
-        ]
-      }
+        ],
+      },
     });
 
     console.log("DEBUG RESOLVED COUNT : ", resolved);

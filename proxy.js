@@ -73,7 +73,7 @@ export async function proxy(request) {
     if (denied) return denied;
   }
 
-  if (request.nextUrl.pathname.startsWith('/dashboard/superuser')) {
+  if (request.nextUrl.pathname.startsWith('/dashboard/super')) {
     const denied = denyIfNotRole(['SuperUser']);
     if (denied) return denied;
   }
@@ -90,6 +90,24 @@ export async function proxy(request) {
 
   if (request.nextUrl.pathname.startsWith('/dashboard/oic')) {
     const denied = denyIfNotRole(['OIC']);
+    if (denied) return denied;
+  }
+
+  // app/middleware/proxy.js (o kung saan man naka-store ang proxy)
+
+  // ----------------------------------------------------------------
+  // 🆕 BACKUP ROUTE - SuperUser only
+  // ----------------------------------------------------------------
+  if (request.nextUrl.pathname.startsWith('/dashboard/super/backup')) {
+    const denied = denyIfNotRole(['SuperUser']);
+    if (denied) return denied;
+  }
+
+  // ----------------------------------------------------------------
+  // GLOBAL ROLE DIRECTORY FILTERS
+  // ----------------------------------------------------------------
+  if (request.nextUrl.pathname.startsWith('/dashboard/admin')) {
+    const denied = denyIfNotRole(['Admin']);  // Admin lang (hindi kasama ang SuperUser)
     if (denied) return denied;
   }
 

@@ -6,11 +6,11 @@ import { Button, Container, Group, Paper, Stack, Text, Title, useMantineColorSch
 import { IconLock, IconShieldLock } from "@tabler/icons-react";
 
 const roleToDashboard: Record<string, string> = {
-  SuperUser: "/dashboard/superuser",
-  DepartmentHead: "/dashboard/dept_head",
-  Staff: "/dashboard/staff",
-  Admin: "/dashboard/admin",
-  OIC: "/dashboard/oic",
+  SuperUser: "/dashboard/analytics",
+  DepartmentHead: "/dashboard/analytics",
+  Staff: "/dashboard/analytics",
+  Admin: "/dashboard/analytics",
+  OIC: "/dashboard/analytics",
 };
 
 export default function AccessDeniedPage() {
