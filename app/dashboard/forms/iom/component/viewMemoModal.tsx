@@ -88,6 +88,8 @@ export default function ViewMemoModal({
   const recipientRow = memo.recipients?.find((r) => r.departmentName === activeDepartment);
   const hasResponded = recipientRow && ['RESPONDED', 'COMPLETED', 'CLOSED', 'DENIED'].includes(recipientRow.status);
 
+  const isImported = memo.referenceId?.startsWith('IMPORT-') || false;
+
   const isRecipient = !!recipientRow;
 
   // ✅ Check kung ang current user ay ang sender o kabilang sa sender department
@@ -120,7 +122,8 @@ export default function ViewMemoModal({
     memo.recipients?.every((r) => ['COMPLETED', 'RESPONDED', 'DENIED', 'CLOSED'].includes(r.status));
 
   const disableReply =
-    !isAdminOrSuper && (isMemoResolvedForMe || isAllResolved || memo.status === 'FOR_APPROVAL');
+    isImported ||
+    (!isAdminOrSuper && (isMemoResolvedForMe || isAllResolved || memo.status === 'FOR_APPROVAL'));
 
   // Thread count
   const rootId = memo.rootMemoId || memo.id;
@@ -396,7 +399,7 @@ export default function ViewMemoModal({
 
         {/* Dynamic footer: All Buttons in One Row */}
         <Group gap="xs" wrap="wrap" mt="xl" pt="md" style={{ borderTop: '1px solid var(--mantine-color-gray-3)' }}>
-          {/* Thread History */}
+          {/* Thread History - laging visible */}
           {threadCount > 1 && (
             <Button
               size="xs"
@@ -409,7 +412,7 @@ export default function ViewMemoModal({
             </Button>
           )}
 
-          {/* Print */}
+          {/* Print - laging visible */}
           <Button
             size="xs"
             variant="outline"
@@ -420,149 +423,118 @@ export default function ViewMemoModal({
             Print Document
           </Button>
 
-          {/* ===== APPROVAL TAB ACTIONS ===== */}
-          {isApprovalTab && (isHeadOrOIC || isAdminOrSuper) && (
+          {/* ✅ Lahat ng actions ay naka-wrap sa !isImported */}
+          {!isImported && (
             <>
-              <Button
-                size="xs"
-                color="indigo"
-                variant="light"
-                leftSection={<IconEdit size={13} />}
-                onClick={() => onSuperEdit(memo, 'edit')}
-              >
-                Revise
-              </Button>
-              <Button
-                size="xs"
-                color="green"
-                leftSection={<IconThumbUp size={13} />}
-                onClick={() => triggerActionPasswordCheck('APPROVE', { memoId: memo.id })}
-              >
-                Approve
-              </Button>
-              <Button
-                size="xs"
-                color="red"
-                onClick={() => triggerActionPasswordCheck('DISAPPROVE_DRAFT', { memoId: memo.id })}
-              >
-                Disapprove
-              </Button>
-            </>
-          )}
-
-          {/* ===== RECIPIENT ACTIONS (HEAD/OIC ONLY) ===== */}
-          {isHeadOrOIC && isPending && !isApprovalTab && (
-            <>
-              <Button
-                size="xs"
-                color="green"
-                leftSection={<IconCheck size={13} />}
-                onClick={() =>
-                  triggerActionPasswordCheck('ACKNOWLEDGE', {
-                    memoId: memo.id,
-                    departmentName: activeDepartment,
-                  })
-                }
-              >
-                {memo.purpose === 'FYI' ? 'Acknowledge & Close' : 'Acknowledge'}
-              </Button>
-              <Button
-                size="xs"
-                color="red"
-                onClick={() =>
-                  triggerActionPasswordCheck('DENY', {
-                    memoId: memo.id,
-                    departmentName: activeDepartment,
-                  })
-                }
-              >
-                Deny Inbound
-              </Button>
-            </>
-          )}
-
-          {/* ===== STAFF: PROCESS BUTTON ===== */}
-          {!isHeadOrOIC && recipientRow?.status === 'ACKNOWLEDGED' && (
-            <Button
-              size="xs"
-              color="orange"
-              leftSection={<IconPlayerPlay size={13} />}
-              onClick={() =>
-                triggerActionPasswordCheck('START_PROCESSING', {
-                  memoId: memo.id,
-                  departmentName: activeDepartment,
-                })
-              }
-            >
-              Process (Assign to Me)
-            </Button>
-          )}
-
-          {/* ===== SENDER: RESOLVE & CLOSE ===== */}
-          {amISender && memo.status === 'APPROVED' && memo.purpose !== 'FYI' &&
-            memo.recipients?.every(r => {
-              if (['CLOSED', 'DENIED', 'COMPLETED'].includes(r.status)) return true;
-              return false;
-            }) && (
-            <Button
-              size="xs"
-              color="teal"
-              leftSection={<IconFileCheck size={13} />}
-              onClick={() =>
-                triggerActionPasswordCheck('CLOSED', {
-                  memoId: memo.id,
-                  isSenderClosing: true,
-                })
-              }
-            >
-              Resolve & Close
-            </Button>
-          )}
-
-          {/* ===== ADVANCED COLLABORATION ===== */}
-          {(() => {
-            const isUnderProcessing = recipientRow?.status === 'PROCESSING';
-
-            return (
-              <>
-                {isHeadOrOIC && (isUnderProcessing || isAcknowledged) && (
+              {/* ===== APPROVAL TAB ACTIONS ===== */}
+              {isApprovalTab && (isHeadOrOIC || isAdminOrSuper) && (
+                <>
                   <Button
                     size="xs"
-                    color="teal"
-                    variant="filled"
+                    color="indigo"
+                    variant="light"
+                    leftSection={<IconEdit size={13} />}
+                    onClick={() => onSuperEdit(memo, 'edit')}
+                  >
+                    Revise
+                  </Button>
+                  <Button
+                    size="xs"
+                    color="green"
+                    leftSection={<IconThumbUp size={13} />}
+                    onClick={() => triggerActionPasswordCheck('APPROVE', { memoId: memo.id })}
+                  >
+                    Approve
+                  </Button>
+                  <Button
+                    size="xs"
+                    color="red"
+                    onClick={() => triggerActionPasswordCheck('DISAPPROVE_DRAFT', { memoId: memo.id })}
+                  >
+                    Disapprove
+                  </Button>
+                </>
+              )}
+
+              {/* ===== RECIPIENT ACTIONS (HEAD/OIC ONLY) ===== */}
+              {isHeadOrOIC && isPending && !isApprovalTab && (
+                <>
+                  <Button
+                    size="xs"
+                    color="green"
+                    leftSection={<IconCheck size={13} />}
                     onClick={() =>
-                      triggerActionPasswordCheck('CLOSED', {
+                      triggerActionPasswordCheck('ACKNOWLEDGE', {
                         memoId: memo.id,
                         departmentName: activeDepartment,
-                        isSenderClosing: false,
                       })
                     }
                   >
-                    Head Force Complete
+                    {memo.purpose === 'FYI' ? 'Acknowledge & Close' : 'Acknowledge'}
+                  </Button>
+                  <Button
+                    size="xs"
+                    color="red"
+                    onClick={() =>
+                      triggerActionPasswordCheck('DENY', {
+                        memoId: memo.id,
+                        departmentName: activeDepartment,
+                      })
+                    }
+                  >
+                    Deny Inbound
+                  </Button>
+                </>
+              )}
+
+              {/* ===== STAFF: PROCESS BUTTON ===== */}
+              {!isHeadOrOIC && recipientRow?.status === 'ACKNOWLEDGED' && (
+                <Button
+                  size="xs"
+                  color="orange"
+                  leftSection={<IconPlayerPlay size={13} />}
+                  onClick={() =>
+                    triggerActionPasswordCheck('START_PROCESSING', {
+                      memoId: memo.id,
+                      departmentName: activeDepartment,
+                    })
+                  }
+                >
+                  Process (Assign to Me)
+                </Button>
+              )}
+
+              {/* ===== SENDER: RESOLVE & CLOSE ===== */}
+              {amISender && memo.status === 'APPROVED' && memo.purpose !== 'FYI' &&
+                memo.recipients?.every(r => {
+                  if (['CLOSED', 'DENIED', 'COMPLETED'].includes(r.status)) return true;
+                  return false;
+                }) && (
+                  <Button
+                    size="xs"
+                    color="teal"
+                    leftSection={<IconFileCheck size={13} />}
+                    onClick={() =>
+                      triggerActionPasswordCheck('CLOSED', {
+                        memoId: memo.id,
+                        isSenderClosing: true,
+                      })
+                    }
+                  >
+                    Resolve & Close
                   </Button>
                 )}
 
-                {isUnderProcessing && !isHeadOrOIC && memo.purpose !== 'FYI' && (
+              {/* ===== ADVANCED COLLABORATION ===== */}
+              {(() => {
+                const isUnderProcessing = recipientRow?.status === 'PROCESSING';
+                return (
                   <>
-                    {!amIAlreadyProcessing && (
+                    {isHeadOrOIC && (isUnderProcessing || isAcknowledged) && (
                       <Button
                         size="xs"
-                        color="indigo"
-                        variant="light"
-                        onClick={() =>
-                          triggerActionPasswordCheck('JOIN_PROCESSING', {
-                            memoId: memo.id,
-                            departmentName: activeDepartment,
-                          })
-                        }
-                      >
-                        Join Process
-                      </Button>
-                    )}
-                    {amIAlreadyProcessing && !recipientRow?.recipientConfirmedAt && (
-                      <Button
-                        size="xs"
-                        color="green"
+                        color="teal"
+                        variant="filled"
                         onClick={() =>
                           triggerActionPasswordCheck('CLOSED', {
                             memoId: memo.id,
@@ -571,76 +543,111 @@ export default function ViewMemoModal({
                           })
                         }
                       >
-                        Complete
+                        Head Force Complete
                       </Button>
                     )}
-                  </>
-                )}
-              </>
-            );
-          })()}
 
-          {/* ===== DEPARTMENT HEAD: ASSIGN TO STAFF ===== */}
-          {isHeadOrOIC && recipientRow?.status === 'ACKNOWLEDGED' && (
-            <>
-              <Select
-                size="xs"
-                placeholder="Assign to staff..."
-                data={departmentStaff.map((s) => ({
-                  value: s.id,
-                  label: `${s.fname} ${s.lname}`,
-                }))}
-                value={assignedStaffId}
-                onChange={setAssignedStaffId}
-                style={{ width: 120}}
-                styles={{
-                  dropdown: { zIndex: 5000 },
-                }}
-              />
-              <Button
-                size="xs"
-                color="indigo"
-                onClick={() => {
-                  if (assignedStaffId) {
-                    triggerActionPasswordCheck('ASSIGN', {
-                      memoId: memo.id,
-                      departmentName: activeDepartment,
-                      assignedToId: assignedStaffId,
-                    });
-                    setAssignedStaffId(null);
-                  }
-                }}
-                disabled={!assignedStaffId}
-              >
-                Assign
-              </Button>
+                    {isUnderProcessing && !isHeadOrOIC && memo.purpose !== 'FYI' && (
+                      <>
+                        {!amIAlreadyProcessing && (
+                          <Button
+                            size="xs"
+                            color="indigo"
+                            variant="light"
+                            onClick={() =>
+                              triggerActionPasswordCheck('JOIN_PROCESSING', {
+                                memoId: memo.id,
+                                departmentName: activeDepartment,
+                              })
+                            }
+                          >
+                            Join Process
+                          </Button>
+                        )}
+                        {amIAlreadyProcessing && !recipientRow?.recipientConfirmedAt && (
+                          <Button
+                            size="xs"
+                            color="green"
+                            onClick={() =>
+                              triggerActionPasswordCheck('CLOSED', {
+                                memoId: memo.id,
+                                departmentName: activeDepartment,
+                                isSenderClosing: false,
+                              })
+                            }
+                          >
+                            Complete
+                          </Button>
+                        )}
+                      </>
+                    )}
+                  </>
+                );
+              })()}
+
+              {/* ===== DEPARTMENT HEAD: ASSIGN TO STAFF ===== */}
+              {isHeadOrOIC && recipientRow?.status === 'ACKNOWLEDGED' && (
+                <>
+                  <Select
+                    size="xs"
+                    placeholder="Assign to staff..."
+                    data={departmentStaff.map((s) => ({
+                      value: s.id,
+                      label: `${s.fname} ${s.lname}`,
+                    }))}
+                    value={assignedStaffId}
+                    onChange={setAssignedStaffId}
+                    style={{ width: 120 }}
+                    styles={{
+                      dropdown: { zIndex: 5000 },
+                    }}
+                  />
+                  <Button
+                    size="xs"
+                    color="indigo"
+                    onClick={() => {
+                      if (assignedStaffId) {
+                        triggerActionPasswordCheck('ASSIGN', {
+                          memoId: memo.id,
+                          departmentName: activeDepartment,
+                          assignedToId: assignedStaffId,
+                        });
+                        setAssignedStaffId(null);
+                      }
+                    }}
+                    disabled={!assignedStaffId}
+                  >
+                    Assign
+                  </Button>
+                </>
+              )}
+
+              {/* ===== REPLY BUTTON ===== */}
+              {(() => {
+                const isMemoDenied = memo.recipients?.some((r) => r.status === 'DENIED');
+                const isAlreadyResponded = memo.recipients?.some((r) => r.status === 'RESPONDED');
+                const finalDisableReply = disableReply || isMemoDenied || isAlreadyResponded;
+                let buttonText = 'Reply';
+                if (isMemoDenied) buttonText = 'Reply Disabled (Denied)';
+                if (isAlreadyResponded) buttonText = 'Already Responded';
+
+                return (
+                  <Button
+                    size="xs"
+                    variant={finalDisableReply ? 'subtle' : 'light'}
+                    color={finalDisableReply ? 'gray' : 'blue'}
+                    disabled={finalDisableReply}
+                    leftSection={<IconMessageReply size={13} />}
+                    onClick={() => onReply && onReply(memo)}
+                  >
+                    {buttonText}
+                  </Button>
+                );
+              })()}
             </>
           )}
 
-          {/* ===== REPLY BUTTON ===== */}
-          {(() => {
-            const isMemoDenied = memo.recipients?.some((r) => r.status === 'DENIED');
-            const isAlreadyResponded = memo.recipients?.some((r) => r.status === 'RESPONDED');
-            const finalDisableReply = disableReply || isMemoDenied || isAlreadyResponded;
-            let buttonText = 'Reply';
-            if (isMemoDenied) buttonText = 'Reply Disabled (Denied)';
-            if (isAlreadyResponded) buttonText = 'Already Responded';
-
-            return (
-              <Button
-                size="xs"
-                variant={finalDisableReply ? 'subtle' : 'light'}
-                color={finalDisableReply ? 'gray' : 'blue'}
-                disabled={finalDisableReply}
-                leftSection={<IconMessageReply size={13} />}
-                onClick={() => onReply && onReply(memo)}
-              >
-                {buttonText}
-              </Button>
-            );
-          })()}
-
-          {/* ===== CLOSE WINDOW ===== */}
+          {/* ===== CLOSE WINDOW - laging visible ===== */}
           <Button size="xs" color="dark" onClick={onClose}>
             Close Window
           </Button>

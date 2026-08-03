@@ -39,7 +39,7 @@ interface MemoCardProps {
   processOICAllowance: boolean;
   threadCount: number;
   totalDepartments: number;
-  onReply: (memo: Memo) => void;
+  onReply?: (memo: Memo) => void;
   onPrint: (memo: Memo) => void;
   onViewThread: (memo: Memo) => void;
   onExpand: (memo: Memo) => void;

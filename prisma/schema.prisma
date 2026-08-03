@@ -50,6 +50,9 @@ model User {
 
   //user created memos
   memosCreated     Memo[]         @relation("UserMemos")
+
+  //disabled account hook
+  disabled    Boolean   @default(false)
 }
 
 model Department {

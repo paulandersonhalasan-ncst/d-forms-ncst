@@ -94,7 +94,8 @@ export const UserScalarFieldEnum = {
   resetToken: 'resetToken',
   resetTokenExpiry: 'resetTokenExpiry',
   oic_start: 'oic_start',
-  oic_end: 'oic_end'
+  oic_end: 'oic_end',
+  disabled: 'disabled'
 } as const
 
 export type UserScalarFieldEnum = (typeof UserScalarFieldEnum)[keyof typeof UserScalarFieldEnum]

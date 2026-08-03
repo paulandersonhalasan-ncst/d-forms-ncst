@@ -64,7 +64,8 @@ export async function POST(request) {
         "branch", 
         "departmentCode", 
         "oic_start",
-        "oic_end"
+        "oic_end",
+        "disabled"
       ];
 
       // Handle password updates specially: require currentPassword for self-updates
@@ -74,16 +75,20 @@ export async function POST(request) {
         if (key === "password") continue;
 
         if (userData[key] !== undefined) {
-          if (key === "oic_start" || key === "oic_end") {
-            updateData[key] =
-              userData[key] === "" ||
-              userData[key] === null
-                ? null
-                : String(userData[key]);
-          } else if (key === "employee_id") {
-            updateData.employee_id = String(userData.employee_id).trim();
+          if (key === "disabled") {
+            updateData.disabled = userData.disabled === true || userData.disabled === "true";
           } else {
-            updateData[key] = userData[key];
+              if (key === "oic_start" || key === "oic_end") {
+                updateData[key] =
+                  userData[key] === "" ||
+                  userData[key] === null
+                    ? null
+                    : String(userData[key]);
+              } else if (key === "employee_id") {
+                updateData.employee_id = String(userData.employee_id).trim();
+              } else {
+                updateData[key] = userData[key];
+              }
           }
         }
       }

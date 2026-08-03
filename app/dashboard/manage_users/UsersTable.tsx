@@ -15,7 +15,9 @@ import {
   PasswordInput,
   UnstyledButton,
   Card,
-  LoadingOverlay
+  LoadingOverlay,
+  Badge,
+  Switch
 } from "@mantine/core";
 import { IconChevronDown, IconChevronUp, IconSearch, IconSelector } from "@tabler/icons-react";
 
@@ -29,6 +31,7 @@ interface User {
   departmentCode?: string;
   branch?: string;
   last_login: string;
+  disabled?: boolean;
 }
 
 interface Department {
@@ -48,7 +51,8 @@ type SortField =
   | "role"
   | "departmentCode"
   | "branch"
-  | "last_login";
+  | "last_login"
+  | "disabled";
 
 function SortableHeader({
   children,
@@ -103,6 +107,7 @@ export default function UsersTable({ canDelete = false }: UsersTableProps) {
     role: "Staff",
     departmentCode: "",
     branch: "MAIN",
+    disabled: false,
   };
   const [loading, setLoading] = useState(true);
 
@@ -115,7 +120,7 @@ export default function UsersTable({ canDelete = false }: UsersTableProps) {
     async function fetchAll() {
       setLoading(true);
       try {
-        const res = await fetch("../../../api/user/get");
+        const res = await fetch("/api/user/get");
         const json = await res.json();
         if (json?.success) {
           setUsers(json.data || json.users || []);
@@ -133,7 +138,7 @@ export default function UsersTable({ canDelete = false }: UsersTableProps) {
 
     async function fetchDept() {
       try {
-        const res = await fetch("../../../api/department/get");
+        const res = await fetch("/api/department/get");
         const json = await res.json();
         if (json && json.success) {
           setDepartments(json.data || json.department || json.data);
@@ -169,19 +174,20 @@ export default function UsersTable({ canDelete = false }: UsersTableProps) {
   }
 
   function openEdit(user: User) {
-    setEditing(user);
-    setForm({
-      employee_id: user.employee_id || "",
-      email: user.email || "",
-      password: "",
-      fname: user.fname || "",
-      lname: user.lname || "",
-      role: user.role || "Staff",
-      departmentCode: user.departmentCode || "",
-      branch: user.branch || "MAIN",
-    });
-    setEditOpen(true);
-  }
+      setEditing(user);
+      setForm({
+        employee_id: user.employee_id || "",
+        email: user.email || "",
+        password: "",
+        fname: user.fname || "",
+        lname: user.lname || "",
+        role: user.role || "Staff",
+        departmentCode: user.departmentCode || "",
+        branch: user.branch || "MAIN",
+        disabled: user.disabled || false,
+      });
+      setEditOpen(true);
+    }
 
   async function handleDelete(singleId?: string) {
     const toDelete = singleId ? users.filter((u) => u.id === singleId) : users.filter((u) => selected.has(u.id));
@@ -192,7 +198,7 @@ export default function UsersTable({ canDelete = false }: UsersTableProps) {
     setLoading(true);
     try {
       const body = toDelete.map((u) => ({ id: u.id }));
-      const res = await fetch("../../../api/user/delete", {
+      const res = await fetch("/api/user/delete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -218,7 +224,7 @@ export default function UsersTable({ canDelete = false }: UsersTableProps) {
     if (e) e.preventDefault();
     setLoading(true);
     try {
-      const res = await fetch("../../../api/user/add", {
+      const res = await fetch("/api/user/add", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
@@ -247,13 +253,15 @@ export default function UsersTable({ canDelete = false }: UsersTableProps) {
     if (!editing) return;
     setLoading(true);
     try {
-      const dataToSend: Record<string, string> = { ...form };
-      if (!dataToSend.password || dataToSend.password.trim() === "") {
+      const dataToSend: Record<string, string | boolean | undefined> = { ...form };
+      
+      if (!dataToSend.password || (typeof dataToSend.password === "string" && dataToSend.password.trim() === "")) {
         delete dataToSend.password;
       }
+      
       const payload = { id: editing.id, ...dataToSend };
 
-      const res = await fetch("../../../api/user/edit", {
+      const res = await fetch("/api/user/edit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -275,6 +283,8 @@ export default function UsersTable({ canDelete = false }: UsersTableProps) {
       setLoading(false);
     }
   }
+
+
 
   function formatToPHT(value?: string | null) {
     if (!value) return "-";
@@ -320,21 +330,60 @@ export default function UsersTable({ canDelete = false }: UsersTableProps) {
       return reverseSortDirection ? right - left : left - right;
     }
 
+    if (sortField === "disabled") {
+      const left = a.disabled ? 1 : 0;
+      const right = b.disabled ? 1 : 0;
+      return reverseSortDirection ? right - left : left - right;
+    }
+
     const left = String(a[sortField] || "").toLowerCase();
     const right = String(b[sortField] || "").toLowerCase();
 
     return reverseSortDirection ? right.localeCompare(left) : left.localeCompare(right);
   });
 
-  // 🎯 Palitan ang rendering ng rows gamit ang Mantine Table primitives:
+  // Bulk disable/enable handler
+  const handleBulkDisable = async (disable: boolean) => {
+    if (selected.size === 0) return alert("No users selected");
+    setLoading(true);
+    const ids = Array.from(selected);
+    try {
+      const results = await Promise.allSettled(
+        ids.map((id) =>
+          fetch("api/user/edit", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id, disabled: disable }),
+          }).then((res) => res.json())
+        )
+      );
+
+      const succeeded = results.filter((r) => r.status === "fulfilled" && r.value?.success).length;
+      const failed = results.filter((r) => r.status === "rejected" || !r.value?.success).length;
+
+      if (succeeded > 0) {
+        setSelected(new Set());
+        fetchAll();
+        alert(`✅ ${succeeded} user(s) ${disable ? 'disabled' : 'enabled'} successfully! ${failed > 0 ? `⚠️ ${failed} failed.` : ''}`);
+      } else {
+        alert(`❌ Bulk ${disable ? 'disable' : 'enable'} failed. Please try again.`);
+      }
+    } catch (err) {
+      console.error(err);
+      alert(`❌ Bulk ${disable ? 'disable' : 'enable'} failed.`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
     const rows = sortedUsers.map((user: User) => (
-    <Table.Tr key={user.id} style={{ background: selected.has(user.id) ? "var(--mantine-color-gray-1)" : undefined }}>
+      <Table.Tr key={user.id} style={{ background: selected.has(user.id) ? "var(--mantine-color-gray-1)" : undefined }}>
         <Table.Td>
-        <Checkbox
+          <Checkbox
             checked={selected.has(user.id)}
             onChange={() => toggleSelect(user.id)}
             aria-label="select user"
-        />
+          />
         </Table.Td>
         <Table.Td>{user.employee_id}</Table.Td>
         <Table.Td>{user.email}</Table.Td>
@@ -343,18 +392,25 @@ export default function UsersTable({ canDelete = false }: UsersTableProps) {
         <Table.Td>{user.role}</Table.Td>
         <Table.Td>{user.departmentCode}</Table.Td>
         <Table.Td>{user.branch}</Table.Td>
+        <Table.Td>
+          {user.disabled ? (
+            <Badge color="red" variant="filled" size="sm">Disabled</Badge>
+          ) : (
+            <Badge color="green" variant="light" size="sm">Active</Badge>
+          )}
+        </Table.Td>
         <Table.Td>{formatToPHT(user.last_login)}</Table.Td>
         <Table.Td>
-        <Group gap={4}>
+          <Group gap={4}>
             <Button size="xs" variant="default" onClick={() => openEdit(user)}>
-            Edit
+              Edit
             </Button>
             <Button size="xs" color="red" variant="outline" disabled={!canDelete} onClick={() => handleDelete(user.id)}>
-            Delete
+              Delete
             </Button>
-        </Group>
+          </Group>
         </Table.Td>
-    </Table.Tr>
+      </Table.Tr>
     ));
 
   return (
@@ -385,6 +441,10 @@ export default function UsersTable({ canDelete = false }: UsersTableProps) {
                 { value: "role", label: "Change role" },
                 { value: "dept", label: "Change department" },
                 { value: "branch", label: "Change branch" },
+                ...(canDelete ? [
+                  { value: "disable", label: "Disable selected" },
+                  { value: "enable", label: "Enable selected" }
+                ] : [])
               ]}
               disabled={selected.size === 0 || !canDelete}
               onChange={(val) => {
@@ -398,6 +458,14 @@ export default function UsersTable({ canDelete = false }: UsersTableProps) {
                 }
                 if (val === "branch") {
                   setBulkBranchOpen(true);
+                  return;
+                }
+                if (val === "disable") {
+                  handleBulkDisable(true);
+                  return;
+                }
+                if (val === "enable") {
+                  handleBulkDisable(false);
                   return;
                 }
               }}
@@ -459,6 +527,11 @@ export default function UsersTable({ canDelete = false }: UsersTableProps) {
                 <Table.Th>
                   <SortableHeader sorted={sortField === "branch"} reversed={reverseSortDirection} onSort={() => setSorting("branch")}>
                     System
+                  </SortableHeader>
+                </Table.Th>
+                <Table.Th>
+                  <SortableHeader sorted={sortField === "disabled"} reversed={reverseSortDirection} onSort={() => setSorting("disabled")}>
+                    Status
                   </SortableHeader>
                 </Table.Th>
                 <Table.Th>
@@ -550,7 +623,7 @@ export default function UsersTable({ canDelete = false }: UsersTableProps) {
                 try {
                   const results = await Promise.allSettled(
                     ids.map((id) =>
-                      fetch("../../../api/user/edit", {
+                      fetch("/api/user/edit", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({ id, role: bulkRoleValue }),
@@ -604,7 +677,7 @@ export default function UsersTable({ canDelete = false }: UsersTableProps) {
                 try {
                   const results = await Promise.allSettled(
                     ids.map((id) =>
-                      fetch("../../../api/user/edit", {
+                      fetch("/api/user/edit", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({ id, departmentCode: bulkDeptValue }),
@@ -656,7 +729,7 @@ export default function UsersTable({ canDelete = false }: UsersTableProps) {
                 try {
                   const results = await Promise.allSettled(
                     ids.map((id) =>
-                      fetch("../../../api/user/edit", {
+                      fetch("/api/user/edit", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({ id, branch: bulkBranchValue }),
@@ -768,7 +841,7 @@ export default function UsersTable({ canDelete = false }: UsersTableProps) {
                   };
 
                   try {
-                    const res = await fetch("../../../api/user/add", {
+                    const res = await fetch("/api/user/add", {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
                       body: JSON.stringify(payload),
@@ -807,7 +880,7 @@ export default function UsersTable({ canDelete = false }: UsersTableProps) {
                 if (!code) return alert("Please provide a department code.");
                 setLoading(true);
                 try {
-                  const res = await fetch("../../../api/department/add", {
+                  const res = await fetch("/api/department/add", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ code }),
@@ -852,7 +925,7 @@ export default function UsersTable({ canDelete = false }: UsersTableProps) {
                         if (newCode === d.code) return;
                         setLoading(true);
                         try {
-                          const res = await fetch(`../../../api/department/edit`, {
+                          const res = await fetch("/api/department/edit", {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify({ id: d.id, code: d.code, newCode: newCode }),
@@ -876,7 +949,7 @@ export default function UsersTable({ canDelete = false }: UsersTableProps) {
                         if (!confirm(`Delete department ${d.code}? This will fail if users are assigned.`)) return;
                         setLoading(true);
                         try {
-                          const res = await fetch(`../../../api/department/delete`, {
+                          const res = await fetch("/api/department/delete", {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify({ id: d.id }),
@@ -939,6 +1012,13 @@ export default function UsersTable({ canDelete = false }: UsersTableProps) {
                 data={["MAIN", "IMUS", "NASTECH", "SHS"]}
                 value={form.branch}
                 onChange={(val) => setForm({ ...form, branch: val || "MAIN" })}
+            />
+            <Switch
+                label="Disabled Account"
+                checked={form.disabled || false}
+                onChange={(e) => setForm({ ...form, disabled: e.currentTarget.checked })}
+                disabled={!canDelete}
+                description="If enabled, user cannot log in."
             />
             <Group style={{ justifyContent: "flex-end" }}>
               <Button type="submit">Save</Button>

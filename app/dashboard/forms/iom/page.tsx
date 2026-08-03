@@ -233,6 +233,7 @@ function KanbanBoard({
                     const threadCount = allMemos.filter(
                       (m) => m.rootMemoId === rootId || m.id === rootId
                     ).length;
+                    const isImported = memo.referenceId?.startsWith('IMPORT-');
                     return (
                       <MemoCard
                         key={memo.id}
@@ -245,7 +246,7 @@ function KanbanBoard({
                         processOICAllowance={processOICAllowance}
                         threadCount={threadCount}
                         totalDepartments={totalDepartments}
-                        onReply={onReply}
+                        onReply={isImported ? undefined : onReply}
                         onPrint={onPrint}
                         onViewThread={onViewThread}
                         onExpand={onExpand}
@@ -1225,6 +1226,7 @@ export default function IOMDashboardPage() {
         {memoList.map((memo) => {
           const rootId = memo.rootMemoId || memo.id;
           const threadCount = memos.filter((m) => m.rootMemoId === rootId || m.id === rootId).length;
+          const isImported = memo.referenceId?.startsWith('IMPORT-');
 
           return (
             <MemoCard
@@ -1237,7 +1239,7 @@ export default function IOMDashboardPage() {
               isHeadOrOIC={isHeadOrOIC}
               processOICAllowance={processOICAllowance}
               threadCount={threadCount}
-              onReply={handleReplyClick}
+              onReply={isImported ? undefined : handleReplyClick}
               onPrint={handlePrintMemo}
               onViewThread={handleViewThread}
               onExpand={handleExpandNoteOpen}
@@ -1606,7 +1608,7 @@ export default function IOMDashboardPage() {
 
               <Tabs.Panel value="imported">
                 <CollapsibleAlert icon={<IconInfoCircle size={16} />} title="Imported Memos" color="violet">
-                  These are memos related to this department, that were restored from a JSON backup file. They have a <strong>IMPORT-</strong> prefix in their reference ID. Imported memos are read-only and cannot be modified, importing is for archival purposes only and can only be done by NCST D-Forms Administrators.
+                  These are memos related to this department, that were restored from a JSON backup file. They have a <strong>IMPORT-</strong> prefix in their reference ID. Imported memos are read-only and cannot be modified, importing is for archival purposes only and can only be done by NCST D-Forms Administrators. 
                   <br /><br />
                   Ang mga ito ay mga memo na may direktang partisipasyon ang inyong departamento, na naibalik mula sa isang JSON backup file. Mayroon silang <strong>IMPORT-</strong> na prefix sa kanilang reference ID. Ang mga imported memo ay read-only at hindi na maaaring baguhin o aksyunan, ang pag-import ay para lamang sa pang-arkibong hangarin at maaari lamang gawin ng NCST D-Forms Administrators.
                 </CollapsibleAlert>
