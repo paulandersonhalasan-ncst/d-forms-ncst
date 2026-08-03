@@ -438,9 +438,20 @@ export default function IOMDashboardPage() {
     (memo) => memo.senderDept === activeDepartment && memo.status === 'FOR_APPROVAL'
   );
 
-  const importedMemos = memos.filter((memo) => 
-    memo.referenceId?.startsWith('IMPORT-')
-  );
+  const importedMemos = memos.filter((memo) => {
+    // 1. Dapat ay may 'IMPORT-' prefix
+    if (!memo.referenceId?.startsWith('IMPORT-')) return false;
+
+    // 2. SuperUser: lahat ng imported ay kita
+    if (isAdminOrSuper) return true;
+
+    // 3. Regular user: may kinalaman sa kanilang departamento
+    const isSender = memo.senderDept === activeDepartment;
+    const isRecipient = memo.recipients?.some(
+      (r) => r.departmentName === activeDepartment
+    );
+    return isSender || isRecipient;
+  });
 
   // Inbound - Incoming pending memos (Head only)
   const inboundMemos = memos.filter((memo) => {
@@ -1595,9 +1606,9 @@ export default function IOMDashboardPage() {
 
               <Tabs.Panel value="imported">
                 <CollapsibleAlert icon={<IconInfoCircle size={16} />} title="Imported Memos" color="violet">
-                  These are memos that were restored from a JSON backup file. They have a <strong>IMPORT-</strong> prefix in their reference ID.
+                  These are memos related to this department, that were restored from a JSON backup file. They have a <strong>IMPORT-</strong> prefix in their reference ID. Imported memos are read-only and cannot be modified, importing is for archival purposes only and can only be done by NCST D-Forms Administrators.
                   <br /><br />
-                  Ang mga ito ay mga memo na naibalik mula sa isang JSON backup file. Mayroon silang <strong>IMPORT-</strong> na prefix sa kanilang reference ID.
+                  Ang mga ito ay mga memo na may direktang partisipasyon ang inyong departamento, na naibalik mula sa isang JSON backup file. Mayroon silang <strong>IMPORT-</strong> na prefix sa kanilang reference ID. Ang mga imported memo ay read-only at hindi na maaaring baguhin o aksyunan, ang pag-import ay para lamang sa pang-arkibong hangarin at maaari lamang gawin ng NCST D-Forms Administrators.
                 </CollapsibleAlert>
                 {viewMode === 'tile' ? (
                   renderMemoCards(getFilteredMemos(importedMemos))

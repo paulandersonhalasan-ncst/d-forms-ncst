@@ -23,7 +23,8 @@ import {
   Divider,
   ActionIcon,
   Collapse,
-  Paper
+  Paper,
+  useMantineColorScheme
 } from '@mantine/core';
 import { IconDownload, IconCalendar, IconFileExport, IconTrash, IconInfoCircle, IconChevronDown } from '@tabler/icons-react';
 import useSWR from 'swr';
@@ -77,12 +78,10 @@ function CollapsibleAlert({
         >
           <Group gap="xs" wrap="nowrap">
             {icon}
-
             <Text fw={500} size="sm">
               {title}
             </Text>
           </Group>
-
           <ActionIcon variant="subtle" color={color}>
             <IconChevronDown
               size={16}
@@ -96,11 +95,7 @@ function CollapsibleAlert({
       }
     >
       <Collapse expanded={opened}>
-        <Text
-          size="xs"
-          mt="xs"
-          lh={1.6}
-        >
+        <Text component="div" size="xs" mt="xs" lh={1.6}>
           {children}
         </Text>
       </Collapse>
@@ -163,6 +158,9 @@ export default function BackupPage() {
     skippedCount: number;
     message: string;
   } | null>(null);
+
+  const { colorScheme } = useMantineColorScheme();
+  const isDark = colorScheme === 'dark';
 
   const handleImport = async () => {
     if (!importFile) {
@@ -519,7 +517,7 @@ export default function BackupPage() {
 
                     <br></br><br></br>
 
-                    Ang pag-delete ay isang permanenteng aksyon na hindi na maibabalik (maliban kung may <strong>JSON</strong> file na backup). 
+                    Ang pagbura ay isang permanenteng aksyon na hindi na maibabalik (maliban kung may <strong>JSON</strong> file na backup). 
                     Lahat ng memo na tumutugma sa iyong itinakdang petsa ay tatanggalin mula sa database. 
                     Awtomatikong magba-backup ang NCST D-Forms na idadownload ng iyong browser. 
                     Upang masiguro na maibabalik ang mga na-delete na memo sa hinaharap, piliin ang <strong>JSON</strong> bilang pre-delete export format. 
@@ -683,24 +681,24 @@ export default function BackupPage() {
                   p="xl"
                   radius="md"
                   style={{
-                    border: '2px dashed var(--mantine-color-blue-4)',
-                    backgroundColor: 'var(--mantine-color-blue-0)',
+                    border: `2px dashed ${isDark ? 'var(--mantine-color-blue-6)' : 'var(--mantine-color-blue-4)'}`,
+                    backgroundColor: isDark ? 'var(--mantine-color-blue-9)' : 'var(--mantine-color-blue-0)',
                     textAlign: 'center',
                     cursor: 'pointer',
                     transition: 'all 0.2s ease',
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = 'var(--mantine-color-blue-6)';
-                    e.currentTarget.style.backgroundColor = 'var(--mantine-color-blue-1)';
+                    e.currentTarget.style.borderColor = isDark ? 'var(--mantine-color-blue-5)' : 'var(--mantine-color-blue-6)';
+                    e.currentTarget.style.backgroundColor = isDark ? 'var(--mantine-color-blue-8)' : 'var(--mantine-color-blue-1)';
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = 'var(--mantine-color-blue-4)';
-                    e.currentTarget.style.backgroundColor = 'var(--mantine-color-blue-0)';
+                    e.currentTarget.style.borderColor = isDark ? 'var(--mantine-color-blue-6)' : 'var(--mantine-color-blue-4)';
+                    e.currentTarget.style.backgroundColor = isDark ? 'var(--mantine-color-blue-9)' : 'var(--mantine-color-blue-0)';
                   }}
                   onClick={() => document.getElementById('file-upload')?.click()}
                 >
                   <Stack gap="sm" align="center">
-                    <IconFileExport size={48} stroke={1.5} color="var(--mantine-color-blue-6)" />
+                    <IconFileExport size={48} stroke={1.5} color={isDark ? 'var(--mantine-color-blue-3)' : 'var(--mantine-color-blue-6)'} />
                     <Text fw={600} size="lg">
                       {importFile ? 'Change File' : 'Click to Select JSON File'}
                     </Text>
