@@ -40,7 +40,8 @@ import {
   IconMessageReply,
   IconGitBranch,
   IconUserCheck,
-  IconChevronDown
+  IconChevronDown,
+  IconFileImport
 } from '@tabler/icons-react';
 import useSWR from 'swr';
 
@@ -435,6 +436,10 @@ export default function IOMDashboardPage() {
   // For Approval - Staff drafts (Head only)
   const forApprovalMemos = memos.filter(
     (memo) => memo.senderDept === activeDepartment && memo.status === 'FOR_APPROVAL'
+  );
+
+  const importedMemos = memos.filter((memo) => 
+    memo.referenceId?.startsWith('IMPORT-')
   );
 
   // Inbound - Incoming pending memos (Head only)
@@ -1357,6 +1362,11 @@ export default function IOMDashboardPage() {
                   </Tabs.Tab>
                 )}
 
+                <Tabs.Tab value="imported" leftSection={<IconFileImport size={15} />}>
+                  Imported Memos{' '}
+                  <Badge size="xs" variant="light" ml={6}>{importedMemos.length}</Badge>
+                </Tabs.Tab>
+
               </Tabs.List>
 
               <Tabs.Panel value="all_memos_global">
@@ -1581,6 +1591,36 @@ export default function IOMDashboardPage() {
                   />
                 )}
 
+              </Tabs.Panel>
+
+              <Tabs.Panel value="imported">
+                <CollapsibleAlert icon={<IconInfoCircle size={16} />} title="Imported Memos" color="violet">
+                  These are memos that were restored from a JSON backup file. They have a <strong>IMPORT-</strong> prefix in their reference ID.
+                  <br /><br />
+                  Ang mga ito ay mga memo na naibalik mula sa isang JSON backup file. Mayroon silang <strong>IMPORT-</strong> na prefix sa kanilang reference ID.
+                </CollapsibleAlert>
+                {viewMode === 'tile' ? (
+                  renderMemoCards(getFilteredMemos(importedMemos))
+                ) : (
+                  <KanbanBoard
+                    memos={getFilteredMemos(importedMemos)}
+                    isApprovalTab={false}
+                    currentUser={currentUser}
+                    activeDepartment={activeDepartment}
+                    isAdminOrSuper={isAdminOrSuper}
+                    isHeadOrOIC={isHeadOrOIC}
+                    processOICAllowance={processOICAllowance}
+                    onReply={handleReplyClick}
+                    onPrint={handlePrintMemo}
+                    onViewThread={handleViewThread}
+                    onExpand={handleExpandNoteOpen}
+                    onSuperEdit={triggerSuperEditReview}
+                    triggerActionPasswordCheck={triggerActionPasswordCheck}
+                    allMemos={memos}
+                    departmentStaff={departmentStaff}
+                    totalDepartments={departments.length}
+                  />
+                )}
               </Tabs.Panel>
             </Tabs>
           </ScrollArea>

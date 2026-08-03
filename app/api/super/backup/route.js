@@ -102,7 +102,24 @@ export async function GET(request) {
   console.log(`📤 Generated ${rows.length} rows for ${format} format.`);
 
   if (format === 'json') {
-    return new NextResponse(JSON.stringify({ headers, rows, memos }), {
+    // Pinalawak na JSON na may kasamang full relations
+    const exportData = {
+      exportedAt: new Date().toISOString(),
+      version: '1.0',
+      memos: memos.map((memo) => ({
+        ...memo,
+        // Tiyaking kasama ang full sender details
+        sender: memo.sender,
+        recipients: memo.recipients,
+        history: memo.history,
+        // I-convert ang dates sa ISO string para sa consistent format
+        createdAt: memo.createdAt.toISOString(),
+        updatedAt: memo.updatedAt?.toISOString(),
+        deadlineAt: memo.deadlineAt?.toISOString(),
+        lastActivityAt: memo.lastActivityAt?.toISOString(),
+      })),
+    };
+    return new NextResponse(JSON.stringify(exportData, null, 2), {
       status: 200,
       headers: {
         'Content-Type': 'application/json',
