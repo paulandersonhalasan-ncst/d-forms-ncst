@@ -177,6 +177,12 @@ export async function POST(request) {
   };
   if (departmentCode) where.senderDept = departmentCode;
 
+  // 🔍 Kunin ang mga memo IDs bago mag‑delete (para sa logging)
+  const memosToDelete = await prisma.memo.findMany({
+    where,
+    select: { id: true, referenceId: true },
+  });
+
   const count = await prisma.memo.count({ where });
   if (count === 0) {
     return NextResponse.json({ success: true, message: 'No memos found to delete.', count: 0 });
@@ -188,18 +194,20 @@ export async function POST(request) {
     req: request,
     userId: user.id,
     email: user.email,
-    action: "ADMIN_DELETE_MEMOS",
+    action: "ADMIN_BACKUP_MEMOS",
     details: JSON.stringify({
       count: deleted.count,
       startDate,
       endDate,
       department: departmentCode || 'All',
+      memoIds: memoIds,
+      referenceIds: refIds,
     }),
   });
 
   return NextResponse.json({
     success: true,
-    message: `Successfully deleted ${deleted.count} memo(s).`,
+    message: `Successfully backed up ${deleted.count} memo(s).`,
     count: deleted.count,
   });
 }

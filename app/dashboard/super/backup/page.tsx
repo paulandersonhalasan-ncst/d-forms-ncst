@@ -451,7 +451,8 @@ export default function BackupPage() {
                       <DatePicker
                         value={exportStartDate}
                         onChange={setExportStartDate}
-                        maxDate={new Date()}
+                        maxDate={exportEndDate ? new Date(exportEndDate) : new Date()}
+                        hideOutsideDates
                       />
                     </div>
                     <div>
@@ -459,7 +460,9 @@ export default function BackupPage() {
                       <DatePicker
                         value={exportEndDate}
                         onChange={setExportEndDate}
+                        minDate={exportStartDate ? new Date(exportStartDate) : undefined}
                         maxDate={new Date()}
+                        hideOutsideDates
                       />
                     </div>
                   </Group>
@@ -531,7 +534,7 @@ export default function BackupPage() {
                     <DatePicker
                       value={deleteStartDate}
                       onChange={setDeleteStartDate}
-                      maxDate={deleteEndDate ? new Date(deleteEndDate) : undefined}
+                      maxDate={deleteEndDate ? new Date(deleteEndDate) : new Date()}
                       hideOutsideDates
                     />
                   </div>

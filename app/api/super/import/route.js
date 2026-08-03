@@ -54,90 +54,95 @@ export async function POST(request) {
   const errors = [];
   const idMap = new Map(); // oldId -> newId para sa parent/root relationships
 
+  // ✅ Mga array para sa pag‑log ng imported memo IDs at reference IDs
+  const importedMemoIds = [];
+  const importedRefIds = [];
+
   // Process each memo
-    for (const memoData of memos) {
+  for (const memoData of memos) {
     try {
-        // 1. Hanapin o i-skip kung walang sender
-        let senderId = null;
-        if (memoData.senderId) {
-        // Hanapin ang sender gamit ang ID
+      // 1. Hanapin o i-skip kung walang sender
+      let senderId = null;
+      if (memoData.senderId) {
         const existingSender = await prisma.user.findUnique({
-            where: { id: memoData.senderId },
+          where: { id: memoData.senderId },
         });
         if (existingSender) {
-            senderId = existingSender.id;
+          senderId = existingSender.id;
         } else {
-            // Subukan gamit ang email
-            if (memoData.sender?.email) {
+          if (memoData.sender?.email) {
             const senderByEmail = await prisma.user.findUnique({
-                where: { email: memoData.sender.email },
+              where: { email: memoData.sender.email },
             });
             if (senderByEmail) {
-                senderId = senderByEmail.id;
+              senderId = senderByEmail.id;
             }
-            }
+          }
         }
-        }
+      }
 
-        // Kung wala pa ring sender, i-skip
-        if (!senderId) {
+      if (!senderId) {
         console.warn(`⚠️ Skipping memo ${memoData.referenceId || 'unknown'}: Sender not found`);
         skippedCount++;
         continue;
-        }
+      }
 
-        // 2. Bumuo ng base imported reference ID na may IMPORT- prefix
-        let baseRefId;
-        if (memoData.referenceId) {
+      // 2. Bumuo ng base imported reference ID na may IMPORT- prefix
+      let baseRefId;
+      if (memoData.referenceId) {
         baseRefId = `IMPORT-${memoData.referenceId}`;
-        } else {
+      } else {
         baseRefId = `IMPORT-RESTORE-${Date.now()}-${importedCount}`;
-        }
+      }
 
-        // 3. Siguraduhing unique ang reference ID (magdagdag ng counter kung may duplicate)
-        let finalRefId = baseRefId;
-        let counter = 0;
-        while (true) {
+      // 3. Siguraduhing unique ang reference ID (magdagdag ng counter kung may duplicate)
+      let finalRefId = baseRefId;
+      let counter = 0;
+      while (true) {
         const existing = await prisma.memo.findUnique({
-            where: { referenceId: finalRefId },
+          where: { referenceId: finalRefId },
         });
         if (!existing) break;
         counter++;
         finalRefId = `${baseRefId}-${counter}`;
-        }
+      }
 
-        // 4. Gumawa ng bagong memo gamit ang finalRefId
-        const newMemo = await prisma.memo.create({
+      // 4. Gumawa ng bagong memo gamit ang finalRefId
+      const newMemo = await prisma.memo.create({
         data: {
-            referenceId: finalRefId,
-            subject: memoData.subject || 'Restored Memo',
-            content: memoData.content || '',
-            priority: memoData.priority || 'ROUTINE',
-            purpose: memoData.purpose || 'FYI',
-            senderId: senderId,
-            senderName: memoData.senderName || 'Unknown',
-            senderDept: memoData.senderDept || 'GEN',
-            status: memoData.status || 'APPROVED',
-            deadlineAt: memoData.deadlineAt ? new Date(memoData.deadlineAt) : null,
-            attachmentPaths: memoData.attachmentPaths || [],
-            isRevisedByHead: memoData.isRevisedByHead || false,
-            headNote: memoData.headNote || null,
-            revisedSubject: memoData.revisedSubject || null,
-            revisedHeadNote: memoData.revisedHeadNote || null,
-            createdAt: memoData.createdAt ? new Date(memoData.createdAt) : undefined,
-            lastActivityAt: memoData.lastActivityAt ? new Date(memoData.lastActivityAt) : undefined,
+          referenceId: finalRefId,
+          subject: memoData.subject || 'Restored Memo',
+          content: memoData.content || '',
+          priority: memoData.priority || 'ROUTINE',
+          purpose: memoData.purpose || 'FYI',
+          senderId: senderId,
+          senderName: memoData.senderName || 'Unknown',
+          senderDept: memoData.senderDept || 'GEN',
+          status: memoData.status || 'APPROVED',
+          deadlineAt: memoData.deadlineAt ? new Date(memoData.deadlineAt) : null,
+          attachmentPaths: memoData.attachmentPaths || [],
+          isRevisedByHead: memoData.isRevisedByHead || false,
+          headNote: memoData.headNote || null,
+          revisedSubject: memoData.revisedSubject || null,
+          revisedHeadNote: memoData.revisedHeadNote || null,
+          createdAt: memoData.createdAt ? new Date(memoData.createdAt) : undefined,
+          lastActivityAt: memoData.lastActivityAt ? new Date(memoData.lastActivityAt) : undefined,
         },
-        });
+      });
 
-        // I-save ang mapping para sa parent/root relationships
-        idMap.set(memoData.id, newMemo.id);
+      // ✅ I‑save ang bagong memo ID at reference ID para sa logging
+      importedMemoIds.push(newMemo.id);
+      importedRefIds.push(newMemo.referenceId);
 
-        // 5. I-restore ang recipients
-        if (memoData.recipients && Array.isArray(memoData.recipients)) {
+      // I-save ang mapping para sa parent/root relationships
+      idMap.set(memoData.id, newMemo.id);
+
+      // 5. I-restore ang recipients
+      if (memoData.recipients && Array.isArray(memoData.recipients)) {
         for (const rec of memoData.recipients) {
-            try {
+          try {
             await prisma.memoRecipientStatus.create({
-                data: {
+              data: {
                 memoId: newMemo.id,
                 departmentName: rec.departmentName,
                 status: rec.status || 'PENDING',
@@ -167,21 +172,21 @@ export async function POST(request) {
                 assignedToIds: rec.assignedToIds || [],
                 assignedToNames: rec.assignedToNames || [],
                 assignedAt: rec.assignedAt ? new Date(rec.assignedAt) : null,
-                },
+              },
             });
-            } catch (recErr) {
+          } catch (recErr) {
             console.error(`❌ Failed to restore recipient ${rec.departmentName}:`, recErr);
             errors.push(`Recipient error for ${memoData.referenceId || 'unknown'}: ${recErr.message}`);
-            }
+          }
         }
-        }
+      }
 
-        // 6. I-restore ang history
-        if (memoData.history && Array.isArray(memoData.history)) {
+      // 6. I-restore ang history
+      if (memoData.history && Array.isArray(memoData.history)) {
         for (const hist of memoData.history) {
-            try {
+          try {
             await prisma.memoHistory.create({
-                data: {
+              data: {
                 memoId: newMemo.id,
                 departmentName: hist.departmentName || null,
                 performedById: hist.performedById || senderId,
@@ -190,22 +195,22 @@ export async function POST(request) {
                 action: hist.action || 'CREATED',
                 remarks: hist.remarks || null,
                 createdAt: hist.createdAt ? new Date(hist.createdAt) : undefined,
-                },
+              },
             });
-            } catch (histErr) {
+          } catch (histErr) {
             console.error(`❌ Failed to restore history entry:`, histErr);
-            }
+          }
         }
-        }
+      }
 
-        importedCount++;
+      importedCount++;
     } catch (err) {
-        console.error(`❌ Failed to import memo ${memoData.referenceId || 'unknown'}:`, err);
-        errors.push(`Memo ${memoData.referenceId || 'unknown'}: ${err.message}`);
+      console.error(`❌ Failed to import memo ${memoData.referenceId || 'unknown'}:`, err);
+      errors.push(`Memo ${memoData.referenceId || 'unknown'}: ${err.message}`);
     }
-    }
+  }
 
-  // 6. I-update ang parent/root relationships (after all memos are created)
+  // 7. I-update ang parent/root relationships (after all memos are created)
   for (const memoData of memos) {
     if (idMap.has(memoData.id)) {
       const newId = idMap.get(memoData.id);
@@ -227,7 +232,7 @@ export async function POST(request) {
     }
   }
 
-  // 7. Log activity
+  // 8. Log activity (may kasamang memo IDs at reference IDs)
   await logActivity({
     req: request,
     userId: user.id,
@@ -237,6 +242,8 @@ export async function POST(request) {
       imported: importedCount,
       skipped: skippedCount,
       errors: errors.length,
+      memoIds: importedMemoIds,
+      referenceIds: importedRefIds,
     }),
   });
 
