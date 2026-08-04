@@ -98,8 +98,28 @@ export async function GET(request) {
   const fileName = `memos_backup_${startDate}_to_${endDate}`;
 
   console.log(`📤 Export found ${memos.length} memos.`);
-
   console.log(`📤 Generated ${rows.length} rows for ${format} format.`);
+
+  // ✅ Log export activity (may kasamang memo IDs at reference IDs)
+  const memoIds = memos.map(m => m.id);
+  const refIds = memos.map(m => m.referenceId);
+
+  await logActivity({
+    req: request,
+    userId: user.id,
+    email: user.email,
+    action: "ADMIN_EXPORT_MEMOS",
+    details: JSON.stringify({
+      format,
+      count: memos.length,
+      startDate,
+      endDate,
+      department: departmentCode || 'All',
+      includeHistory,
+      memoIds: memoIds,
+      referenceIds: refIds,
+    }),
+  });
 
   if (format === 'json') {
     // Pinalawak na JSON na may kasamang full relations
