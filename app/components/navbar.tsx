@@ -217,7 +217,7 @@ export default function Sidebar({ role, email, fname, lname, oic_start, oic_end 
         try {
             const res = await fetch("/api/auth/logout", { method: "DELETE" });
             if (res.ok) {
-                router.push("/");
+                window.location.replace("/");
             } else {
                 console.error("Logout failed:", await res.text());
             }

@@ -2,6 +2,7 @@
 import { prisma } from "../../../../prisma/prisma";
 import { jwtVerify } from "jose";
 import { logActivity } from "../../../lib/logger";
+import bcrypt from 'bcrypt';
 
 export async function POST(request) {
   try {
@@ -94,29 +95,45 @@ export async function POST(request) {
       }
 
       if (wantsPasswordUpdate) {
-        // must have requester info to change password
         if (!requesterId) {
           return Response.json({ success: false, message: "Authentication required to change password." }, { status: 401 });
         }
 
-        // if requester is editing their own account, require currentPassword
+        // self update: require current password
         if (String(existing.id) === String(requesterId)) {
           const current = userData.currentPassword;
           if (!current) {
             return Response.json({ success: false, message: "Current password is required." }, { status: 400 });
           }
-          if (current !== existing.password) {
+          // Check current password (plain or hashed)
+          const isHashed = existing.password && existing.password.startsWith('$2b$');
+          let currentMatches = false;
+          if (isHashed) {
+            currentMatches = await bcrypt.compare(current, existing.password);
+          } else {
+            currentMatches = (current === existing.password);
+            // If plain matches, upgrade the stored password to hash (optional but good)
+            if (currentMatches) {
+              const hashed = await bcrypt.hash(current, 12);
+              await prisma.user.update({
+                where: { id: existing.id },
+                data: { password: hashed }
+              });
+              // The existing.password will now be hashed, but we don't need to update updateData because we'll set new password below
+            }
+          }
+          if (!currentMatches) {
             return Response.json({ success: false, message: "Current password is incorrect." }, { status: 401 });
           }
-          updateData.password = userData.password;
         } else {
-          // changing someone else's password — allow only for privileged roles
+          // Changing someone else's password – require privileged role
           const privileged = ["Admin", "SuperUser"];
           if (!requesterRole || !privileged.includes(requesterRole)) {
             return Response.json({ success: false, message: "Insufficient permissions to change another user's password." }, { status: 403 });
           }
-          updateData.password = userData.password;
         }
+        // Hash the new password
+        updateData.password = await bcrypt.hash(userData.password, 12);
       }
 
       if (Object.keys(updateData).length === 0) {

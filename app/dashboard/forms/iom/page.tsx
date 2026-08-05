@@ -436,7 +436,10 @@ export default function IOMDashboardPage() {
 
   // For Approval - Staff drafts (Head only)
   const forApprovalMemos = memos.filter(
-    (memo) => memo.senderDept === activeDepartment && memo.status === 'FOR_APPROVAL'
+  (memo) =>
+      memo.senderDept === activeDepartment &&
+      memo.status === 'FOR_APPROVAL' &&
+      !memo.referenceId?.startsWith('IMPORT-')
   );
 
   const importedMemos = memos.filter((memo) => {
@@ -1715,7 +1718,7 @@ export default function IOMDashboardPage() {
       />
 
       {/* Thread Timeline Modal */}
-      <Modal opened={threadModalOpened} onClose={closeThreadModal} title="Memorandum Thread History" size="lg" radius="md" zIndex={2000}>
+      <Modal opened={threadModalOpened} onClose={closeThreadModal} title="Memorandum Thread History" size="lg" radius="md" zIndex={5000}>
         <Box p="md">
           {activeThreadMemos.length === 0 ? (
             <Loader size="sm" />

@@ -3,7 +3,7 @@ import { prisma } from "../../../../prisma/prisma";
 import { logActivity } from "../../../lib/logger";
 import { SignJWT } from "jose";
 import { sendFailedLoginAlert } from '../../../lib/email_notification';
-
+import bcrypt from 'bcrypt';
 
 export async function POST(request) {
   const ip = request.headers.get("x-forwarded-for") || "127.0.0.1";
@@ -48,11 +48,38 @@ export async function POST(request) {
     // kanino password
     let authenticatedUser = null;
 
+    // for (const currentUser of usersWithThisEmail) {
+    //   // 📝 Paalala: Kung naka-bcrypt ka na, palitan mo ito ng: await bcrypt.compare(password, currentUser.password)
+    //   if (currentUser.password === password) {
+    //     authenticatedUser = currentUser;
+    //     break;
+    //   }
+    // }
+
     for (const currentUser of usersWithThisEmail) {
-      // 📝 Paalala: Kung naka-bcrypt ka na, palitan mo ito ng: await bcrypt.compare(password, currentUser.password)
-      if (currentUser.password === password) {
+      // 🔐 Check if stored password is hashed (starts with $2b$)
+      const isHashed = currentUser.password && currentUser.password.startsWith('$2b$');
+      let passwordMatches = false;
+
+      if (isHashed) {
+        // Compare with bcrypt
+        passwordMatches = await bcrypt.compare(password, currentUser.password);
+      } else {
+        // Plain-text fallback (for old accounts)
+        passwordMatches = (currentUser.password === password);
+        // If plain matches, upgrade to hash immediately
+        if (passwordMatches) {
+          const hashed = await bcrypt.hash(password, 12);
+          await prisma.user.update({
+            where: { id: currentUser.id },
+            data: { password: hashed }
+          });
+        }
+      }
+
+      if (passwordMatches) {
         authenticatedUser = currentUser;
-        break; // Nahanap na natin ang may-ari, ihinto na ang loop!
+        break;
       }
     }
 

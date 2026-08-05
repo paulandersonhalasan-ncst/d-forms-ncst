@@ -19,7 +19,25 @@ import {
   getDepartmentHeadsIds
 } from '../../lib/email_notification';
 import { sendEmailWithRetry } from '../../lib/email_service';
+import bcrypt from 'bcrypt';
 
+async function verifyPassword(plainPassword, storedHash, userId) {
+  // If stored is already hashed (starts with $2b$), use bcrypt.compare
+  if (storedHash && storedHash.startsWith('$2b$')) {
+    return await bcrypt.compare(plainPassword, storedHash);
+  }
+  // Legacy plain‑text: direct comparison
+  const matches = (plainPassword === storedHash);
+  if (matches && userId) {
+    // Upgrade to hash immediately
+    const hashed = await bcrypt.hash(plainPassword, 12);
+    await prisma.user.update({
+      where: { id: userId },
+      data: { password: hashed }
+    });
+  }
+  return matches;
+}
 
 async function getAuthenticatedUser(request) {
   const cookieHeader = request.headers.get("cookie") || "";
@@ -111,7 +129,9 @@ export async function POST(request) {
       isReply: !!parentMemoId,
     });
 
-    if (authenticatedUser.password !== password) {
+    // 🔐 VERIFY PASSWORD (hash‑aware)
+    const passwordValid = await verifyPassword(password, authenticatedUser.password, authenticatedUser.id);
+    if (!passwordValid) {
       return NextResponse.json({ success: false, message: "Security Verification Failed: Incorrect Signature Password" }, { status: 403 });
     }
 
@@ -434,8 +454,8 @@ export async function PATCH(request) {
       }, { status: 400 });
     }
 
-    const passwordMatch = (password === authenticatedUser.password);
-    if (!passwordMatch) {
+    const passwordValid = await verifyPassword(password, authenticatedUser.password, authenticatedUser.id);
+    if (!passwordValid) {
       return NextResponse.json({ success: false, message: "Security signature password invalid" }, { status: 403 });
     }
 

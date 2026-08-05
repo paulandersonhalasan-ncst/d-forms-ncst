@@ -80,8 +80,7 @@ export default function AccessDeniedPage() {
     } catch {
     } finally {
       setLoggingOut(false);
-      router.push("/");
-      router.refresh();
+      window.location.href = "/";
     }
   }
 

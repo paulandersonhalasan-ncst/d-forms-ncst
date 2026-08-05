@@ -24,11 +24,14 @@ export async function DELETE(request) {
     }
 
     const response = Response.json({ success: true, message: "Logged out" }, { status: 200 });
-    // Clear the cookie by setting it to empty and expiring it
     response.headers.append(
       "Set-Cookie",
       `session_token=; Path=/; HttpOnly; Secure; SameSite=Strict; Expires=Thu, 01 Jan 1970 00:00:00 GMT`
     );
+    response.headers.append("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+    response.headers.append("Pragma", "no-cache");
+    response.headers.append("Expires", "0");
+    
     return response;
   } catch (error) {
     console.error("Logout Error in route:", error);

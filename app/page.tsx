@@ -149,9 +149,9 @@ export default function LoginPage() {
 
                     <Button 
                         variant="filled" 
-                        style={{ width: '100%', padding: '10px 12px' }} 
+                        style={{ width: '100%', padding: '5px' }}
                         type="submit"
-                        loading={loading} // Nagpapakita ng spinner habang nag-a-authenticate
+                        loading={loading}
                     >
                         Login
                     </Button>

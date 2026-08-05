@@ -2,6 +2,7 @@
 import { prisma } from "../../../../prisma/prisma";
 import { jwtVerify } from "jose";
 import { logActivity } from "../../../lib/logger";
+import bcrypt from 'bcrypt';
 
 export async function POST(request) {
   try {
@@ -74,16 +75,18 @@ export async function POST(request) {
         );
       }
 
+      const hashedPassword = await bcrypt.hash(password, 12);
+
       // 4. INSERTION: Isaksak na sa Postgres!
       // Pro-tip: Sa production, dapat naka-hash ang password gamit ang bcrypt: await bcrypt.hash(password, 10)
       const newUser = await prisma.user.create({
         data: {
           employee_id: employee_id.trim(),
           email: email.toLowerCase().trim(),
-          password: password, // Plain text muna gaya ng setup mo ngayon
+          password: hashedPassword,
           fname: fname.trim(),
           lname: lname.trim(),
-          role: role, // Awtomatikong babasahin ang Enum (Staff, OIC, DepartmentHead, SuperUser, Admin)
+          role: role,
           branch: branch || "MAIN",
           departmentCode: targetDept.code,
         }

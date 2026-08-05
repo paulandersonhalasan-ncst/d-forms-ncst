@@ -1,7 +1,6 @@
 'use client';
 
-import { Suspense } from 'react';
-import { useState, useEffect } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Container,
@@ -17,9 +16,21 @@ import {
   Loader,
   Center,
 } from '@mantine/core';
-import { IconCheck, IconAlertCircle, IconLock } from '@tabler/icons-react';
+import { IconCheck, IconX, IconAlertCircle, IconLock } from '@tabler/icons-react';
 
-// ✅ I‑separate ang component na may useSearchParams
+// Helper: validate password against all rules
+function validatePassword(password: string) {
+  const rules = {
+    length: password.length > 8,
+    symbol: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]+/.test(password),
+    uppercase: /[A-Z]/.test(password),
+    number: /[0-9]/.test(password),
+    noNcst: !/ncst/i.test(password),
+  };
+  const allValid = Object.values(rules).every(Boolean);
+  return { rules, allValid };
+}
+
 function ResetPasswordForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -32,6 +43,10 @@ function ResetPasswordForm() {
   const [success, setSuccess] = useState(false);
   const [validating, setValidating] = useState(true);
   const [tokenValid, setTokenValid] = useState(false);
+
+  // Live validation state
+  const { rules, allValid } = validatePassword(newPassword);
+  const passwordsMatch = confirmPassword === '' || newPassword === confirmPassword;
 
   // Validate token on load
   useEffect(() => {
@@ -46,7 +61,7 @@ function ResetPasswordForm() {
         const res = await fetch(`/api/auth/validate_reset_token?token=${token}`);
         const data = await res.json();
         setTokenValid(data.valid);
-      } catch (err) {
+      } catch {
         setTokenValid(false);
       } finally {
         setValidating(false);
@@ -60,11 +75,11 @@ function ResetPasswordForm() {
     e.preventDefault();
     setError('');
 
-    if (newPassword.length < 8) {
-      setError('Password must be at least 8 characters.');
+    // Final validation (should already be prevented by button disable, but double‑check)
+    if (!allValid) {
+      setError('Please meet all password requirements.');
       return;
     }
-
     if (newPassword !== confirmPassword) {
       setError('Passwords do not match.');
       return;
@@ -92,7 +107,7 @@ function ResetPasswordForm() {
       } else {
         setError(data.message || 'Failed to reset password.');
       }
-    } catch (err) {
+    } catch {
       setError('An error occurred. Please try again.');
     } finally {
       setLoading(false);
@@ -183,8 +198,51 @@ function ResetPasswordForm() {
               onChange={(e) => setNewPassword(e.currentTarget.value)}
               required
               leftSection={<IconLock size={16} />}
-              description="Password must be at least 8 characters."
             />
+
+            {/* Live validation summary */}
+            <Stack gap="xs" ml="sm">
+              <Group gap="xs">
+                <ThemeIcon size="xs" color={rules.length ? 'green' : 'gray'} variant="light" radius="xl">
+                  {rules.length ? <IconCheck size={12} /> : <IconX size={12} />}
+                </ThemeIcon>
+                <Text size="sm" c={rules.length ? 'green' : 'dimmed'}>
+                  More than 8 characters
+                </Text>
+              </Group>
+              <Group gap="xs">
+                <ThemeIcon size="xs" color={rules.symbol ? 'green' : 'gray'} variant="light" radius="xl">
+                  {rules.symbol ? <IconCheck size={12} /> : <IconX size={12} />}
+                </ThemeIcon>
+                <Text size="sm" c={rules.symbol ? 'green' : 'dimmed'}>
+                  At least one symbol
+                </Text>
+              </Group>
+              <Group gap="xs">
+                <ThemeIcon size="xs" color={rules.uppercase ? 'green' : 'gray'} variant="light" radius="xl">
+                  {rules.uppercase ? <IconCheck size={12} /> : <IconX size={12} />}
+                </ThemeIcon>
+                <Text size="sm" c={rules.uppercase ? 'green' : 'dimmed'}>
+                  At least one uppercase letter
+                </Text>
+              </Group>
+              <Group gap="xs">
+                <ThemeIcon size="xs" color={rules.number ? 'green' : 'gray'} variant="light" radius="xl">
+                  {rules.number ? <IconCheck size={12} /> : <IconX size={12} />}
+                </ThemeIcon>
+                <Text size="sm" c={rules.number ? 'green' : 'dimmed'}>
+                  At least one number (0–9)
+                </Text>
+              </Group>
+              <Group gap="xs">
+                <ThemeIcon size="xs" color={rules.noNcst ? 'green' : 'gray'} variant="light" radius="xl">
+                  {rules.noNcst ? <IconCheck size={12} /> : <IconX size={12} />}
+                </ThemeIcon>
+                <Text size="sm" c={rules.noNcst ? 'green' : 'dimmed'}>
+                  Must not contain &rdquo;NCST&rdquo; (case‑insensitive)
+                </Text>
+              </Group>
+            </Stack>
 
             <PasswordInput
               label="Confirm New Password"
@@ -192,13 +250,18 @@ function ResetPasswordForm() {
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.currentTarget.value)}
               required
+              error={confirmPassword && !passwordsMatch ? 'Passwords do not match' : undefined}
             />
 
             <Group justify="flex-end" mt="md">
               <Button variant="subtle" onClick={() => router.push('/')}>
                 Cancel
               </Button>
-              <Button type="submit" loading={loading}>
+              <Button
+                type="submit"
+                loading={loading}
+                disabled={!allValid || !passwordsMatch || loading}
+              >
                 Reset Password
               </Button>
             </Group>

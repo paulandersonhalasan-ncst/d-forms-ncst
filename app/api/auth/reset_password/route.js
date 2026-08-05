@@ -3,6 +3,7 @@ import { prisma } from '../../../../prisma/prisma';
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
 dayjs.extend(utc);
+import bcrypt from 'bcrypt';
 
 export async function POST(request) {
   try {
@@ -43,12 +44,14 @@ export async function POST(request) {
     }
 
     console.log('✅ Token valid for user:', user.email);
+
+    const hashedPassword = await bcrypt.hash(newPassword, 12);
     
     // Update user password at clear reset token
     await prisma.user.update({
       where: { id: user.id },
       data: {
-        password: newPassword,
+        password: hashedPassword,
         resetToken: null,
         resetTokenExpiry: null,
         forgot_password: false,

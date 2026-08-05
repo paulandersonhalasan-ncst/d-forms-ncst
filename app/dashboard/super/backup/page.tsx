@@ -31,6 +31,19 @@ import useSWR from 'swr';
 import { DatePicker } from '@mantine/dates';
 import dayjs from 'dayjs';
 
+interface LastActionData {
+  data: {
+    user?: {
+      fname?: string;
+      lname?: string;
+      email?: string;
+    } | null;
+    email?: string | null;
+    details?: string | { count?: number; imported?: number; [key: string]: unknown } | null;
+    createdAt: string;
+  } | null;
+}
+
 function CollapsibleAlert({
   title,
   icon,
@@ -151,6 +164,17 @@ export default function BackupPage() {
     label: d.code,
   }));
 
+  // Last action data
+  const { data: lastExportData } = useSWR('/api/super/last_action?action=ADMIN_EXPORT_MEMOS', fetcher, {
+  refreshInterval: 300000, // refresh every 30 seconds
+  });
+  const { data: lastDeleteData } = useSWR('/api/super/last_action?action=ADMIN_DELETE_MEMOS', fetcher, {
+    refreshInterval: 300000,
+  });
+  const { data: lastImportData } = useSWR('/api/super/last_ action?action=ADMIN_IMPORT_MEMOS', fetcher, {
+    refreshInterval: 300000,
+  });
+
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<{
@@ -252,6 +276,31 @@ export default function BackupPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const formatLastAction = (data: LastActionData) => {
+    if (!data?.data) return 'No recent action.';
+    const log = data.data;
+    const user = log.user || { fname: 'System', lname: '', email: log.email || 'Unknown' };
+    const name = `${user.fname} ${user.lname}`.trim() || user.email || 'System';
+    
+    // Safely extract the count from details (handle both object and string)
+    let count = 0;
+    if (log.details) {
+      if (typeof log.details === 'string') {
+        try {
+          const parsed = JSON.parse(log.details);
+          count = parsed.count || parsed.imported || 0;
+        } catch {
+          count = 0;
+        }
+      } else {
+        count = log.details.count || log.details.imported || 0;
+      }
+    }
+    
+    const time = dayjs(log.createdAt).format('MMM D, YYYY h:mm A');
+    return `Last: ${time} by ${name} (${count} memos)`;
   };
 
   // --- Export function for Export tab (yearly) ---
@@ -390,15 +439,26 @@ export default function BackupPage() {
 
           <Tabs defaultValue="export" variant="pills" radius="md">
             <Tabs.List>
-              <Tabs.Tab value="export" leftSection={<IconFileExport size={16} />}>Export</Tabs.Tab>
-              <Tabs.Tab value="delete" leftSection={<IconTrash size={16} />}>Delete</Tabs.Tab>
-              <Tabs.Tab value="restore" leftSection={<IconCalendar size={16} />}>Restore</Tabs.Tab>
+              <Tabs.Tab value="export" leftSection={<IconFileExport size={16} />}>
+                Export
+              </Tabs.Tab>
+
+              <Tabs.Tab value="delete" leftSection={<IconTrash size={16} />}>
+                Delete
+              </Tabs.Tab>
+
+              <Tabs.Tab value="restore" leftSection={<IconCalendar size={16} />}>
+                Restore
+              </Tabs.Tab>
 
             </Tabs.List>
 
             {/* ========== EXPORT TAB ========== */}
             <Tabs.Panel value="export" pt="md">
               <Stack gap="md">
+                <Badge size="md" ml={6} color="gray" variant="light">
+                  {lastExportData ? formatLastAction(lastExportData) : 'No logs yet/Waiting to load...'}
+                </Badge>
                 <CollapsibleAlert
                   title="Restorable Format"
                   icon={<IconInfoCircle size={16} />}
@@ -507,6 +567,9 @@ export default function BackupPage() {
             {/* ========== DELETE TAB ========== */}
             <Tabs.Panel value="delete" pt="md">
               <Stack gap="md">
+                <Badge size="md" ml={6} color="gray" variant="light">
+                  {lastDeleteData ? formatLastAction(lastDeleteData) : 'No logs yet/Waiting to load...'}
+                </Badge>
                 <CollapsibleAlert
                   title="Permanent Deletion"
                   icon={<IconInfoCircle size={16} />}
@@ -661,6 +724,9 @@ export default function BackupPage() {
             {/* ========== RESTORE TAB ========== */}
             <Tabs.Panel value="restore" pt="md">
               <Stack gap="md">
+                <Badge size="md" ml={6} color="gray" variant="light">
+                  {lastImportData ? formatLastAction(lastImportData) : 'No logs yet/Waiting to load...'}
+                </Badge>
                 <CollapsibleAlert
                   title="Restore Memos"
                   icon={<IconInfoCircle size={16} />}
