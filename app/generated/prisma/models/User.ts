@@ -292,6 +292,10 @@ export type UserWhereInput = {
   login_logs?: Prisma.LoginLogListRelationFilter
   activity_logs?: Prisma.ActivityLogListRelationFilter
   memosCreated?: Prisma.MemoListRelationFilter
+  facilityRequests?: Prisma.FacilityReservationListRelationFilter
+  ocmEdits?: Prisma.FacilityReservationListRelationFilter
+  approvalsPerformed?: Prisma.FacilityApprovalListRelationFilter
+  facilityAssignments?: Prisma.FacilityAssignmentListRelationFilter
 }
 
 export type UserOrderByWithRelationInput = {
@@ -319,6 +323,10 @@ export type UserOrderByWithRelationInput = {
   login_logs?: Prisma.LoginLogOrderByRelationAggregateInput
   activity_logs?: Prisma.ActivityLogOrderByRelationAggregateInput
   memosCreated?: Prisma.MemoOrderByRelationAggregateInput
+  facilityRequests?: Prisma.FacilityReservationOrderByRelationAggregateInput
+  ocmEdits?: Prisma.FacilityReservationOrderByRelationAggregateInput
+  approvalsPerformed?: Prisma.FacilityApprovalOrderByRelationAggregateInput
+  facilityAssignments?: Prisma.FacilityAssignmentOrderByRelationAggregateInput
 }
 
 export type UserWhereUniqueInput = Prisma.AtLeast<{
@@ -349,6 +357,10 @@ export type UserWhereUniqueInput = Prisma.AtLeast<{
   login_logs?: Prisma.LoginLogListRelationFilter
   activity_logs?: Prisma.ActivityLogListRelationFilter
   memosCreated?: Prisma.MemoListRelationFilter
+  facilityRequests?: Prisma.FacilityReservationListRelationFilter
+  ocmEdits?: Prisma.FacilityReservationListRelationFilter
+  approvalsPerformed?: Prisma.FacilityApprovalListRelationFilter
+  facilityAssignments?: Prisma.FacilityAssignmentListRelationFilter
 }, "id" | "email" | "resetToken">
 
 export type UserOrderByWithAggregationInput = {
@@ -423,6 +435,10 @@ export type UserCreateInput = {
   login_logs?: Prisma.LoginLogCreateNestedManyWithoutUserInput
   activity_logs?: Prisma.ActivityLogCreateNestedManyWithoutUserInput
   memosCreated?: Prisma.MemoCreateNestedManyWithoutSenderInput
+  facilityRequests?: Prisma.FacilityReservationCreateNestedManyWithoutRequestorInput
+  ocmEdits?: Prisma.FacilityReservationCreateNestedManyWithoutOcmEditedByInput
+  approvalsPerformed?: Prisma.FacilityApprovalCreateNestedManyWithoutPerformedByInput
+  facilityAssignments?: Prisma.FacilityAssignmentCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateInput = {
@@ -449,6 +465,10 @@ export type UserUncheckedCreateInput = {
   login_logs?: Prisma.LoginLogUncheckedCreateNestedManyWithoutUserInput
   activity_logs?: Prisma.ActivityLogUncheckedCreateNestedManyWithoutUserInput
   memosCreated?: Prisma.MemoUncheckedCreateNestedManyWithoutSenderInput
+  facilityRequests?: Prisma.FacilityReservationUncheckedCreateNestedManyWithoutRequestorInput
+  ocmEdits?: Prisma.FacilityReservationUncheckedCreateNestedManyWithoutOcmEditedByInput
+  approvalsPerformed?: Prisma.FacilityApprovalUncheckedCreateNestedManyWithoutPerformedByInput
+  facilityAssignments?: Prisma.FacilityAssignmentUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserUpdateInput = {
@@ -475,6 +495,10 @@ export type UserUpdateInput = {
   login_logs?: Prisma.LoginLogUpdateManyWithoutUserNestedInput
   activity_logs?: Prisma.ActivityLogUpdateManyWithoutUserNestedInput
   memosCreated?: Prisma.MemoUpdateManyWithoutSenderNestedInput
+  facilityRequests?: Prisma.FacilityReservationUpdateManyWithoutRequestorNestedInput
+  ocmEdits?: Prisma.FacilityReservationUpdateManyWithoutOcmEditedByNestedInput
+  approvalsPerformed?: Prisma.FacilityApprovalUpdateManyWithoutPerformedByNestedInput
+  facilityAssignments?: Prisma.FacilityAssignmentUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateInput = {
@@ -501,6 +525,10 @@ export type UserUncheckedUpdateInput = {
   login_logs?: Prisma.LoginLogUncheckedUpdateManyWithoutUserNestedInput
   activity_logs?: Prisma.ActivityLogUncheckedUpdateManyWithoutUserNestedInput
   memosCreated?: Prisma.MemoUncheckedUpdateManyWithoutSenderNestedInput
+  facilityRequests?: Prisma.FacilityReservationUncheckedUpdateManyWithoutRequestorNestedInput
+  ocmEdits?: Prisma.FacilityReservationUncheckedUpdateManyWithoutOcmEditedByNestedInput
+  approvalsPerformed?: Prisma.FacilityApprovalUncheckedUpdateManyWithoutPerformedByNestedInput
+  facilityAssignments?: Prisma.FacilityAssignmentUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateManyInput = {
@@ -792,6 +820,66 @@ export type UserUpdateOneRequiredWithoutMemosCreatedNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutMemosCreatedInput, Prisma.UserUpdateWithoutMemosCreatedInput>, Prisma.UserUncheckedUpdateWithoutMemosCreatedInput>
 }
 
+export type UserCreateNestedOneWithoutFacilityRequestsInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutFacilityRequestsInput, Prisma.UserUncheckedCreateWithoutFacilityRequestsInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutFacilityRequestsInput
+  connect?: Prisma.UserWhereUniqueInput
+}
+
+export type UserCreateNestedOneWithoutOcmEditsInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutOcmEditsInput, Prisma.UserUncheckedCreateWithoutOcmEditsInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutOcmEditsInput
+  connect?: Prisma.UserWhereUniqueInput
+}
+
+export type UserUpdateOneRequiredWithoutFacilityRequestsNestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutFacilityRequestsInput, Prisma.UserUncheckedCreateWithoutFacilityRequestsInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutFacilityRequestsInput
+  upsert?: Prisma.UserUpsertWithoutFacilityRequestsInput
+  connect?: Prisma.UserWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutFacilityRequestsInput, Prisma.UserUpdateWithoutFacilityRequestsInput>, Prisma.UserUncheckedUpdateWithoutFacilityRequestsInput>
+}
+
+export type UserUpdateOneWithoutOcmEditsNestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutOcmEditsInput, Prisma.UserUncheckedCreateWithoutOcmEditsInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutOcmEditsInput
+  upsert?: Prisma.UserUpsertWithoutOcmEditsInput
+  disconnect?: Prisma.UserWhereInput | boolean
+  delete?: Prisma.UserWhereInput | boolean
+  connect?: Prisma.UserWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutOcmEditsInput, Prisma.UserUpdateWithoutOcmEditsInput>, Prisma.UserUncheckedUpdateWithoutOcmEditsInput>
+}
+
+export type UserCreateNestedOneWithoutApprovalsPerformedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutApprovalsPerformedInput, Prisma.UserUncheckedCreateWithoutApprovalsPerformedInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutApprovalsPerformedInput
+  connect?: Prisma.UserWhereUniqueInput
+}
+
+export type UserUpdateOneWithoutApprovalsPerformedNestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutApprovalsPerformedInput, Prisma.UserUncheckedCreateWithoutApprovalsPerformedInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutApprovalsPerformedInput
+  upsert?: Prisma.UserUpsertWithoutApprovalsPerformedInput
+  disconnect?: Prisma.UserWhereInput | boolean
+  delete?: Prisma.UserWhereInput | boolean
+  connect?: Prisma.UserWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutApprovalsPerformedInput, Prisma.UserUpdateWithoutApprovalsPerformedInput>, Prisma.UserUncheckedUpdateWithoutApprovalsPerformedInput>
+}
+
+export type UserCreateNestedOneWithoutFacilityAssignmentsInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutFacilityAssignmentsInput, Prisma.UserUncheckedCreateWithoutFacilityAssignmentsInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutFacilityAssignmentsInput
+  connect?: Prisma.UserWhereUniqueInput
+}
+
+export type UserUpdateOneRequiredWithoutFacilityAssignmentsNestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutFacilityAssignmentsInput, Prisma.UserUncheckedCreateWithoutFacilityAssignmentsInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutFacilityAssignmentsInput
+  upsert?: Prisma.UserUpsertWithoutFacilityAssignmentsInput
+  connect?: Prisma.UserWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutFacilityAssignmentsInput, Prisma.UserUpdateWithoutFacilityAssignmentsInput>, Prisma.UserUncheckedUpdateWithoutFacilityAssignmentsInput>
+}
+
 export type UserCreateWithoutDepartmentInput = {
   id?: string
   employee_id: string
@@ -815,6 +903,10 @@ export type UserCreateWithoutDepartmentInput = {
   login_logs?: Prisma.LoginLogCreateNestedManyWithoutUserInput
   activity_logs?: Prisma.ActivityLogCreateNestedManyWithoutUserInput
   memosCreated?: Prisma.MemoCreateNestedManyWithoutSenderInput
+  facilityRequests?: Prisma.FacilityReservationCreateNestedManyWithoutRequestorInput
+  ocmEdits?: Prisma.FacilityReservationCreateNestedManyWithoutOcmEditedByInput
+  approvalsPerformed?: Prisma.FacilityApprovalCreateNestedManyWithoutPerformedByInput
+  facilityAssignments?: Prisma.FacilityAssignmentCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutDepartmentInput = {
@@ -840,6 +932,10 @@ export type UserUncheckedCreateWithoutDepartmentInput = {
   login_logs?: Prisma.LoginLogUncheckedCreateNestedManyWithoutUserInput
   activity_logs?: Prisma.ActivityLogUncheckedCreateNestedManyWithoutUserInput
   memosCreated?: Prisma.MemoUncheckedCreateNestedManyWithoutSenderInput
+  facilityRequests?: Prisma.FacilityReservationUncheckedCreateNestedManyWithoutRequestorInput
+  ocmEdits?: Prisma.FacilityReservationUncheckedCreateNestedManyWithoutOcmEditedByInput
+  approvalsPerformed?: Prisma.FacilityApprovalUncheckedCreateNestedManyWithoutPerformedByInput
+  facilityAssignments?: Prisma.FacilityAssignmentUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutDepartmentInput = {
@@ -915,6 +1011,10 @@ export type UserCreateWithoutActivity_logsInput = {
   sent_notif?: Prisma.NotificationCreateNestedManyWithoutSenderInput
   login_logs?: Prisma.LoginLogCreateNestedManyWithoutUserInput
   memosCreated?: Prisma.MemoCreateNestedManyWithoutSenderInput
+  facilityRequests?: Prisma.FacilityReservationCreateNestedManyWithoutRequestorInput
+  ocmEdits?: Prisma.FacilityReservationCreateNestedManyWithoutOcmEditedByInput
+  approvalsPerformed?: Prisma.FacilityApprovalCreateNestedManyWithoutPerformedByInput
+  facilityAssignments?: Prisma.FacilityAssignmentCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutActivity_logsInput = {
@@ -940,6 +1040,10 @@ export type UserUncheckedCreateWithoutActivity_logsInput = {
   sent_notif?: Prisma.NotificationUncheckedCreateNestedManyWithoutSenderInput
   login_logs?: Prisma.LoginLogUncheckedCreateNestedManyWithoutUserInput
   memosCreated?: Prisma.MemoUncheckedCreateNestedManyWithoutSenderInput
+  facilityRequests?: Prisma.FacilityReservationUncheckedCreateNestedManyWithoutRequestorInput
+  ocmEdits?: Prisma.FacilityReservationUncheckedCreateNestedManyWithoutOcmEditedByInput
+  approvalsPerformed?: Prisma.FacilityApprovalUncheckedCreateNestedManyWithoutPerformedByInput
+  facilityAssignments?: Prisma.FacilityAssignmentUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutActivity_logsInput = {
@@ -981,6 +1085,10 @@ export type UserUpdateWithoutActivity_logsInput = {
   sent_notif?: Prisma.NotificationUpdateManyWithoutSenderNestedInput
   login_logs?: Prisma.LoginLogUpdateManyWithoutUserNestedInput
   memosCreated?: Prisma.MemoUpdateManyWithoutSenderNestedInput
+  facilityRequests?: Prisma.FacilityReservationUpdateManyWithoutRequestorNestedInput
+  ocmEdits?: Prisma.FacilityReservationUpdateManyWithoutOcmEditedByNestedInput
+  approvalsPerformed?: Prisma.FacilityApprovalUpdateManyWithoutPerformedByNestedInput
+  facilityAssignments?: Prisma.FacilityAssignmentUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutActivity_logsInput = {
@@ -1006,6 +1114,10 @@ export type UserUncheckedUpdateWithoutActivity_logsInput = {
   sent_notif?: Prisma.NotificationUncheckedUpdateManyWithoutSenderNestedInput
   login_logs?: Prisma.LoginLogUncheckedUpdateManyWithoutUserNestedInput
   memosCreated?: Prisma.MemoUncheckedUpdateManyWithoutSenderNestedInput
+  facilityRequests?: Prisma.FacilityReservationUncheckedUpdateManyWithoutRequestorNestedInput
+  ocmEdits?: Prisma.FacilityReservationUncheckedUpdateManyWithoutOcmEditedByNestedInput
+  approvalsPerformed?: Prisma.FacilityApprovalUncheckedUpdateManyWithoutPerformedByNestedInput
+  facilityAssignments?: Prisma.FacilityAssignmentUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutReceived_notifInput = {
@@ -1031,6 +1143,10 @@ export type UserCreateWithoutReceived_notifInput = {
   login_logs?: Prisma.LoginLogCreateNestedManyWithoutUserInput
   activity_logs?: Prisma.ActivityLogCreateNestedManyWithoutUserInput
   memosCreated?: Prisma.MemoCreateNestedManyWithoutSenderInput
+  facilityRequests?: Prisma.FacilityReservationCreateNestedManyWithoutRequestorInput
+  ocmEdits?: Prisma.FacilityReservationCreateNestedManyWithoutOcmEditedByInput
+  approvalsPerformed?: Prisma.FacilityApprovalCreateNestedManyWithoutPerformedByInput
+  facilityAssignments?: Prisma.FacilityAssignmentCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutReceived_notifInput = {
@@ -1056,6 +1172,10 @@ export type UserUncheckedCreateWithoutReceived_notifInput = {
   login_logs?: Prisma.LoginLogUncheckedCreateNestedManyWithoutUserInput
   activity_logs?: Prisma.ActivityLogUncheckedCreateNestedManyWithoutUserInput
   memosCreated?: Prisma.MemoUncheckedCreateNestedManyWithoutSenderInput
+  facilityRequests?: Prisma.FacilityReservationUncheckedCreateNestedManyWithoutRequestorInput
+  ocmEdits?: Prisma.FacilityReservationUncheckedCreateNestedManyWithoutOcmEditedByInput
+  approvalsPerformed?: Prisma.FacilityApprovalUncheckedCreateNestedManyWithoutPerformedByInput
+  facilityAssignments?: Prisma.FacilityAssignmentUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutReceived_notifInput = {
@@ -1086,6 +1206,10 @@ export type UserCreateWithoutSent_notifInput = {
   login_logs?: Prisma.LoginLogCreateNestedManyWithoutUserInput
   activity_logs?: Prisma.ActivityLogCreateNestedManyWithoutUserInput
   memosCreated?: Prisma.MemoCreateNestedManyWithoutSenderInput
+  facilityRequests?: Prisma.FacilityReservationCreateNestedManyWithoutRequestorInput
+  ocmEdits?: Prisma.FacilityReservationCreateNestedManyWithoutOcmEditedByInput
+  approvalsPerformed?: Prisma.FacilityApprovalCreateNestedManyWithoutPerformedByInput
+  facilityAssignments?: Prisma.FacilityAssignmentCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutSent_notifInput = {
@@ -1111,6 +1235,10 @@ export type UserUncheckedCreateWithoutSent_notifInput = {
   login_logs?: Prisma.LoginLogUncheckedCreateNestedManyWithoutUserInput
   activity_logs?: Prisma.ActivityLogUncheckedCreateNestedManyWithoutUserInput
   memosCreated?: Prisma.MemoUncheckedCreateNestedManyWithoutSenderInput
+  facilityRequests?: Prisma.FacilityReservationUncheckedCreateNestedManyWithoutRequestorInput
+  ocmEdits?: Prisma.FacilityReservationUncheckedCreateNestedManyWithoutOcmEditedByInput
+  approvalsPerformed?: Prisma.FacilityApprovalUncheckedCreateNestedManyWithoutPerformedByInput
+  facilityAssignments?: Prisma.FacilityAssignmentUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutSent_notifInput = {
@@ -1152,6 +1280,10 @@ export type UserUpdateWithoutReceived_notifInput = {
   login_logs?: Prisma.LoginLogUpdateManyWithoutUserNestedInput
   activity_logs?: Prisma.ActivityLogUpdateManyWithoutUserNestedInput
   memosCreated?: Prisma.MemoUpdateManyWithoutSenderNestedInput
+  facilityRequests?: Prisma.FacilityReservationUpdateManyWithoutRequestorNestedInput
+  ocmEdits?: Prisma.FacilityReservationUpdateManyWithoutOcmEditedByNestedInput
+  approvalsPerformed?: Prisma.FacilityApprovalUpdateManyWithoutPerformedByNestedInput
+  facilityAssignments?: Prisma.FacilityAssignmentUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutReceived_notifInput = {
@@ -1177,6 +1309,10 @@ export type UserUncheckedUpdateWithoutReceived_notifInput = {
   login_logs?: Prisma.LoginLogUncheckedUpdateManyWithoutUserNestedInput
   activity_logs?: Prisma.ActivityLogUncheckedUpdateManyWithoutUserNestedInput
   memosCreated?: Prisma.MemoUncheckedUpdateManyWithoutSenderNestedInput
+  facilityRequests?: Prisma.FacilityReservationUncheckedUpdateManyWithoutRequestorNestedInput
+  ocmEdits?: Prisma.FacilityReservationUncheckedUpdateManyWithoutOcmEditedByNestedInput
+  approvalsPerformed?: Prisma.FacilityApprovalUncheckedUpdateManyWithoutPerformedByNestedInput
+  facilityAssignments?: Prisma.FacilityAssignmentUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserUpsertWithoutSent_notifInput = {
@@ -1213,6 +1349,10 @@ export type UserUpdateWithoutSent_notifInput = {
   login_logs?: Prisma.LoginLogUpdateManyWithoutUserNestedInput
   activity_logs?: Prisma.ActivityLogUpdateManyWithoutUserNestedInput
   memosCreated?: Prisma.MemoUpdateManyWithoutSenderNestedInput
+  facilityRequests?: Prisma.FacilityReservationUpdateManyWithoutRequestorNestedInput
+  ocmEdits?: Prisma.FacilityReservationUpdateManyWithoutOcmEditedByNestedInput
+  approvalsPerformed?: Prisma.FacilityApprovalUpdateManyWithoutPerformedByNestedInput
+  facilityAssignments?: Prisma.FacilityAssignmentUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutSent_notifInput = {
@@ -1238,6 +1378,10 @@ export type UserUncheckedUpdateWithoutSent_notifInput = {
   login_logs?: Prisma.LoginLogUncheckedUpdateManyWithoutUserNestedInput
   activity_logs?: Prisma.ActivityLogUncheckedUpdateManyWithoutUserNestedInput
   memosCreated?: Prisma.MemoUncheckedUpdateManyWithoutSenderNestedInput
+  facilityRequests?: Prisma.FacilityReservationUncheckedUpdateManyWithoutRequestorNestedInput
+  ocmEdits?: Prisma.FacilityReservationUncheckedUpdateManyWithoutOcmEditedByNestedInput
+  approvalsPerformed?: Prisma.FacilityApprovalUncheckedUpdateManyWithoutPerformedByNestedInput
+  facilityAssignments?: Prisma.FacilityAssignmentUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutLogin_logsInput = {
@@ -1263,6 +1407,10 @@ export type UserCreateWithoutLogin_logsInput = {
   sent_notif?: Prisma.NotificationCreateNestedManyWithoutSenderInput
   activity_logs?: Prisma.ActivityLogCreateNestedManyWithoutUserInput
   memosCreated?: Prisma.MemoCreateNestedManyWithoutSenderInput
+  facilityRequests?: Prisma.FacilityReservationCreateNestedManyWithoutRequestorInput
+  ocmEdits?: Prisma.FacilityReservationCreateNestedManyWithoutOcmEditedByInput
+  approvalsPerformed?: Prisma.FacilityApprovalCreateNestedManyWithoutPerformedByInput
+  facilityAssignments?: Prisma.FacilityAssignmentCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutLogin_logsInput = {
@@ -1288,6 +1436,10 @@ export type UserUncheckedCreateWithoutLogin_logsInput = {
   sent_notif?: Prisma.NotificationUncheckedCreateNestedManyWithoutSenderInput
   activity_logs?: Prisma.ActivityLogUncheckedCreateNestedManyWithoutUserInput
   memosCreated?: Prisma.MemoUncheckedCreateNestedManyWithoutSenderInput
+  facilityRequests?: Prisma.FacilityReservationUncheckedCreateNestedManyWithoutRequestorInput
+  ocmEdits?: Prisma.FacilityReservationUncheckedCreateNestedManyWithoutOcmEditedByInput
+  approvalsPerformed?: Prisma.FacilityApprovalUncheckedCreateNestedManyWithoutPerformedByInput
+  facilityAssignments?: Prisma.FacilityAssignmentUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutLogin_logsInput = {
@@ -1329,6 +1481,10 @@ export type UserUpdateWithoutLogin_logsInput = {
   sent_notif?: Prisma.NotificationUpdateManyWithoutSenderNestedInput
   activity_logs?: Prisma.ActivityLogUpdateManyWithoutUserNestedInput
   memosCreated?: Prisma.MemoUpdateManyWithoutSenderNestedInput
+  facilityRequests?: Prisma.FacilityReservationUpdateManyWithoutRequestorNestedInput
+  ocmEdits?: Prisma.FacilityReservationUpdateManyWithoutOcmEditedByNestedInput
+  approvalsPerformed?: Prisma.FacilityApprovalUpdateManyWithoutPerformedByNestedInput
+  facilityAssignments?: Prisma.FacilityAssignmentUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutLogin_logsInput = {
@@ -1354,6 +1510,10 @@ export type UserUncheckedUpdateWithoutLogin_logsInput = {
   sent_notif?: Prisma.NotificationUncheckedUpdateManyWithoutSenderNestedInput
   activity_logs?: Prisma.ActivityLogUncheckedUpdateManyWithoutUserNestedInput
   memosCreated?: Prisma.MemoUncheckedUpdateManyWithoutSenderNestedInput
+  facilityRequests?: Prisma.FacilityReservationUncheckedUpdateManyWithoutRequestorNestedInput
+  ocmEdits?: Prisma.FacilityReservationUncheckedUpdateManyWithoutOcmEditedByNestedInput
+  approvalsPerformed?: Prisma.FacilityApprovalUncheckedUpdateManyWithoutPerformedByNestedInput
+  facilityAssignments?: Prisma.FacilityAssignmentUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutMemosCreatedInput = {
@@ -1379,6 +1539,10 @@ export type UserCreateWithoutMemosCreatedInput = {
   sent_notif?: Prisma.NotificationCreateNestedManyWithoutSenderInput
   login_logs?: Prisma.LoginLogCreateNestedManyWithoutUserInput
   activity_logs?: Prisma.ActivityLogCreateNestedManyWithoutUserInput
+  facilityRequests?: Prisma.FacilityReservationCreateNestedManyWithoutRequestorInput
+  ocmEdits?: Prisma.FacilityReservationCreateNestedManyWithoutOcmEditedByInput
+  approvalsPerformed?: Prisma.FacilityApprovalCreateNestedManyWithoutPerformedByInput
+  facilityAssignments?: Prisma.FacilityAssignmentCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutMemosCreatedInput = {
@@ -1404,6 +1568,10 @@ export type UserUncheckedCreateWithoutMemosCreatedInput = {
   sent_notif?: Prisma.NotificationUncheckedCreateNestedManyWithoutSenderInput
   login_logs?: Prisma.LoginLogUncheckedCreateNestedManyWithoutUserInput
   activity_logs?: Prisma.ActivityLogUncheckedCreateNestedManyWithoutUserInput
+  facilityRequests?: Prisma.FacilityReservationUncheckedCreateNestedManyWithoutRequestorInput
+  ocmEdits?: Prisma.FacilityReservationUncheckedCreateNestedManyWithoutOcmEditedByInput
+  approvalsPerformed?: Prisma.FacilityApprovalUncheckedCreateNestedManyWithoutPerformedByInput
+  facilityAssignments?: Prisma.FacilityAssignmentUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutMemosCreatedInput = {
@@ -1445,6 +1613,10 @@ export type UserUpdateWithoutMemosCreatedInput = {
   sent_notif?: Prisma.NotificationUpdateManyWithoutSenderNestedInput
   login_logs?: Prisma.LoginLogUpdateManyWithoutUserNestedInput
   activity_logs?: Prisma.ActivityLogUpdateManyWithoutUserNestedInput
+  facilityRequests?: Prisma.FacilityReservationUpdateManyWithoutRequestorNestedInput
+  ocmEdits?: Prisma.FacilityReservationUpdateManyWithoutOcmEditedByNestedInput
+  approvalsPerformed?: Prisma.FacilityApprovalUpdateManyWithoutPerformedByNestedInput
+  facilityAssignments?: Prisma.FacilityAssignmentUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutMemosCreatedInput = {
@@ -1470,6 +1642,538 @@ export type UserUncheckedUpdateWithoutMemosCreatedInput = {
   sent_notif?: Prisma.NotificationUncheckedUpdateManyWithoutSenderNestedInput
   login_logs?: Prisma.LoginLogUncheckedUpdateManyWithoutUserNestedInput
   activity_logs?: Prisma.ActivityLogUncheckedUpdateManyWithoutUserNestedInput
+  facilityRequests?: Prisma.FacilityReservationUncheckedUpdateManyWithoutRequestorNestedInput
+  ocmEdits?: Prisma.FacilityReservationUncheckedUpdateManyWithoutOcmEditedByNestedInput
+  approvalsPerformed?: Prisma.FacilityApprovalUncheckedUpdateManyWithoutPerformedByNestedInput
+  facilityAssignments?: Prisma.FacilityAssignmentUncheckedUpdateManyWithoutUserNestedInput
+}
+
+export type UserCreateWithoutFacilityRequestsInput = {
+  id?: string
+  employee_id: string
+  email: string
+  password: string
+  fname: string
+  lname: string
+  role?: $Enums.Role
+  branch?: $Enums.SystemBranch
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  last_login?: Date | string | null
+  forgot_password?: boolean
+  resetToken?: string | null
+  resetTokenExpiry?: Date | string | null
+  oic_start?: string | null
+  oic_end?: string | null
+  disabled?: boolean
+  department: Prisma.DepartmentCreateNestedOneWithoutUsersInput
+  received_notif?: Prisma.NotificationCreateNestedManyWithoutRecipientInput
+  sent_notif?: Prisma.NotificationCreateNestedManyWithoutSenderInput
+  login_logs?: Prisma.LoginLogCreateNestedManyWithoutUserInput
+  activity_logs?: Prisma.ActivityLogCreateNestedManyWithoutUserInput
+  memosCreated?: Prisma.MemoCreateNestedManyWithoutSenderInput
+  ocmEdits?: Prisma.FacilityReservationCreateNestedManyWithoutOcmEditedByInput
+  approvalsPerformed?: Prisma.FacilityApprovalCreateNestedManyWithoutPerformedByInput
+  facilityAssignments?: Prisma.FacilityAssignmentCreateNestedManyWithoutUserInput
+}
+
+export type UserUncheckedCreateWithoutFacilityRequestsInput = {
+  id?: string
+  employee_id: string
+  email: string
+  password: string
+  fname: string
+  lname: string
+  role?: $Enums.Role
+  branch?: $Enums.SystemBranch
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  departmentCode: string
+  last_login?: Date | string | null
+  forgot_password?: boolean
+  resetToken?: string | null
+  resetTokenExpiry?: Date | string | null
+  oic_start?: string | null
+  oic_end?: string | null
+  disabled?: boolean
+  received_notif?: Prisma.NotificationUncheckedCreateNestedManyWithoutRecipientInput
+  sent_notif?: Prisma.NotificationUncheckedCreateNestedManyWithoutSenderInput
+  login_logs?: Prisma.LoginLogUncheckedCreateNestedManyWithoutUserInput
+  activity_logs?: Prisma.ActivityLogUncheckedCreateNestedManyWithoutUserInput
+  memosCreated?: Prisma.MemoUncheckedCreateNestedManyWithoutSenderInput
+  ocmEdits?: Prisma.FacilityReservationUncheckedCreateNestedManyWithoutOcmEditedByInput
+  approvalsPerformed?: Prisma.FacilityApprovalUncheckedCreateNestedManyWithoutPerformedByInput
+  facilityAssignments?: Prisma.FacilityAssignmentUncheckedCreateNestedManyWithoutUserInput
+}
+
+export type UserCreateOrConnectWithoutFacilityRequestsInput = {
+  where: Prisma.UserWhereUniqueInput
+  create: Prisma.XOR<Prisma.UserCreateWithoutFacilityRequestsInput, Prisma.UserUncheckedCreateWithoutFacilityRequestsInput>
+}
+
+export type UserCreateWithoutOcmEditsInput = {
+  id?: string
+  employee_id: string
+  email: string
+  password: string
+  fname: string
+  lname: string
+  role?: $Enums.Role
+  branch?: $Enums.SystemBranch
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  last_login?: Date | string | null
+  forgot_password?: boolean
+  resetToken?: string | null
+  resetTokenExpiry?: Date | string | null
+  oic_start?: string | null
+  oic_end?: string | null
+  disabled?: boolean
+  department: Prisma.DepartmentCreateNestedOneWithoutUsersInput
+  received_notif?: Prisma.NotificationCreateNestedManyWithoutRecipientInput
+  sent_notif?: Prisma.NotificationCreateNestedManyWithoutSenderInput
+  login_logs?: Prisma.LoginLogCreateNestedManyWithoutUserInput
+  activity_logs?: Prisma.ActivityLogCreateNestedManyWithoutUserInput
+  memosCreated?: Prisma.MemoCreateNestedManyWithoutSenderInput
+  facilityRequests?: Prisma.FacilityReservationCreateNestedManyWithoutRequestorInput
+  approvalsPerformed?: Prisma.FacilityApprovalCreateNestedManyWithoutPerformedByInput
+  facilityAssignments?: Prisma.FacilityAssignmentCreateNestedManyWithoutUserInput
+}
+
+export type UserUncheckedCreateWithoutOcmEditsInput = {
+  id?: string
+  employee_id: string
+  email: string
+  password: string
+  fname: string
+  lname: string
+  role?: $Enums.Role
+  branch?: $Enums.SystemBranch
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  departmentCode: string
+  last_login?: Date | string | null
+  forgot_password?: boolean
+  resetToken?: string | null
+  resetTokenExpiry?: Date | string | null
+  oic_start?: string | null
+  oic_end?: string | null
+  disabled?: boolean
+  received_notif?: Prisma.NotificationUncheckedCreateNestedManyWithoutRecipientInput
+  sent_notif?: Prisma.NotificationUncheckedCreateNestedManyWithoutSenderInput
+  login_logs?: Prisma.LoginLogUncheckedCreateNestedManyWithoutUserInput
+  activity_logs?: Prisma.ActivityLogUncheckedCreateNestedManyWithoutUserInput
+  memosCreated?: Prisma.MemoUncheckedCreateNestedManyWithoutSenderInput
+  facilityRequests?: Prisma.FacilityReservationUncheckedCreateNestedManyWithoutRequestorInput
+  approvalsPerformed?: Prisma.FacilityApprovalUncheckedCreateNestedManyWithoutPerformedByInput
+  facilityAssignments?: Prisma.FacilityAssignmentUncheckedCreateNestedManyWithoutUserInput
+}
+
+export type UserCreateOrConnectWithoutOcmEditsInput = {
+  where: Prisma.UserWhereUniqueInput
+  create: Prisma.XOR<Prisma.UserCreateWithoutOcmEditsInput, Prisma.UserUncheckedCreateWithoutOcmEditsInput>
+}
+
+export type UserUpsertWithoutFacilityRequestsInput = {
+  update: Prisma.XOR<Prisma.UserUpdateWithoutFacilityRequestsInput, Prisma.UserUncheckedUpdateWithoutFacilityRequestsInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutFacilityRequestsInput, Prisma.UserUncheckedCreateWithoutFacilityRequestsInput>
+  where?: Prisma.UserWhereInput
+}
+
+export type UserUpdateToOneWithWhereWithoutFacilityRequestsInput = {
+  where?: Prisma.UserWhereInput
+  data: Prisma.XOR<Prisma.UserUpdateWithoutFacilityRequestsInput, Prisma.UserUncheckedUpdateWithoutFacilityRequestsInput>
+}
+
+export type UserUpdateWithoutFacilityRequestsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  employee_id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  password?: Prisma.StringFieldUpdateOperationsInput | string
+  fname?: Prisma.StringFieldUpdateOperationsInput | string
+  lname?: Prisma.StringFieldUpdateOperationsInput | string
+  role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
+  branch?: Prisma.EnumSystemBranchFieldUpdateOperationsInput | $Enums.SystemBranch
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  last_login?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  forgot_password?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  resetToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  resetTokenExpiry?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  oic_start?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oic_end?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  disabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  department?: Prisma.DepartmentUpdateOneRequiredWithoutUsersNestedInput
+  received_notif?: Prisma.NotificationUpdateManyWithoutRecipientNestedInput
+  sent_notif?: Prisma.NotificationUpdateManyWithoutSenderNestedInput
+  login_logs?: Prisma.LoginLogUpdateManyWithoutUserNestedInput
+  activity_logs?: Prisma.ActivityLogUpdateManyWithoutUserNestedInput
+  memosCreated?: Prisma.MemoUpdateManyWithoutSenderNestedInput
+  ocmEdits?: Prisma.FacilityReservationUpdateManyWithoutOcmEditedByNestedInput
+  approvalsPerformed?: Prisma.FacilityApprovalUpdateManyWithoutPerformedByNestedInput
+  facilityAssignments?: Prisma.FacilityAssignmentUpdateManyWithoutUserNestedInput
+}
+
+export type UserUncheckedUpdateWithoutFacilityRequestsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  employee_id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  password?: Prisma.StringFieldUpdateOperationsInput | string
+  fname?: Prisma.StringFieldUpdateOperationsInput | string
+  lname?: Prisma.StringFieldUpdateOperationsInput | string
+  role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
+  branch?: Prisma.EnumSystemBranchFieldUpdateOperationsInput | $Enums.SystemBranch
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  departmentCode?: Prisma.StringFieldUpdateOperationsInput | string
+  last_login?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  forgot_password?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  resetToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  resetTokenExpiry?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  oic_start?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oic_end?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  disabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  received_notif?: Prisma.NotificationUncheckedUpdateManyWithoutRecipientNestedInput
+  sent_notif?: Prisma.NotificationUncheckedUpdateManyWithoutSenderNestedInput
+  login_logs?: Prisma.LoginLogUncheckedUpdateManyWithoutUserNestedInput
+  activity_logs?: Prisma.ActivityLogUncheckedUpdateManyWithoutUserNestedInput
+  memosCreated?: Prisma.MemoUncheckedUpdateManyWithoutSenderNestedInput
+  ocmEdits?: Prisma.FacilityReservationUncheckedUpdateManyWithoutOcmEditedByNestedInput
+  approvalsPerformed?: Prisma.FacilityApprovalUncheckedUpdateManyWithoutPerformedByNestedInput
+  facilityAssignments?: Prisma.FacilityAssignmentUncheckedUpdateManyWithoutUserNestedInput
+}
+
+export type UserUpsertWithoutOcmEditsInput = {
+  update: Prisma.XOR<Prisma.UserUpdateWithoutOcmEditsInput, Prisma.UserUncheckedUpdateWithoutOcmEditsInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutOcmEditsInput, Prisma.UserUncheckedCreateWithoutOcmEditsInput>
+  where?: Prisma.UserWhereInput
+}
+
+export type UserUpdateToOneWithWhereWithoutOcmEditsInput = {
+  where?: Prisma.UserWhereInput
+  data: Prisma.XOR<Prisma.UserUpdateWithoutOcmEditsInput, Prisma.UserUncheckedUpdateWithoutOcmEditsInput>
+}
+
+export type UserUpdateWithoutOcmEditsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  employee_id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  password?: Prisma.StringFieldUpdateOperationsInput | string
+  fname?: Prisma.StringFieldUpdateOperationsInput | string
+  lname?: Prisma.StringFieldUpdateOperationsInput | string
+  role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
+  branch?: Prisma.EnumSystemBranchFieldUpdateOperationsInput | $Enums.SystemBranch
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  last_login?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  forgot_password?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  resetToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  resetTokenExpiry?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  oic_start?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oic_end?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  disabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  department?: Prisma.DepartmentUpdateOneRequiredWithoutUsersNestedInput
+  received_notif?: Prisma.NotificationUpdateManyWithoutRecipientNestedInput
+  sent_notif?: Prisma.NotificationUpdateManyWithoutSenderNestedInput
+  login_logs?: Prisma.LoginLogUpdateManyWithoutUserNestedInput
+  activity_logs?: Prisma.ActivityLogUpdateManyWithoutUserNestedInput
+  memosCreated?: Prisma.MemoUpdateManyWithoutSenderNestedInput
+  facilityRequests?: Prisma.FacilityReservationUpdateManyWithoutRequestorNestedInput
+  approvalsPerformed?: Prisma.FacilityApprovalUpdateManyWithoutPerformedByNestedInput
+  facilityAssignments?: Prisma.FacilityAssignmentUpdateManyWithoutUserNestedInput
+}
+
+export type UserUncheckedUpdateWithoutOcmEditsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  employee_id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  password?: Prisma.StringFieldUpdateOperationsInput | string
+  fname?: Prisma.StringFieldUpdateOperationsInput | string
+  lname?: Prisma.StringFieldUpdateOperationsInput | string
+  role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
+  branch?: Prisma.EnumSystemBranchFieldUpdateOperationsInput | $Enums.SystemBranch
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  departmentCode?: Prisma.StringFieldUpdateOperationsInput | string
+  last_login?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  forgot_password?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  resetToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  resetTokenExpiry?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  oic_start?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oic_end?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  disabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  received_notif?: Prisma.NotificationUncheckedUpdateManyWithoutRecipientNestedInput
+  sent_notif?: Prisma.NotificationUncheckedUpdateManyWithoutSenderNestedInput
+  login_logs?: Prisma.LoginLogUncheckedUpdateManyWithoutUserNestedInput
+  activity_logs?: Prisma.ActivityLogUncheckedUpdateManyWithoutUserNestedInput
+  memosCreated?: Prisma.MemoUncheckedUpdateManyWithoutSenderNestedInput
+  facilityRequests?: Prisma.FacilityReservationUncheckedUpdateManyWithoutRequestorNestedInput
+  approvalsPerformed?: Prisma.FacilityApprovalUncheckedUpdateManyWithoutPerformedByNestedInput
+  facilityAssignments?: Prisma.FacilityAssignmentUncheckedUpdateManyWithoutUserNestedInput
+}
+
+export type UserCreateWithoutApprovalsPerformedInput = {
+  id?: string
+  employee_id: string
+  email: string
+  password: string
+  fname: string
+  lname: string
+  role?: $Enums.Role
+  branch?: $Enums.SystemBranch
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  last_login?: Date | string | null
+  forgot_password?: boolean
+  resetToken?: string | null
+  resetTokenExpiry?: Date | string | null
+  oic_start?: string | null
+  oic_end?: string | null
+  disabled?: boolean
+  department: Prisma.DepartmentCreateNestedOneWithoutUsersInput
+  received_notif?: Prisma.NotificationCreateNestedManyWithoutRecipientInput
+  sent_notif?: Prisma.NotificationCreateNestedManyWithoutSenderInput
+  login_logs?: Prisma.LoginLogCreateNestedManyWithoutUserInput
+  activity_logs?: Prisma.ActivityLogCreateNestedManyWithoutUserInput
+  memosCreated?: Prisma.MemoCreateNestedManyWithoutSenderInput
+  facilityRequests?: Prisma.FacilityReservationCreateNestedManyWithoutRequestorInput
+  ocmEdits?: Prisma.FacilityReservationCreateNestedManyWithoutOcmEditedByInput
+  facilityAssignments?: Prisma.FacilityAssignmentCreateNestedManyWithoutUserInput
+}
+
+export type UserUncheckedCreateWithoutApprovalsPerformedInput = {
+  id?: string
+  employee_id: string
+  email: string
+  password: string
+  fname: string
+  lname: string
+  role?: $Enums.Role
+  branch?: $Enums.SystemBranch
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  departmentCode: string
+  last_login?: Date | string | null
+  forgot_password?: boolean
+  resetToken?: string | null
+  resetTokenExpiry?: Date | string | null
+  oic_start?: string | null
+  oic_end?: string | null
+  disabled?: boolean
+  received_notif?: Prisma.NotificationUncheckedCreateNestedManyWithoutRecipientInput
+  sent_notif?: Prisma.NotificationUncheckedCreateNestedManyWithoutSenderInput
+  login_logs?: Prisma.LoginLogUncheckedCreateNestedManyWithoutUserInput
+  activity_logs?: Prisma.ActivityLogUncheckedCreateNestedManyWithoutUserInput
+  memosCreated?: Prisma.MemoUncheckedCreateNestedManyWithoutSenderInput
+  facilityRequests?: Prisma.FacilityReservationUncheckedCreateNestedManyWithoutRequestorInput
+  ocmEdits?: Prisma.FacilityReservationUncheckedCreateNestedManyWithoutOcmEditedByInput
+  facilityAssignments?: Prisma.FacilityAssignmentUncheckedCreateNestedManyWithoutUserInput
+}
+
+export type UserCreateOrConnectWithoutApprovalsPerformedInput = {
+  where: Prisma.UserWhereUniqueInput
+  create: Prisma.XOR<Prisma.UserCreateWithoutApprovalsPerformedInput, Prisma.UserUncheckedCreateWithoutApprovalsPerformedInput>
+}
+
+export type UserUpsertWithoutApprovalsPerformedInput = {
+  update: Prisma.XOR<Prisma.UserUpdateWithoutApprovalsPerformedInput, Prisma.UserUncheckedUpdateWithoutApprovalsPerformedInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutApprovalsPerformedInput, Prisma.UserUncheckedCreateWithoutApprovalsPerformedInput>
+  where?: Prisma.UserWhereInput
+}
+
+export type UserUpdateToOneWithWhereWithoutApprovalsPerformedInput = {
+  where?: Prisma.UserWhereInput
+  data: Prisma.XOR<Prisma.UserUpdateWithoutApprovalsPerformedInput, Prisma.UserUncheckedUpdateWithoutApprovalsPerformedInput>
+}
+
+export type UserUpdateWithoutApprovalsPerformedInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  employee_id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  password?: Prisma.StringFieldUpdateOperationsInput | string
+  fname?: Prisma.StringFieldUpdateOperationsInput | string
+  lname?: Prisma.StringFieldUpdateOperationsInput | string
+  role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
+  branch?: Prisma.EnumSystemBranchFieldUpdateOperationsInput | $Enums.SystemBranch
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  last_login?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  forgot_password?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  resetToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  resetTokenExpiry?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  oic_start?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oic_end?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  disabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  department?: Prisma.DepartmentUpdateOneRequiredWithoutUsersNestedInput
+  received_notif?: Prisma.NotificationUpdateManyWithoutRecipientNestedInput
+  sent_notif?: Prisma.NotificationUpdateManyWithoutSenderNestedInput
+  login_logs?: Prisma.LoginLogUpdateManyWithoutUserNestedInput
+  activity_logs?: Prisma.ActivityLogUpdateManyWithoutUserNestedInput
+  memosCreated?: Prisma.MemoUpdateManyWithoutSenderNestedInput
+  facilityRequests?: Prisma.FacilityReservationUpdateManyWithoutRequestorNestedInput
+  ocmEdits?: Prisma.FacilityReservationUpdateManyWithoutOcmEditedByNestedInput
+  facilityAssignments?: Prisma.FacilityAssignmentUpdateManyWithoutUserNestedInput
+}
+
+export type UserUncheckedUpdateWithoutApprovalsPerformedInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  employee_id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  password?: Prisma.StringFieldUpdateOperationsInput | string
+  fname?: Prisma.StringFieldUpdateOperationsInput | string
+  lname?: Prisma.StringFieldUpdateOperationsInput | string
+  role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
+  branch?: Prisma.EnumSystemBranchFieldUpdateOperationsInput | $Enums.SystemBranch
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  departmentCode?: Prisma.StringFieldUpdateOperationsInput | string
+  last_login?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  forgot_password?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  resetToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  resetTokenExpiry?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  oic_start?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oic_end?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  disabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  received_notif?: Prisma.NotificationUncheckedUpdateManyWithoutRecipientNestedInput
+  sent_notif?: Prisma.NotificationUncheckedUpdateManyWithoutSenderNestedInput
+  login_logs?: Prisma.LoginLogUncheckedUpdateManyWithoutUserNestedInput
+  activity_logs?: Prisma.ActivityLogUncheckedUpdateManyWithoutUserNestedInput
+  memosCreated?: Prisma.MemoUncheckedUpdateManyWithoutSenderNestedInput
+  facilityRequests?: Prisma.FacilityReservationUncheckedUpdateManyWithoutRequestorNestedInput
+  ocmEdits?: Prisma.FacilityReservationUncheckedUpdateManyWithoutOcmEditedByNestedInput
+  facilityAssignments?: Prisma.FacilityAssignmentUncheckedUpdateManyWithoutUserNestedInput
+}
+
+export type UserCreateWithoutFacilityAssignmentsInput = {
+  id?: string
+  employee_id: string
+  email: string
+  password: string
+  fname: string
+  lname: string
+  role?: $Enums.Role
+  branch?: $Enums.SystemBranch
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  last_login?: Date | string | null
+  forgot_password?: boolean
+  resetToken?: string | null
+  resetTokenExpiry?: Date | string | null
+  oic_start?: string | null
+  oic_end?: string | null
+  disabled?: boolean
+  department: Prisma.DepartmentCreateNestedOneWithoutUsersInput
+  received_notif?: Prisma.NotificationCreateNestedManyWithoutRecipientInput
+  sent_notif?: Prisma.NotificationCreateNestedManyWithoutSenderInput
+  login_logs?: Prisma.LoginLogCreateNestedManyWithoutUserInput
+  activity_logs?: Prisma.ActivityLogCreateNestedManyWithoutUserInput
+  memosCreated?: Prisma.MemoCreateNestedManyWithoutSenderInput
+  facilityRequests?: Prisma.FacilityReservationCreateNestedManyWithoutRequestorInput
+  ocmEdits?: Prisma.FacilityReservationCreateNestedManyWithoutOcmEditedByInput
+  approvalsPerformed?: Prisma.FacilityApprovalCreateNestedManyWithoutPerformedByInput
+}
+
+export type UserUncheckedCreateWithoutFacilityAssignmentsInput = {
+  id?: string
+  employee_id: string
+  email: string
+  password: string
+  fname: string
+  lname: string
+  role?: $Enums.Role
+  branch?: $Enums.SystemBranch
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  departmentCode: string
+  last_login?: Date | string | null
+  forgot_password?: boolean
+  resetToken?: string | null
+  resetTokenExpiry?: Date | string | null
+  oic_start?: string | null
+  oic_end?: string | null
+  disabled?: boolean
+  received_notif?: Prisma.NotificationUncheckedCreateNestedManyWithoutRecipientInput
+  sent_notif?: Prisma.NotificationUncheckedCreateNestedManyWithoutSenderInput
+  login_logs?: Prisma.LoginLogUncheckedCreateNestedManyWithoutUserInput
+  activity_logs?: Prisma.ActivityLogUncheckedCreateNestedManyWithoutUserInput
+  memosCreated?: Prisma.MemoUncheckedCreateNestedManyWithoutSenderInput
+  facilityRequests?: Prisma.FacilityReservationUncheckedCreateNestedManyWithoutRequestorInput
+  ocmEdits?: Prisma.FacilityReservationUncheckedCreateNestedManyWithoutOcmEditedByInput
+  approvalsPerformed?: Prisma.FacilityApprovalUncheckedCreateNestedManyWithoutPerformedByInput
+}
+
+export type UserCreateOrConnectWithoutFacilityAssignmentsInput = {
+  where: Prisma.UserWhereUniqueInput
+  create: Prisma.XOR<Prisma.UserCreateWithoutFacilityAssignmentsInput, Prisma.UserUncheckedCreateWithoutFacilityAssignmentsInput>
+}
+
+export type UserUpsertWithoutFacilityAssignmentsInput = {
+  update: Prisma.XOR<Prisma.UserUpdateWithoutFacilityAssignmentsInput, Prisma.UserUncheckedUpdateWithoutFacilityAssignmentsInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutFacilityAssignmentsInput, Prisma.UserUncheckedCreateWithoutFacilityAssignmentsInput>
+  where?: Prisma.UserWhereInput
+}
+
+export type UserUpdateToOneWithWhereWithoutFacilityAssignmentsInput = {
+  where?: Prisma.UserWhereInput
+  data: Prisma.XOR<Prisma.UserUpdateWithoutFacilityAssignmentsInput, Prisma.UserUncheckedUpdateWithoutFacilityAssignmentsInput>
+}
+
+export type UserUpdateWithoutFacilityAssignmentsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  employee_id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  password?: Prisma.StringFieldUpdateOperationsInput | string
+  fname?: Prisma.StringFieldUpdateOperationsInput | string
+  lname?: Prisma.StringFieldUpdateOperationsInput | string
+  role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
+  branch?: Prisma.EnumSystemBranchFieldUpdateOperationsInput | $Enums.SystemBranch
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  last_login?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  forgot_password?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  resetToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  resetTokenExpiry?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  oic_start?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oic_end?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  disabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  department?: Prisma.DepartmentUpdateOneRequiredWithoutUsersNestedInput
+  received_notif?: Prisma.NotificationUpdateManyWithoutRecipientNestedInput
+  sent_notif?: Prisma.NotificationUpdateManyWithoutSenderNestedInput
+  login_logs?: Prisma.LoginLogUpdateManyWithoutUserNestedInput
+  activity_logs?: Prisma.ActivityLogUpdateManyWithoutUserNestedInput
+  memosCreated?: Prisma.MemoUpdateManyWithoutSenderNestedInput
+  facilityRequests?: Prisma.FacilityReservationUpdateManyWithoutRequestorNestedInput
+  ocmEdits?: Prisma.FacilityReservationUpdateManyWithoutOcmEditedByNestedInput
+  approvalsPerformed?: Prisma.FacilityApprovalUpdateManyWithoutPerformedByNestedInput
+}
+
+export type UserUncheckedUpdateWithoutFacilityAssignmentsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  employee_id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  password?: Prisma.StringFieldUpdateOperationsInput | string
+  fname?: Prisma.StringFieldUpdateOperationsInput | string
+  lname?: Prisma.StringFieldUpdateOperationsInput | string
+  role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
+  branch?: Prisma.EnumSystemBranchFieldUpdateOperationsInput | $Enums.SystemBranch
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  departmentCode?: Prisma.StringFieldUpdateOperationsInput | string
+  last_login?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  forgot_password?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  resetToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  resetTokenExpiry?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  oic_start?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oic_end?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  disabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  received_notif?: Prisma.NotificationUncheckedUpdateManyWithoutRecipientNestedInput
+  sent_notif?: Prisma.NotificationUncheckedUpdateManyWithoutSenderNestedInput
+  login_logs?: Prisma.LoginLogUncheckedUpdateManyWithoutUserNestedInput
+  activity_logs?: Prisma.ActivityLogUncheckedUpdateManyWithoutUserNestedInput
+  memosCreated?: Prisma.MemoUncheckedUpdateManyWithoutSenderNestedInput
+  facilityRequests?: Prisma.FacilityReservationUncheckedUpdateManyWithoutRequestorNestedInput
+  ocmEdits?: Prisma.FacilityReservationUncheckedUpdateManyWithoutOcmEditedByNestedInput
+  approvalsPerformed?: Prisma.FacilityApprovalUncheckedUpdateManyWithoutPerformedByNestedInput
 }
 
 export type UserCreateManyDepartmentInput = {
@@ -1515,6 +2219,10 @@ export type UserUpdateWithoutDepartmentInput = {
   login_logs?: Prisma.LoginLogUpdateManyWithoutUserNestedInput
   activity_logs?: Prisma.ActivityLogUpdateManyWithoutUserNestedInput
   memosCreated?: Prisma.MemoUpdateManyWithoutSenderNestedInput
+  facilityRequests?: Prisma.FacilityReservationUpdateManyWithoutRequestorNestedInput
+  ocmEdits?: Prisma.FacilityReservationUpdateManyWithoutOcmEditedByNestedInput
+  approvalsPerformed?: Prisma.FacilityApprovalUpdateManyWithoutPerformedByNestedInput
+  facilityAssignments?: Prisma.FacilityAssignmentUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutDepartmentInput = {
@@ -1540,6 +2248,10 @@ export type UserUncheckedUpdateWithoutDepartmentInput = {
   login_logs?: Prisma.LoginLogUncheckedUpdateManyWithoutUserNestedInput
   activity_logs?: Prisma.ActivityLogUncheckedUpdateManyWithoutUserNestedInput
   memosCreated?: Prisma.MemoUncheckedUpdateManyWithoutSenderNestedInput
+  facilityRequests?: Prisma.FacilityReservationUncheckedUpdateManyWithoutRequestorNestedInput
+  ocmEdits?: Prisma.FacilityReservationUncheckedUpdateManyWithoutOcmEditedByNestedInput
+  approvalsPerformed?: Prisma.FacilityApprovalUncheckedUpdateManyWithoutPerformedByNestedInput
+  facilityAssignments?: Prisma.FacilityAssignmentUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateManyWithoutDepartmentInput = {
@@ -1573,6 +2285,10 @@ export type UserCountOutputType = {
   login_logs: number
   activity_logs: number
   memosCreated: number
+  facilityRequests: number
+  ocmEdits: number
+  approvalsPerformed: number
+  facilityAssignments: number
 }
 
 export type UserCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -1581,6 +2297,10 @@ export type UserCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.I
   login_logs?: boolean | UserCountOutputTypeCountLogin_logsArgs
   activity_logs?: boolean | UserCountOutputTypeCountActivity_logsArgs
   memosCreated?: boolean | UserCountOutputTypeCountMemosCreatedArgs
+  facilityRequests?: boolean | UserCountOutputTypeCountFacilityRequestsArgs
+  ocmEdits?: boolean | UserCountOutputTypeCountOcmEditsArgs
+  approvalsPerformed?: boolean | UserCountOutputTypeCountApprovalsPerformedArgs
+  facilityAssignments?: boolean | UserCountOutputTypeCountFacilityAssignmentsArgs
 }
 
 /**
@@ -1628,6 +2348,34 @@ export type UserCountOutputTypeCountMemosCreatedArgs<ExtArgs extends runtime.Typ
   where?: Prisma.MemoWhereInput
 }
 
+/**
+ * UserCountOutputType without action
+ */
+export type UserCountOutputTypeCountFacilityRequestsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.FacilityReservationWhereInput
+}
+
+/**
+ * UserCountOutputType without action
+ */
+export type UserCountOutputTypeCountOcmEditsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.FacilityReservationWhereInput
+}
+
+/**
+ * UserCountOutputType without action
+ */
+export type UserCountOutputTypeCountApprovalsPerformedArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.FacilityApprovalWhereInput
+}
+
+/**
+ * UserCountOutputType without action
+ */
+export type UserCountOutputTypeCountFacilityAssignmentsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.FacilityAssignmentWhereInput
+}
+
 
 export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -1654,6 +2402,10 @@ export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   login_logs?: boolean | Prisma.User$login_logsArgs<ExtArgs>
   activity_logs?: boolean | Prisma.User$activity_logsArgs<ExtArgs>
   memosCreated?: boolean | Prisma.User$memosCreatedArgs<ExtArgs>
+  facilityRequests?: boolean | Prisma.User$facilityRequestsArgs<ExtArgs>
+  ocmEdits?: boolean | Prisma.User$ocmEditsArgs<ExtArgs>
+  approvalsPerformed?: boolean | Prisma.User$approvalsPerformedArgs<ExtArgs>
+  facilityAssignments?: boolean | Prisma.User$facilityAssignmentsArgs<ExtArgs>
   _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["user"]>
 
@@ -1730,6 +2482,10 @@ export type UserInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   login_logs?: boolean | Prisma.User$login_logsArgs<ExtArgs>
   activity_logs?: boolean | Prisma.User$activity_logsArgs<ExtArgs>
   memosCreated?: boolean | Prisma.User$memosCreatedArgs<ExtArgs>
+  facilityRequests?: boolean | Prisma.User$facilityRequestsArgs<ExtArgs>
+  ocmEdits?: boolean | Prisma.User$ocmEditsArgs<ExtArgs>
+  approvalsPerformed?: boolean | Prisma.User$approvalsPerformedArgs<ExtArgs>
+  facilityAssignments?: boolean | Prisma.User$facilityAssignmentsArgs<ExtArgs>
   _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type UserIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -1748,6 +2504,10 @@ export type $UserPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
     login_logs: Prisma.$LoginLogPayload<ExtArgs>[]
     activity_logs: Prisma.$ActivityLogPayload<ExtArgs>[]
     memosCreated: Prisma.$MemoPayload<ExtArgs>[]
+    facilityRequests: Prisma.$FacilityReservationPayload<ExtArgs>[]
+    ocmEdits: Prisma.$FacilityReservationPayload<ExtArgs>[]
+    approvalsPerformed: Prisma.$FacilityApprovalPayload<ExtArgs>[]
+    facilityAssignments: Prisma.$FacilityAssignmentPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -2168,6 +2928,10 @@ export interface Prisma__UserClient<T, Null = never, ExtArgs extends runtime.Typ
   login_logs<T extends Prisma.User$login_logsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$login_logsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$LoginLogPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   activity_logs<T extends Prisma.User$activity_logsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$activity_logsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ActivityLogPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   memosCreated<T extends Prisma.User$memosCreatedArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$memosCreatedArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$MemoPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  facilityRequests<T extends Prisma.User$facilityRequestsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$facilityRequestsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$FacilityReservationPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  ocmEdits<T extends Prisma.User$ocmEditsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$ocmEditsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$FacilityReservationPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  approvalsPerformed<T extends Prisma.User$approvalsPerformedArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$approvalsPerformedArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$FacilityApprovalPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  facilityAssignments<T extends Prisma.User$facilityAssignmentsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$facilityAssignmentsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$FacilityAssignmentPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -2733,6 +3497,102 @@ export type User$memosCreatedArgs<ExtArgs extends runtime.Types.Extensions.Inter
   take?: number
   skip?: number
   distinct?: Prisma.MemoScalarFieldEnum | Prisma.MemoScalarFieldEnum[]
+}
+
+/**
+ * User.facilityRequests
+ */
+export type User$facilityRequestsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the FacilityReservation
+   */
+  select?: Prisma.FacilityReservationSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the FacilityReservation
+   */
+  omit?: Prisma.FacilityReservationOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.FacilityReservationInclude<ExtArgs> | null
+  where?: Prisma.FacilityReservationWhereInput
+  orderBy?: Prisma.FacilityReservationOrderByWithRelationInput | Prisma.FacilityReservationOrderByWithRelationInput[]
+  cursor?: Prisma.FacilityReservationWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.FacilityReservationScalarFieldEnum | Prisma.FacilityReservationScalarFieldEnum[]
+}
+
+/**
+ * User.ocmEdits
+ */
+export type User$ocmEditsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the FacilityReservation
+   */
+  select?: Prisma.FacilityReservationSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the FacilityReservation
+   */
+  omit?: Prisma.FacilityReservationOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.FacilityReservationInclude<ExtArgs> | null
+  where?: Prisma.FacilityReservationWhereInput
+  orderBy?: Prisma.FacilityReservationOrderByWithRelationInput | Prisma.FacilityReservationOrderByWithRelationInput[]
+  cursor?: Prisma.FacilityReservationWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.FacilityReservationScalarFieldEnum | Prisma.FacilityReservationScalarFieldEnum[]
+}
+
+/**
+ * User.approvalsPerformed
+ */
+export type User$approvalsPerformedArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the FacilityApproval
+   */
+  select?: Prisma.FacilityApprovalSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the FacilityApproval
+   */
+  omit?: Prisma.FacilityApprovalOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.FacilityApprovalInclude<ExtArgs> | null
+  where?: Prisma.FacilityApprovalWhereInput
+  orderBy?: Prisma.FacilityApprovalOrderByWithRelationInput | Prisma.FacilityApprovalOrderByWithRelationInput[]
+  cursor?: Prisma.FacilityApprovalWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.FacilityApprovalScalarFieldEnum | Prisma.FacilityApprovalScalarFieldEnum[]
+}
+
+/**
+ * User.facilityAssignments
+ */
+export type User$facilityAssignmentsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the FacilityAssignment
+   */
+  select?: Prisma.FacilityAssignmentSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the FacilityAssignment
+   */
+  omit?: Prisma.FacilityAssignmentOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.FacilityAssignmentInclude<ExtArgs> | null
+  where?: Prisma.FacilityAssignmentWhereInput
+  orderBy?: Prisma.FacilityAssignmentOrderByWithRelationInput | Prisma.FacilityAssignmentOrderByWithRelationInput[]
+  cursor?: Prisma.FacilityAssignmentWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.FacilityAssignmentScalarFieldEnum | Prisma.FacilityAssignmentScalarFieldEnum[]
 }
 
 /**

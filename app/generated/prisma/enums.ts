@@ -121,3 +121,55 @@ export const MemoHistoryAction = {
 } as const
 
 export type MemoHistoryAction = (typeof MemoHistoryAction)[keyof typeof MemoHistoryAction]
+
+
+export const ReservationType = {
+  EMPLOYEE_ONLY: 'EMPLOYEE_ONLY',
+  WITH_STUDENTS: 'WITH_STUDENTS'
+} as const
+
+export type ReservationType = (typeof ReservationType)[keyof typeof ReservationType]
+
+
+export const ReservationStatus = {
+  DRAFT: 'DRAFT',
+  PENDING_APPROVAL: 'PENDING_APPROVAL',
+  APPROVED: 'APPROVED',
+  REVISION_REQUESTED: 'REVISION_REQUESTED',
+  REJECTED: 'REJECTED',
+  COMPLETED: 'COMPLETED',
+  CANCELLED: 'CANCELLED',
+  RESCHEDULE_PENDING: 'RESCHEDULE_PENDING'
+} as const
+
+export type ReservationStatus = (typeof ReservationStatus)[keyof typeof ReservationStatus]
+
+
+export const ApprovalStatus = {
+  PENDING: 'PENDING',
+  APPROVED: 'APPROVED',
+  REJECTED: 'REJECTED',
+  REVISION_REQUESTED: 'REVISION_REQUESTED',
+  ACKNOWLEDGED: 'ACKNOWLEDGED'
+} as const
+
+export type ApprovalStatus = (typeof ApprovalStatus)[keyof typeof ApprovalStatus]
+
+
+export const EventPlaceCategory = {
+  REGULAR: 'REGULAR',
+  CATEGORY_1: 'CATEGORY_1',
+  CATEGORY_2: 'CATEGORY_2'
+} as const
+
+export type EventPlaceCategory = (typeof EventPlaceCategory)[keyof typeof EventPlaceCategory]
+
+
+export const DutyType = {
+  SETUP: 'SETUP',
+  TEARDOWN: 'TEARDOWN',
+  OPERATOR: 'OPERATOR',
+  ASSISTANT: 'ASSISTANT'
+} as const
+
+export type DutyType = (typeof DutyType)[keyof typeof DutyType]

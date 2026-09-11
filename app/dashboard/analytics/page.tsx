@@ -24,7 +24,9 @@ import {
   UnstyledButton,
   Grid,
   RollingNumber,
-  HoverCard
+  HoverCard,
+  Tabs,
+  Timeline 
 } from '@mantine/core';
 import { DatePicker } from '@mantine/dates';
 import {
@@ -40,7 +42,14 @@ import {
   IconUserCheck,
   IconCircleCheck,
   IconLayersIntersect,
-  IconFileExport 
+  IconFileExport,
+  IconClipboardList,
+  IconCalendarStats,
+  IconMapPin,
+  IconTool,
+  IconX,
+  IconClock,
+  IconInfoCircle
 } from '@tabler/icons-react';
 import useSWR from 'swr';
 import { PieChart, LineChart, BarChart } from '@mantine/charts';
@@ -71,6 +80,8 @@ export default function AnalyticsPage() {
   const [datePickerOpened, setDatePickerOpened] = useState(false);
 
   const [exporting, setExporting] = useState(false);
+
+  const [analyticsTab, setAnalyticsTab] = useState<'iom' | 'frf'>('iom');
 
   const router = useRouter();
 
@@ -620,6 +631,34 @@ export default function AnalyticsPage() {
 
       const dateStr = dayjs().format('YYYY-MM-DD');
       const fileName = `analytics_${dept || 'all'}_${dateStr}.xlsx`;
+
+      // ---- FRF Sheet ----
+      if (analytics.frf) {
+        const frfHeaders = ['Reference ID', 'Event Name', 'Requestor Dept', 'Type', 'Status', 'Attendees', 'Created At'];
+        const frfData: (string | number)[][] = [];
+        frfData.push(['FRF ANALYTICS']);
+        frfData.push([]);
+        frfData.push(['Total Requests', analytics.frf.overview.total]);
+        frfData.push(['For Approval', analytics.frf.overview.forApproval]);
+        frfData.push(['Incoming', analytics.frf.overview.incoming]);
+        frfData.push(['Outgoing', analytics.frf.overview.outgoing]);
+        frfData.push(['Approved', analytics.frf.overview.approved]);
+        frfData.push(['Completed', analytics.frf.overview.completed]);
+        frfData.push(['Rejected', analytics.frf.overview.rejected]);
+        frfData.push([]);
+        frfData.push(['Top Venues']);
+        frfData.push(['Venue', 'Count']);
+        analytics.frf.topVenues.forEach((v: { venue: string; count: number }) => frfData.push([v.venue, v.count]));
+        frfData.push([]);
+        frfData.push(['Top Equipment']);
+        frfData.push(['Equipment', 'Count']);
+        analytics.frf.topEquipment.forEach((e: { equipment: string; count: number }) => frfData.push([e.equipment, e.count]));
+
+        const wsFrf = XLSX.utils.aoa_to_sheet(frfData);
+        wsFrf['!cols'] = [{ wch: 30 }, { wch: 20 }];
+        XLSX.utils.book_append_sheet(wb, wsFrf, 'FRF Analytics');
+      }
+
       XLSX.writeFile(wb, fileName);
 
       alert(`✅ Exported ${createdMemos.length} created, ${receivedMemos.length} received, ${activeMemos.length} active, ${resolvedMemos.length} resolved memos to ${fileName}`);
@@ -741,557 +780,347 @@ export default function AnalyticsPage() {
 
         {/* ----- Main Content ----- */}
         {!analytics ? (
-          <Loader />
-        ) : (
-          <Stack gap="lg">
-            {/* ========== 1. ANALYTICS OVERVIEW (Date-Filtered) ========== */}
-            <Stack gap="xs">
-              <Text size="sm" fw={700} c="dimmed">
-                Analytics Overview
-              </Text>
+            <Loader />
+          ) : (
+            <Stack gap="lg">
+              {/* === ANALYTICS TYPE TABS === */}
+              <Tabs
+                value={analyticsTab}
+                onChange={(val) => setAnalyticsTab((val as 'iom' | 'frf') || 'iom')}
+                variant="outline"
+                radius="xl"
+              >
+                <Tabs.List>
+                  <Tabs.Tab value="iom" leftSection={<IconFileText size={16} />}>
+                    IOM Analytics
+                  </Tabs.Tab>
+                  <Tabs.Tab value="frf" leftSection={<IconClipboardList size={16} />}>
+                    FRF Analytics
+                  </Tabs.Tab>
+                </Tabs.List>
 
-              <SimpleGrid cols={5} spacing="md">
-                {[
-                  {
-                    label: 'Memos Created',
-                    value: analytics.overview.total,
-                    icon: IconFileText,
-                    color: 'blue',
-                    description: `Kabuuang bilang ng mga memorandum na nilikha sa loob ng napiling date.`,
-                  },
-                  {
-                    label: 'Sent',
-                    value: analytics.overview.sent,
-                    icon: IconSend,
-                    color: 'cyan',
-                    description: `Bilang ng mga memorandum na ipinadala ng inyong departamento (${activeDepartment}) sa ibang departamento sa loob ng napiling date.`,
-                  },
-                  {
-                    label: 'Received',
-                    value: analytics.overview.received,
-                    icon: IconInbox,
-                    color: 'grape',
-                    description: `Bilang ng mga memorandum na natanggap ng inyong departamento (${activeDepartment}) mula sa ibang departamento sa loob ng napiling date.`,
-                  },
-                  {
-                    label: 'Active',
-                    value: analytics.overview.active,
-                    icon: IconTrendingUp,
-                    color: 'green',
-                    description: `Bilang ng mga memorandum na kasalukuyang aktibo (hindi pa tapos ang proseso) sa inyong departamento (${activeDepartment}) sa loob ng napiling date.`,
-                  },
-                  {
-                    label: 'Resolved',
-                    value: analytics.overview.resolved,
-                    icon: IconCircleCheck,
-                    color: 'teal',
-                    description: `Bilang ng mga memorandum na na-resolve sa loob ng napiling date range. Kasama rito ang mga na-COMPLETED, CLOSED, at DENIED sa loob ng napiling panahon.`,
-                  },
-                ].map((stat) => {
-                  const Icon = stat.icon;
-                  return (
-                    <HoverCard key={stat.label} width={320} shadow="md" position="top" withArrow>
-                      <HoverCard.Target>
-                        <Paper
-                          withBorder
-                          p="md"
-                          radius="lg"
-                          style={{
-                            borderRadius: theme.radius.md,
-                            cursor: 'help',
-                            height: '100%',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            justifyContent: 'center',
-                            flex: 1,
-                            background: cardBgNested,
-                            borderColor: cardBorderNested,
-                          }}
-                        >
-                          <Group justify="space-between" wrap="nowrap">
-                            <Stack gap={0}>
-                              <Text size="xs" c="dimmed" fw={700}>
-                                {stat.label}
-                              </Text>
-                              <RollingNumber value={stat.value} fw={500} fz={32} />
-                            </Stack>
-                            <ThemeIcon size={28} radius="md" color={stat.color} variant="light">
-                              <Icon size={16} />
-                            </ThemeIcon>
-                          </Group>
+                {/* ============================================ */}
+                {/* ============ IOM ANALYTICS TAB ============ */}
+                {/* ============================================ */}
+                <Tabs.Panel value="iom" pt="lg">
+                  <Stack gap="lg">
+                    {/* ---- IOM OVERVIEW ---- */}
+                    <Stack gap="xs">
+                      <Text size="sm" fw={700} c="dimmed">
+                        Inter-Office Memorandum Overview
+                      </Text>
+                      <SimpleGrid cols={5} spacing="md">
+                        {[
+                          { label: 'Memos Created', value: analytics.overview.total, icon: IconFileText, color: 'blue', description: 'Kabuuang bilang ng mga memorandum na nilikha sa loob ng napiling date.' },
+                          { label: 'Sent', value: analytics.overview.sent, icon: IconSend, color: 'cyan', description: `Mga memorandum na ipinadala ng ${activeDepartment}.` },
+                          { label: 'Received', value: analytics.overview.received, icon: IconInbox, color: 'grape', description: `Mga memorandum na natanggap ng ${activeDepartment}.` },
+                          { label: 'Active', value: analytics.overview.active, icon: IconTrendingUp, color: 'green', description: 'Mga kasalukuyang aktibong memorandum.' },
+                          { label: 'Resolved', value: analytics.overview.resolved, icon: IconCircleCheck, color: 'teal', description: 'Mga na-resolve na memorandum.' },
+                        ].map((stat) => {
+                          const Icon = stat.icon;
+                          return (
+                            <HoverCard key={stat.label} width={320} shadow="md" position="top" withArrow>
+                              <HoverCard.Target>
+                                <Paper withBorder p="md" radius="lg" style={{ cursor: 'help', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', background: cardBgNested, borderColor: cardBorderNested }}>
+                                  <Group justify="space-between" wrap="nowrap">
+                                    <Stack gap={0}>
+                                      <Text size="xs" c="dimmed" fw={700}>{stat.label}</Text>
+                                      <RollingNumber value={stat.value} fw={500} fz={32} />
+                                    </Stack>
+                                    <ThemeIcon size={28} radius="md" color={stat.color} variant="light">
+                                      <Icon size={16} />
+                                    </ThemeIcon>
+                                  </Group>
+                                </Paper>
+                              </HoverCard.Target>
+                              <HoverCard.Dropdown>
+                                <Text size="sm" fw={600} mb={4}>{stat.label}</Text>
+                                <Text size="xs" c="dimmed" lh={1.5}>{stat.description}</Text>
+                              </HoverCard.Dropdown>
+                            </HoverCard>
+                          );
+                        })}
+                      </SimpleGrid>
+                    </Stack>
+
+                    {/* ---- IOM SHORTCUTS ---- */}
+                    <Stack gap="xs">
+                      <Text size="sm" fw={700} c="dimmed">E-IOM Shortcuts</Text>
+                      <Group grow wrap="nowrap" gap="md" align="stretch">
+                        {tabConfigs.map((config) => {
+                          const Icon = config.icon;
+                          return (
+                            <UnstyledButton key={config.value} onClick={() => router.push(`/dashboard/forms/iom?tab=${config.value}`)} style={{ flex: 1, minWidth: 0, cursor: 'pointer', transition: 'transform 0.2s ease' }} onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-4px)'; }} onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; }}>
+                              <Paper withBorder radius="xl" p="lg" style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: cardBgNested, borderColor: cardBorderNested }}>
+                                <Group justify="space-between" style={{ width: '100%' }}>
+                                  <Stack gap={0}>
+                                    <Text size="xs" fw={700}>{config.label}</Text>
+                                    <RollingNumber value={config.count} fw={500} fz={32} />
+                                  </Stack>
+                                  <ThemeIcon size={30} radius="xl" color={config.color} variant="filled">
+                                    <Icon size={15} />
+                                  </ThemeIcon>
+                                </Group>
+                              </Paper>
+                            </UnstyledButton>
+                          );
+                        })}
+                      </Group>
+                    </Stack>
+
+                    {/* ---- IOM CHARTS (existing 3 pies) ---- */}
+                    <SimpleGrid cols={{ base: 1, md: 3 }} spacing="lg">
+                      {/* Status */}
+                      <Paper withBorder p="md" radius="md" style={{ backgroundColor: cardBgNested, borderColor: cardBorderNested }}>
+                        <Text fw={600} mb="md">IOM Status Distribution</Text>
+                        <PieChart data={statusData} withLabels={false} withTooltip size={220} mx="auto" />
+                        <Stack gap={8} mt="lg">
+                          {statusData.map((item) => (
+                            <Group key={item.name} justify="space-between">
+                              <Group gap={8}><div style={{ width: 12, height: 12, borderRadius: 999, background: item.color }} /><Text size="sm">{item.name}</Text></Group>
+                              <Badge variant="light">{item.value}</Badge>
+                            </Group>
+                          ))}
+                        </Stack>
+                      </Paper>
+                      {/* Priority */}
+                      <Paper withBorder p="md" radius="md" style={{ backgroundColor: cardBgNested, borderColor: cardBorderNested }}>
+                        <Text fw={600} mb="md">IOM Priority Distribution</Text>
+                        <PieChart data={priorityData} withLabels={false} withTooltip size={220} mx="auto" />
+                        <Stack gap={8} mt="lg">
+                          {priorityData.map((item) => (
+                            <Group key={item.name} justify="space-between">
+                              <Group gap={8}><div style={{ width: 12, height: 12, borderRadius: 999, background: item.color }} /><Text size="sm">{item.name}</Text></Group>
+                              <Badge variant="light">{item.value}</Badge>
+                            </Group>
+                          ))}
+                        </Stack>
+                      </Paper>
+                      {/* Purpose */}
+                      <Paper withBorder p="md" radius="md" style={{ backgroundColor: cardBgNested, borderColor: cardBorderNested }}>
+                        <Text fw={600} mb="md">IOM Purpose Distribution</Text>
+                        <PieChart data={purposeData} withLabels={false} withTooltip size={220} mx="auto" />
+                        <Stack gap={8} mt="lg">
+                          {purposeData.map((item) => (
+                            <Group key={item.name} justify="space-between">
+                              <Group gap={8}><div style={{ width: 12, height: 12, borderRadius: 999, background: item.color }} /><Text size="sm">{item.name}</Text></Group>
+                              <Badge variant="light">{item.value}</Badge>
+                            </Group>
+                          ))}
+                        </Stack>
+                      </Paper>
+                    </SimpleGrid>
+
+                    {/* IOM Trend */}
+                    <Paper withBorder p="md" radius="md" style={{ backgroundColor: cardBgNested, borderColor: cardBorderNested }}>
+                      <Text fw={600} mb="md">{timeRange === 'day' ? 'IOM Hourly Activity' : 'IOM Trends'}</Text>
+                      {analytics.trends?.length > 0 ? (
+                        <LineChart h={350} data={analytics.trends} dataKey="date" series={[{ name: 'count', color: theme.colors.regalNavy?.[6] || '#377ff5' }]} curveType="monotone" withDots withLegend withTooltip strokeWidth={3} />
+                      ) : (<Text c="dimmed" ta="center">No data</Text>)}
+                    </Paper>
+
+                    {/* IOM Top Senders/Recipients */}
+                    <SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
+                      <Paper withBorder p="md" radius="md" style={{ backgroundColor: cardBgNested, borderColor: cardBorderNested }}>
+                        <Text fw={600} mb="md">IOM Top Senders (Incoming)</Text>
+                        {analytics.topSenders?.length > 0 ? (
+                          <BarChart h={250} data={analytics.topSenders} dataKey="department" series={[{ name: 'count', color: theme.colors.regalNavy?.[6] || '#377ff5' }]} withTooltip withBarValueLabel />
+                        ) : (<Text c="dimmed" ta="center">No data</Text>)}
+                      </Paper>
+                      <Paper withBorder p="md" radius="md" style={{ backgroundColor: cardBgNested, borderColor: cardBorderNested }}>
+                        <Text fw={600} mb="md">IOM Top Recipients (Outgoing)</Text>
+                        {analytics.topRecipients?.length > 0 ? (
+                          <BarChart h={250} data={analytics.topRecipients} dataKey="department" series={[{ name: 'count', color: theme.colors.customCreamYellow?.[5] || '#feb625' }]} withTooltip withBarValueLabel />
+                        ) : (<Text c="dimmed" ta="center">No data</Text>)}
+                      </Paper>
+                    </SimpleGrid>
+
+                    {/* IOM Avg Processing */}
+                    <Paper withBorder radius="xl" p="xl" style={{ background: cardBgNested, borderColor: cardBorderNested }}>
+                      <Group justify="space-between">
+                        <Stack gap={0}>
+                          <Text fw={700}>IOM Average Processing Time</Text>
+                          <Text c="dimmed" size="sm">Closed memos only</Text>
+                          <Text fz={42} fw={900}>{analytics.averageProcessingTime}</Text>
+                          <Text c="dimmed">days</Text>
+                        </Stack>
+                        <RingProgress size={150} thickness={14} sections={[{ value: Math.min(analytics.averageProcessingTime * 5, 100), color: 'blue' }]} label={<Text ta="center" fw={800}>{analytics.averageProcessingTime}</Text>} />
+                      </Group>
+                    </Paper>
+                  </Stack>
+                </Tabs.Panel>
+
+                {/* ============================================ */}
+                {/* ============ FRF ANALYTICS TAB ============ */}
+                {/* ============================================ */}
+                <Tabs.Panel value="frf" pt="lg">
+                  {analytics.frf ? (
+                    <Stack gap="lg">
+                      {/* ---- FRF OVERVIEW ---- */}
+                      <Stack gap="xs">
+                        <Text size="sm" fw={700} c="dimmed">Facility Reservation Form Overview</Text>
+                        <SimpleGrid cols={{ base: 2, sm: 4, lg: 4 }} spacing="md">
+                          {[
+                            { label: 'Total Requests', value: analytics.frf.overview.total, icon: IconClipboardList, color: 'blue', description: 'Kabuuang FRF na may kinalaman sa iyong departamento.' },
+                            { label: 'For Approval', value: analytics.frf.overview.forApproval, icon: IconClock, color: 'orange', description: 'Mga FRF na naghihintay ng approval mula sa iyong departamento.' },
+                            { label: 'Incoming', value: analytics.frf.overview.incoming, icon: IconInbox, color: 'grape', description: 'Mga FRF na galing sa ibang departamento.' },
+                            { label: 'Outgoing', value: analytics.frf.overview.outgoing, icon: IconSend, color: 'cyan', description: 'Mga FRF na ginawa ng iyong departamento.' },
+                            { label: 'Approved', value: analytics.frf.overview.approved, icon: IconThumbUp, color: 'green', description: 'Mga FRF na na-approve ng iyong departamento.' },
+                            { label: 'Completed', value: analytics.frf.overview.completed, icon: IconCircleCheck, color: 'teal', description: 'Mga kumpletong FRF.' },
+                            { label: 'Rejected', value: analytics.frf.overview.rejected, icon: IconX, color: 'red', description: 'Mga tinanggihang FRF.' },
+                            { label: 'Revision', value: analytics.frf.overview.revision, icon: IconPlayerPlay, color: 'yellow', description: 'Mga FRF na ibinalik para sa rebisyon.' },
+                          ].map((stat) => {
+                            const Icon = stat.icon;
+                            return (
+                              <HoverCard key={stat.label} width={280} shadow="md" position="top" withArrow>
+                                <HoverCard.Target>
+                                  <Paper withBorder p="md" radius="lg" style={{ cursor: 'help', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', background: cardBgNested, borderColor: cardBorderNested }}>
+                                    <Group justify="space-between" wrap="nowrap">
+                                      <Stack gap={0}>
+                                        <Text size="xs" c="dimmed" fw={700}>{stat.label}</Text>
+                                        <RollingNumber value={stat.value} fw={500} fz={28} />
+                                      </Stack>
+                                      <ThemeIcon size={28} radius="md" color={stat.color} variant="light">
+                                        <Icon size={16} />
+                                      </ThemeIcon>
+                                    </Group>
+                                  </Paper>
+                                </HoverCard.Target>
+                                <HoverCard.Dropdown>
+                                  <Text size="sm" fw={600} mb={4}>{stat.label}</Text>
+                                  <Text size="xs" c="dimmed" lh={1.5}>{stat.description}</Text>
+                                </HoverCard.Dropdown>
+                              </HoverCard>
+                            );
+                          })}
+                        </SimpleGrid>
+                      </Stack>
+
+                      {/* ---- FRF SHORTCUTS ---- */}
+                      <Stack gap="xs">
+                        <Text size="sm" fw={700} c="dimmed">FRF Shortcuts</Text>
+                        <Group grow wrap="nowrap" gap="md" align="stretch">
+                          {[
+                            { label: 'Pending Approval', value: 'pending_approval', icon: IconClock, color: 'orange', count: analytics.frf.overview.forApproval },
+                            { label: 'Action Board', value: 'action_board', icon: IconInfoCircle, color: 'indigo', count: analytics.frf.overview.incoming + analytics.frf.overview.forApproval },
+                            { label: 'My Requests', value: 'my_requests', icon: IconSend, color: 'cyan', count: analytics.frf.overview.outgoing },
+                            { label: 'Completed', value: 'completed', icon: IconCircleCheck, color: 'green', count: analytics.frf.overview.completed },
+                          ].map((config) => {
+                            const Icon = config.icon;
+                            return (
+                              <UnstyledButton key={config.value} onClick={() => router.push(`/dashboard/forms/frf?tab=${config.value}`)} style={{ flex: 1, minWidth: 0, cursor: 'pointer', transition: 'transform 0.2s ease' }} onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-4px)'; }} onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; }}>
+                                <Paper withBorder radius="xl" p="lg" style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: cardBgNested, borderColor: cardBorderNested }}>
+                                  <Group justify="space-between" style={{ width: '100%' }}>
+                                    <Stack gap={0}>
+                                      <Text size="xs" fw={700}>{config.label}</Text>
+                                      <RollingNumber value={config.count} fw={500} fz={32} />
+                                    </Stack>
+                                    <ThemeIcon size={30} radius="xl" color={config.color} variant="filled">
+                                      <Icon size={15} />
+                                    </ThemeIcon>
+                                  </Group>
+                                </Paper>
+                              </UnstyledButton>
+                            );
+                          })}
+                        </Group>
+                      </Stack>
+
+                      {/* ---- FRF PIE CHARTS ---- */}
+                      <SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
+                        <Paper withBorder p="md" radius="md" style={{ backgroundColor: cardBgNested, borderColor: cardBorderNested }}>
+                          <Text fw={600} mb="md">FRF Status Distribution</Text>
+                          {(() => {
+                            const frfStatusData = Object.entries(analytics.frf.statusDistribution || {}).map(([name, value], i) => ({
+                              name,
+                              value: value as number,
+                              color: chartColors[i % chartColors.length],
+                            }));
+                            return frfStatusData.length > 0 ? (
+                              <>
+                                <PieChart data={frfStatusData} withLabels={false} withTooltip size={220} mx="auto" />
+                                <Stack gap={8} mt="lg">
+                                  {frfStatusData.map((item) => (
+                                    <Group key={item.name} justify="space-between">
+                                      <Group gap={8}><div style={{ width: 12, height: 12, borderRadius: 999, background: item.color }} /><Text size="sm">{item.name}</Text></Group>
+                                      <Badge variant="light">{item.value}</Badge>
+                                    </Group>
+                                  ))}
+                                </Stack>
+                              </>
+                            ) : (<Text c="dimmed" ta="center">No data</Text>);
+                          })()}
                         </Paper>
-                      </HoverCard.Target>
-                      <HoverCard.Dropdown>
-                        <Text size="sm" fw={600} mb={4}>
-                          {stat.label}
-                        </Text>
-                        <Text size="xs" c="dimmed" lh={1.5}>
-                          {stat.description}
-                        </Text>
-                      </HoverCard.Dropdown>
-                    </HoverCard>
-                  );
-                })}
-              </SimpleGrid>
-            </Stack>
 
-            {/* ========== 2. QUICK NAVIGATION SHORTCUTS (Real-time counts) ========== */}
-            <Stack gap="xs">
-              <Text size="sm" fw={700} c="dimmed">
-                E-IOM Shortcuts
-              </Text>
+                        <Paper withBorder p="md" radius="md" style={{ backgroundColor: cardBgNested, borderColor: cardBorderNested }}>
+                          <Text fw={600} mb="md">FRF Type Distribution (Outgoing)</Text>
+                          {(() => {
+                            const frfTypeData = Object.entries(analytics.frf.typeDistribution || {}).map(([name, value], i) => ({
+                              name,
+                              value: value as number,
+                              color: chartColors[(i + 2) % chartColors.length],
+                            }));
+                            return frfTypeData.length > 0 ? (
+                              <>
+                                <PieChart data={frfTypeData} withLabels={false} withTooltip size={220} mx="auto" />
+                                <Stack gap={8} mt="lg">
+                                  {frfTypeData.map((item) => (
+                                    <Group key={item.name} justify="space-between">
+                                      <Group gap={8}><div style={{ width: 12, height: 12, borderRadius: 999, background: item.color }} /><Text size="sm">{item.name}</Text></Group>
+                                      <Badge variant="light">{item.value}</Badge>
+                                    </Group>
+                                  ))}
+                                </Stack>
+                              </>
+                            ) : (<Text c="dimmed" ta="center">No data</Text>);
+                          })()}
+                        </Paper>
+                      </SimpleGrid>
 
-              {/* ✅ Isang row lang, pantay-pantay ang laki */}
-              <Group grow wrap="nowrap" gap="md" align="stretch">
-                {tabConfigs.map((config) => {
-                  const Icon = config.icon;
-                  return (
-                    <UnstyledButton
-                      key={config.value}
-                      onClick={() => router.push(`/dashboard/forms/iom?tab=${config.value}`)}
-                      style={{
-                        flex: 1,
-                        minWidth: 0,
-                        textDecoration: 'none',
-                        cursor: 'pointer',
-                        transition: 'transform 0.2s ease',
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.transform = 'translateY(-4px)';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.transform = 'translateY(0)';
-                      }}
-                    >
-                      <Paper
-                        withBorder
-                        radius="xl"
-                        p="lg"
-                        style={{
-                          height: '100%',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          background: cardBgNested,
-                          borderColor: cardBorderNested,
-                        }}
-                      >
-                        <Group justify="space-between" style={{ width: '100%' }}>
+                      {/* ---- FRF TRENDS ---- */}
+                      <Paper withBorder p="md" radius="md" style={{ backgroundColor: cardBgNested, borderColor: cardBorderNested }}>
+                        <Text fw={600} mb="md">{timeRange === 'day' ? 'FRF Hourly Activity' : 'FRF Trends'}</Text>
+                        {analytics.frf.trends?.length > 0 ? (
+                          <LineChart h={350} data={analytics.frf.trends} dataKey="date" series={[{ name: 'count', color: theme.colors.regalNavy?.[5] || '#4a8ff5' }]} curveType="monotone" withDots withLegend withTooltip strokeWidth={3} />
+                        ) : (<Text c="dimmed" ta="center">No data</Text>)}
+                      </Paper>
+
+                      {/* ---- FRF TOP VENUES & EQUIPMENT ---- */}
+                      <SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
+                        <Paper withBorder p="md" radius="md" style={{ backgroundColor: cardBgNested, borderColor: cardBorderNested }}>
+                          <Text fw={600} mb="md">Top Venues</Text>
+                          {analytics.frf.topVenues?.length > 0 ? (
+                            <BarChart h={250} data={analytics.frf.topVenues} dataKey="venue" series={[{ name: 'count', color: theme.colors.regalNavy?.[6] || '#377ff5' }]} withTooltip withBarValueLabel />
+                          ) : (<Text c="dimmed" ta="center">No data</Text>)}
+                        </Paper>
+                        <Paper withBorder p="md" radius="md" style={{ backgroundColor: cardBgNested, borderColor: cardBorderNested }}>
+                          <Text fw={600} mb="md">Top Equipment Requested</Text>
+                          {analytics.frf.topEquipment?.length > 0 ? (
+                            <BarChart h={250} data={analytics.frf.topEquipment} dataKey="equipment" series={[{ name: 'count', color: theme.colors.customCreamYellow?.[5] || '#feb625' }]} withTooltip withBarValueLabel />
+                          ) : (<Text c="dimmed" ta="center">No data</Text>)}
+                        </Paper>
+                      </SimpleGrid>
+
+                      {/* ---- FRF AVG PROCESSING ---- */}
+                      <Paper withBorder radius="xl" p="xl" style={{ background: cardBgNested, borderColor: cardBorderNested }}>
+                        <Group justify="space-between">
                           <Stack gap={0}>
-                            <Text size="xs" fw={700}>
-                              {config.label}
-                            </Text>
-                            <RollingNumber value={config.count} fw={500} fz={32} />
+                            <Text fw={700}>FRF Average Processing Time</Text>
+                            <Text c="dimmed" size="sm">Completed reservations only</Text>
+                            <Text fz={42} fw={900}>{analytics.frf.averageProcessingTime}</Text>
+                            <Text c="dimmed">days</Text>
                           </Stack>
-                          <ThemeIcon size={30} radius="xl" color={config.color} variant="filled">
-                            <Icon size={15} />
-                          </ThemeIcon>
+                          <RingProgress size={150} thickness={14} sections={[{ value: Math.min(analytics.frf.averageProcessingTime * 5, 100), color: 'teal' }]} label={<Text ta="center" fw={800}>{analytics.frf.averageProcessingTime}</Text>} />
                         </Group>
                       </Paper>
-                    </UnstyledButton>
-                  );
-                })}
-              </Group>
-            </Stack>
-
-            {/* ========== 3. ANALYTICS CHARTS (Date-Filtered) ========== */}
-            <Stack gap="lg">
-              <Text size="sm" fw={700} c="dimmed">
-                Charts & Trends (filtered by selected date range)
-              </Text>
-
-              {/* Charts Row */}
-              <SimpleGrid cols={{ base: 1, md: 3 }} spacing="lg">
-                <Paper
-                  withBorder
-                  p="md"
-                  radius="md"
-                  style={{ backgroundColor: cardBgNested, borderColor: cardBorderNested }}
-                >
-                  <Text fw={600} mb="md" style={{ color: textColor }}>
-                    Status Distribution
-                  </Text>
-                  <>
-                    <PieChart
-                      data={statusData}
-                      withLabels={false}
-                      withTooltip
-                      size={220}
-                      mx="auto"
-                    />
-                    <Stack gap={8} mt="lg">
-                      {statusData.map((item) => (
-                        <Group key={item.name} justify="space-between">
-                          <Group gap={8}>
-                            <div
-                              style={{
-                                width: 12,
-                                height: 12,
-                                borderRadius: 999,
-                                background: item.color,
-                              }}
-                            />
-                            <Text size="sm">{item.name}</Text>
-                          </Group>
-                          <Badge variant="light">{item.value}</Badge>
-                        </Group>
-                      ))}
                     </Stack>
-                  </>
-                </Paper>
-
-                <Paper
-                  withBorder
-                  p="md"
-                  radius="md"
-                  style={{ backgroundColor: cardBgNested, borderColor: cardBorderNested }}
-                >
-                  <Text fw={600} mb="md" style={{ color: textColor }}>
-                    Priority Distribution
-                  </Text>
-                  <>
-                    <PieChart
-                      data={priorityData}
-                      withLabels={false}
-                      withTooltip
-                      size={220}
-                      mx="auto"
-                    />
-                    <Stack gap={8} mt="lg">
-                      {priorityData.map((item) => (
-                        <Group key={item.name} justify="space-between">
-                          <Group gap={8}>
-                            <div
-                              style={{
-                                width: 12,
-                                height: 12,
-                                borderRadius: 999,
-                                background: item.color,
-                              }}
-                            />
-                            <Text size="sm">{item.name}</Text>
-                          </Group>
-                          <Badge variant="light">{item.value}</Badge>
-                        </Group>
-                      ))}
-                    </Stack>
-                  </>
-                </Paper>
-
-                <Paper
-                  withBorder
-                  p="md"
-                  radius="md"
-                  style={{ backgroundColor: cardBgNested, borderColor: cardBorderNested }}
-                >
-                  <Text fw={600} mb="md" style={{ color: textColor }}>
-                    Purpose Distribution
-                  </Text>
-                  <>
-                    <PieChart
-                      data={purposeData}
-                      withLabels={false}
-                      withTooltip
-                      size={220}
-                      mx="auto"
-                    />
-                    <Stack gap={8} mt="lg">
-                      {purposeData.map((item) => (
-                        <Group key={item.name} justify="space-between">
-                          <Group gap={8}>
-                            <div
-                              style={{
-                                width: 12,
-                                height: 12,
-                                borderRadius: 999,
-                                background: item.color,
-                              }}
-                            />
-                            <Text size="sm">{item.name}</Text>
-                          </Group>
-                          <Badge variant="light">{item.value}</Badge>
-                        </Group>
-                      ))}
-                    </Stack>
-                  </>
-                </Paper>
-              </SimpleGrid>
-
-              {/* Trend Chart */}
-              <Paper
-                withBorder
-                p="md"
-                radius="md"
-                style={{ backgroundColor: cardBgNested, borderColor: cardBorderNested }}
-              >
-                <Text fw={600} mb="md" style={{ color: textColor }}>
-                  {timeRange === 'day' ? 'Hourly Memo Activity' : 'Memo Trends'}
-                </Text>
-                {analytics.trends && analytics.trends.length > 0 ? (
-                  <LineChart
-                    h={350}
-                    data={analytics.trends}
-                    dataKey="date"
-                    series={[{ name: 'count', color: theme.colors.regalNavy?.[6] || '#377ff5' }]}
-                    curveType="monotone"
-                    withDots
-                    withLegend
-                    withTooltip
-                    dotProps={{ r: 4 }}
-                    activeDotProps={{ r: 7, stroke: isDark ? '#fff' : '#000', strokeWidth: 2 }}
-                    strokeWidth={3}
-                    tooltipAnimationDuration={200}
-                    legendProps={{
-                      verticalAlign: 'bottom',
-                      height: 40,
-                      wrapperStyle: { paddingTop: 10 },
-                    }}
-                    tooltipProps={{
-                      cursor: { fill: 'rgba(0, 0, 0, 0.05)' },
-                      content: ({ payload, label }) => {
-                        if (!payload || payload.length === 0) return null;
-                        const value = payload[0]?.value;
-                        return (
-                          <Paper
-                            p="sm"
-                            radius="md"
-                            style={{
-                              backgroundColor: isDark ? theme.colors.dark[6] : theme.white,
-                              border: `1px solid ${
-                                isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'
-                              }`,
-                              boxShadow: theme.shadows.sm,
-                            }}
-                          >
-                            <Text size="xs" c="dimmed" mb={4}>
-                              {label}
-                            </Text>
-                            <Group gap="xs">
-                              <div
-                                style={{
-                                  width: 12,
-                                  height: 12,
-                                  borderRadius: '50%',
-                                  backgroundColor: theme.colors.regalNavy?.[6] || '#377ff5',
-                                }}
-                              />
-                              <Text fw={700} size="sm">
-                                {value}
-                              </Text>
-                              <Text size="xs" c="dimmed">
-                                memos
-                              </Text>
-                            </Group>
-                          </Paper>
-                        );
-                      },
-                    }}
-                    valueFormatter={(value) => `${value} memos`}
-                    gridAxis="xy"
-                    gridColor={isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'}
-                  />
-                ) : (
-                  <Text c="dimmed" ta="center">
-                    No data
-                  </Text>
-                )}
-              </Paper>
-
-              {/* Top Senders & Recipients */}
-              <SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
-                <Paper
-                  withBorder
-                  p="md"
-                  radius="md"
-                  style={{ backgroundColor: cardBgNested, borderColor: cardBorderNested }}
-                >
-                  <Text fw={600} mb="md" style={{ color: textColor }}>
-                    Top Senders (Incoming)
-                  </Text>
-                  {analytics.topSenders && analytics.topSenders.length > 0 ? (
-                    <BarChart
-                      h={250}
-                      data={analytics.topSenders}
-                      dataKey="department"
-                      series={[{ name: 'count', color: theme.colors.regalNavy?.[6] || '#377ff5' }]}
-                      withTooltip
-                      tooltipAnimationDuration={200}
-                      withLegend={false}
-                      withBarValueLabel
-                      valueFormatter={(value) => `${value}`}
-                      gridAxis="xy"
-                      gridColor={isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'}
-                      barProps={{
-                        radius: [4, 4, 0, 0],
-                        maxBarSize: 60,
-                        fill: theme.colors.regalNavy?.[6] || '#377ff5',
-                        fillOpacity: 0.85,
-                      }}
-                      tooltipProps={{
-                        cursor: { fill: 'rgba(0, 0, 0, 0.05)' },
-                        content: ({ payload, label }) => {
-                          if (!payload || payload.length === 0) return null;
-                          const value = payload[0]?.value;
-                          return (
-                            <Paper
-                              p="sm"
-                              radius="md"
-                              style={{
-                                backgroundColor: isDark ? theme.colors.dark[6] : theme.white,
-                                border: `1px solid ${
-                                  isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'
-                                }`,
-                                boxShadow: theme.shadows.sm,
-                              }}
-                            >
-                              <Text size="xs" c="dimmed" mb={4}>
-                                {label}
-                              </Text>
-                              <Group gap="xs">
-                                <div
-                                  style={{
-                                    width: 12,
-                                    height: 12,
-                                    borderRadius: '50%',
-                                    backgroundColor: theme.colors.regalNavy?.[6] || '#377ff5',
-                                  }}
-                                />
-                                <Text fw={700} size="sm">
-                                  {value}
-                                </Text>
-                                <Text size="xs" c="dimmed">
-                                  memos
-                                </Text>
-                              </Group>
-                            </Paper>
-                          );
-                        },
-                      }}
-                    />
                   ) : (
-                    <Text c="dimmed" ta="center">
-                      No data
-                    </Text>
+                    <Text c="dimmed" ta="center" py="xl">No FRF analytics data available.</Text>
                   )}
-                </Paper>
-
-                <Paper
-                  withBorder
-                  p="md"
-                  radius="md"
-                  style={{ backgroundColor: cardBgNested, borderColor: cardBorderNested }}
-                >
-                  <Text fw={600} mb="md" style={{ color: textColor }}>
-                    Top Recipients (Outgoing)
-                  </Text>
-                  {analytics.topRecipients && analytics.topRecipients.length > 0 ? (
-                    <BarChart
-                      h={250}
-                      data={analytics.topRecipients}
-                      dataKey="department"
-                      series={[
-                        { name: 'count', color: theme.colors.customCreamYellow?.[5] || '#feb625' },
-                      ]}
-                      withTooltip
-                      tooltipAnimationDuration={200}
-                      withLegend={false}
-                      withBarValueLabel
-                      valueFormatter={(value) => `${value}`}
-                      gridAxis="xy"
-                      gridColor={isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'}
-                      barProps={{
-                        radius: [4, 4, 0, 0],
-                        maxBarSize: 60,
-                        fill: theme.colors.customCreamYellow?.[5] || '#feb625',
-                        fillOpacity: 0.85,
-                      }}
-                      tooltipProps={{
-                        cursor: { fill: 'rgba(0, 0, 0, 0.05)' },
-                        content: ({ payload, label }) => {
-                          if (!payload || payload.length === 0) return null;
-                          const value = payload[0]?.value;
-                          return (
-                            <Paper
-                              p="sm"
-                              radius="md"
-                              style={{
-                                backgroundColor: isDark ? theme.colors.dark[6] : theme.white,
-                                border: `1px solid ${
-                                  isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'
-                                }`,
-                                boxShadow: theme.shadows.sm,
-                              }}
-                            >
-                              <Text size="xs" c="dimmed" mb={4}>
-                                {label}
-                              </Text>
-                              <Group gap="xs">
-                                <div
-                                  style={{
-                                    width: 12,
-                                    height: 12,
-                                    borderRadius: '50%',
-                                    backgroundColor:
-                                      theme.colors.customCreamYellow?.[5] || '#feb625',
-                                  }}
-                                />
-                                <Text fw={700} size="sm">
-                                  {value}
-                                </Text>
-                                <Text size="xs" c="dimmed">
-                                  memos
-                                </Text>
-                              </Group>
-                            </Paper>
-                          );
-                        },
-                      }}
-                    />
-                  ) : (
-                    <Text c="dimmed" ta="center">
-                      No data
-                    </Text>
-                  )}
-                </Paper>
-              </SimpleGrid>
-
-              {/* Average Processing Time */}
-              <Paper
-                withBorder
-                radius="xl"
-                p="xl"
-                style={{
-                  background: cardBgNested,
-                  borderColor: cardBorderNested,
-                }}
-              >
-                <Group justify="space-between">
-                  <Stack gap={0}>
-                    <Text fw={700}>Average Processing Time</Text>
-                    <Text c="dimmed" size="sm">
-                      Closed memos only
-                    </Text>
-                    <Text fz={42} fw={900}>
-                      {analytics.averageProcessingTime}
-                    </Text>
-                    <Text c="dimmed">days</Text>
-                  </Stack>
-                  <RingProgress
-                    size={150}
-                    thickness={14}
-                    sections={[
-                      {
-                        value: Math.min(analytics.averageProcessingTime * 5, 100),
-                        color: 'blue',
-                      },
-                    ]}
-                    label={<Text ta="center" fw={800}>{analytics.averageProcessingTime}</Text>}
-                  />
-                </Group>
-              </Paper>
+                </Tabs.Panel>
+              </Tabs>
             </Stack>
-          </Stack>
-        )}
+          )}
       </Card>
     </Container>
   );

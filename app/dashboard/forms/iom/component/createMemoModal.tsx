@@ -41,7 +41,6 @@ export default function CreateMemoModal({
 
   const [sendToAll, setSendToAll] = useState(false);
 
-  // ✅ Handle "Send to All" toggle
   const handleSendToAllChange = (checked: boolean) => {
     setSendToAll(checked);
     if (checked) {
@@ -63,6 +62,7 @@ export default function CreateMemoModal({
       radius="md"
       centered
       closeOnClickOutside={false}
+      zIndex={5000}
     >
       <form onSubmit={form.onSubmit(onSubmit)}>
         <Stack gap="md">
@@ -97,7 +97,6 @@ export default function CreateMemoModal({
             searchable
           />
 
-          {/* ✅ Checkbox sa tabi ng MultiSelect */}
             {!isReply && departments.length > 0 && (
               <Checkbox
                 label="All departments"

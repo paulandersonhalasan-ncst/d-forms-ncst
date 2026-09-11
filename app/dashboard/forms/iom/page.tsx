@@ -267,6 +267,21 @@ function KanbanBoard({
   );
 }
 
+const formatManilaDateTime = (dateVal: string | Date | undefined): string => {
+  if (!dateVal) return 'N/A';
+  const d = typeof dateVal === 'string' ? new Date(dateVal) : dateVal;
+  if (isNaN(d.getTime())) return 'N/A';
+  return d.toLocaleString('en-US', {
+    timeZone: 'Asia/Manila',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
+};
+
 export default function IOMDashboardPage() {
   // ---- Disclosure hooks ----
   const [opened, { open, close }] = useDisclosure(false);
@@ -886,6 +901,7 @@ export default function IOMDashboardPage() {
   };
 
   const handleViewThread = (selectedMemo: Memo) => {
+    closeExpandNoteModal();
     const rootId = selectedMemo.rootMemoId || selectedMemo.id;
     const filtered = memos.filter((m) => m.rootMemoId === rootId || m.id === rootId);
     const sortedThread = [...filtered].sort(
@@ -896,6 +912,7 @@ export default function IOMDashboardPage() {
   };
 
   const handleExpandNoteOpen = (memo: Memo) => {
+    closeThreadModal();
     setSelectedMemoForExpand(memo);
     openExpandNoteModal();
   };
@@ -1030,7 +1047,6 @@ export default function IOMDashboardPage() {
         memo.recipients && memo.recipients.length > 0
           ? memo.recipients
               .map((rec) => {
-                // ✅ Determine the correct timestamp based on recipient's status
                 let actionTimestamp = null;
                 let actionLabel = '';
 
@@ -1145,7 +1161,7 @@ export default function IOMDashboardPage() {
             <title>Print Memo - ${memo.referenceId || 'DRAFT'}</title>
             <style>
               body { 
-                font-family: monospace; 
+                font-family: 'Arial', monospace;
                 line-height: 1.5; 
                 padding: 24px 30px; 
                 color: #000; 
@@ -1206,7 +1222,10 @@ export default function IOMDashboardPage() {
             
             ${dispatchMatrixTable}
             
-            <div style="margin-top:36px;font-size:10px;text-align:center;color:#555;">-- This is a system-generated document. --</div>
+            <div class="footer">
+              This is a system-generated document from NCST D-Forms.<br>
+              Printed on ${new Date().toLocaleString()}
+            </div>
             
             <script>
               window.onload = function() { window.print(); };
@@ -1718,7 +1737,7 @@ export default function IOMDashboardPage() {
       />
 
       {/* Thread Timeline Modal */}
-      <Modal opened={threadModalOpened} onClose={closeThreadModal} title="Memorandum Thread History" size="lg" radius="md" zIndex={5000}>
+      <Modal opened={threadModalOpened} onClose={closeThreadModal} title="Memorandum Thread History" size="lg" radius="md" zIndex={4000}>
         <Box p="md">
           {activeThreadMemos.length === 0 ? (
             <Loader size="sm" />
@@ -1745,7 +1764,7 @@ export default function IOMDashboardPage() {
                 >
                   <Text size="xs" c="dimmed" mt={2}>
                     Sent by <b>{tMemo.senderName} ({tMemo.senderDept})</b> on{' '}
-                    {new Date(tMemo.createdAt).toLocaleString()}
+                    {formatManilaDateTime(tMemo.createdAt)}
                   </Text>
                   <UnstyledButton
                     onClick={() => handleExpandNoteOpen(tMemo)}

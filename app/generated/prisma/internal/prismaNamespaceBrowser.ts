@@ -58,7 +58,15 @@ export const ModelName = {
   LoginLog: 'LoginLog',
   Memo: 'Memo',
   MemoRecipientStatus: 'MemoRecipientStatus',
-  MemoHistory: 'MemoHistory'
+  MemoHistory: 'MemoHistory',
+  FacilityReservation: 'FacilityReservation',
+  FacilityApproval: 'FacilityApproval',
+  FacilityAssignment: 'FacilityAssignment',
+  EventPlace: 'EventPlace',
+  Equipment: 'Equipment',
+  FacilityEquipmentRequest: 'FacilityEquipmentRequest',
+  FacilityReservationDate: 'FacilityReservationDate',
+  FormSettings: 'FormSettings'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -234,12 +242,141 @@ export const MemoHistoryScalarFieldEnum = {
 export type MemoHistoryScalarFieldEnum = (typeof MemoHistoryScalarFieldEnum)[keyof typeof MemoHistoryScalarFieldEnum]
 
 
+export const FacilityReservationScalarFieldEnum = {
+  id: 'id',
+  referenceId: 'referenceId',
+  requestorId: 'requestorId',
+  requestorDept: 'requestorDept',
+  type: 'type',
+  attendeesCount: 'attendeesCount',
+  usageHours: 'usageHours',
+  withCharge: 'withCharge',
+  attachments: 'attachments',
+  requestorNotes: 'requestorNotes',
+  status: 'status',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  eventName: 'eventName',
+  ocmEditedAt: 'ocmEditedAt',
+  ocmEditedById: 'ocmEditedById',
+  isReschedule: 'isReschedule',
+  originalDates: 'originalDates',
+  originalApprovals: 'originalApprovals',
+  isVenueOnly: 'isVenueOnly'
+} as const
+
+export type FacilityReservationScalarFieldEnum = (typeof FacilityReservationScalarFieldEnum)[keyof typeof FacilityReservationScalarFieldEnum]
+
+
+export const FacilityApprovalScalarFieldEnum = {
+  id: 'id',
+  reservationId: 'reservationId',
+  departmentCode: 'departmentCode',
+  stepOrder: 'stepOrder',
+  status: 'status',
+  performedById: 'performedById',
+  performedAt: 'performedAt',
+  remarks: 'remarks',
+  revisionRequestedAt: 'revisionRequestedAt',
+  revisionReason: 'revisionReason',
+  acknowledgedAt: 'acknowledgedAt'
+} as const
+
+export type FacilityApprovalScalarFieldEnum = (typeof FacilityApprovalScalarFieldEnum)[keyof typeof FacilityApprovalScalarFieldEnum]
+
+
+export const FacilityAssignmentScalarFieldEnum = {
+  id: 'id',
+  reservationId: 'reservationId',
+  userId: 'userId',
+  dutyStart: 'dutyStart',
+  dutyEnd: 'dutyEnd',
+  dutyType: 'dutyType',
+  createdAt: 'createdAt',
+  notes: 'notes'
+} as const
+
+export type FacilityAssignmentScalarFieldEnum = (typeof FacilityAssignmentScalarFieldEnum)[keyof typeof FacilityAssignmentScalarFieldEnum]
+
+
+export const EventPlaceScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  isActive: 'isActive',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  category: 'category'
+} as const
+
+export type EventPlaceScalarFieldEnum = (typeof EventPlaceScalarFieldEnum)[keyof typeof EventPlaceScalarFieldEnum]
+
+
+export const EquipmentScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  departmentCode: 'departmentCode',
+  isSingleItem: 'isSingleItem',
+  quantityAvailable: 'quantityAvailable',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type EquipmentScalarFieldEnum = (typeof EquipmentScalarFieldEnum)[keyof typeof EquipmentScalarFieldEnum]
+
+
+export const FacilityEquipmentRequestScalarFieldEnum = {
+  id: 'id',
+  reservationId: 'reservationId',
+  equipmentId: 'equipmentId',
+  quantityRequested: 'quantityRequested'
+} as const
+
+export type FacilityEquipmentRequestScalarFieldEnum = (typeof FacilityEquipmentRequestScalarFieldEnum)[keyof typeof FacilityEquipmentRequestScalarFieldEnum]
+
+
+export const FacilityReservationDateScalarFieldEnum = {
+  id: 'id',
+  reservationId: 'reservationId',
+  date: 'date',
+  setupTime: 'setupTime',
+  eventStart: 'eventStart',
+  eventEnd: 'eventEnd',
+  teardownTime: 'teardownTime',
+  placeId: 'placeId',
+  placeOther: 'placeOther',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type FacilityReservationDateScalarFieldEnum = (typeof FacilityReservationDateScalarFieldEnum)[keyof typeof FacilityReservationDateScalarFieldEnum]
+
+
+export const FormSettingsScalarFieldEnum = {
+  id: 'id',
+  minAdvanceDaysRegular: 'minAdvanceDaysRegular',
+  minAdvanceDaysVIP: 'minAdvanceDaysVIP',
+  maxEventsPerDay: 'maxEventsPerDay',
+  updatedAt: 'updatedAt',
+  updatedBy: 'updatedBy'
+} as const
+
+export type FormSettingsScalarFieldEnum = (typeof FormSettingsScalarFieldEnum)[keyof typeof FormSettingsScalarFieldEnum]
+
+
 export const SortOrder = {
   asc: 'asc',
   desc: 'desc'
 } as const
 
 export type SortOrder = (typeof SortOrder)[keyof typeof SortOrder]
+
+
+export const NullableJsonNullValueInput = {
+  DbNull: DbNull,
+  JsonNull: JsonNull
+} as const
+
+export type NullableJsonNullValueInput = (typeof NullableJsonNullValueInput)[keyof typeof NullableJsonNullValueInput]
 
 
 export const QueryMode = {
@@ -256,4 +393,13 @@ export const NullsOrder = {
 } as const
 
 export type NullsOrder = (typeof NullsOrder)[keyof typeof NullsOrder]
+
+
+export const JsonNullValueFilter = {
+  DbNull: DbNull,
+  JsonNull: JsonNull,
+  AnyNull: AnyNull
+} as const
+
+export type JsonNullValueFilter = (typeof JsonNullValueFilter)[keyof typeof JsonNullValueFilter]
 

@@ -53,6 +53,12 @@ model User {
 
   //disabled account hook
   disabled    Boolean   @default(false)
+
+  // 🆕 Facility Reservation relations
+  facilityRequests     FacilityReservation[]    @relation("FacilityRequestor")
+  ocmEdits             FacilityReservation[]    @relation("OcmEditor")
+  approvalsPerformed   FacilityApproval[]       @relation("ApprovalPerformer")
+  facilityAssignments  FacilityAssignment[]     @relation("FacilityAssignee")
 }
 
 model Department {
@@ -63,6 +69,8 @@ model Department {
 
   //pabalik na relationship to User (1 departament, maraming users ang pwede nakatali)
   users     User[]
+
+  equipment            Equipment[]
 }
 
 model ActivityLog {
@@ -249,7 +257,7 @@ model MemoRecipientStatus {
   lastActivityAt DateTime @default(now())
 
   isSenderClosing Boolean  @default(false)
-  attachmentPaths String[] // Gagamitin para ma-save ang array ng file paths
+  attachmentPaths String[]
 
   respondedAt DateTime?
 
@@ -326,4 +334,205 @@ enum MemoHistoryAction {
     REVISED_BY_HEAD
     ASSIGNED
     REVERTED
+}
+
+// ====
+// FRF 
+// ====
+
+enum ReservationType {
+  EMPLOYEE_ONLY
+  WITH_STUDENTS
+}
+
+enum ReservationStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  REVISION_REQUESTED
+  REJECTED
+  COMPLETED
+  CANCELLED
+  RESCHEDULE_PENDING
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  REVISION_REQUESTED
+  ACKNOWLEDGED
+}
+
+model FacilityReservation {
+  id                 String                       @id @default(uuid())
+  referenceId        String                       @unique
+  requestorId        String
+  requestor          User                         @relation("FacilityRequestor", fields: [requestorId], references: [id], onDelete: Restrict)
+  requestorDept      String
+
+  type               ReservationType              @default(EMPLOYEE_ONLY)
+
+  dates           FacilityReservationDate[]
+
+  attendeesCount     Int                          @default(0)
+  usageHours         Float?
+  withCharge         Boolean?
+
+  equipmentRequests  FacilityEquipmentRequest[]
+
+  attachments        String[]                     @default([])
+  requestorNotes     String?                      @db.Text
+
+  status             ReservationStatus            @default(DRAFT)
+  createdAt          DateTime                     @default(now())
+  updatedAt          DateTime                     @updatedAt
+
+  eventName          String?
+
+  approvals          FacilityApproval[]
+  assignments        FacilityAssignment[]
+
+  ocmEditedAt        DateTime?
+  ocmEditedById      String?
+  ocmEditedBy        User?                        @relation("OcmEditor", fields: [ocmEditedById], references: [id])
+
+  isReschedule         Boolean?                @default(false)
+  originalDates        Json?
+  originalApprovals    Json?
+
+  isVenueOnly          Boolean?               @default(false)
+
+  @@index([status])
+  @@index([requestorDept])
+  @@index([createdAt])
+}
+
+model FacilityApproval {
+  id                   String               @id @default(uuid())
+  reservationId        String
+  reservation          FacilityReservation  @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  departmentCode       String
+  stepOrder            Int
+
+  status               ApprovalStatus       @default(PENDING)
+
+  performedById        String?
+  performedBy          User?                @relation("ApprovalPerformer", fields: [performedById], references: [id])
+  performedAt          DateTime?
+
+  remarks              String?              @db.Text
+
+  revisionRequestedAt  DateTime?
+  revisionReason       String?              @db.Text
+
+  acknowledgedAt       DateTime?
+
+  @@unique([reservationId, departmentCode])
+  @@index([status])
+  @@index([departmentCode])
+}
+
+model FacilityAssignment {
+  id                   String               @id @default(uuid())
+  reservationId        String
+  reservation          FacilityReservation  @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  userId               String
+  user                 User                 @relation("FacilityAssignee", fields: [userId], references: [id])
+
+  dutyStart            DateTime
+  dutyEnd              DateTime
+
+  dutyType             DutyType             @default(SETUP)
+
+  createdAt            DateTime             @default(now())
+
+  notes                String?
+
+  @@index([userId])
+  @@index([reservationId])
+}
+
+enum EventPlaceCategory {
+  REGULAR
+  CATEGORY_1
+  CATEGORY_2
+}
+
+model EventPlace {
+  id                   String               @id @default(uuid())
+  name                 String               @unique
+  isActive             Boolean              @default(true)
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+
+  dateReservations     FacilityReservationDate[]
+
+  category             EventPlaceCategory @default(REGULAR)
+}
+
+model Equipment {
+  id                   String               @id @default(uuid())
+  name                 String
+  departmentCode       String
+  department           Department           @relation(fields: [departmentCode], references: [code], onDelete: Restrict)
+  isSingleItem         Boolean              @default(false)
+  quantityAvailable    Int                  @default(0)
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+
+  equipmentRequests    FacilityEquipmentRequest[]
+
+  @@unique([name, departmentCode])
+  @@index([departmentCode])
+}
+
+model FacilityEquipmentRequest {
+  id                   String               @id @default(uuid())
+  reservationId        String
+  reservation          FacilityReservation  @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  equipmentId          String
+  equipment            Equipment            @relation(fields: [equipmentId], references: [id])
+
+  quantityRequested    Int                  @default(1)
+
+  @@unique([reservationId, equipmentId])
+}
+
+model FacilityReservationDate {
+  id                String   @id @default(uuid())
+  reservationId     String
+  reservation       FacilityReservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  
+  date              DateTime   // the actual date
+  setupTime         DateTime   // starting time
+  eventStart        DateTime   // actual time start
+  eventEnd          DateTime   // time end
+  teardownTime      DateTime   // actual time end
+
+  placeId           String?
+  place             EventPlace? @relation(fields: [placeId], references: [id])
+  placeOther        String?
+  
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  
+  @@unique([reservationId, date])
+  @@index([reservationId])
+}
+
+enum DutyType {
+  SETUP
+  TEARDOWN
+  OPERATOR
+  ASSISTANT
+}
+
+model FormSettings {
+  id                     String   @id @default("single")
+  minAdvanceDaysRegular  Int      @default(7)
+  minAdvanceDaysVIP      Int      @default(1)
+  maxEventsPerDay        Int      @default(2)
+  updatedAt              DateTime @updatedAt
+  updatedBy              String?
 }

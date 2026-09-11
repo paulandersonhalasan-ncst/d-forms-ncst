@@ -368,25 +368,273 @@ export async function GET(request) {
     });
     const averageProcessingTime = closedCount > 0 ? Math.round((totalDays / closedCount) * 10) / 10 : 0;
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        overview: {
-          total: totalSent,
-          sent: totalSent,
-          received: totalReceived,
-          active: active,
-          resolved: resolved
-        },
-        statusDistribution,
-        priorityDistribution,
-        purposeDistribution,
-        trends: trendData,
-        topSenders: senderData,
-        topRecipients: recipientData,
-        averageProcessingTime,
-      }
-    });
+    
+
+        // ============================================
+        // FRF ANALYTICS
+        // ============================================
+
+        const frfBaseWhere = {
+          createdAt: { gte: startDate, lte: endDate },
+        };
+
+        // Total FRF involving this department (as requestor OR as approver)
+        const frfTotal = await prisma.facilityReservation.count({
+          where: {
+            ...frfBaseWhere,
+            OR: [
+              { requestorDept: targetDept },
+              { approvals: { some: { departmentCode: targetDept } } },
+            ],
+          },
+        });
+
+        // For Approval – pending for this department
+        const frfForApproval = await prisma.facilityReservation.count({
+          where: {
+            ...frfBaseWhere,
+            status: { in: ['PENDING_APPROVAL', 'RESCHEDULE_PENDING'] },
+            approvals: {
+              some: { departmentCode: targetDept, status: 'PENDING' },
+            },
+          },
+        });
+
+        // Incoming – requests from OTHER departments where our dept has approval
+        const frfIncoming = await prisma.facilityReservation.count({
+          where: {
+            ...frfBaseWhere,
+            NOT: { requestorDept: targetDept },
+            approvals: { some: { departmentCode: targetDept } },
+          },
+        });
+
+        // Outgoing – requests made BY this department
+        const frfOutgoing = await prisma.facilityReservation.count({
+          where: {
+            ...frfBaseWhere,
+            requestorDept: targetDept,
+          },
+        });
+
+        // Approved by this department
+        const frfApproved = await prisma.facilityReservation.count({
+          where: {
+            ...frfBaseWhere,
+            approvals: {
+              some: { departmentCode: targetDept, status: 'APPROVED' },
+            },
+          },
+        });
+
+        // Completed
+        const frfCompleted = await prisma.facilityReservation.count({
+          where: {
+            ...frfBaseWhere,
+            status: 'COMPLETED',
+            OR: [
+              { requestorDept: targetDept },
+              { approvals: { some: { departmentCode: targetDept } } },
+            ],
+          },
+        });
+
+        // Rejected
+        const frfRejected = await prisma.facilityReservation.count({
+          where: {
+            ...frfBaseWhere,
+            status: 'REJECTED',
+            OR: [
+              { requestorDept: targetDept },
+              { approvals: { some: { departmentCode: targetDept } } },
+            ],
+          },
+        });
+
+        // Revision Requested
+        const frfRevision = await prisma.facilityReservation.count({
+          where: {
+            ...frfBaseWhere,
+            status: 'REVISION_REQUESTED',
+            approvals: { some: { departmentCode: targetDept } },
+          },
+        });
+
+        // ---- FRF Status Distribution ----
+        const frfStatusGroups = await prisma.facilityReservation.groupBy({
+          by: ['status'],
+          where: {
+            ...frfBaseWhere,
+            OR: [
+              { requestorDept: targetDept },
+              { approvals: { some: { departmentCode: targetDept } } },
+            ],
+          },
+          _count: true,
+        });
+        const frfStatusDistribution = frfStatusGroups.reduce((acc, g) => {
+          acc[g.status] = g._count;
+          return acc;
+        }, {});
+
+        // ---- FRF Type Distribution ----
+        const frfTypeGroups = await prisma.facilityReservation.groupBy({
+          by: ['type'],
+          where: {
+            ...frfBaseWhere,
+            requestorDept: targetDept,
+          },
+          _count: true,
+        });
+        const frfTypeDistribution = frfTypeGroups.reduce((acc, g) => {
+          acc[g.type] = g._count;
+          return acc;
+        }, {});
+
+        // ---- FRF Top Venues ----
+        const frfDates = await prisma.facilityReservationDate.findMany({
+          where: {
+            reservation: {
+              ...frfBaseWhere,
+              requestorDept: targetDept,
+            },
+          },
+          include: { place: { select: { name: true } } },
+        });
+        const venueMap = new Map();
+        frfDates.forEach((d) => {
+          const name = d.place?.name || d.placeOther || 'Unknown';
+          venueMap.set(name, (venueMap.get(name) || 0) + 1);
+        });
+        const frfTopVenues = Array.from(venueMap.entries())
+          .map(([venue, count]) => ({ venue, count }))
+          .sort((a, b) => b.count - a.count)
+          .slice(0, 5);
+
+        // ---- FRF Top Equipment ----
+        const frfEquipment = await prisma.facilityEquipmentRequest.findMany({
+          where: {
+            reservation: {
+              ...frfBaseWhere,
+              requestorDept: targetDept,
+            },
+          },
+          include: { equipment: { select: { name: true } } },
+        });
+        const eqMap = new Map();
+        frfEquipment.forEach((e) => {
+          const name = e.equipment?.name || 'Unknown';
+          eqMap.set(name, (eqMap.get(name) || 0) + e.quantityRequested);
+        });
+        const frfTopEquipment = Array.from(eqMap.entries())
+          .map(([equipment, count]) => ({ equipment, count }))
+          .sort((a, b) => b.count - a.count)
+          .slice(0, 5);
+
+        // ---- FRF Trends ----
+        const frfMemos = await prisma.facilityReservation.findMany({
+          where: {
+            ...frfBaseWhere,
+            OR: [
+              { requestorDept: targetDept },
+              { approvals: { some: { departmentCode: targetDept } } },
+            ],
+          },
+          select: { createdAt: true },
+        });
+
+        const frfTrendMap = new Map();
+        if (timeRange === 'day') {
+          for (let i = 0; i < 24; i++) {
+            const hourLabel = new Date(2000, 0, 1, i).toLocaleTimeString('en-US', {
+              hour: 'numeric',
+              hour12: true,
+            });
+            frfTrendMap.set(hourLabel, 0);
+          }
+          frfMemos.forEach((m) => {
+            const hourLabel = m.createdAt.toLocaleTimeString('en-US', {
+              hour: 'numeric',
+              hour12: true,
+            });
+            frfTrendMap.set(hourLabel, (frfTrendMap.get(hourLabel) || 0) + 1);
+          });
+        } else {
+          frfMemos.forEach((m) => {
+            const dateKey = m.createdAt.toLocaleDateString('en-CA');
+            frfTrendMap.set(dateKey, (frfTrendMap.get(dateKey) || 0) + 1);
+          });
+        }
+
+        const frfTrends =
+          timeRange === 'day'
+            ? Array.from(frfTrendMap.entries()).map(([date, count]) => ({ date, count }))
+            : Array.from(frfTrendMap.entries())
+                .map(([date, count]) => ({ date, count }))
+                .sort((a, b) => a.date.localeCompare(b.date));
+
+        // ---- FRF Average Processing Time ----
+        const frfCompletedList = await prisma.facilityReservation.findMany({
+          where: {
+            ...frfBaseWhere,
+            status: 'COMPLETED',
+            requestorDept: targetDept,
+          },
+          select: { createdAt: true, updatedAt: true },
+        });
+        let frfTotalDays = 0;
+        let frfCount = 0;
+        frfCompletedList.forEach((r) => {
+          const diffMs = r.updatedAt.getTime() - r.createdAt.getTime();
+          frfTotalDays += diffMs / (1000 * 60 * 60 * 24);
+          frfCount++;
+        });
+        const frfAverageProcessingTime =
+          frfCount > 0 ? Math.round((frfTotalDays / frfCount) * 10) / 10 : 0;
+
+        // ============================================
+        // RETURN RESPONSE
+        // ============================================
+        return NextResponse.json({
+          success: true,
+          data: {
+            // ---- IOM Analytics ----
+            overview: {
+              total: totalSent,
+              sent: totalSent,
+              received: totalReceived,
+              active: active,
+              resolved: resolved,
+            },
+            statusDistribution,
+            priorityDistribution,
+            purposeDistribution,
+            trends: trendData,
+            topSenders: senderData,
+            topRecipients: recipientData,
+            averageProcessingTime,
+
+            // ---- FRF Analytics ----
+            frf: {
+              overview: {
+                total: frfTotal,
+                forApproval: frfForApproval,
+                incoming: frfIncoming,
+                outgoing: frfOutgoing,
+                approved: frfApproved,
+                completed: frfCompleted,
+                rejected: frfRejected,
+                revision: frfRevision,
+              },
+              statusDistribution: frfStatusDistribution,
+              typeDistribution: frfTypeDistribution,
+              topVenues: frfTopVenues,
+              topEquipment: frfTopEquipment,
+              trends: frfTrends,
+              averageProcessingTime: frfAverageProcessingTime,
+            },
+          },
+        });
 
   } catch (error) {
     console.error("Analytics API Error:", error);

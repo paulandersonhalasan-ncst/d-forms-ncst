@@ -95,7 +95,7 @@ export default function SuperEditModal({
           radius="md"
         >
           {isEditMode
-            ? 'Edit the subject and add your notes. The draft will remain pending approval.'
+            ? 'Edit the subject and add your notes. The draft will remain .'
             : 'Finalize the memo. Your head note will be appended to the content.'}
         </Alert>
 

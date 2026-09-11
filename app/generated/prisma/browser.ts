@@ -57,3 +57,43 @@ export type MemoRecipientStatus = Prisma.MemoRecipientStatusModel
  * 
  */
 export type MemoHistory = Prisma.MemoHistoryModel
+/**
+ * Model FacilityReservation
+ * 
+ */
+export type FacilityReservation = Prisma.FacilityReservationModel
+/**
+ * Model FacilityApproval
+ * 
+ */
+export type FacilityApproval = Prisma.FacilityApprovalModel
+/**
+ * Model FacilityAssignment
+ * 
+ */
+export type FacilityAssignment = Prisma.FacilityAssignmentModel
+/**
+ * Model EventPlace
+ * 
+ */
+export type EventPlace = Prisma.EventPlaceModel
+/**
+ * Model Equipment
+ * 
+ */
+export type Equipment = Prisma.EquipmentModel
+/**
+ * Model FacilityEquipmentRequest
+ * 
+ */
+export type FacilityEquipmentRequest = Prisma.FacilityEquipmentRequestModel
+/**
+ * Model FacilityReservationDate
+ * 
+ */
+export type FacilityReservationDate = Prisma.FacilityReservationDateModel
+/**
+ * Model FormSettings
+ * 
+ */
+export type FormSettings = Prisma.FormSettingsModel

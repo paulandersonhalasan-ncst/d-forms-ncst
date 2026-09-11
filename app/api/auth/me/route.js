@@ -23,6 +23,7 @@ export async function GET(request) {
 
       const safeUser = {
         id: user.id,
+        employee_id: user.employee_id,
         email: user.email,
         fname: user.fname,
         lname: user.lname,

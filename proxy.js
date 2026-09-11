@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 import { jwtVerify } from 'jose';
 
 export async function proxy(request) {
-  
   const token = request.cookies.get('session_token')?.value;
   let user = null;
 
@@ -10,8 +9,7 @@ export async function proxy(request) {
     try {
       const secret = new TextEncoder().encode(process.env.JWT_SECRET);
       const { payload } = await jwtVerify(token, secret);
-      user = payload; 
-      //console.log(`decrypted user info: ${user.email} | Role: ${user.role}`);
+      user = payload;
     } catch (error) {
       console.error('❌ Token Error:', error.message);
       const response = NextResponse.redirect(new URL('/', request.url));
@@ -20,37 +18,44 @@ export async function proxy(request) {
     }
   }
 
-  const role = user?.role ?? null;
   const unauthorizedURL = new URL('/unauthorized', request.url);
   const loginURL = new URL('/', request.url);
 
-  // 🎯 RUNTIME CHECK: Aktibo bang OIC ang user ngayon?
   const isCurrentlyOIC = (() => {
     if (!user || !user.oic_start || !user.oic_end) return false;
     const ngayon = new Date();
     const simula = new Date(user.oic_start);
     const tapos = new Date(user.oic_end);
-    tapos.setHours(23, 59, 59, 999); // Isama ang buong huling araw ng term
+    tapos.setHours(23, 59, 59, 999);
     return ngayon >= simula && ngayon <= tapos;
   })();
 
-  // 🛡️ REUSABLE VALIDATOR HELPER
   const denyIfNotRole = (allowedRoles) => {
     if (!user) return NextResponse.redirect(loginURL);
-    
-    // Custom exception para sa OIC: Kung kasama sa allowed list ang 'OIC' at active ang status niya, LIGTAS!
     if (allowedRoles.includes('OIC') && isCurrentlyOIC) return null;
-    
-    // Kung hindi, babagsak sa normal na role checking ng database record
-    if (!allowedRoles.includes(role)) return NextResponse.redirect(unauthorizedURL);
+    if (!allowedRoles.includes(user.role)) {
+      return NextResponse.redirect(unauthorizedURL);
+    }
     return null;
   };
 
-  // ----------------------------------------------------------------
-  // MULTI ROLE PAGES
-  // ----------------------------------------------------------------
+  const canAccessFRFManage = () => {
+    if (!user) return false;
+    
+    const isITOFMOCDO = user.departmentCode === 'ITO-MAIN' || user.departmentCode === 'ITO' || user.departmentCode === 'CDO' || user.departmentCode === 'PSMO/FMO';
+    if (!isITOFMOCDO) return false;
+    
+    const isSuperUser = user.role === 'SuperUser';
+    const isDepartmentHead = user.role === 'DepartmentHead' || user.role === 'OIC';
+    
+    return isSuperUser || isDepartmentHead;
+  };
+
+  // ================================================
+  // ROUTE GUARDS
+  // ================================================
+
   if (request.nextUrl.pathname.startsWith('/dashboard/manage_staff')) {
-    // 🟢 Dito natin hahayaan si Staff na makapasok dahil may validation exception sa itaas!
     const denied = denyIfNotRole(['OIC', 'DepartmentHead']);
     if (denied) return denied;
   }
@@ -65,9 +70,6 @@ export async function proxy(request) {
     if (denied) return denied;
   }
 
-  // ----------------------------------------------------------------
-  // GLOBAL ROLE DIRECTORY FILTERS
-  // ----------------------------------------------------------------
   if (request.nextUrl.pathname.startsWith('/dashboard/dept_head')) {
     const denied = denyIfNotRole(['DepartmentHead', 'OIC']);
     if (denied) return denied;
@@ -93,27 +95,20 @@ export async function proxy(request) {
     if (denied) return denied;
   }
 
-  // app/middleware/proxy.js (o kung saan man naka-store ang proxy)
-
-  // ----------------------------------------------------------------
-  // 🆕 BACKUP ROUTE - SuperUser only
-  // ----------------------------------------------------------------
   if (request.nextUrl.pathname.startsWith('/dashboard/super/backup')) {
     const denied = denyIfNotRole(['SuperUser']);
     if (denied) return denied;
   }
 
-  // ----------------------------------------------------------------
-  // GLOBAL ROLE DIRECTORY FILTERS
-  // ----------------------------------------------------------------
-  if (request.nextUrl.pathname.startsWith('/dashboard/admin')) {
-    const denied = denyIfNotRole(['Admin']);  // Admin lang (hindi kasama ang SuperUser)
-    if (denied) return denied;
+  if (request.nextUrl.pathname.startsWith('/dashboard/forms/frf/manage')) {
+    if (!canAccessFRFManage()) {
+      return NextResponse.redirect(unauthorizedURL);
+    }
   }
-  
+
   if (request.nextUrl.pathname === '/' && user) {
     const targetUrl = request.nextUrl.clone();
-    targetUrl.pathname = '/dashboard/analytics'; // Lahat ng users, i-redirect sa /dashboard
+    targetUrl.pathname = '/dashboard/analytics';
     return NextResponse.redirect(targetUrl);
   }
 }

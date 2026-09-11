@@ -335,10 +335,10 @@ export default function AuditLogsTable() {
           ) : (
             <>
               <Text size="sm" fw={600} c="orange.7" style={{ lineHeight: 1.2 }}>
-                {log.email || "System / Guest"}
+                {log.email}
               </Text>
               <Text size="11px" c="dimmed" fs="italic">
-                Guest / Deleted Account
+                Invalid / Deleted Account
               </Text>
             </>
           )}

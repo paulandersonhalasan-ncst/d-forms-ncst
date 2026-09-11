@@ -61,7 +61,8 @@ const schoolMenuData: MenuItem[] = [
         label: "Forms",
         icon: IconCategory2,
         links: [
-            { label: "Inter-Office Memorandum", link: "/dashboard/forms/iom" }
+            { label: "Inter-Office Memorandum", link: "/dashboard/forms/iom" },
+            { label: "Facility Reservation Form", link: "/dashboard/forms/frf" }
         ]
     },
     { 

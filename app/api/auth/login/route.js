@@ -48,14 +48,6 @@ export async function POST(request) {
     // kanino password
     let authenticatedUser = null;
 
-    // for (const currentUser of usersWithThisEmail) {
-    //   // 📝 Paalala: Kung naka-bcrypt ka na, palitan mo ito ng: await bcrypt.compare(password, currentUser.password)
-    //   if (currentUser.password === password) {
-    //     authenticatedUser = currentUser;
-    //     break;
-    //   }
-    // }
-
     for (const currentUser of usersWithThisEmail) {
       // 🔐 Check if stored password is hashed (starts with $2b$)
       const isHashed = currentUser.password && currentUser.password.startsWith('$2b$');
@@ -167,6 +159,7 @@ export async function POST(request) {
         email: authenticatedUser.email,
         fname: authenticatedUser.fname,
         lname: authenticatedUser.lname,
+        departmentCode: authenticatedUser.departmentCode,
         role: authenticatedUser.role,
         oic_start: authenticatedUser.oic_start,
         oic_end: authenticatedUser.oic_end
@@ -189,6 +182,7 @@ export async function POST(request) {
         user: {
           id: authenticatedUser.id,
           email: authenticatedUser.email,
+          departmentCode: authenticatedUser.departmentCode,
           fname: authenticatedUser.fname,
           lname: authenticatedUser.lname,
           role: authenticatedUser.role
@@ -201,9 +195,10 @@ export async function POST(request) {
     //   "Set-Cookie",
     //   `session_token=${token}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=${60 * 60 * 24 * 3}` //3 days max-age
     // );
+    const isSecure = process.env.NODE_ENV === 'production';
     response.headers.append(
       "Set-Cookie",
-      `session_token=${token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${60 * 60 * 24 * 3}` //3 days max-age
+      `session_token=${token}; Path=/; HttpOnly; ${isSecure ? 'Secure;' : ''} SameSite=Lax; Max-Age=${60 * 60 * 24 * 3}`
     );
 
     return response;
