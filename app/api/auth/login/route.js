@@ -75,8 +75,6 @@ export async function POST(request) {
       }
     }
 
-    console.log(authenticatedUser.disabled);
-
     if (authenticatedUser.disabled) {
       await logActivity({
         req: request,
