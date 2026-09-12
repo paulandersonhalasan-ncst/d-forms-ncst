@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server';
 import { prisma } from "../../../prisma/prisma";
 import { logActivity } from "../../lib/logger";
 import { jwtVerify } from "jose";
-import { writeFile, mkdir } from "fs/promises";
-import path from "path";
+// import { writeFile, mkdir } from "fs/promises";
+// import path from "path";
 import {
   sendMemoSubmittedForApproval,
   sendMemoInbound,
@@ -21,7 +21,7 @@ import {
 import { sendEmailWithRetry } from '../../lib/email_service';
 import bcrypt from 'bcrypt';
 
-import { writeFile, mkdir } from "fs/promises";
+import { put, del } from '@vercel/blob';
 
 async function verifyPassword(plainPassword, storedHash, userId) {
   // If stored is already hashed (starts with $2b$), use bcrypt.compare

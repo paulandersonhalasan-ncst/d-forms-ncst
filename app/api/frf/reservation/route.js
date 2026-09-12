@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server';
 import { prisma } from '../../../../prisma/prisma';
 import { jwtVerify } from 'jose';
 import { logActivity } from '../../../lib/logger';
-import { writeFile, mkdir } from 'fs/promises';
-import path from 'path';
+// import { writeFile, mkdir } from 'fs/promises';
+// import path from 'path';
 
 import {
   sendFRFApprovalToRequestor,
