@@ -21,6 +21,8 @@ import {
 import { sendEmailWithRetry } from '../../lib/email_service';
 import bcrypt from 'bcrypt';
 
+import { writeFile, mkdir } from "fs/promises";
+
 async function verifyPassword(plainPassword, storedHash, userId) {
   // If stored is already hashed (starts with $2b$), use bcrypt.compare
   if (storedHash && storedHash.startsWith('$2b$')) {
@@ -136,18 +138,34 @@ export async function POST(request) {
     }
 
     // File upload logic...
+    // const files = formData.getAll("memoAttachments");
+    // let savedFilePaths = [];
+    // const uploadDir = path.join(process.cwd(), "public", "memos");
+    // await mkdir(uploadDir, { recursive: true });
+    // if (files && files.length > 0) {
+    //   for (const file of files) {
+    //     if (file && file.size > 0 && typeof file.arrayBuffer === 'function') {
+    //       const bytes = await file.arrayBuffer();
+    //       const buffer = Buffer.from(bytes);
+    //       const cleanFilename = `${Date.now()}-${Math.floor(Math.random() * 1000)}-${file.name.replace(/[^a-zA-Z0-9.\-_]/g, "_")}`;
+    //       await writeFile(path.join(uploadDir, cleanFilename), buffer);
+    //       savedFilePaths.push(`/memos/${cleanFilename}`);
+    //     }
+    //   }
+    // }
+
+    // File upload logic – Vercel Blob
     const files = formData.getAll("memoAttachments");
     let savedFilePaths = [];
-    const uploadDir = path.join(process.cwd(), "public", "memos");
-    await mkdir(uploadDir, { recursive: true });
     if (files && files.length > 0) {
       for (const file of files) {
-        if (file && file.size > 0 && typeof file.arrayBuffer === 'function') {
-          const bytes = await file.arrayBuffer();
-          const buffer = Buffer.from(bytes);
-          const cleanFilename = `${Date.now()}-${Math.floor(Math.random() * 1000)}-${file.name.replace(/[^a-zA-Z0-9.\-_]/g, "_")}`;
-          await writeFile(path.join(uploadDir, cleanFilename), buffer);
-          savedFilePaths.push(`/memos/${cleanFilename}`);
+        if (file && file.size > 0) {
+          const cleanFilename = `memos/${Date.now()}-${Math.floor(Math.random() * 1000)}-${file.name.replace(/[^a-zA-Z0-9.\-_]/g, "_")}`;
+          const blob = await put(cleanFilename, file, {
+            access: 'public',
+            addRandomSuffix: true,
+          });
+          savedFilePaths.push(blob.url);
         }
       }
     }
@@ -394,34 +412,64 @@ export async function PATCH(request) {
       retainedAttachments = formData.get("retainedAttachments") ? JSON.parse(formData.get("retainedAttachments")) : [];
 
       // Process attachments (recipient resolve)
+      // const files = formData.getAll("attachments");
+      // if (files && files.length > 0 && files[0] instanceof File) {
+      //   const uploadDir = path.join(process.cwd(), "public", "uploads", "memos");
+      //   await mkdir(uploadDir, { recursive: true });
+      //   for (const file of files) {
+      //     if (file.size === 0) continue;
+      //     const buffer = Buffer.from(await file.arrayBuffer());
+      //     const uniquePrefix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+      //     const cleanFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
+      //     const finalFileName = `${uniquePrefix}-${cleanFileName}`;
+      //     const filePath = path.join(uploadDir, finalFileName);
+      //     await writeFile(filePath, buffer);
+      //     attachmentPaths.push(`/uploads/memos/${finalFileName}`);
+      //   }
+      // }
+
+      // Process attachments (recipient resolve) – Vercel Blob
       const files = formData.getAll("attachments");
       if (files && files.length > 0 && files[0] instanceof File) {
-        const uploadDir = path.join(process.cwd(), "public", "uploads", "memos");
-        await mkdir(uploadDir, { recursive: true });
         for (const file of files) {
           if (file.size === 0) continue;
-          const buffer = Buffer.from(await file.arrayBuffer());
           const uniquePrefix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
           const cleanFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
-          const finalFileName = `${uniquePrefix}-${cleanFileName}`;
-          const filePath = path.join(uploadDir, finalFileName);
-          await writeFile(filePath, buffer);
-          attachmentPaths.push(`/uploads/memos/${finalFileName}`);
+          const blobPath = `memos/${uniquePrefix}-${cleanFileName}`;
+          const blob = await put(blobPath, file, {
+            access: 'public',
+            addRandomSuffix: true,
+          });
+          attachmentPaths.push(blob.url);
         }
       }
 
       // Process headNewAttachments (from SuperEditModal)
+      // const headNewAttachments = formData.getAll("headNewAttachments");
+      // if (headNewAttachments && headNewAttachments.length > 0) {
+      //   const uploadDir = path.join(process.cwd(), "public", "memos");
+      //   await mkdir(uploadDir, { recursive: true });
+      //   for (const file of headNewAttachments) {
+      //     if (file instanceof File && file.size > 0 && typeof file.arrayBuffer === 'function') {
+      //       const bytes = await file.arrayBuffer();
+      //       const buffer = Buffer.from(bytes);
+      //       const cleanFilename = `${Date.now()}-${Math.floor(Math.random() * 1000)}-${file.name.replace(/[^a-zA-Z0-9.\-_]/g, "_")}`;
+      //       await writeFile(path.join(uploadDir, cleanFilename), buffer);
+      //       attachmentPaths.push(`/memos/${cleanFilename}`);
+      //     }
+      //   }
+      // }
+      // Process headNewAttachments (from SuperEditModal) – Vercel Blob
       const headNewAttachments = formData.getAll("headNewAttachments");
       if (headNewAttachments && headNewAttachments.length > 0) {
-        const uploadDir = path.join(process.cwd(), "public", "memos");
-        await mkdir(uploadDir, { recursive: true });
         for (const file of headNewAttachments) {
-          if (file instanceof File && file.size > 0 && typeof file.arrayBuffer === 'function') {
-            const bytes = await file.arrayBuffer();
-            const buffer = Buffer.from(bytes);
-            const cleanFilename = `${Date.now()}-${Math.floor(Math.random() * 1000)}-${file.name.replace(/[^a-zA-Z0-9.\-_]/g, "_")}`;
-            await writeFile(path.join(uploadDir, cleanFilename), buffer);
-            attachmentPaths.push(`/memos/${cleanFilename}`);
+          if (file instanceof File && file.size > 0) {
+            const cleanFilename = `memos/${Date.now()}-${Math.floor(Math.random() * 1000)}-${file.name.replace(/[^a-zA-Z0-9.\-_]/g, "_")}`;
+            const blob = await put(cleanFilename, file, {
+              access: 'public',
+              addRandomSuffix: true,
+            });
+            attachmentPaths.push(blob.url);
           }
         }
       }

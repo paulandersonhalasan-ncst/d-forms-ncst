@@ -1503,11 +1503,7 @@ export default function RequestStepper({
                   styles={(theme) => ({
                     input: {
                       borderStyle: 'dashed',
-                      borderWidth: '2px',
-                      backgroundColor: theme.colors.gray[0],
-                      '&:hover': {
-                        backgroundColor: theme.colors.blue[0],
-                      },
+                      borderWidth: '2px'
                     },
                   })}
                 />

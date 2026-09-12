@@ -4,6 +4,7 @@ import { jwtVerify } from 'jose';
 import { logActivity } from '../../../lib/logger';
 import { writeFile, mkdir } from 'fs/promises';
 import path from 'path';
+
 import {
   sendFRFApprovalToRequestor,
   sendFRFApprovalToNextDepartments,
@@ -13,6 +14,9 @@ import {
   sendFRFRescheduleNotification,
 } from '../../../lib/email_notification';
 import bcrypt from 'bcrypt';
+
+import { put, del } from '@vercel/blob';
+
 
 // ==========================================
 // PASSWORD VERIFICATION HELPER
@@ -337,18 +341,34 @@ export async function POST(request) {
     const referenceId = `FRF-${user.departmentCode}-${currentYear}-${String(count + 1).padStart(4, '0')}`;
 
     // Process attachments
+    // const files = formData.getAll('attachments');
+    // const attachmentPaths = [];
+    // if (files && files.length > 0) {
+    //   const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'frf');
+    //   await mkdir(uploadDir, { recursive: true });
+    //   for (const file of files) {
+    //     if (file && file.size > 0 && typeof file.arrayBuffer === 'function') {
+    //       const bytes = await file.arrayBuffer();
+    //       const buffer = Buffer.from(bytes);
+    //       const cleanFilename = `${Date.now()}-${Math.floor(Math.random() * 1000)}-${file.name.replace(/[^a-zA-Z0-9.\-_]/g, "_")}`;
+    //       await writeFile(path.join(uploadDir, cleanFilename), buffer);
+    //       attachmentPaths.push(`/uploads/frf/${cleanFilename}`);
+    //     }
+    //   }
+    // }
+
+    // Process attachments – Vercel Blob
     const files = formData.getAll('attachments');
     const attachmentPaths = [];
     if (files && files.length > 0) {
-      const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'frf');
-      await mkdir(uploadDir, { recursive: true });
       for (const file of files) {
-        if (file && file.size > 0 && typeof file.arrayBuffer === 'function') {
-          const bytes = await file.arrayBuffer();
-          const buffer = Buffer.from(bytes);
-          const cleanFilename = `${Date.now()}-${Math.floor(Math.random() * 1000)}-${file.name.replace(/[^a-zA-Z0-9.\-_]/g, "_")}`;
-          await writeFile(path.join(uploadDir, cleanFilename), buffer);
-          attachmentPaths.push(`/uploads/frf/${cleanFilename}`);
+        if (file && file.size > 0) {
+          const cleanFilename = `frf/${Date.now()}-${Math.floor(Math.random() * 1000)}-${file.name.replace(/[^a-zA-Z0-9.\-_]/g, "_")}`;
+          const blob = await put(cleanFilename, file, {
+            access: 'public',
+            addRandomSuffix: true,
+          });
+          attachmentPaths.push(blob.url);
         }
       }
     }
@@ -537,6 +557,17 @@ export async function PATCH(request) {
         );
       }
 
+      // Kung may mga attachmentsToDelete mula sa frontend
+      const attachmentsToDelete = JSON.parse(formData.get('attachmentsToDelete') || '[]');
+      if (attachmentsToDelete.length > 0) {
+        try {
+          await del(attachmentsToDelete);
+        } catch (delErr) {
+          console.error('Blob deletion error:', delErr);
+        }
+      }
+      
+
       const reservation = await prisma.facilityReservation.findUnique({
         where: { id },
         include: {
@@ -631,16 +662,29 @@ export async function PATCH(request) {
       }
 
       // --- Save new attachments ---
-      const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'frf');
-      await mkdir(uploadDir, { recursive: true });
+      // const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'frf');
+      // await mkdir(uploadDir, { recursive: true });
+      // const newAttachmentPaths = [];
+      // for (const file of newFiles) {
+      //   if (file && file.size > 0 && typeof file.arrayBuffer === 'function') {
+      //     const bytes = await file.arrayBuffer();
+      //     const buffer = Buffer.from(bytes);
+      //     const cleanFilename = `${Date.now()}-${Math.floor(Math.random() * 1000)}-${file.name.replace(/[^a-zA-Z0-9.\-_]/g, "_")}`;
+      //     await writeFile(path.join(uploadDir, cleanFilename), buffer);
+      //     newAttachmentPaths.push(`/uploads/frf/${cleanFilename}`);
+      //   }
+      // }
+
+      // --- Save new attachments – Vercel Blob ---
       const newAttachmentPaths = [];
       for (const file of newFiles) {
-        if (file && file.size > 0 && typeof file.arrayBuffer === 'function') {
-          const bytes = await file.arrayBuffer();
-          const buffer = Buffer.from(bytes);
-          const cleanFilename = `${Date.now()}-${Math.floor(Math.random() * 1000)}-${file.name.replace(/[^a-zA-Z0-9.\-_]/g, "_")}`;
-          await writeFile(path.join(uploadDir, cleanFilename), buffer);
-          newAttachmentPaths.push(`/uploads/frf/${cleanFilename}`);
+        if (file && file.size > 0) {
+          const cleanFilename = `frf/${Date.now()}-${Math.floor(Math.random() * 1000)}-${file.name.replace(/[^a-zA-Z0-9.\-_]/g, "_")}`;
+          const blob = await put(cleanFilename, file, {
+            access: 'public',
+            addRandomSuffix: true,
+          });
+          newAttachmentPaths.push(blob.url);
         }
       }
 
