@@ -164,7 +164,8 @@ export async function POST(request) {
           const blob = await put(cleanFilename, file, {
             access: 'public',
             addRandomSuffix: true,
-            token: process.env.DMSBLOB_READ_WRITE_TOKEN
+            token: process.env.DMSBLOB_READ_WRITE_TOKEN,
+            storeId: process.env.DMSBLOB_STORE_ID
           });
           savedFilePaths.push(blob.url);
         }
@@ -469,7 +470,8 @@ export async function PATCH(request) {
             const blob = await put(cleanFilename, file, {
               access: 'public',
               addRandomSuffix: true,
-              token: process.env.DMSBLOB_READ_WRITE_TOKEN
+              token: process.env.DMSBLOB_READ_WRITE_TOKEN,
+            storeId: process.env.DMSBLOB_STORE_ID
             });
             attachmentPaths.push(blob.url);
           }
