@@ -59,6 +59,8 @@ model User {
   ocmEdits             FacilityReservation[]    @relation("OcmEditor")
   approvalsPerformed   FacilityApproval[]       @relation("ApprovalPerformer")
   facilityAssignments  FacilityAssignment[]     @relation("FacilityAssignee")
+
+  packUpDoneReservations FacilityReservation[] @relation("PackUpDoneBy")
 }
 
 model Department {
@@ -402,6 +404,11 @@ model FacilityReservation {
   originalApprovals    Json?
 
   isVenueOnly          Boolean?               @default(false)
+
+  packUpDoneAt       DateTime?
+  packUpDoneById     String?
+  packUpDoneBy       User?      @relation("PackUpDoneBy", fields: [packUpDoneById], references: [id], onDelete: SetNull)
+  packUpDoneNotes    String?    @db.Text
 
   @@index([status])
   @@index([requestorDept])

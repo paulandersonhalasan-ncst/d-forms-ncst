@@ -44,11 +44,12 @@ export default function PasswordGateModal({
       case 'assign': return 'Assign ITO Staff';
       case 'ocm-finalize': return 'OCM Final Edit';
       case 'note': return 'Mark as Noted';
+      case 'PACKUP_DONE': return 'Mark Pack Up Done';
       default: return 'Confirm Action';
     }
   };
 
-  const isRemarksRequired = ['reject', 'return'].includes(action) || requireRemarks;
+  const isRemarksRequired = ['reject', 'return', 'PACKUP_DONE'].includes(action) || requireRemarks;
 
   return (
     <Modal opened={opened} onClose={onClose} title={getTitle()} centered zIndex={1000}>
@@ -56,8 +57,10 @@ export default function PasswordGateModal({
         <Text size="sm">Please enter your password to confirm this action.</Text>
         {isRemarksRequired && (
           <Textarea
-            label="Remarks"
-            placeholder="Explain why..."
+            label={action === 'PACKUP_DONE' ? 'Notes / Remarks' : 'Remarks'}
+            placeholder={action === 'PACKUP_DONE'
+              ? 'Halimbawa: Nailigpit na lahat ng equipment, walang nawala, at ibinalik sa storage.'
+              : 'Explain why...'}
             required
             value={remarks}
             onChange={(e) => setRemarks(e.currentTarget.value)}

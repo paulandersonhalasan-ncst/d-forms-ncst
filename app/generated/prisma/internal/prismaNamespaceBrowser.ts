@@ -262,7 +262,10 @@ export const FacilityReservationScalarFieldEnum = {
   isReschedule: 'isReschedule',
   originalDates: 'originalDates',
   originalApprovals: 'originalApprovals',
-  isVenueOnly: 'isVenueOnly'
+  isVenueOnly: 'isVenueOnly',
+  packUpDoneAt: 'packUpDoneAt',
+  packUpDoneById: 'packUpDoneById',
+  packUpDoneNotes: 'packUpDoneNotes'
 } as const
 
 export type FacilityReservationScalarFieldEnum = (typeof FacilityReservationScalarFieldEnum)[keyof typeof FacilityReservationScalarFieldEnum]

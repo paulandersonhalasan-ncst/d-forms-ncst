@@ -592,7 +592,7 @@ export default function UsersTable({ canDelete = false }: UsersTableProps) {
               />
             <Select
               label="Role"
-              data={["Staff", "OIC", "DepartmentHead", "SuperUser", "Admin", "Faculty"]}
+              data={["Staff", "DepartmentHead", "SuperUser", "Admin", "Faculty"]}
               value={form.role}
               onChange={(val) => setForm({ ...form, role: val || "Staff" })}
             />

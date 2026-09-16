@@ -137,6 +137,8 @@ function PlacesTab({ currentUser }: TabProps) {
   );
   const places = data?.data || [];
 
+  const isSuperUser = currentUser?.role === 'SuperUser';
+
   const handleSave = async () => {
     setLoading(true);
     try {
@@ -179,18 +181,25 @@ function PlacesTab({ currentUser }: TabProps) {
   return (
     <>
       <Group justify="space-between" mb="md">
-        <Button
-          leftSection={<IconPlus size={16} />}
-          onClick={() => {
-            setEditing(null);
-            setName('');
-            setIsActive(true);
-            setCategory('REGULAR');
-            open();
-          }}
-        >
-          Add Place
-        </Button>
+        {isSuperUser && (
+          <Button
+            leftSection={<IconPlus size={16} />}
+            onClick={() => {
+              setEditing(null);
+              setName('');
+              setIsActive(true);
+              setCategory('REGULAR');
+              open();
+            }}
+          >
+            Add Place
+          </Button>
+        )}
+        {!isSuperUser && (
+          <Text size="xs" c="dimmed">
+            View-only mode. Only SuperUsers can add, edit, or delete places.
+          </Text>
+        )}
       </Group>
 
       <Card withBorder p="0" radius="md" pos="relative">
@@ -210,14 +219,14 @@ function PlacesTab({ currentUser }: TabProps) {
                 <Table.Th>Name</Table.Th>
                 <Table.Th>Category</Table.Th>
                 <Table.Th>Status</Table.Th>
-                <Table.Th style={{ width: 160 }}>Actions</Table.Th>
+                {isSuperUser && <Table.Th style={{ width: 160 }}>Actions</Table.Th>}
 
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
               {places.length === 0 ? (
                 <Table.Tr>
-                  <Table.Td colSpan={4}>
+                  <Table.Td colSpan={isSuperUser ? 4 : 3}>   {/* 🆕 */}
                     <Text c="dimmed" ta="center" py="xl">
                       No places yet.
                     </Text>
@@ -246,25 +255,27 @@ function PlacesTab({ currentUser }: TabProps) {
                         {p.isActive ? 'Active' : 'Inactive'}
                       </Badge>
                     </Table.Td>
-                    <Table.Td>
-                      <Group gap={4}>
-                        <Button
-                          size="xs"
-                          variant="default"
-                          onClick={() => handleEdit(p)}
-                        >
-                          Edit
-                        </Button>
-                        <Button
-                          size="xs"
-                          color="red"
-                          variant="outline"
-                          onClick={() => handleDelete(p.id)}
-                        >
-                          Delete
-                        </Button>
-                      </Group>
-                    </Table.Td>
+                    {isSuperUser && (
+                      <Table.Td>
+                        <Group gap={4}>
+                          <Button
+                            size="xs"
+                            variant="default"
+                            onClick={() => handleEdit(p)}
+                          >
+                            Edit
+                          </Button>
+                          <Button
+                            size="xs"
+                            color="red"
+                            variant="outline"
+                            onClick={() => handleDelete(p.id)}
+                          >
+                            Delete
+                          </Button>
+                        </Group>
+                      </Table.Td>
+                    )}
                   </Table.Tr>
                 ))
               )}

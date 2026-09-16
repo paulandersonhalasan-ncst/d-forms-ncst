@@ -49,6 +49,7 @@ interface RequestDetailModalProps {
   onFinalize: () => void;
   onApproveWithAssign?: () => void;
   onPrint?: (request: FacilityReservation) => void;
+  onPackUpDone?: (id: string) => void;
 }
 
 // Helper to get color per department
@@ -77,6 +78,7 @@ export default function RequestDetailModal({
   onFinalize,
   onApproveWithAssign,
   onPrint,
+  onPackUpDone,
 }: RequestDetailModalProps) {
   if (!request) return null;
 
@@ -208,6 +210,32 @@ export default function RequestDetailModal({
     (request.status === 'APPROVED' || request.status === 'COMPLETED') &&
     isRequestor &&
     !request.isReschedule;
+  
+  const isPackUpDone = !!request.packUpDoneAt;
+
+  const isUserAssignedToEvent = request.assignments.some(
+    (a) => a.userId === currentUser?.id
+  );
+
+  const isITOHeadOrOIC =
+  currentUser?.departmentCode === 'ITO-MAIN' && isHeadOrOIC;
+
+  // Latest event end across all dates
+  const latestEventEnd = (request.dates || []).reduce((latest, d) => {
+    const end = new Date(d.eventEnd);
+    return end > latest ? end : latest;
+  }, new Date(0));
+
+  const isEventEnded = new Date() >= latestEventEnd;
+
+  const canPackUpDone =
+    !isTerminal &&
+    !isPackUpDone &&
+    isEventEnded &&
+    request.status === 'COMPLETED' &&
+    (isUserAssignedToEvent ||
+      isITOHeadOrOIC ||
+      currentUser?.role === 'SuperUser');
 
   return (
     <Modal
@@ -548,8 +576,31 @@ export default function RequestDetailModal({
                 title="Reservation Completed"
                 mb="md"
               >
-                This reservation has been completed and is now archived.
+                This reservation has been completely approved and is now archived.
                 {canNote && ' Please note the OT staff assignments below.'}
+              </Alert>
+            )}
+
+            {isPackUpDone && (
+              <Alert
+                icon={<IconCheck size={16} />}
+                color="teal"
+                title="Pack Up Done"
+                mb="md"
+              >
+                This event has been marked as packed up on{' '}
+                <b>{formatDate(request.packUpDoneAt!)}</b>
+                {request.packUpDoneBy && (
+                  <>
+                    {' '}by <b>{request.packUpDoneBy.fname} {request.packUpDoneBy.lname}</b>
+                  </>
+                )}.
+                Equipment quantities have been restored.
+                {request.packUpDoneNotes && (
+                  <Text size="xs" mt={4} c="dimmed">
+                    <b>Notes:</b> {request.packUpDoneNotes}
+                  </Text>
+                )}
               </Alert>
             )}
 
@@ -640,6 +691,16 @@ export default function RequestDetailModal({
                     </Button>
                   )}
                 </>
+              )}
+
+              {canPackUpDone && (
+                <Button
+                  color="teal"
+                  leftSection={<IconCheck size={16} />}
+                  onClick={() => onPackUpDone?.(request.id)}
+                >
+                  Pack Up Done
+                </Button>
               )}
 
               <Button

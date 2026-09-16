@@ -228,7 +228,10 @@ export async function GET(request) {
               }
             }
           }
-        }
+        },
+        packUpDoneBy: {
+          select: { id: true, fname: true, lname: true, email: true, departmentCode: true }
+        },
       }
     });
 
@@ -779,6 +782,7 @@ export async function PATCH(request) {
       );
     }
 
+        // All actions require password
     if (!password) {
       return NextResponse.json(
         { success: false, message: 'Password is required to perform this action' },
@@ -1963,6 +1967,135 @@ export async function PATCH(request) {
         success: true,
         message: 'Reschedule request submitted for approval',
         data: { status: 'RESCHEDULE_PENDING' }
+      });
+    }
+
+    // ==========================================
+    // PACK UP DONE ACTION
+    // ==========================================
+    if (action === 'packup-done') {
+      // 1. Reservation must be COMPLETED
+      if (reservation.status !== 'COMPLETED') {
+        return NextResponse.json(
+          { success: false, message: 'Pack Up Done is only available for completed reservations' },
+          { status: 400 }
+        );
+      }
+
+      // 2. Not yet marked
+      if (reservation.packUpDoneAt) {
+        return NextResponse.json(
+          { success: false, message: 'Pack Up Done has already been recorded for this reservation' },
+          { status: 400 }
+        );
+      }
+
+      // 3. Permission: assigned staff, ITO-MAIN Head/OIC, or SuperUser
+      const isAssigned = reservation.assignments.some(a => a.userId === user.id);
+      const isITOHeadOrOIC = user.departmentCode === 'ITO-MAIN' && isHeadOrOIC(user);
+      const isSuper = isSuperUser(user);
+
+      if (!isAssigned && !isITOHeadOrOIC && !isSuper) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: 'Only assigned staff, ITO-MAIN Head/OIC, or SuperUser can mark Pack Up Done'
+          },
+          { status: 403 }
+        );
+      }
+
+      // 4. Event must have already ended (latest eventEnd across dates)
+      if (!reservation.dates || reservation.dates.length === 0) {
+        return NextResponse.json(
+          { success: false, message: 'No event dates found' },
+          { status: 400 }
+        );
+      }
+
+      const latestEventEnd = reservation.dates.reduce((latest, d) => {
+        const end = new Date(d.eventEnd);
+        return end > latest ? end : latest;
+      }, new Date(0));
+
+      if (new Date() < latestEventEnd) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: `Pack Up Done can only be marked after the event ends (${latestEventEnd.toLocaleString()})`
+          },
+          { status: 400 }
+        );
+      }
+
+      if (!remarks || remarks.trim() === '') {
+        return NextResponse.json(
+          { success: false, message: 'Notes are required for Pack Up Done' },
+          { status: 400 }
+        );
+      }
+
+      // 5. Restore equipment quantities + mark pack up done (transactional)
+      await prisma.$transaction(async (tx) => {
+        await tx.facilityReservation.update({
+          where: { id },
+          data: {
+            packUpDoneAt: new Date(),
+            packUpDoneById: user.id,
+            packUpDoneNotes: remarks || null,
+          },
+        });
+
+        for (const req of reservation.equipmentRequests) {
+          await tx.equipment.update({
+            where: { id: req.equipmentId },
+            data: {
+              quantityAvailable: { increment: req.quantityRequested },
+            },
+          });
+        }
+      });
+
+      // 6. Notify requestor
+      try {
+        await prisma.notification.create({
+          data: {
+            title: 'Event Pack Up Done',
+            message: `The event for ${reservation.referenceId} has been marked as packed up by ${user.fname} ${user.lname}. Equipment has been released back to inventory.`,
+            isRead: false,
+            recipientId: reservation.requestorId,
+            senderId: user.id,
+          },
+        });
+      } catch (notifErr) {
+        console.error('Pack Up notification error:', notifErr);
+      }
+
+      // 7. Log activity
+      await logActivity({
+        req: request,
+        userId: user.id,
+        email: user.email,
+        action: 'FRF_PACKUP_DONE',
+        details: JSON.stringify({
+          reservationId: id,
+          markedBy: `${user.fname} ${user.lname}`,
+          markedByRole: user.role,
+          markedByDept: user.departmentCode,
+          restoredEquipment: reservation.equipmentRequests.map((eq) => ({
+            equipmentId: eq.equipmentId,
+            quantity: eq.quantityRequested,
+          })),
+        }),
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: 'Pack Up Done recorded. Equipment quantities have been restored.',
+        data: {
+          packUpDoneAt: new Date().toISOString(),
+          packUpDoneById: user.id,
+        },
       });
     }
 

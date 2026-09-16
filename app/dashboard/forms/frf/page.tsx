@@ -138,6 +138,8 @@ export default function FRFDashboardPage() {
   const [assignmentData, setAssignmentData] = useState<{ assignments: ITOAssignment[] } | null>(null);
   const [ocmData, setOcmData] = useState<OCMFinalEditData | null>(null);
 
+  const [itoModalKey, setItoModalKey] = useState(0);
+
   // ---- SWR ----
   const { data: reservationsData, mutate: mutateReservations } = useSWR<{ data: FacilityReservation[] }>(
     '/api/frf/reservation',
@@ -221,9 +223,13 @@ export default function FRFDashboardPage() {
 
   // Assigned to Me: show COMPLETED reservations where current user is assigned
   // Kasi kapag COMPLETED na, ibig sabihin approved na ang event at sure na ang assignment
+  // Assigned to Me: show COMPLETED reservations where current user is assigned
+  // 🆕 Pero EXCLUDE kapag Pack Up Done na (lilipat na kasi siya sa completed tab)
   const assignedToMe = reservations.filter((r) =>
-    r.assignments.some((a) => a.userId === currentUser?.id) && r.status === 'COMPLETED'
-  );
+    r.assignments.some((a) => a.userId === currentUser?.id) &&
+      r.status === 'COMPLETED' &&
+      !r.packUpDoneAt
+    );
 
   // Helper: check if current user is involved in the reservation
   const isUserInvolved = (r: FacilityReservation): boolean => {
@@ -457,6 +463,35 @@ export default function FRFDashboardPage() {
         </div>
       `;
     }
+    // 🆕 Pack Up Done section
+    let packUpDoneHtml = '';
+    if (reservation.packUpDoneAt) {
+      const packUpDate = formatDate(reservation.packUpDoneAt);
+      const packUpBy = reservation.packUpDoneBy
+        ? `${reservation.packUpDoneBy.fname} ${reservation.packUpDoneBy.lname} (${reservation.packUpDoneBy.email}) - ${reservation.packUpDoneBy.departmentCode}`
+        : 'N/A';
+      const packUpNotes = reservation.packUpDoneNotes
+        ? `<div style="margin-top: 6px; padding: 6px 10px; background: #e7f5ff; border-left: 3px solid #888888; font-size: 12px;">
+            <b>Notes:</b> ${reservation.packUpDoneNotes}
+          </div>`
+        : '';
+
+      packUpDoneHtml = `
+        <div class="section" style="background: #f3f5f3; border: 1px solid #c0c0c0; padding: 12px; border-radius: 4px; margin-top: 16px;">
+          <div style="font-weight: 700; font-size: 14px; text-decoration: underline; color: #858585; margin-bottom: 6px;">
+            ✓ PACK UP DONE
+          </div>
+          <div style="font-size: 12px;">
+            <div><b>Marked by:</b> ${packUpBy}</div>
+            <div><b>Date & Time:</b> ${packUpDate}</div>
+            <div style="margin-top: 4px; font-style: italic; color: #555;">
+              All equipment quantities have been restored to inventory.
+            </div>
+            ${packUpNotes}
+          </div>
+        </div>
+      `;
+    }
 
     // Build final HTML document
     printWindow.document.write(`
@@ -532,6 +567,8 @@ export default function FRFDashboardPage() {
 
           ${approvalSectionsHtml}
 
+          ${packUpDoneHtml}
+
           <div class="footer">
             This is a system-generated document from NCST D-Forms.<br>
             Printed on ${new Date().toLocaleString()}
@@ -575,6 +612,12 @@ export default function FRFDashboardPage() {
       }
       return;
     }
+    if (type === 'PACKUP_DONE') {
+      setPendingAction({ type, data });
+      setPassError('');
+      openPassModal();
+      return;
+    }
     setPendingAction({ type, data });
     setPassError('');
     openPassModal();
@@ -586,6 +629,11 @@ export default function FRFDashboardPage() {
   const handleApproveWithAssign = () => {
     if (!selectedRequest) return;
     setAssignmentMode('approve');
+    handleOpenItoModal();
+  };
+
+  const handleOpenItoModal = () => {
+    setItoModalKey((k) => k + 1);   // force remount with fresh state
     openItoModal();
   };
 
@@ -662,6 +710,12 @@ export default function FRFDashboardPage() {
     setPassLoading(true);
     setPassError('');
     try {
+      // 🆕 Map special action names to match backend
+      const actionMap: Record<string, string> = {
+        'PACKUP_DONE': 'packup-done',
+      };
+      const actionName = actionMap[pendingAction.type] || pendingAction.type.toLowerCase();
+
       const payload: {
         id: string;
         action: string;
@@ -671,7 +725,7 @@ export default function FRFDashboardPage() {
         finalEditData?: OCMFinalEditData;
       } = {
         id: pendingAction.data.id as string,
-        action: pendingAction.type.toLowerCase(),
+        action: actionName,
         password,
         remarks,
       };
@@ -937,11 +991,13 @@ export default function FRFDashboardPage() {
                     color: 'teal',
                     body: (
                       <>
-                        Completed reservations where you are assigned as ITO staff for OT rendering. Check your
-                        schedule and event details here.
+                        Completed reservations where you are assigned as ITO staff for OT rendering.
+                        Check your schedule and event details here. Once the event is over, click
+                        <b> Pack Up Done</b> in the request details to finalize it.
                         <br /><br />
                         Mga kumpletong reservation kung saan ikaw ay nakatalagang ITO staff para sa OT rendering.
-                        Tingnan ang iyong iskedyul at detalye ng event dito.
+                        Tingnan ang iyong iskedyul at detalye ng event dito. Kapag tapos na ang event, i-click ang
+                        <b> Pack Up Done</b> sa detalye ng request para maisara na ito.
                       </>
                     ),
                   },
@@ -950,11 +1006,11 @@ export default function FRFDashboardPage() {
                     color: 'gray',
                     body: (
                       <>
-                        Finalized reservations — either fully approved (Completed) or rejected. Only requests you
-                        are involved in are shown here.
+                        Finalized reservations — either fully approved and packed up (Completed) or rejected.
+                        Only requests you are involved in are shown here.
                         <br /><br />
-                        Mga natapos na reservation — alinman sa tuluyang naaprubahan (Completed) o tinanggihan
-                        (Rejected). Mga request na may kinalaman ka lamang ang ipinapakita rito.
+                        Mga natapos na reservation — alinman sa tuluyang naaprubahan at na-pack up (Completed) o
+                        tinanggihan (Rejected). Mga request na may kinalaman ka lamang ang ipinapakita rito.
                       </>
                     ),
                   },
@@ -987,8 +1043,9 @@ export default function FRFDashboardPage() {
                             currentUser={currentUser}
                             onView={() => openDetailModal(req)}
                             onAssign={() => {
-                              setSelectedRequest(req);
-                              openItoModal();
+                              closeDetail();
+                              setAssignmentMode('assign');
+                              handleOpenItoModal();
                             }}
                             onFinalize={() => {
                               setSelectedRequest(req);
@@ -1009,7 +1066,7 @@ export default function FRFDashboardPage() {
 
       {/* ---- Modals ---- */}
       <RequestStepper
-        key={stepperKey}
+        key={`stepper-${stepperKey}`}
         opened={opened}
         onClose={handleModalClose}
         places={places}
@@ -1043,6 +1100,7 @@ export default function FRFDashboardPage() {
           openOcmModal();
         }}
         onPrint={handlePrintFRF}
+        onPackUpDone={(id) => handleAction('PACKUP_DONE', { id })}
       />
 
       <PasswordGateModal
@@ -1056,12 +1114,16 @@ export default function FRFDashboardPage() {
         onSubmit={handlePasswordSubmit}
         loading={passLoading}
         error={passError}
-        requireRemarks={pendingAction?.type === 'REJECT' || pendingAction?.type === 'RETURN' || pendingAction?.type === 'APPROVE'}
+        requireRemarks={pendingAction?.type === 'REJECT' || pendingAction?.type === 'RETURN' || pendingAction?.type === 'APPROVE' || pendingAction?.type === 'PACKUP_DONE'}
       />
 
       <ITOAssignmentModal
+        key={`ito-${itoModalKey}`}
         opened={itoModalOpened}
-        onClose={closeItoModal}
+        onClose={() => {
+          closeItoModal();
+          setAssignmentData(null);
+        }}
         request={selectedRequest}
         currentUser={currentUser}
         onConfirm={handleAssignConfirm}
@@ -1070,7 +1132,7 @@ export default function FRFDashboardPage() {
       />
 
       <OCMFinalEditModal
-        key={selectedRequest?.id}
+        key={`ocm-${selectedRequest?.id ?? 'empty'}`}
         opened={ocmModalOpened}
         onClose={closeOcmModal}
         request={selectedRequest}

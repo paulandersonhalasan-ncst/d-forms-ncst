@@ -233,7 +233,7 @@ export default function ITOAssignmentModal({
         errors.push('❌ At least one Setup assignment required.');
       }
       if (!hasTeardown) {
-        errors.push('❌ At least one Teardown assignment required.');
+        errors.push('❌ At least one Pack-up assignment required.');
       }
 
       // Rule 2: Validate each setup row (only for SETUP type)
@@ -405,8 +405,6 @@ export default function ITOAssignmentModal({
     });
 
     onConfirm(payload);
-    setRows([]);
-    setError('');
   };
 
   // Determine button label

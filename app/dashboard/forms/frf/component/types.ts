@@ -105,6 +105,11 @@ export interface FacilityReservation {
   originalApprovals?: FacilityApproval[];
 
   isVenueOnly?: boolean;
+
+  packUpDoneAt?: string;
+  packUpDoneById?: string;
+  packUpDoneNotes?: string;
+  packUpDoneBy?: { id: string; fname: string; lname: string; email: string; departmentCode: string };
 }
 
 export interface EventPlace {
@@ -144,7 +149,8 @@ export type FRFActionType =
   | 'ASSIGN'
   | 'OCM_FINALIZE'
   | 'NOTE'
-  | 'RESCHEDULE';
+  | 'RESCHEDULE'
+  | 'PACKUP_DONE';
 
 export interface PendingAction {
   type: FRFActionType;

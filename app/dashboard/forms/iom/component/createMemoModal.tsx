@@ -78,11 +78,13 @@ export default function CreateMemoModal({
             <Select
               label="Priority Level Flags"
               data={['ROUTINE', 'URGENT', 'RUSH']}
+              comboboxProps={{ zIndex: 6000 }}
               {...form.getInputProps('priority')}
             />
             <Select
               label="Routing Core Purpose"
               data={['FYI', 'SIGNATURE', 'ACTION', 'COMMENTS', 'APPROVAL', 'REQUEST']}
+              comboboxProps={{ zIndex: 6000 }}
               {...form.getInputProps('purpose')}
             />
           </SimpleGrid>
@@ -91,6 +93,7 @@ export default function CreateMemoModal({
             label="Target Recipient Departments"
             data={departments.filter(d => d.value && d.label)}
             placeholder="Select one or more departments"
+            comboboxProps={{ zIndex: 6000 }}
             required
             disabled={isReply || sendToAll}
             {...form.getInputProps('targetDepts')}

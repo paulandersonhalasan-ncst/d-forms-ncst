@@ -296,6 +296,7 @@ export type UserWhereInput = {
   ocmEdits?: Prisma.FacilityReservationListRelationFilter
   approvalsPerformed?: Prisma.FacilityApprovalListRelationFilter
   facilityAssignments?: Prisma.FacilityAssignmentListRelationFilter
+  packUpDoneReservations?: Prisma.FacilityReservationListRelationFilter
 }
 
 export type UserOrderByWithRelationInput = {
@@ -327,6 +328,7 @@ export type UserOrderByWithRelationInput = {
   ocmEdits?: Prisma.FacilityReservationOrderByRelationAggregateInput
   approvalsPerformed?: Prisma.FacilityApprovalOrderByRelationAggregateInput
   facilityAssignments?: Prisma.FacilityAssignmentOrderByRelationAggregateInput
+  packUpDoneReservations?: Prisma.FacilityReservationOrderByRelationAggregateInput
 }
 
 export type UserWhereUniqueInput = Prisma.AtLeast<{
@@ -361,6 +363,7 @@ export type UserWhereUniqueInput = Prisma.AtLeast<{
   ocmEdits?: Prisma.FacilityReservationListRelationFilter
   approvalsPerformed?: Prisma.FacilityApprovalListRelationFilter
   facilityAssignments?: Prisma.FacilityAssignmentListRelationFilter
+  packUpDoneReservations?: Prisma.FacilityReservationListRelationFilter
 }, "id" | "email" | "resetToken">
 
 export type UserOrderByWithAggregationInput = {
@@ -439,6 +442,7 @@ export type UserCreateInput = {
   ocmEdits?: Prisma.FacilityReservationCreateNestedManyWithoutOcmEditedByInput
   approvalsPerformed?: Prisma.FacilityApprovalCreateNestedManyWithoutPerformedByInput
   facilityAssignments?: Prisma.FacilityAssignmentCreateNestedManyWithoutUserInput
+  packUpDoneReservations?: Prisma.FacilityReservationCreateNestedManyWithoutPackUpDoneByInput
 }
 
 export type UserUncheckedCreateInput = {
@@ -469,6 +473,7 @@ export type UserUncheckedCreateInput = {
   ocmEdits?: Prisma.FacilityReservationUncheckedCreateNestedManyWithoutOcmEditedByInput
   approvalsPerformed?: Prisma.FacilityApprovalUncheckedCreateNestedManyWithoutPerformedByInput
   facilityAssignments?: Prisma.FacilityAssignmentUncheckedCreateNestedManyWithoutUserInput
+  packUpDoneReservations?: Prisma.FacilityReservationUncheckedCreateNestedManyWithoutPackUpDoneByInput
 }
 
 export type UserUpdateInput = {
@@ -499,6 +504,7 @@ export type UserUpdateInput = {
   ocmEdits?: Prisma.FacilityReservationUpdateManyWithoutOcmEditedByNestedInput
   approvalsPerformed?: Prisma.FacilityApprovalUpdateManyWithoutPerformedByNestedInput
   facilityAssignments?: Prisma.FacilityAssignmentUpdateManyWithoutUserNestedInput
+  packUpDoneReservations?: Prisma.FacilityReservationUpdateManyWithoutPackUpDoneByNestedInput
 }
 
 export type UserUncheckedUpdateInput = {
@@ -529,6 +535,7 @@ export type UserUncheckedUpdateInput = {
   ocmEdits?: Prisma.FacilityReservationUncheckedUpdateManyWithoutOcmEditedByNestedInput
   approvalsPerformed?: Prisma.FacilityApprovalUncheckedUpdateManyWithoutPerformedByNestedInput
   facilityAssignments?: Prisma.FacilityAssignmentUncheckedUpdateManyWithoutUserNestedInput
+  packUpDoneReservations?: Prisma.FacilityReservationUncheckedUpdateManyWithoutPackUpDoneByNestedInput
 }
 
 export type UserCreateManyInput = {
@@ -832,6 +839,12 @@ export type UserCreateNestedOneWithoutOcmEditsInput = {
   connect?: Prisma.UserWhereUniqueInput
 }
 
+export type UserCreateNestedOneWithoutPackUpDoneReservationsInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutPackUpDoneReservationsInput, Prisma.UserUncheckedCreateWithoutPackUpDoneReservationsInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutPackUpDoneReservationsInput
+  connect?: Prisma.UserWhereUniqueInput
+}
+
 export type UserUpdateOneRequiredWithoutFacilityRequestsNestedInput = {
   create?: Prisma.XOR<Prisma.UserCreateWithoutFacilityRequestsInput, Prisma.UserUncheckedCreateWithoutFacilityRequestsInput>
   connectOrCreate?: Prisma.UserCreateOrConnectWithoutFacilityRequestsInput
@@ -848,6 +861,16 @@ export type UserUpdateOneWithoutOcmEditsNestedInput = {
   delete?: Prisma.UserWhereInput | boolean
   connect?: Prisma.UserWhereUniqueInput
   update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutOcmEditsInput, Prisma.UserUpdateWithoutOcmEditsInput>, Prisma.UserUncheckedUpdateWithoutOcmEditsInput>
+}
+
+export type UserUpdateOneWithoutPackUpDoneReservationsNestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutPackUpDoneReservationsInput, Prisma.UserUncheckedCreateWithoutPackUpDoneReservationsInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutPackUpDoneReservationsInput
+  upsert?: Prisma.UserUpsertWithoutPackUpDoneReservationsInput
+  disconnect?: Prisma.UserWhereInput | boolean
+  delete?: Prisma.UserWhereInput | boolean
+  connect?: Prisma.UserWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutPackUpDoneReservationsInput, Prisma.UserUpdateWithoutPackUpDoneReservationsInput>, Prisma.UserUncheckedUpdateWithoutPackUpDoneReservationsInput>
 }
 
 export type UserCreateNestedOneWithoutApprovalsPerformedInput = {
@@ -907,6 +930,7 @@ export type UserCreateWithoutDepartmentInput = {
   ocmEdits?: Prisma.FacilityReservationCreateNestedManyWithoutOcmEditedByInput
   approvalsPerformed?: Prisma.FacilityApprovalCreateNestedManyWithoutPerformedByInput
   facilityAssignments?: Prisma.FacilityAssignmentCreateNestedManyWithoutUserInput
+  packUpDoneReservations?: Prisma.FacilityReservationCreateNestedManyWithoutPackUpDoneByInput
 }
 
 export type UserUncheckedCreateWithoutDepartmentInput = {
@@ -936,6 +960,7 @@ export type UserUncheckedCreateWithoutDepartmentInput = {
   ocmEdits?: Prisma.FacilityReservationUncheckedCreateNestedManyWithoutOcmEditedByInput
   approvalsPerformed?: Prisma.FacilityApprovalUncheckedCreateNestedManyWithoutPerformedByInput
   facilityAssignments?: Prisma.FacilityAssignmentUncheckedCreateNestedManyWithoutUserInput
+  packUpDoneReservations?: Prisma.FacilityReservationUncheckedCreateNestedManyWithoutPackUpDoneByInput
 }
 
 export type UserCreateOrConnectWithoutDepartmentInput = {
@@ -1015,6 +1040,7 @@ export type UserCreateWithoutActivity_logsInput = {
   ocmEdits?: Prisma.FacilityReservationCreateNestedManyWithoutOcmEditedByInput
   approvalsPerformed?: Prisma.FacilityApprovalCreateNestedManyWithoutPerformedByInput
   facilityAssignments?: Prisma.FacilityAssignmentCreateNestedManyWithoutUserInput
+  packUpDoneReservations?: Prisma.FacilityReservationCreateNestedManyWithoutPackUpDoneByInput
 }
 
 export type UserUncheckedCreateWithoutActivity_logsInput = {
@@ -1044,6 +1070,7 @@ export type UserUncheckedCreateWithoutActivity_logsInput = {
   ocmEdits?: Prisma.FacilityReservationUncheckedCreateNestedManyWithoutOcmEditedByInput
   approvalsPerformed?: Prisma.FacilityApprovalUncheckedCreateNestedManyWithoutPerformedByInput
   facilityAssignments?: Prisma.FacilityAssignmentUncheckedCreateNestedManyWithoutUserInput
+  packUpDoneReservations?: Prisma.FacilityReservationUncheckedCreateNestedManyWithoutPackUpDoneByInput
 }
 
 export type UserCreateOrConnectWithoutActivity_logsInput = {
@@ -1089,6 +1116,7 @@ export type UserUpdateWithoutActivity_logsInput = {
   ocmEdits?: Prisma.FacilityReservationUpdateManyWithoutOcmEditedByNestedInput
   approvalsPerformed?: Prisma.FacilityApprovalUpdateManyWithoutPerformedByNestedInput
   facilityAssignments?: Prisma.FacilityAssignmentUpdateManyWithoutUserNestedInput
+  packUpDoneReservations?: Prisma.FacilityReservationUpdateManyWithoutPackUpDoneByNestedInput
 }
 
 export type UserUncheckedUpdateWithoutActivity_logsInput = {
@@ -1118,6 +1146,7 @@ export type UserUncheckedUpdateWithoutActivity_logsInput = {
   ocmEdits?: Prisma.FacilityReservationUncheckedUpdateManyWithoutOcmEditedByNestedInput
   approvalsPerformed?: Prisma.FacilityApprovalUncheckedUpdateManyWithoutPerformedByNestedInput
   facilityAssignments?: Prisma.FacilityAssignmentUncheckedUpdateManyWithoutUserNestedInput
+  packUpDoneReservations?: Prisma.FacilityReservationUncheckedUpdateManyWithoutPackUpDoneByNestedInput
 }
 
 export type UserCreateWithoutReceived_notifInput = {
@@ -1147,6 +1176,7 @@ export type UserCreateWithoutReceived_notifInput = {
   ocmEdits?: Prisma.FacilityReservationCreateNestedManyWithoutOcmEditedByInput
   approvalsPerformed?: Prisma.FacilityApprovalCreateNestedManyWithoutPerformedByInput
   facilityAssignments?: Prisma.FacilityAssignmentCreateNestedManyWithoutUserInput
+  packUpDoneReservations?: Prisma.FacilityReservationCreateNestedManyWithoutPackUpDoneByInput
 }
 
 export type UserUncheckedCreateWithoutReceived_notifInput = {
@@ -1176,6 +1206,7 @@ export type UserUncheckedCreateWithoutReceived_notifInput = {
   ocmEdits?: Prisma.FacilityReservationUncheckedCreateNestedManyWithoutOcmEditedByInput
   approvalsPerformed?: Prisma.FacilityApprovalUncheckedCreateNestedManyWithoutPerformedByInput
   facilityAssignments?: Prisma.FacilityAssignmentUncheckedCreateNestedManyWithoutUserInput
+  packUpDoneReservations?: Prisma.FacilityReservationUncheckedCreateNestedManyWithoutPackUpDoneByInput
 }
 
 export type UserCreateOrConnectWithoutReceived_notifInput = {
@@ -1210,6 +1241,7 @@ export type UserCreateWithoutSent_notifInput = {
   ocmEdits?: Prisma.FacilityReservationCreateNestedManyWithoutOcmEditedByInput
   approvalsPerformed?: Prisma.FacilityApprovalCreateNestedManyWithoutPerformedByInput
   facilityAssignments?: Prisma.FacilityAssignmentCreateNestedManyWithoutUserInput
+  packUpDoneReservations?: Prisma.FacilityReservationCreateNestedManyWithoutPackUpDoneByInput
 }
 
 export type UserUncheckedCreateWithoutSent_notifInput = {
@@ -1239,6 +1271,7 @@ export type UserUncheckedCreateWithoutSent_notifInput = {
   ocmEdits?: Prisma.FacilityReservationUncheckedCreateNestedManyWithoutOcmEditedByInput
   approvalsPerformed?: Prisma.FacilityApprovalUncheckedCreateNestedManyWithoutPerformedByInput
   facilityAssignments?: Prisma.FacilityAssignmentUncheckedCreateNestedManyWithoutUserInput
+  packUpDoneReservations?: Prisma.FacilityReservationUncheckedCreateNestedManyWithoutPackUpDoneByInput
 }
 
 export type UserCreateOrConnectWithoutSent_notifInput = {
@@ -1284,6 +1317,7 @@ export type UserUpdateWithoutReceived_notifInput = {
   ocmEdits?: Prisma.FacilityReservationUpdateManyWithoutOcmEditedByNestedInput
   approvalsPerformed?: Prisma.FacilityApprovalUpdateManyWithoutPerformedByNestedInput
   facilityAssignments?: Prisma.FacilityAssignmentUpdateManyWithoutUserNestedInput
+  packUpDoneReservations?: Prisma.FacilityReservationUpdateManyWithoutPackUpDoneByNestedInput
 }
 
 export type UserUncheckedUpdateWithoutReceived_notifInput = {
@@ -1313,6 +1347,7 @@ export type UserUncheckedUpdateWithoutReceived_notifInput = {
   ocmEdits?: Prisma.FacilityReservationUncheckedUpdateManyWithoutOcmEditedByNestedInput
   approvalsPerformed?: Prisma.FacilityApprovalUncheckedUpdateManyWithoutPerformedByNestedInput
   facilityAssignments?: Prisma.FacilityAssignmentUncheckedUpdateManyWithoutUserNestedInput
+  packUpDoneReservations?: Prisma.FacilityReservationUncheckedUpdateManyWithoutPackUpDoneByNestedInput
 }
 
 export type UserUpsertWithoutSent_notifInput = {
@@ -1353,6 +1388,7 @@ export type UserUpdateWithoutSent_notifInput = {
   ocmEdits?: Prisma.FacilityReservationUpdateManyWithoutOcmEditedByNestedInput
   approvalsPerformed?: Prisma.FacilityApprovalUpdateManyWithoutPerformedByNestedInput
   facilityAssignments?: Prisma.FacilityAssignmentUpdateManyWithoutUserNestedInput
+  packUpDoneReservations?: Prisma.FacilityReservationUpdateManyWithoutPackUpDoneByNestedInput
 }
 
 export type UserUncheckedUpdateWithoutSent_notifInput = {
@@ -1382,6 +1418,7 @@ export type UserUncheckedUpdateWithoutSent_notifInput = {
   ocmEdits?: Prisma.FacilityReservationUncheckedUpdateManyWithoutOcmEditedByNestedInput
   approvalsPerformed?: Prisma.FacilityApprovalUncheckedUpdateManyWithoutPerformedByNestedInput
   facilityAssignments?: Prisma.FacilityAssignmentUncheckedUpdateManyWithoutUserNestedInput
+  packUpDoneReservations?: Prisma.FacilityReservationUncheckedUpdateManyWithoutPackUpDoneByNestedInput
 }
 
 export type UserCreateWithoutLogin_logsInput = {
@@ -1411,6 +1448,7 @@ export type UserCreateWithoutLogin_logsInput = {
   ocmEdits?: Prisma.FacilityReservationCreateNestedManyWithoutOcmEditedByInput
   approvalsPerformed?: Prisma.FacilityApprovalCreateNestedManyWithoutPerformedByInput
   facilityAssignments?: Prisma.FacilityAssignmentCreateNestedManyWithoutUserInput
+  packUpDoneReservations?: Prisma.FacilityReservationCreateNestedManyWithoutPackUpDoneByInput
 }
 
 export type UserUncheckedCreateWithoutLogin_logsInput = {
@@ -1440,6 +1478,7 @@ export type UserUncheckedCreateWithoutLogin_logsInput = {
   ocmEdits?: Prisma.FacilityReservationUncheckedCreateNestedManyWithoutOcmEditedByInput
   approvalsPerformed?: Prisma.FacilityApprovalUncheckedCreateNestedManyWithoutPerformedByInput
   facilityAssignments?: Prisma.FacilityAssignmentUncheckedCreateNestedManyWithoutUserInput
+  packUpDoneReservations?: Prisma.FacilityReservationUncheckedCreateNestedManyWithoutPackUpDoneByInput
 }
 
 export type UserCreateOrConnectWithoutLogin_logsInput = {
@@ -1485,6 +1524,7 @@ export type UserUpdateWithoutLogin_logsInput = {
   ocmEdits?: Prisma.FacilityReservationUpdateManyWithoutOcmEditedByNestedInput
   approvalsPerformed?: Prisma.FacilityApprovalUpdateManyWithoutPerformedByNestedInput
   facilityAssignments?: Prisma.FacilityAssignmentUpdateManyWithoutUserNestedInput
+  packUpDoneReservations?: Prisma.FacilityReservationUpdateManyWithoutPackUpDoneByNestedInput
 }
 
 export type UserUncheckedUpdateWithoutLogin_logsInput = {
@@ -1514,6 +1554,7 @@ export type UserUncheckedUpdateWithoutLogin_logsInput = {
   ocmEdits?: Prisma.FacilityReservationUncheckedUpdateManyWithoutOcmEditedByNestedInput
   approvalsPerformed?: Prisma.FacilityApprovalUncheckedUpdateManyWithoutPerformedByNestedInput
   facilityAssignments?: Prisma.FacilityAssignmentUncheckedUpdateManyWithoutUserNestedInput
+  packUpDoneReservations?: Prisma.FacilityReservationUncheckedUpdateManyWithoutPackUpDoneByNestedInput
 }
 
 export type UserCreateWithoutMemosCreatedInput = {
@@ -1543,6 +1584,7 @@ export type UserCreateWithoutMemosCreatedInput = {
   ocmEdits?: Prisma.FacilityReservationCreateNestedManyWithoutOcmEditedByInput
   approvalsPerformed?: Prisma.FacilityApprovalCreateNestedManyWithoutPerformedByInput
   facilityAssignments?: Prisma.FacilityAssignmentCreateNestedManyWithoutUserInput
+  packUpDoneReservations?: Prisma.FacilityReservationCreateNestedManyWithoutPackUpDoneByInput
 }
 
 export type UserUncheckedCreateWithoutMemosCreatedInput = {
@@ -1572,6 +1614,7 @@ export type UserUncheckedCreateWithoutMemosCreatedInput = {
   ocmEdits?: Prisma.FacilityReservationUncheckedCreateNestedManyWithoutOcmEditedByInput
   approvalsPerformed?: Prisma.FacilityApprovalUncheckedCreateNestedManyWithoutPerformedByInput
   facilityAssignments?: Prisma.FacilityAssignmentUncheckedCreateNestedManyWithoutUserInput
+  packUpDoneReservations?: Prisma.FacilityReservationUncheckedCreateNestedManyWithoutPackUpDoneByInput
 }
 
 export type UserCreateOrConnectWithoutMemosCreatedInput = {
@@ -1617,6 +1660,7 @@ export type UserUpdateWithoutMemosCreatedInput = {
   ocmEdits?: Prisma.FacilityReservationUpdateManyWithoutOcmEditedByNestedInput
   approvalsPerformed?: Prisma.FacilityApprovalUpdateManyWithoutPerformedByNestedInput
   facilityAssignments?: Prisma.FacilityAssignmentUpdateManyWithoutUserNestedInput
+  packUpDoneReservations?: Prisma.FacilityReservationUpdateManyWithoutPackUpDoneByNestedInput
 }
 
 export type UserUncheckedUpdateWithoutMemosCreatedInput = {
@@ -1646,6 +1690,7 @@ export type UserUncheckedUpdateWithoutMemosCreatedInput = {
   ocmEdits?: Prisma.FacilityReservationUncheckedUpdateManyWithoutOcmEditedByNestedInput
   approvalsPerformed?: Prisma.FacilityApprovalUncheckedUpdateManyWithoutPerformedByNestedInput
   facilityAssignments?: Prisma.FacilityAssignmentUncheckedUpdateManyWithoutUserNestedInput
+  packUpDoneReservations?: Prisma.FacilityReservationUncheckedUpdateManyWithoutPackUpDoneByNestedInput
 }
 
 export type UserCreateWithoutFacilityRequestsInput = {
@@ -1675,6 +1720,7 @@ export type UserCreateWithoutFacilityRequestsInput = {
   ocmEdits?: Prisma.FacilityReservationCreateNestedManyWithoutOcmEditedByInput
   approvalsPerformed?: Prisma.FacilityApprovalCreateNestedManyWithoutPerformedByInput
   facilityAssignments?: Prisma.FacilityAssignmentCreateNestedManyWithoutUserInput
+  packUpDoneReservations?: Prisma.FacilityReservationCreateNestedManyWithoutPackUpDoneByInput
 }
 
 export type UserUncheckedCreateWithoutFacilityRequestsInput = {
@@ -1704,6 +1750,7 @@ export type UserUncheckedCreateWithoutFacilityRequestsInput = {
   ocmEdits?: Prisma.FacilityReservationUncheckedCreateNestedManyWithoutOcmEditedByInput
   approvalsPerformed?: Prisma.FacilityApprovalUncheckedCreateNestedManyWithoutPerformedByInput
   facilityAssignments?: Prisma.FacilityAssignmentUncheckedCreateNestedManyWithoutUserInput
+  packUpDoneReservations?: Prisma.FacilityReservationUncheckedCreateNestedManyWithoutPackUpDoneByInput
 }
 
 export type UserCreateOrConnectWithoutFacilityRequestsInput = {
@@ -1738,6 +1785,7 @@ export type UserCreateWithoutOcmEditsInput = {
   facilityRequests?: Prisma.FacilityReservationCreateNestedManyWithoutRequestorInput
   approvalsPerformed?: Prisma.FacilityApprovalCreateNestedManyWithoutPerformedByInput
   facilityAssignments?: Prisma.FacilityAssignmentCreateNestedManyWithoutUserInput
+  packUpDoneReservations?: Prisma.FacilityReservationCreateNestedManyWithoutPackUpDoneByInput
 }
 
 export type UserUncheckedCreateWithoutOcmEditsInput = {
@@ -1767,11 +1815,77 @@ export type UserUncheckedCreateWithoutOcmEditsInput = {
   facilityRequests?: Prisma.FacilityReservationUncheckedCreateNestedManyWithoutRequestorInput
   approvalsPerformed?: Prisma.FacilityApprovalUncheckedCreateNestedManyWithoutPerformedByInput
   facilityAssignments?: Prisma.FacilityAssignmentUncheckedCreateNestedManyWithoutUserInput
+  packUpDoneReservations?: Prisma.FacilityReservationUncheckedCreateNestedManyWithoutPackUpDoneByInput
 }
 
 export type UserCreateOrConnectWithoutOcmEditsInput = {
   where: Prisma.UserWhereUniqueInput
   create: Prisma.XOR<Prisma.UserCreateWithoutOcmEditsInput, Prisma.UserUncheckedCreateWithoutOcmEditsInput>
+}
+
+export type UserCreateWithoutPackUpDoneReservationsInput = {
+  id?: string
+  employee_id: string
+  email: string
+  password: string
+  fname: string
+  lname: string
+  role?: $Enums.Role
+  branch?: $Enums.SystemBranch
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  last_login?: Date | string | null
+  forgot_password?: boolean
+  resetToken?: string | null
+  resetTokenExpiry?: Date | string | null
+  oic_start?: string | null
+  oic_end?: string | null
+  disabled?: boolean
+  department: Prisma.DepartmentCreateNestedOneWithoutUsersInput
+  received_notif?: Prisma.NotificationCreateNestedManyWithoutRecipientInput
+  sent_notif?: Prisma.NotificationCreateNestedManyWithoutSenderInput
+  login_logs?: Prisma.LoginLogCreateNestedManyWithoutUserInput
+  activity_logs?: Prisma.ActivityLogCreateNestedManyWithoutUserInput
+  memosCreated?: Prisma.MemoCreateNestedManyWithoutSenderInput
+  facilityRequests?: Prisma.FacilityReservationCreateNestedManyWithoutRequestorInput
+  ocmEdits?: Prisma.FacilityReservationCreateNestedManyWithoutOcmEditedByInput
+  approvalsPerformed?: Prisma.FacilityApprovalCreateNestedManyWithoutPerformedByInput
+  facilityAssignments?: Prisma.FacilityAssignmentCreateNestedManyWithoutUserInput
+}
+
+export type UserUncheckedCreateWithoutPackUpDoneReservationsInput = {
+  id?: string
+  employee_id: string
+  email: string
+  password: string
+  fname: string
+  lname: string
+  role?: $Enums.Role
+  branch?: $Enums.SystemBranch
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  departmentCode: string
+  last_login?: Date | string | null
+  forgot_password?: boolean
+  resetToken?: string | null
+  resetTokenExpiry?: Date | string | null
+  oic_start?: string | null
+  oic_end?: string | null
+  disabled?: boolean
+  received_notif?: Prisma.NotificationUncheckedCreateNestedManyWithoutRecipientInput
+  sent_notif?: Prisma.NotificationUncheckedCreateNestedManyWithoutSenderInput
+  login_logs?: Prisma.LoginLogUncheckedCreateNestedManyWithoutUserInput
+  activity_logs?: Prisma.ActivityLogUncheckedCreateNestedManyWithoutUserInput
+  memosCreated?: Prisma.MemoUncheckedCreateNestedManyWithoutSenderInput
+  facilityRequests?: Prisma.FacilityReservationUncheckedCreateNestedManyWithoutRequestorInput
+  ocmEdits?: Prisma.FacilityReservationUncheckedCreateNestedManyWithoutOcmEditedByInput
+  approvalsPerformed?: Prisma.FacilityApprovalUncheckedCreateNestedManyWithoutPerformedByInput
+  facilityAssignments?: Prisma.FacilityAssignmentUncheckedCreateNestedManyWithoutUserInput
+}
+
+export type UserCreateOrConnectWithoutPackUpDoneReservationsInput = {
+  where: Prisma.UserWhereUniqueInput
+  create: Prisma.XOR<Prisma.UserCreateWithoutPackUpDoneReservationsInput, Prisma.UserUncheckedCreateWithoutPackUpDoneReservationsInput>
 }
 
 export type UserUpsertWithoutFacilityRequestsInput = {
@@ -1812,6 +1926,7 @@ export type UserUpdateWithoutFacilityRequestsInput = {
   ocmEdits?: Prisma.FacilityReservationUpdateManyWithoutOcmEditedByNestedInput
   approvalsPerformed?: Prisma.FacilityApprovalUpdateManyWithoutPerformedByNestedInput
   facilityAssignments?: Prisma.FacilityAssignmentUpdateManyWithoutUserNestedInput
+  packUpDoneReservations?: Prisma.FacilityReservationUpdateManyWithoutPackUpDoneByNestedInput
 }
 
 export type UserUncheckedUpdateWithoutFacilityRequestsInput = {
@@ -1841,6 +1956,7 @@ export type UserUncheckedUpdateWithoutFacilityRequestsInput = {
   ocmEdits?: Prisma.FacilityReservationUncheckedUpdateManyWithoutOcmEditedByNestedInput
   approvalsPerformed?: Prisma.FacilityApprovalUncheckedUpdateManyWithoutPerformedByNestedInput
   facilityAssignments?: Prisma.FacilityAssignmentUncheckedUpdateManyWithoutUserNestedInput
+  packUpDoneReservations?: Prisma.FacilityReservationUncheckedUpdateManyWithoutPackUpDoneByNestedInput
 }
 
 export type UserUpsertWithoutOcmEditsInput = {
@@ -1881,6 +1997,7 @@ export type UserUpdateWithoutOcmEditsInput = {
   facilityRequests?: Prisma.FacilityReservationUpdateManyWithoutRequestorNestedInput
   approvalsPerformed?: Prisma.FacilityApprovalUpdateManyWithoutPerformedByNestedInput
   facilityAssignments?: Prisma.FacilityAssignmentUpdateManyWithoutUserNestedInput
+  packUpDoneReservations?: Prisma.FacilityReservationUpdateManyWithoutPackUpDoneByNestedInput
 }
 
 export type UserUncheckedUpdateWithoutOcmEditsInput = {
@@ -1908,6 +2025,78 @@ export type UserUncheckedUpdateWithoutOcmEditsInput = {
   activity_logs?: Prisma.ActivityLogUncheckedUpdateManyWithoutUserNestedInput
   memosCreated?: Prisma.MemoUncheckedUpdateManyWithoutSenderNestedInput
   facilityRequests?: Prisma.FacilityReservationUncheckedUpdateManyWithoutRequestorNestedInput
+  approvalsPerformed?: Prisma.FacilityApprovalUncheckedUpdateManyWithoutPerformedByNestedInput
+  facilityAssignments?: Prisma.FacilityAssignmentUncheckedUpdateManyWithoutUserNestedInput
+  packUpDoneReservations?: Prisma.FacilityReservationUncheckedUpdateManyWithoutPackUpDoneByNestedInput
+}
+
+export type UserUpsertWithoutPackUpDoneReservationsInput = {
+  update: Prisma.XOR<Prisma.UserUpdateWithoutPackUpDoneReservationsInput, Prisma.UserUncheckedUpdateWithoutPackUpDoneReservationsInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutPackUpDoneReservationsInput, Prisma.UserUncheckedCreateWithoutPackUpDoneReservationsInput>
+  where?: Prisma.UserWhereInput
+}
+
+export type UserUpdateToOneWithWhereWithoutPackUpDoneReservationsInput = {
+  where?: Prisma.UserWhereInput
+  data: Prisma.XOR<Prisma.UserUpdateWithoutPackUpDoneReservationsInput, Prisma.UserUncheckedUpdateWithoutPackUpDoneReservationsInput>
+}
+
+export type UserUpdateWithoutPackUpDoneReservationsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  employee_id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  password?: Prisma.StringFieldUpdateOperationsInput | string
+  fname?: Prisma.StringFieldUpdateOperationsInput | string
+  lname?: Prisma.StringFieldUpdateOperationsInput | string
+  role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
+  branch?: Prisma.EnumSystemBranchFieldUpdateOperationsInput | $Enums.SystemBranch
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  last_login?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  forgot_password?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  resetToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  resetTokenExpiry?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  oic_start?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oic_end?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  disabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  department?: Prisma.DepartmentUpdateOneRequiredWithoutUsersNestedInput
+  received_notif?: Prisma.NotificationUpdateManyWithoutRecipientNestedInput
+  sent_notif?: Prisma.NotificationUpdateManyWithoutSenderNestedInput
+  login_logs?: Prisma.LoginLogUpdateManyWithoutUserNestedInput
+  activity_logs?: Prisma.ActivityLogUpdateManyWithoutUserNestedInput
+  memosCreated?: Prisma.MemoUpdateManyWithoutSenderNestedInput
+  facilityRequests?: Prisma.FacilityReservationUpdateManyWithoutRequestorNestedInput
+  ocmEdits?: Prisma.FacilityReservationUpdateManyWithoutOcmEditedByNestedInput
+  approvalsPerformed?: Prisma.FacilityApprovalUpdateManyWithoutPerformedByNestedInput
+  facilityAssignments?: Prisma.FacilityAssignmentUpdateManyWithoutUserNestedInput
+}
+
+export type UserUncheckedUpdateWithoutPackUpDoneReservationsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  employee_id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  password?: Prisma.StringFieldUpdateOperationsInput | string
+  fname?: Prisma.StringFieldUpdateOperationsInput | string
+  lname?: Prisma.StringFieldUpdateOperationsInput | string
+  role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
+  branch?: Prisma.EnumSystemBranchFieldUpdateOperationsInput | $Enums.SystemBranch
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  departmentCode?: Prisma.StringFieldUpdateOperationsInput | string
+  last_login?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  forgot_password?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  resetToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  resetTokenExpiry?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  oic_start?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oic_end?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  disabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  received_notif?: Prisma.NotificationUncheckedUpdateManyWithoutRecipientNestedInput
+  sent_notif?: Prisma.NotificationUncheckedUpdateManyWithoutSenderNestedInput
+  login_logs?: Prisma.LoginLogUncheckedUpdateManyWithoutUserNestedInput
+  activity_logs?: Prisma.ActivityLogUncheckedUpdateManyWithoutUserNestedInput
+  memosCreated?: Prisma.MemoUncheckedUpdateManyWithoutSenderNestedInput
+  facilityRequests?: Prisma.FacilityReservationUncheckedUpdateManyWithoutRequestorNestedInput
+  ocmEdits?: Prisma.FacilityReservationUncheckedUpdateManyWithoutOcmEditedByNestedInput
   approvalsPerformed?: Prisma.FacilityApprovalUncheckedUpdateManyWithoutPerformedByNestedInput
   facilityAssignments?: Prisma.FacilityAssignmentUncheckedUpdateManyWithoutUserNestedInput
 }
@@ -1939,6 +2128,7 @@ export type UserCreateWithoutApprovalsPerformedInput = {
   facilityRequests?: Prisma.FacilityReservationCreateNestedManyWithoutRequestorInput
   ocmEdits?: Prisma.FacilityReservationCreateNestedManyWithoutOcmEditedByInput
   facilityAssignments?: Prisma.FacilityAssignmentCreateNestedManyWithoutUserInput
+  packUpDoneReservations?: Prisma.FacilityReservationCreateNestedManyWithoutPackUpDoneByInput
 }
 
 export type UserUncheckedCreateWithoutApprovalsPerformedInput = {
@@ -1968,6 +2158,7 @@ export type UserUncheckedCreateWithoutApprovalsPerformedInput = {
   facilityRequests?: Prisma.FacilityReservationUncheckedCreateNestedManyWithoutRequestorInput
   ocmEdits?: Prisma.FacilityReservationUncheckedCreateNestedManyWithoutOcmEditedByInput
   facilityAssignments?: Prisma.FacilityAssignmentUncheckedCreateNestedManyWithoutUserInput
+  packUpDoneReservations?: Prisma.FacilityReservationUncheckedCreateNestedManyWithoutPackUpDoneByInput
 }
 
 export type UserCreateOrConnectWithoutApprovalsPerformedInput = {
@@ -2013,6 +2204,7 @@ export type UserUpdateWithoutApprovalsPerformedInput = {
   facilityRequests?: Prisma.FacilityReservationUpdateManyWithoutRequestorNestedInput
   ocmEdits?: Prisma.FacilityReservationUpdateManyWithoutOcmEditedByNestedInput
   facilityAssignments?: Prisma.FacilityAssignmentUpdateManyWithoutUserNestedInput
+  packUpDoneReservations?: Prisma.FacilityReservationUpdateManyWithoutPackUpDoneByNestedInput
 }
 
 export type UserUncheckedUpdateWithoutApprovalsPerformedInput = {
@@ -2042,6 +2234,7 @@ export type UserUncheckedUpdateWithoutApprovalsPerformedInput = {
   facilityRequests?: Prisma.FacilityReservationUncheckedUpdateManyWithoutRequestorNestedInput
   ocmEdits?: Prisma.FacilityReservationUncheckedUpdateManyWithoutOcmEditedByNestedInput
   facilityAssignments?: Prisma.FacilityAssignmentUncheckedUpdateManyWithoutUserNestedInput
+  packUpDoneReservations?: Prisma.FacilityReservationUncheckedUpdateManyWithoutPackUpDoneByNestedInput
 }
 
 export type UserCreateWithoutFacilityAssignmentsInput = {
@@ -2071,6 +2264,7 @@ export type UserCreateWithoutFacilityAssignmentsInput = {
   facilityRequests?: Prisma.FacilityReservationCreateNestedManyWithoutRequestorInput
   ocmEdits?: Prisma.FacilityReservationCreateNestedManyWithoutOcmEditedByInput
   approvalsPerformed?: Prisma.FacilityApprovalCreateNestedManyWithoutPerformedByInput
+  packUpDoneReservations?: Prisma.FacilityReservationCreateNestedManyWithoutPackUpDoneByInput
 }
 
 export type UserUncheckedCreateWithoutFacilityAssignmentsInput = {
@@ -2100,6 +2294,7 @@ export type UserUncheckedCreateWithoutFacilityAssignmentsInput = {
   facilityRequests?: Prisma.FacilityReservationUncheckedCreateNestedManyWithoutRequestorInput
   ocmEdits?: Prisma.FacilityReservationUncheckedCreateNestedManyWithoutOcmEditedByInput
   approvalsPerformed?: Prisma.FacilityApprovalUncheckedCreateNestedManyWithoutPerformedByInput
+  packUpDoneReservations?: Prisma.FacilityReservationUncheckedCreateNestedManyWithoutPackUpDoneByInput
 }
 
 export type UserCreateOrConnectWithoutFacilityAssignmentsInput = {
@@ -2145,6 +2340,7 @@ export type UserUpdateWithoutFacilityAssignmentsInput = {
   facilityRequests?: Prisma.FacilityReservationUpdateManyWithoutRequestorNestedInput
   ocmEdits?: Prisma.FacilityReservationUpdateManyWithoutOcmEditedByNestedInput
   approvalsPerformed?: Prisma.FacilityApprovalUpdateManyWithoutPerformedByNestedInput
+  packUpDoneReservations?: Prisma.FacilityReservationUpdateManyWithoutPackUpDoneByNestedInput
 }
 
 export type UserUncheckedUpdateWithoutFacilityAssignmentsInput = {
@@ -2174,6 +2370,7 @@ export type UserUncheckedUpdateWithoutFacilityAssignmentsInput = {
   facilityRequests?: Prisma.FacilityReservationUncheckedUpdateManyWithoutRequestorNestedInput
   ocmEdits?: Prisma.FacilityReservationUncheckedUpdateManyWithoutOcmEditedByNestedInput
   approvalsPerformed?: Prisma.FacilityApprovalUncheckedUpdateManyWithoutPerformedByNestedInput
+  packUpDoneReservations?: Prisma.FacilityReservationUncheckedUpdateManyWithoutPackUpDoneByNestedInput
 }
 
 export type UserCreateManyDepartmentInput = {
@@ -2223,6 +2420,7 @@ export type UserUpdateWithoutDepartmentInput = {
   ocmEdits?: Prisma.FacilityReservationUpdateManyWithoutOcmEditedByNestedInput
   approvalsPerformed?: Prisma.FacilityApprovalUpdateManyWithoutPerformedByNestedInput
   facilityAssignments?: Prisma.FacilityAssignmentUpdateManyWithoutUserNestedInput
+  packUpDoneReservations?: Prisma.FacilityReservationUpdateManyWithoutPackUpDoneByNestedInput
 }
 
 export type UserUncheckedUpdateWithoutDepartmentInput = {
@@ -2252,6 +2450,7 @@ export type UserUncheckedUpdateWithoutDepartmentInput = {
   ocmEdits?: Prisma.FacilityReservationUncheckedUpdateManyWithoutOcmEditedByNestedInput
   approvalsPerformed?: Prisma.FacilityApprovalUncheckedUpdateManyWithoutPerformedByNestedInput
   facilityAssignments?: Prisma.FacilityAssignmentUncheckedUpdateManyWithoutUserNestedInput
+  packUpDoneReservations?: Prisma.FacilityReservationUncheckedUpdateManyWithoutPackUpDoneByNestedInput
 }
 
 export type UserUncheckedUpdateManyWithoutDepartmentInput = {
@@ -2289,6 +2488,7 @@ export type UserCountOutputType = {
   ocmEdits: number
   approvalsPerformed: number
   facilityAssignments: number
+  packUpDoneReservations: number
 }
 
 export type UserCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -2301,6 +2501,7 @@ export type UserCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.I
   ocmEdits?: boolean | UserCountOutputTypeCountOcmEditsArgs
   approvalsPerformed?: boolean | UserCountOutputTypeCountApprovalsPerformedArgs
   facilityAssignments?: boolean | UserCountOutputTypeCountFacilityAssignmentsArgs
+  packUpDoneReservations?: boolean | UserCountOutputTypeCountPackUpDoneReservationsArgs
 }
 
 /**
@@ -2376,6 +2577,13 @@ export type UserCountOutputTypeCountFacilityAssignmentsArgs<ExtArgs extends runt
   where?: Prisma.FacilityAssignmentWhereInput
 }
 
+/**
+ * UserCountOutputType without action
+ */
+export type UserCountOutputTypeCountPackUpDoneReservationsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.FacilityReservationWhereInput
+}
+
 
 export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -2406,6 +2614,7 @@ export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   ocmEdits?: boolean | Prisma.User$ocmEditsArgs<ExtArgs>
   approvalsPerformed?: boolean | Prisma.User$approvalsPerformedArgs<ExtArgs>
   facilityAssignments?: boolean | Prisma.User$facilityAssignmentsArgs<ExtArgs>
+  packUpDoneReservations?: boolean | Prisma.User$packUpDoneReservationsArgs<ExtArgs>
   _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["user"]>
 
@@ -2486,6 +2695,7 @@ export type UserInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   ocmEdits?: boolean | Prisma.User$ocmEditsArgs<ExtArgs>
   approvalsPerformed?: boolean | Prisma.User$approvalsPerformedArgs<ExtArgs>
   facilityAssignments?: boolean | Prisma.User$facilityAssignmentsArgs<ExtArgs>
+  packUpDoneReservations?: boolean | Prisma.User$packUpDoneReservationsArgs<ExtArgs>
   _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type UserIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -2508,6 +2718,7 @@ export type $UserPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
     ocmEdits: Prisma.$FacilityReservationPayload<ExtArgs>[]
     approvalsPerformed: Prisma.$FacilityApprovalPayload<ExtArgs>[]
     facilityAssignments: Prisma.$FacilityAssignmentPayload<ExtArgs>[]
+    packUpDoneReservations: Prisma.$FacilityReservationPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -2932,6 +3143,7 @@ export interface Prisma__UserClient<T, Null = never, ExtArgs extends runtime.Typ
   ocmEdits<T extends Prisma.User$ocmEditsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$ocmEditsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$FacilityReservationPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   approvalsPerformed<T extends Prisma.User$approvalsPerformedArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$approvalsPerformedArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$FacilityApprovalPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   facilityAssignments<T extends Prisma.User$facilityAssignmentsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$facilityAssignmentsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$FacilityAssignmentPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  packUpDoneReservations<T extends Prisma.User$packUpDoneReservationsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$packUpDoneReservationsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$FacilityReservationPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -3593,6 +3805,30 @@ export type User$facilityAssignmentsArgs<ExtArgs extends runtime.Types.Extension
   take?: number
   skip?: number
   distinct?: Prisma.FacilityAssignmentScalarFieldEnum | Prisma.FacilityAssignmentScalarFieldEnum[]
+}
+
+/**
+ * User.packUpDoneReservations
+ */
+export type User$packUpDoneReservationsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the FacilityReservation
+   */
+  select?: Prisma.FacilityReservationSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the FacilityReservation
+   */
+  omit?: Prisma.FacilityReservationOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.FacilityReservationInclude<ExtArgs> | null
+  where?: Prisma.FacilityReservationWhereInput
+  orderBy?: Prisma.FacilityReservationOrderByWithRelationInput | Prisma.FacilityReservationOrderByWithRelationInput[]
+  cursor?: Prisma.FacilityReservationWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.FacilityReservationScalarFieldEnum | Prisma.FacilityReservationScalarFieldEnum[]
 }
 
 /**
