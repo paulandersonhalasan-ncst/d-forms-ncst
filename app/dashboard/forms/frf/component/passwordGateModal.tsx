@@ -45,43 +45,79 @@ export default function PasswordGateModal({
       case 'ocm-finalize': return 'OCM Final Edit';
       case 'note': return 'Mark as Noted';
       case 'PACKUP_DONE': return 'Mark Pack Up Done';
+      case 'REQUEST_STAFF_CHANGE': return 'Request Staff Change';
       default: return 'Confirm Action';
     }
   };
 
-  const isRemarksRequired = ['reject', 'return', 'PACKUP_DONE'].includes(action) || requireRemarks;
+  // 🆕 Helper para sa dynamic label ng remarks
+  const getRemarksLabel = () => {
+    switch (action) {
+      case 'PACKUP_DONE': return 'Notes / Remarks';
+      case 'REQUEST_STAFF_CHANGE': return 'Reason for Staff Change';
+      default: return 'Remarks';
+    }
+  };
+
+  const getRemarksPlaceholder = () => {
+    switch (action) {
+      case 'PACKUP_DONE':
+        return 'All equipment are returned in good condition.';
+      case 'REQUEST_STAFF_CHANGE':
+        return 'Include reason why staff change is needed.';
+      default:
+        return 'Explain why...';
+    }
+  };
+
+  const isRemarksRequired = ['reject', 'return', 'PACKUP_DONE', 'REQUEST_STAFF_CHANGE' ].includes(action) || requireRemarks;
 
   return (
     <Modal opened={opened} onClose={onClose} title={getTitle()} centered zIndex={1000}>
-      <Stack gap="sm">
-        <Text size="sm">Please enter your password to confirm this action.</Text>
-        {isRemarksRequired && (
-          <Textarea
-            label={action === 'PACKUP_DONE' ? 'Notes / Remarks' : 'Remarks'}
-            placeholder={action === 'PACKUP_DONE'
-              ? 'Halimbawa: Nailigpit na lahat ng equipment, walang nawala, at ibinalik sa storage.'
-              : 'Explain why...'}
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          handleSubmit();
+        }}
+      >
+        <Stack gap="sm">
+          <Text size="sm">Please enter your password to confirm this action.</Text>
+          {isRemarksRequired && (
+            <Textarea
+              label={getRemarksLabel()}
+              placeholder={getRemarksPlaceholder()}
+              required
+              value={remarks}
+              onChange={(e) => setRemarks(e.currentTarget.value)}
+              minRows={2}
+            />
+          )}
+          <PasswordInput
+            label="Password"
+            placeholder="Your password"
+            value={password}
+            onChange={(e) => setPassword(e.currentTarget.value)}
+            error={error}
             required
-            value={remarks}
-            onChange={(e) => setRemarks(e.currentTarget.value)}
-            minRows={2}
           />
-        )}
-        <PasswordInput
-          label="Password"
-          placeholder="Your password"
-          value={password}
-          onChange={(e) => setPassword(e.currentTarget.value)}
-          error={error}
-          required
-        />
-        <Group justify="flex-end">
-          <Button variant="light" onClick={onClose}>Cancel</Button>
-          <Button color={action === 'reject' ? 'red' : 'blue'} loading={loading} onClick={handleSubmit}>
-            Confirm
-          </Button>
-        </Group>
-      </Stack>
+          <Group justify="flex-end">
+            <Button
+              variant="light"
+              onClick={onClose}
+              type="button"           /* 🆕 huwag mag-submit */
+            >
+              Cancel
+            </Button>
+            <Button
+              color={action === 'reject' ? 'red' : 'blue'}
+              loading={loading}
+              type="submit"           /* 🆕 para sumagot sa Enter key */
+            >
+              Confirm
+            </Button>
+          </Group>
+        </Stack>
+      </form>
     </Modal>
   );
 }

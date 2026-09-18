@@ -3,7 +3,7 @@
 
 import { Card, Group, Text, Badge, Stack, UnstyledButton, ActionIcon, Box } from '@mantine/core';
 import { FacilityReservation, UserContext, FRFActionType, isActiveHeadOrOIC  } from './types';
-import { IconEye, IconCheck, IconX, IconRefresh } from '@tabler/icons-react';
+import { IconEye, IconCheck, IconX, IconRefresh, IconClock } from '@tabler/icons-react';
 
 interface RequestCardProps {
   request: FacilityReservation;
@@ -52,21 +52,28 @@ export default function RequestCard({
     <Card withBorder shadow="sm" radius="md" padding="sm">
       <UnstyledButton onClick={onView} style={{ width: '100%' }}>
         <Stack gap={4}>
-          <Group justify="space-between">
+          <Group justify="space-between" align="center" wrap="nowrap">
             <Text fw={700} size="sm">{request.referenceId}</Text>
-            <Badge
-              color={
-                request.status === 'PENDING_APPROVAL' ? 'orange' :
-                request.status === 'APPROVED' ? 'green' :
-                request.status === 'REJECTED' ? 'red' :
-                request.status === 'COMPLETED' ? 'blue' :
-                request.status === 'REVISION_REQUESTED' ? 'orange' :
-                request.status === 'RESCHEDULE_PENDING' ? 'yellow' : // 🆕 add this
-                'gray'
-              }
-            >
-              {request.status.replace('_', ' ')}
-            </Badge>
+            <Group gap={6} wrap="nowrap">
+              <Badge
+                color={
+                  request.status === 'PENDING_APPROVAL' ? 'orange' :
+                  request.status === 'APPROVED' ? 'green' :
+                  request.status === 'REJECTED' ? 'red' :
+                  request.status === 'COMPLETED' ? 'blue' :
+                  request.status === 'REVISION_REQUESTED' ? 'orange' :
+                  request.status === 'RESCHEDULE_PENDING' ? 'yellow' :
+                  'gray'
+                }
+              >
+                {request.status.replace('_', ' ')}
+              </Badge>
+              {request.staffChangeRequestedAt && (
+                <Badge color="orange" leftSection={<IconClock size={10} />}>
+                  Awaiting Staff Change
+                </Badge>
+              )}
+            </Group>
           </Group>
           <Text size="sm">{request.eventName}</Text>
           <Text size="xs" c="dimmed">

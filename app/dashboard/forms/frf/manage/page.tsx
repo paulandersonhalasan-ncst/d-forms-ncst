@@ -548,6 +548,7 @@ function SettingsTab({ currentUser }: TabProps) {
     minAdvanceDaysRegular: 7,
     minAdvanceDaysVIP: 1,
     maxEventsPerDay: 2,
+    minRescheduleDays: 3,
   });
   const [loading, setLoading] = useState(false);
 
@@ -577,6 +578,7 @@ function SettingsTab({ currentUser }: TabProps) {
           minAdvanceDaysRegular: settings.minAdvanceDaysRegular,
           minAdvanceDaysVIP: settings.minAdvanceDaysVIP,
           maxEventsPerDay: settings.maxEventsPerDay,
+          minRescheduleDays: settings.minRescheduleDays,
         }),
       });
       const result = await res.json();
@@ -630,6 +632,15 @@ function SettingsTab({ currentUser }: TabProps) {
             onChange={(val) => setSettings({ ...settings, maxEventsPerDay: Number(val) || 1 })}
             min={1}
             max={5}
+            required
+          />
+          <NumberInput
+            label="Minimum Reschedule Days"
+            description="How many days in advance are required when requesting a reschedule."
+            value={settings.minRescheduleDays}
+            onChange={(val) => setSettings({ ...settings, minRescheduleDays: Number(val) || 3 })}
+            min={1}
+            max={30}
             required
           />
         </SimpleGrid>

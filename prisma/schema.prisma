@@ -61,6 +61,8 @@ model User {
   facilityAssignments  FacilityAssignment[]     @relation("FacilityAssignee")
 
   packUpDoneReservations FacilityReservation[] @relation("PackUpDoneBy")
+
+  staffChangeRequests FacilityReservation[] @relation("StaffChangeRequester")
 }
 
 model Department {
@@ -410,6 +412,14 @@ model FacilityReservation {
   packUpDoneBy       User?      @relation("PackUpDoneBy", fields: [packUpDoneById], references: [id], onDelete: SetNull)
   packUpDoneNotes    String?    @db.Text
 
+  staffChangeRequestedAt     DateTime?
+  staffChangeRequestedById   String?
+  staffChangeRequestedBy     User?     @relation("StaffChangeRequester", fields: [staffChangeRequestedById], references: [id], onDelete: SetNull)
+  staffChangeReason          String?   @db.Text
+
+  packUpDonePhotos   String[]  @default([])
+  packUpDoneLocation String?
+
   @@index([status])
   @@index([requestorDept])
   @@index([createdAt])
@@ -456,6 +466,8 @@ model FacilityAssignment {
 
   notes                String?
 
+  isOvertime        Boolean       @default(false)
+
   @@index([userId])
   @@index([reservationId])
 }
@@ -473,6 +485,10 @@ model EventPlace {
   createdAt            DateTime             @default(now())
   updatedAt            DateTime             @updatedAt
 
+  branch               SystemBranch         @default(MAIN)
+  hasSetItems          Boolean              @default(false)
+  notes                String?              @db.Text
+
   dateReservations     FacilityReservationDate[]
 
   category             EventPlaceCategory @default(REGULAR)
@@ -489,6 +505,9 @@ model Equipment {
   updatedAt            DateTime             @updatedAt
 
   equipmentRequests    FacilityEquipmentRequest[]
+
+  branch            SystemBranch  @default(MAIN)
+  quantityReserved  Int           @default(0) 
 
   @@unique([name, departmentCode])
   @@index([departmentCode])
@@ -540,6 +559,9 @@ model FormSettings {
   minAdvanceDaysRegular  Int      @default(7)
   minAdvanceDaysVIP      Int      @default(1)
   maxEventsPerDay        Int      @default(2)
+
+  minRescheduleDays      Int      @default(3)
+  
   updatedAt              DateTime @updatedAt
   updatedBy              String?
 }

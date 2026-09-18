@@ -75,20 +75,6 @@ export async function POST(request) {
       }
     }
 
-    if (authenticatedUser.disabled) {
-      await logActivity({
-        req: request,
-        userId: authenticatedUser.id,
-        email: authenticatedUser.email,
-        action: "LOGIN_FAILURE",
-        details: JSON.stringify({ reason: "Account disabled", ip })
-      });
-      return Response.json(
-        { success: false, message: "Account is disabled. If this is not supposed to happen, please contact your department head, or NCST D-Forms Administrators." },
-        { status: 401 }
-      );
-    }
-
     // case b: tama email mali password
     if (!authenticatedUser) {
       let maxFailedAttempts = 0;
@@ -138,6 +124,20 @@ export async function POST(request) {
           failedAttempts: maxFailedAttempts,
           alertTriggered: maxFailedAttempts >= 5
         }, 
+        { status: 401 }
+      );
+    }
+
+    if (authenticatedUser.disabled) {
+      await logActivity({
+        req: request,
+        userId: authenticatedUser.id,
+        email: authenticatedUser.email,
+        action: "LOGIN_FAILURE",
+        details: JSON.stringify({ reason: "Account disabled", ip })
+      });
+      return Response.json(
+        { success: false, message: "Account is disabled. If this is not supposed to happen, please contact your department head, or NCST D-Forms Administrators." },
         { status: 401 }
       );
     }

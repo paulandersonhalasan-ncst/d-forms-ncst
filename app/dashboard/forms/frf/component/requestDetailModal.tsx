@@ -36,7 +36,8 @@ import {
   IconInfoCircle,
   IconPrinter,
   IconSchool,
-  IconReportMoney
+  IconReportMoney,
+  IconBuildingPavilion
 } from '@tabler/icons-react';
 
 interface RequestDetailModalProps {
@@ -135,13 +136,20 @@ export default function RequestDetailModal({
 
   // HRD "Noted" – kahit COMPLETED, available ito
   const hrdApproval = request.approvals.find(a => a.departmentCode === 'HRD');
+
+  const isAlreadyNoted =
+    hrdApproval?.status === 'ACKNOWLEDGED' &&
+    !!hrdApproval?.remarks?.includes('Noted by');
   
+  const isAwaitingStaffChange = !!request.staffChangeRequestedAt;
+
   const canNote =
     !isVenueOnly &&
     isHRD &&
     hrdApproval &&
     (hrdApproval.status === 'ACKNOWLEDGED' || hrdApproval.status === 'PENDING') &&
-    !hrdApproval.remarks?.includes('Noted by');
+    !hrdApproval.remarks?.includes('Noted by') &&
+    !isAwaitingStaffChange;
     
   const hasAnyAction =
     canApprove || canReject || canReturn || canAssign || canFinalize || canResubmit || canNote;
@@ -150,7 +158,8 @@ export default function RequestDetailModal({
     (isNextPending && !isTerminal) ||
     (isRequestor && request.status === 'REVISION_REQUESTED') ||
     (isRequestor && (request.status === 'APPROVED' || request.status === 'COMPLETED') && !request.isReschedule) ||
-    canNote;
+    canNote ||
+    (isHRD && isCompleted && !isAwaitingStaffChange && !request.staffChangeRequestedAt);
 
   // Formatting helpers
   const formatDate = (dateVal: string | Date): string => {
@@ -324,6 +333,14 @@ export default function RequestDetailModal({
                 <b>With Charge:</b> {request.withCharge ? 'Yes' : 'No'}
               </Text>
             </Group>
+            <Group gap="xs">
+              <ThemeIcon variant="light" color="blue" size="sm">
+                <IconBuildingPavilion size={14} />
+              </ThemeIcon>
+              <Text size="sm">
+                <b>Venue Only:</b> {request.isVenueOnly ? 'Yes' : 'No'}
+              </Text>
+            </Group>
           </SimpleGrid>
           {request.requestorNotes && (
             <Text
@@ -336,6 +353,41 @@ export default function RequestDetailModal({
             </Text>
           )}
         </Paper>
+
+        {request.staffChangeRequestedAt && isITOHeadOrOIC && (
+          <Alert color="pink" title="Staff Change Requested" icon={<IconInfoCircle size={16} />}>
+            HRD has requested a staff change on {formatDate(request.staffChangeRequestedAt)}.
+            {request.staffChangeReason && (
+              <Text size="xs" mt={4}><b>Reason:</b> {request.staffChangeReason}</Text>
+            )}
+            {isITOHeadOrOIC && ' Please update the staff assignments.'}
+          </Alert>
+        )}
+
+        {/* 🆕 Alert para sa HRD habang naghihintay */}
+        {isHRD && isAwaitingStaffChange && (
+          <Alert
+            color="orange"
+            title="Awaiting Staff Change"
+            icon={<IconClock size={16} />}
+          >
+            <Stack gap={4}>
+              <Text size="sm">
+                You have requested a staff change on{' '}
+                <b>{formatDate(request.staffChangeRequestedAt!)}</b>.
+                Waiting for <b>ITO-MAIN</b> to update the staff assignments.
+              </Text>
+              {request.staffChangeReason && (
+                <Text size="xs" c="dimmed">
+                  <b>Reason:</b> {request.staffChangeReason}
+                </Text>
+              )}
+              <Text size="xs" c="orange" fw={600}>
+                You cannot mark the OT as Noted until ITO-MAIN submits the new staff lineup.
+              </Text>
+            </Stack>
+          </Alert>
+        )}
 
         {/* Event Dates Section */}
         <Paper withBorder p="md" radius="md">
@@ -509,7 +561,7 @@ export default function RequestDetailModal({
               <ThemeIcon variant="light" color="grape" size="sm">
                 <IconUserCheck size={14} />
               </ThemeIcon>
-              <Text fw={600} size="sm">ITO Staff | OT Renders</Text>
+              <Text fw={600} size="sm">ITO Staff | Event Duty Line-up</Text>
               {request.isReschedule && request.status === 'RESCHEDULE_PENDING' && (
                 <Badge color="yellow" size="sm">Proposed Assignments (Pending Approval)</Badge>
               )}
@@ -681,6 +733,17 @@ export default function RequestDetailModal({
                     </Button>
                   )}
 
+                  {/* HRD: Request Staff Change — hindi na lumalabas kapag na-noted na */}
+                  {isHRD && isHeadOrOIC && isCompleted && !isAlreadyNoted && !request.staffChangeRequestedAt && (
+                    <Button
+                      color="pink"
+                      leftSection={<IconUsers size={16} />}
+                      onClick={() => onAction('REQUEST_STAFF_CHANGE', { id: request.id })}
+                    >
+                      Request Staff Change
+                    </Button>
+                  )}
+
                   {canReschedule && (
                     <Button
                       color="yellow"
@@ -691,6 +754,12 @@ export default function RequestDetailModal({
                     </Button>
                   )}
                 </>
+              )}
+
+              {isITOHeadOrOIC && request.staffChangeRequestedAt && (
+                <Button color="indigo" onClick={onAssign}>
+                  Edit Staff Assignment
+                </Button>
               )}
 
               {canPackUpDone && (

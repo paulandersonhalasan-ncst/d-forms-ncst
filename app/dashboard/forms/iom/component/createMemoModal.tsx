@@ -71,7 +71,7 @@ export default function CreateMemoModal({
             placeholder="What will the memorandum be about..."
             required
             {...form.getInputProps('subject')}
-            disabled={isReply}  // ✅ I-disable lang kung reply
+            disabled={isReply}
           />
 
           <SimpleGrid cols={2}>

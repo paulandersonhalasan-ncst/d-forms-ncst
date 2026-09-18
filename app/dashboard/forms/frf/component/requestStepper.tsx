@@ -162,22 +162,26 @@ export default function RequestStepper({
   const [settings, setSettings] = useState<{
     minAdvanceDaysRegular: number;
     minAdvanceDaysVIP: number;
+    minRescheduleDays: number;
   }>({
     minAdvanceDaysRegular: 7,
     minAdvanceDaysVIP: 1,
+    minRescheduleDays: 3,
   });
   const [minDatePreset, setMinDatePreset] = useState<'tomorrow' | 'sevenDays'>('sevenDays');
+
+  const [hoveredAttachment, setHoveredAttachment] = useState<number | null>(null);
 
   // --- Min date logic (moved up before useMemo) ---
   const getMinDate = useCallback((): Date => {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
-    if (isRescheduleMode && editData && editData.dates && editData.dates.length > 0) {
-      const originalDates = editData.dates.map(d => new Date(d.date));
-      const earliest = new Date(Math.min(...originalDates.map(d => d.getTime())));
-      earliest.setHours(0, 0, 0, 0);
-      return earliest;
+    // 🆕 Reschedule mode: earliest allowed = today + minRescheduleDays
+    if (isRescheduleMode) {
+      const minDate = new Date(today);
+      minDate.setDate(today.getDate() + settings.minRescheduleDays);
+      return minDate;
     }
 
     const daysToAdd = minDatePreset === 'tomorrow'
@@ -187,7 +191,7 @@ export default function RequestStepper({
     const minDate = new Date(today);
     minDate.setDate(today.getDate() + daysToAdd);
     return minDate;
-  }, [settings, minDatePreset, isRescheduleMode, editData]);
+  }, [settings, minDatePreset, isRescheduleMode]);
 
   // --- Compute initial values based on props ---
   const getInitialFormValues = useMemo((): FRFFormValues => {
@@ -601,6 +605,28 @@ export default function RequestStepper({
         return;
       }
 
+      // 🆕 Enforce minimum reschedule days
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const minAllowedDate = new Date(today);
+      minAllowedDate.setDate(today.getDate() + settings.minRescheduleDays);
+
+      const earliestNewDate = values.dates.reduce((earliest, entry) => {
+        const d = new Date(entry.date);
+        d.setHours(0, 0, 0, 0);
+        return d < earliest ? d : earliest;
+      }, new Date(8640000000000000));
+
+      if (earliestNewDate < minAllowedDate) {
+        setPasswordError(
+          `Reschedule date must be at least ${settings.minRescheduleDays} day(s) from today.`
+        );
+        alert(
+          `❌ Reschedule date must be at least ${settings.minRescheduleDays} day(s) from today (earliest allowed: ${minAllowedDate.toLocaleDateString()}).`
+        );
+        return;
+      }
+
       setSubmitting(true);
       try {
         await onReschedule(editData.id, {
@@ -712,7 +738,7 @@ export default function RequestStepper({
     } finally {
       setSubmitting(false);
     }
-  }, [isRescheduleMode, editData, onReschedule, isEditing, onResubmit, password, rescheduleReason, hasChanges, attachmentsToKeep, onSuccess, onClose]);
+    }, [isRescheduleMode, editData, onReschedule, isEditing, onResubmit, password, rescheduleReason, hasChanges, attachmentsToKeep, onSuccess, onClose, settings.minRescheduleDays]);
 
   // Determine modal title
   const modalTitle = isRescheduleMode
@@ -879,6 +905,13 @@ export default function RequestStepper({
                       ))}
                     </Stack>
                     <Divider label="New Dates" labelPosition="center" />
+                    {isRescheduleMode && (
+                      <Alert icon={<IconInfoCircle size={16} />} color="yellow" mb="md">
+                        New dates must be at least <b>{settings.minRescheduleDays} day(s)</b> from today. The
+                        earliest date you can pick is{' '}
+                        <b>{getMinDate().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</b>.
+                      </Alert>
+                    )}
                   </>
                 )}
                 <ScrollArea h={400} type="auto" offsetScrollbars>
@@ -1508,21 +1541,25 @@ export default function RequestStepper({
                   })}
                 />
 
+                {/* Error text only */}
                 {form.errors.attachments && (
-                  <Box mt="sm">
-                    <Text c="red" size="xs" mt="xs">
-                      {form.errors.attachments}
-                    </Text>
+                  <Text c="red" size="xs" mt="xs">
+                    {form.errors.attachments}
+                  </Text>
+                )}
 
+                {form.values.attachments.length > 0 && (
+                  <Box mt="sm">
                     <Text size="xs" fw={600} c="dimmed" mb={4}>
                       Uploaded Files ({form.values.attachments.length})
                     </Text>
                     <Stack gap="xs">
                       {form.values.attachments.map((file, index) => {
                         const { icon, color } = getFileMeta(file);
+
                         return (
                           <Paper
-                            key={index}
+                            key={`${file.name}-${index}`}
                             withBorder
                             p="xs"
                             radius="sm"
@@ -1530,14 +1567,14 @@ export default function RequestStepper({
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'space-between',
-                              backgroundColor: 'var(--mantine-color-gray-0)',
+                              gap: 12
                             }}
                           >
-                            <Group gap="sm">
-                              <ThemeIcon color={color} variant="light" size="sm">
+                            <Group gap="sm" style={{ flex: 1, minWidth: 0 }}>
+                              <ThemeIcon color={color} variant="light" size="md">
                                 {icon}
                               </ThemeIcon>
-                              <div>
+                              <div style={{ minWidth: 0 }}>
                                 <Text size="sm" fw={500} lineClamp={1}>
                                   {file.name}
                                 </Text>
@@ -1546,12 +1583,23 @@ export default function RequestStepper({
                                 </Text>
                               </div>
                             </Group>
+
+                            {/* Delete button — inline on the right, large icon */}
                             <ActionIcon
                               color="red"
-                              size="sm"
+                              variant="filled"
+                              size={38}
+                              radius="md"
                               onClick={() => removeAttachment(index)}
+                              aria-label={`Remove ${file.name}`}
+                              onMouseEnter={() => setHoveredAttachment(index)}
+                              onMouseLeave={() => setHoveredAttachment(null)}
+                              style={{
+                                opacity: hoveredAttachment === index ? 1 : 0.85,
+                                transition: 'opacity 150ms ease',
+                              }}
                             >
-                              <IconTrash size={14} />
+                              <IconTrash size={18} />
                             </ActionIcon>
                           </Paper>
                         );

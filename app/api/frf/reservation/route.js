@@ -1409,6 +1409,82 @@ export async function PATCH(request) {
         }
       }
 
+      const canAssign =
+        !!reservation.staffChangeRequestedAt ||
+        reservation.assignments.length === 0;  
+      
+      console.log('🔍 canAssign check:', {
+        status: reservation.status,
+        assignmentsCount: reservation.assignments.length,
+        staffChangeRequestedAt: reservation.staffChangeRequestedAt,
+        canAssign,
+      });
+
+      if (!canAssign) {
+        return NextResponse.json(
+          { success: false, message: 'Assignment not allowed at this time. This reservation already has staff assigned. HRD must request a staff change first.' },
+          { status: 400 }
+        );
+      }
+
+      // 🆕 If staff change requested, delete existing + create new
+      if (reservation.staffChangeRequestedAt) {
+        await prisma.facilityAssignment.deleteMany({ where: { reservationId: id } });
+
+        // Clear the flag + notify HRD
+        await prisma.facilityReservation.update({
+          where: { id },
+          data: {
+            staffChangeRequestedAt: null,
+            staffChangeRequestedById: null,
+            staffChangeReason: null,
+          },
+        });
+
+        // Notify HRD that staff has been updated
+                // Notify HRD Head/OIC that staff has been updated
+        const hrdUsers = await prisma.user.findMany({
+          where: {
+            departmentCode: 'HRD',
+            OR: [
+              { role: 'DepartmentHead' },
+              { oic_start: { lte: new Date().toISOString() }, oic_end: { gte: new Date().toISOString() } },
+            ],
+          },
+          select: { id: true },
+        });
+
+        for (const hrd of hrdUsers) {
+          await prisma.notification.create({
+            data: {
+              title: 'Staff Assignment Updated',
+              message: `ITO-MAIN updated the staff assignment for FRF ${reservation.referenceId}.`,
+              isRead: false,
+              recipientId: hrd.id,
+              senderId: user.id,
+            },
+          });
+        }
+      }
+
+      // 🆕 Log the staff-change resolution separately
+      if (reservation.staffChangeRequestedAt) {
+        await logActivity({
+          req: request,
+          userId: user.id,
+          email: user.email,
+          action: 'FRF_STAFF_CHANGE_RESOLVED',
+          details: JSON.stringify({
+            reservationId: id,
+            referenceId: reservation.referenceId,
+            resolvedBy: `${user.fname} ${user.lname}`,
+            resolvedByDept: user.departmentCode,
+            newAssignmentsCount: assignments.length,
+            notifiedHRDHeads: (await getDepartmentHeads('HRD')).length,
+          }),
+        });
+      }
+
       const createdAssignments = [];
       for (const assignment of assignments) {
         const created = await prisma.facilityAssignment.create({
@@ -1549,6 +1625,16 @@ export async function PATCH(request) {
         );
       }
 
+        if (reservation.staffChangeRequestedAt) {
+          return NextResponse.json(
+            {
+              success: false,
+              message: 'Cannot note the OT staff while a staff change is pending. Please wait for ITO-MAIN to update the assignments first.',
+            },
+            { status: 400 }
+          );
+        }
+
       const reservationWithAssignments = await prisma.facilityReservation.findUnique({
         where: { id },
         include: {
@@ -1673,6 +1759,56 @@ export async function PATCH(request) {
       if (reservation.status !== 'APPROVED' && reservation.status !== 'COMPLETED') {
         return NextResponse.json(
           { success: false, message: 'Only approved or completed reservations can be rescheduled' },
+          { status: 400 }
+        );
+      }
+
+            // 🆕 Validate min reschedule days
+      const settings = await prisma.formSettings.findUnique({
+        where: { id: 'single' },
+      });
+      const minRescheduleDays = settings?.minRescheduleDays ?? 3;
+
+      if (newDatesArray && newDatesArray.length > 0) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const minAllowedDate = new Date(today);
+        minAllowedDate.setDate(today.getDate() + minRescheduleDays);
+
+        const earliestNewDate = newDatesArray.reduce((earliest, entry) => {
+          const d = new Date(entry.date);
+          d.setHours(0, 0, 0, 0);
+          return d < earliest ? d : earliest;
+        }, new Date(8640000000000000));
+
+        if (earliestNewDate < minAllowedDate) {
+          return NextResponse.json(
+            {
+              success: false,
+              message: `Reschedule date must be at least ${minRescheduleDays} day(s) from today (earliest allowed: ${minAllowedDate.toLocaleDateString()}).`,
+            },
+            { status: 400 }
+          );
+        }
+      }
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const minAllowedDate = new Date(today);
+      minAllowedDate.setDate(today.getDate() + minRescheduleDays);
+
+      const earliestNewDate = newDateArray.reduce((earliest, entry) => {
+        const d = new Date(entry.date);
+        d.setHours(0, 0, 0, 0);
+        return d < earliest ? d : earliest;
+      }, new Date(8640000000000000));
+
+      if (earliestNewDate < minAllowedDate) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: `Reschedule date must be at least ${minRescheduleDays} day(s) from today (earliest allowed: ${minAllowedDate.toLocaleDateString()}).`,
+          },
           { status: 400 }
         );
       }
@@ -2096,6 +2232,106 @@ export async function PATCH(request) {
           packUpDoneAt: new Date().toISOString(),
           packUpDoneById: user.id,
         },
+      });
+    }
+
+    // ==========================================
+    // REQUEST STAFF CHANGE ACTION (HRD → ITO-MAIN)
+    // ==========================================
+    if (action === 'request-staff-change') {
+      // 1. Only HRD can request
+      if (user.departmentCode !== 'HRD') {
+        return NextResponse.json(
+          { success: false, message: 'Only HRD can request staff change' },
+          { status: 403 }
+        );
+      }
+
+      // 2. Only Head/OIC
+      if (!isHeadOrOIC(user) && !isSuperUser(user)) {
+        return NextResponse.json(
+          { success: false, message: 'Only HRD Head or OIC can request staff change' },
+          { status: 403 }
+        );
+      }
+
+      // 3. Reservation must be COMPLETED
+      if (reservation.status !== 'COMPLETED') {
+        return NextResponse.json(
+          { success: false, message: 'Staff change can only be requested for completed reservations' },
+          { status: 400 }
+        );
+      }
+
+      // 4. Not yet requested (avoid double submit)
+      if (reservation.staffChangeRequestedAt) {
+        return NextResponse.json(
+          { success: false, message: 'A staff change request is already pending' },
+          { status: 400 }
+        );
+      }
+
+      // 5. Reason required
+      if (!remarks || remarks.trim() === '') {
+        return NextResponse.json(
+          { success: false, message: 'Reason is required for staff change request' },
+          { status: 400 }
+        );
+      }
+
+      // 6. Update reservation + notify ITO-MAIN
+      await prisma.facilityReservation.update({
+        where: { id },
+        data: {
+          staffChangeRequestedAt: new Date(),
+          staffChangeRequestedById: user.id,
+          staffChangeReason: remarks,
+        },
+      });
+
+      // Notify ITO-MAIN Head/OIC
+      const itoHeads = await prisma.user.findMany({
+        where: {
+          departmentCode: 'ITO-MAIN',
+          OR: [
+            { role: 'DepartmentHead' },
+            { oic_start: { lte: new Date().toISOString() }, oic_end: { gte: new Date().toISOString() } },
+          ],
+        },
+        select: { id: true },
+      });
+
+      for (const head of itoHeads) {
+        await prisma.notification.create({
+          data: {
+            title: 'Staff Change Requested',
+            message: `HRD requested a staff change for FRF ${reservation.referenceId}. Reason: ${remarks}`,
+            isRead: false,
+            recipientId: head.id,
+            senderId: user.id,
+          },
+        });
+      }
+
+      // Log activity
+      await logActivity({
+        req: request,
+        userId: user.id,
+        email: user.email,
+        action: 'FRF_REQUEST_STAFF_CHANGE',
+        details: JSON.stringify({
+          reservationId: id,
+          referenceId: reservation.referenceId,
+          requestedBy: `${user.fname} ${user.lname}`,
+          requestedByDept: user.departmentCode,
+          reason: remarks,
+          notifiedITOHeads: itoHeads.length,
+        }),
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: 'Staff change request sent to ITO-MAIN',
       });
     }
 

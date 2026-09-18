@@ -45,6 +45,7 @@ export async function GET(request) {
           minAdvanceDaysRegular: 7,
           minAdvanceDaysVIP: 1,
           maxEventsPerDay: 2,
+          minRescheduleDays: 3,
         }
       });
     }
@@ -58,6 +59,7 @@ export async function GET(request) {
         minAdvanceDaysRegular: 7,
         minAdvanceDaysVIP: 1,
         maxEventsPerDay: 2,
+        minRescheduleDays: 3,
       }
     });
   }
@@ -83,15 +85,25 @@ export async function PUT(request) {
     );
   }
 
-  const body = await request.json();
-  const { minAdvanceDaysRegular, minAdvanceDaysVIP, maxEventsPerDay } = body;
+    const body = await request.json();
+    const { 
+      minAdvanceDaysRegular, 
+      minAdvanceDaysVIP, 
+      maxEventsPerDay,
+      minRescheduleDays,   // 🆕
+    } = body;
 
-  if (minAdvanceDaysRegular < 0 || minAdvanceDaysVIP < 0 || maxEventsPerDay < 1) {
-    return NextResponse.json({
-      success: false,
-      message: 'Invalid values: minAdvanceDaysRegular and minAdvanceDaysVIP must be >= 0, maxEventsPerDay >= 1',
-    }, { status: 400 });
-  }
+    if (
+      minAdvanceDaysRegular < 0 || 
+      minAdvanceDaysVIP < 0 || 
+      maxEventsPerDay < 1 ||
+      minRescheduleDays < 1   // 🆕 minimum 1 day
+    ) {
+      return NextResponse.json({
+        success: false,
+        message: 'Invalid values: minAdvanceDaysRegular and minAdvanceDaysVIP must be >= 0, maxEventsPerDay >= 1, minRescheduleDays >= 1',
+      }, { status: 400 });
+    }
 
   try {
     const settings = await prisma.formSettings.upsert({
@@ -100,6 +112,7 @@ export async function PUT(request) {
         minAdvanceDaysRegular,
         minAdvanceDaysVIP,
         maxEventsPerDay,
+        minRescheduleDays,   // 🆕
         updatedBy: user.id,
         updatedAt: new Date(),
       },
@@ -108,6 +121,7 @@ export async function PUT(request) {
         minAdvanceDaysRegular,
         minAdvanceDaysVIP,
         maxEventsPerDay,
+        minRescheduleDays,   // 🆕
         updatedBy: user.id,
         updatedAt: new Date(),
       },

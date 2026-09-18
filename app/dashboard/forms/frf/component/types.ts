@@ -110,6 +110,11 @@ export interface FacilityReservation {
   packUpDoneById?: string;
   packUpDoneNotes?: string;
   packUpDoneBy?: { id: string; fname: string; lname: string; email: string; departmentCode: string };
+
+  staffChangeRequestedAt?: string;
+  staffChangeRequestedById?: string;
+  staffChangeRequestedBy?: { id: string; fname: string; lname: string };
+  staffChangeReason?: string;
 }
 
 export interface EventPlace {
@@ -150,7 +155,8 @@ export type FRFActionType =
   | 'OCM_FINALIZE'
   | 'NOTE'
   | 'RESCHEDULE'
-  | 'PACKUP_DONE';
+  | 'PACKUP_DONE'
+  | 'REQUEST_STAFF_CHANGE'; 
 
 export interface PendingAction {
   type: FRFActionType;

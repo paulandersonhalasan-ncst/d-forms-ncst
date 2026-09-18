@@ -23,7 +23,7 @@ import {
   Alert, 
   Collapse,
 } from '@mantine/core';
-import { IconPlus, IconInbox, IconSend, IconCircleCheck, IconUserCheck, IconInfoCircle, IconSettings, IconChevronDown } from '@tabler/icons-react';
+import { IconPlus, IconInbox, IconSend, IconCircleCheck, IconUserCheck, IconInfoCircle, IconSettings, IconChevronDown, IconClock  } from '@tabler/icons-react';
 import useSWR from 'swr';
 
 import {
@@ -192,6 +192,28 @@ export default function FRFDashboardPage() {
     return myApproval.status === 'PENDING';
   });
 
+  // 🆕 For Noting (HRD only) — EXCLUDE those awaiting staff change
+  const forNoting = reservations.filter((r) => {
+    if (!isHRD) return false;
+    const status = r.status as string;
+    if (status !== 'COMPLETED') return false;
+
+    const hrdApproval = r.approvals.find(a => a.departmentCode === 'HRD');
+    if (!hrdApproval) return false;
+
+    const isPending = hrdApproval.status === 'PENDING';
+    const isAcknowledgedButNotNoted =
+      hrdApproval.status === 'ACKNOWLEDGED' && !hrdApproval.remarks?.includes('Noted by');
+
+    if (!isPending && !isAcknowledgedButNotNoted) return false;
+
+    const allPreviousApproved = r.approvals
+      .filter(a => a.departmentCode !== 'HRD')
+      .every(a => a.status === 'APPROVED' || a.status === 'ACKNOWLEDGED');
+
+    return allPreviousApproved;
+  });
+
   // Action Board:
   // - For HRD: show COMPLETED reservations where HRD is PENDING or not yet noted
   // - For non-HRD: show reservations where they already approved, waiting for others
@@ -201,19 +223,6 @@ export default function FRFDashboardPage() {
     if (status === 'REJECTED') return false;
 
     if (status === 'RESCHEDULE_PENDING') return true;
-
-    if (isHRD) {
-      if (status !== 'COMPLETED') return false;
-      const hrdApproval = r.approvals.find(a => a.departmentCode === 'HRD');
-      if (!hrdApproval) return false;
-      const isPending = hrdApproval.status === 'PENDING';
-      const isAcknowledgedButNotNoted = hrdApproval.status === 'ACKNOWLEDGED' && !hrdApproval.remarks?.includes('Noted by');
-      if (!isPending && !isAcknowledgedButNotNoted) return false;
-      const allPreviousApproved = r.approvals
-        .filter(a => a.departmentCode !== 'HRD')
-        .every(a => a.status === 'APPROVED' || a.status === 'ACKNOWLEDGED');
-      return allPreviousApproved;
-    }
 
     if (status === 'REVISION_REQUESTED') return true;
 
@@ -404,19 +413,52 @@ export default function FRFDashboardPage() {
       </table>
     `;
 
-    // Assignments HTML
-    const assignmentsHtml = reservation.assignments.map(ass => {
-      const dutyTypeLabel = ass.dutyType === 'SETUP' ? 'Setup' : 'Teardown / Pack-up';
-      return `
-        <div style="margin: 4px 0; padding: 4px 8px; background: #f8f9fa; border-radius: 4px; font-size: 13px;">
-          <b>${ass.user.fname} ${ass.user.lname}</b>
-          <span style="color: #666; font-size: 12px;">(${dutyTypeLabel})</span>
-          <span style="margin-left: 12px; font-size: 12px; color: #555;">
-            ${formatTimeOnly(ass.dutyStart)} – ${formatTimeOnly(ass.dutyEnd)}
-          </span>
-        </div>
-      `;
-    }).join('') || '<div style="color: #999; font-style: italic;">No staff assigned</div>';
+    // Assignments HTML (as a table)
+    const assignmentsHtml = reservation.assignments.length > 0
+      ? `
+        <table style="width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 6px;">
+          <thead>
+            <tr style="border-bottom: 2px solid #000;">
+              <th style="padding: 4px 8px; text-align: left; font-weight: 700; width: 16%;">Date</th>
+              <th style="padding: 4px 8px; text-align: left; font-weight: 700; width: 22%;">Staff</th>
+              <th style="padding: 4px 8px; text-align: left; font-weight: 700; width: 14%;">Duty Type</th>
+              <th style="padding: 4px 8px; text-align: left; font-weight: 700; width: 12%;">Start</th>
+              <th style="padding: 4px 8px; text-align: left; font-weight: 700; width: 12%;">End</th>
+              <th style="padding: 4px 8px; text-align: left; font-weight: 700; width: 24%;">Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${reservation.assignments.map(ass => {
+              const dutyTypeLabel = ass.dutyType === 'SETUP'
+                ? 'Setup'
+                : ass.dutyType === 'TEARDOWN'
+                ? 'Pack-up'
+                : ass.dutyType === 'OPERATOR'
+                ? 'Operator'
+                : ass.dutyType === 'ASSISTANT'
+                ? 'Assistant'
+                : ass.dutyType;
+              const dateStr = formatDateOnly(ass.dutyStart);
+              const notes = ass.notes ? ass.notes : '—';
+              return `
+                <tr style="border-bottom: 1px dashed #ccc;">
+                  <td style="padding: 4px 8px; font-size: 12px;">${dateStr}</td>
+                  <td style="padding: 4px 8px; font-size: 12px; font-weight: 600;">
+                    ${ass.user.fname} ${ass.user.lname}
+                  </td>
+                  <td style="padding: 4px 8px; font-size: 12px;">${dutyTypeLabel}</td>
+                  <td style="padding: 4px 8px; font-size: 12px;">${formatTimeOnly(ass.dutyStart)}</td>
+                  <td style="padding: 4px 8px; font-size: 12px;">${formatTimeOnly(ass.dutyEnd)}</td>
+                  <td style="padding: 4px 8px; font-size: 12px; color: #444; word-wrap: break-word;">
+                    ${notes}
+                  </td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      `
+      : `<div style="color: #999; font-style: italic; font-size: 12px;">No staff assigned</div>`;
 
     const eventTitle = reservation.eventName || '—';
 
@@ -618,6 +660,12 @@ export default function FRFDashboardPage() {
       openPassModal();
       return;
     }
+    if (type === 'REQUEST_STAFF_CHANGE') {
+      setPendingAction({ type, data });
+      setPassError('');
+      openPassModal();
+      return;
+    }
     setPendingAction({ type, data });
     setPassError('');
     openPassModal();
@@ -713,7 +761,9 @@ export default function FRFDashboardPage() {
       // 🆕 Map special action names to match backend
       const actionMap: Record<string, string> = {
         'PACKUP_DONE': 'packup-done',
+        'REQUEST_STAFF_CHANGE': 'request-staff-change',
       };
+      
       const actionName = actionMap[pendingAction.type] || pendingAction.type.toLowerCase();
 
       const payload: {
@@ -922,7 +972,10 @@ export default function FRFDashboardPage() {
                   My Requests <Badge size="xs" variant="light" ml={6}>{myRequests.length}</Badge>
                 </Tabs.Tab>
                 <Tabs.Tab value="pending_approval" leftSection={<IconInbox size={15} />}>
-                  Pending Approval <Badge size="xs" variant="light" ml={6}>{pendingApproval.length}</Badge>
+                  {isHRD ? 'For Noting' : 'Pending Approval'}{' '}
+                  <Badge size="xs" variant="light" ml={6}>
+                    {isHRD ? forNoting.length : pendingApproval.length}
+                  </Badge>
                 </Tabs.Tab>
                 <Tabs.Tab value="action_board" leftSection={<IconInfoCircle size={15} />}>
                   Action Board <Badge size="xs" variant="light" ml={6}>{actionBoard.length}</Badge>
@@ -938,7 +991,9 @@ export default function FRFDashboardPage() {
               {['my_requests', 'pending_approval', 'action_board', 'assigned_to_me', 'completed'].map((tab) => {
                 let list: FacilityReservation[] = [];
                 if (tab === 'my_requests') list = myRequests;
-                else if (tab === 'pending_approval') list = pendingApproval;
+                else if (tab === 'pending_approval') {
+                  list = isHRD ? forNoting : pendingApproval;
+                }
                 else if (tab === 'action_board') list = actionBoard;
                 else if (tab === 'assigned_to_me') list = assignedToMe;
                 else if (tab === 'completed') list = completed;
@@ -961,9 +1016,18 @@ export default function FRFDashboardPage() {
                     ),
                   },
                   pending_approval: {
-                    title: 'Pending Approval',
-                    color: 'orange',
-                    body: (
+                    title: isHRD ? 'For Noting (HRD)' : 'Pending Approval',
+                    color: isHRD ? 'pink' : 'orange',
+                    body: isHRD ? (
+                      <>
+                        Completed events with ITO staff assignments that need your <b>noting</b> for OT (overtime)
+                        rendering records. Review the assigned staff and click <b>Noted</b> to confirm.
+                        <br /><br />
+                        Mga kumpletong event na may nakatalagang ITO staff para sa OT rendering. Suriin ang
+                        listahan at pindutin ang <b>Noted</b> para makumpirma. Ang mga ito ay
+                        <b> hindi mo kailangang aprubahan</b> — <i>noting</i> lang para sa records ng HRD.
+                      </>
+                    ) : (
                       <>
                         Requests currently waiting for your department&apos;s approval. Review details, then choose
                         <b> Approve</b>, <b> Reject</b>, or <b> Return for Revision</b>. If no other action is available except printing the request, it means that it has not yet been approved by other departments and you must wait for their action before you can approve it.
@@ -1007,10 +1071,24 @@ export default function FRFDashboardPage() {
                     body: (
                       <>
                         Finalized reservations — either fully approved and packed up (Completed) or rejected.
-                        Only requests you are involved in are shown here.
+                        Only requests you are involved in are shown here. (For HRD Department, this includes requests that have been noted.)
                         <br /><br />
                         Mga natapos na reservation — alinman sa tuluyang naaprubahan at na-pack up (Completed) o
-                        tinanggihan (Rejected). Mga request na may kinalaman ka lamang ang ipinapakita rito.
+                        tinanggihan (Rejected). Mga request na may kinalaman ka lamang ang ipinapakita rito. (Para sa HRD Department, kasama rito ang mga request na na-noted na.)
+                      </>
+                    ),
+                  },
+                  awaiting_staff_change: {
+                    title: 'Awaiting Staff Change',
+                    color: 'orange',
+                    body: (
+                      <>
+                        Events you have requested to be <b>changed or updated</b> by ITO-MAIN.
+                        You cannot mark these as Noted until ITO-MAIN submits the new staff lineup.
+                        <br /><br />
+                        Mga event kung saan <b>nag-request ka ng staff change</b> sa ITO-MAIN.
+                        Hindi mo pa ma-mark as Noted ang mga ito hangga&apos;t hindi pa naisusumite ng
+                        ITO-MAIN ang bagong staff lineup.
                       </>
                     ),
                   },
@@ -1114,7 +1192,7 @@ export default function FRFDashboardPage() {
         onSubmit={handlePasswordSubmit}
         loading={passLoading}
         error={passError}
-        requireRemarks={pendingAction?.type === 'REJECT' || pendingAction?.type === 'RETURN' || pendingAction?.type === 'APPROVE' || pendingAction?.type === 'PACKUP_DONE'}
+        requireRemarks={pendingAction?.type === 'REJECT' || pendingAction?.type === 'RETURN' || pendingAction?.type === 'APPROVE' || pendingAction?.type === 'PACKUP_DONE' || pendingAction?.type === 'REQUEST_STAFF_CHANGE'}
       />
 
       <ITOAssignmentModal

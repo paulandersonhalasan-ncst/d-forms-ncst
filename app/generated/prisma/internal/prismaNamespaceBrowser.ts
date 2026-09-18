@@ -265,7 +265,12 @@ export const FacilityReservationScalarFieldEnum = {
   isVenueOnly: 'isVenueOnly',
   packUpDoneAt: 'packUpDoneAt',
   packUpDoneById: 'packUpDoneById',
-  packUpDoneNotes: 'packUpDoneNotes'
+  packUpDoneNotes: 'packUpDoneNotes',
+  staffChangeRequestedAt: 'staffChangeRequestedAt',
+  staffChangeRequestedById: 'staffChangeRequestedById',
+  staffChangeReason: 'staffChangeReason',
+  packUpDonePhotos: 'packUpDonePhotos',
+  packUpDoneLocation: 'packUpDoneLocation'
 } as const
 
 export type FacilityReservationScalarFieldEnum = (typeof FacilityReservationScalarFieldEnum)[keyof typeof FacilityReservationScalarFieldEnum]
@@ -296,7 +301,8 @@ export const FacilityAssignmentScalarFieldEnum = {
   dutyEnd: 'dutyEnd',
   dutyType: 'dutyType',
   createdAt: 'createdAt',
-  notes: 'notes'
+  notes: 'notes',
+  isOvertime: 'isOvertime'
 } as const
 
 export type FacilityAssignmentScalarFieldEnum = (typeof FacilityAssignmentScalarFieldEnum)[keyof typeof FacilityAssignmentScalarFieldEnum]
@@ -308,6 +314,9 @@ export const EventPlaceScalarFieldEnum = {
   isActive: 'isActive',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
+  branch: 'branch',
+  hasSetItems: 'hasSetItems',
+  notes: 'notes',
   category: 'category'
 } as const
 
@@ -321,7 +330,9 @@ export const EquipmentScalarFieldEnum = {
   isSingleItem: 'isSingleItem',
   quantityAvailable: 'quantityAvailable',
   createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
+  updatedAt: 'updatedAt',
+  branch: 'branch',
+  quantityReserved: 'quantityReserved'
 } as const
 
 export type EquipmentScalarFieldEnum = (typeof EquipmentScalarFieldEnum)[keyof typeof EquipmentScalarFieldEnum]
@@ -359,6 +370,7 @@ export const FormSettingsScalarFieldEnum = {
   minAdvanceDaysRegular: 'minAdvanceDaysRegular',
   minAdvanceDaysVIP: 'minAdvanceDaysVIP',
   maxEventsPerDay: 'maxEventsPerDay',
+  minRescheduleDays: 'minRescheduleDays',
   updatedAt: 'updatedAt',
   updatedBy: 'updatedBy'
 } as const
