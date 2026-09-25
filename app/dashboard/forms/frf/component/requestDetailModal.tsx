@@ -39,6 +39,9 @@ import {
   IconReportMoney,
   IconBuildingPavilion
 } from '@tabler/icons-react';
+import Image from 'next/image';
+import { useState } from 'react';
+import { useDisclosure } from '@mantine/hooks';
 
 interface RequestDetailModalProps {
   opened: boolean;
@@ -81,6 +84,10 @@ export default function RequestDetailModal({
   onPrint,
   onPackUpDone,
 }: RequestDetailModalProps) {
+
+  const [packUpGalleryOpened, { open: openPackUpGallery, close: closePackUpGallery }] = useDisclosure(false);
+  const [activePhotoIndex, setActivePhotoIndex] = useState(0);
+
   if (!request) return null;
 
   const isRejected = request.status === 'REJECTED';
@@ -247,6 +254,7 @@ export default function RequestDetailModal({
       currentUser?.role === 'SuperUser');
 
   return (
+  <>
     <Modal
       opened={opened}
       onClose={onClose}
@@ -296,7 +304,7 @@ export default function RequestDetailModal({
             <b>Event Name / Activity:</b> {request.eventName}
           </Text>
           <Text size="sm" mb="xs">
-            <b>Requestor:</b> {request.requestorDept} – {request.requestor?.fname} {request.requestor?.lname} ({request.requestor?.email})
+            <b>Requestor (Focal Person):</b> {request.requestorDept} – {request.requestor?.fname} {request.requestor?.lname} ({request.requestor?.email})
           </Text>
           <SimpleGrid cols={2} spacing="xs" verticalSpacing="xs">
             <Group gap="xs">
@@ -543,18 +551,21 @@ export default function RequestDetailModal({
                 icon={<IconInfoCircle size={16} />}
                 color="blue"
                 mb="sm"
-                title="HRD – Overtime Staff for Noting"
+                title="HRD – ITO Staff for Noting"
               >
                 {request.isReschedule && (
                   <>
-                    <strong>⚠️ Reminder:</strong> This is a reschedule of an event that has been moved to a new schedule/venue. Please note the OT staff assignments for the new dates (if the date of event was changed).
+                    <strong>⚠️ Reminder:</strong> This is a reschedule of an event that has been moved to a new schedule/venue. Please note the ITO staff assignments for the new dates (if the date of event was changed).
                     <br /><br />
                   </>
                 )}
-                This is a copy of the ITO staff assignments for OT noting purposes as the following personnel will render an overtime in mentioned date/s above to provide necessary assistance for event/s written in this request.
-                Please review the list below and click <strong>&ldquo;Noted&ldquo;</strong> to confirm.
+                Below is the list of <b>all ITO staff</b> assigned to this event. Duties marked with an{' '}
+                <b>OT badge</b> are rendered <b>outside regular working hours</b> (overtime). Duties{' '}
+                <b>without an OT mark</b> are rendered within regular duty hours. Please review and click <strong>&ldquo;Noted&rdquo;</strong> to confirm.
                 <br /><br />
-                Ito ay kopya at listahan ng mga ITO staff na nakatalaga sa mga petsa at oras na nabanggit sa taas dahil sila ay magre-render ng kanilang overtime para mag bigay ng teknikal na tulong para sa pag se-setup at pagliligpit sa events na nakasaad sa request na ito. Suriin at pindutin ang <strong>&ldquo;Noted&ldquo;</strong> upang makumpirma na na-note na ng departamento nyo ito.
+                Ito ang listahan ng <b>lahat ng ITO staff</b> na nakatalaga sa event na ito. Ang mga duty na may{' '}
+                <b>OT badge</b> ay ginawa <b>lampas sa regular working hours</b> (overtime). Ang mga duty na{' '}
+                <b>walang OT mark</b> ay ginawa sa loob ng regular duty hours. Suriin ang listahan at pindutin ang <strong>&ldquo;Noted&rdquo;</strong> upang makumpirma na na-note na ng departamento nyo ito.
               </Alert>
             )}
             <Group gap="xs" mb="sm">
@@ -573,6 +584,7 @@ export default function RequestDetailModal({
                   <Table.Th>Date</Table.Th>
                   <Table.Th>Staff</Table.Th>
                   <Table.Th>Duty Type</Table.Th>
+                  <Table.Th ta="center">OT?</Table.Th>
                   <Table.Th>Start</Table.Th>
                   <Table.Th>End</Table.Th>
                   <Table.Th>Notes</Table.Th>
@@ -592,6 +604,13 @@ export default function RequestDetailModal({
                         >
                           {ass.dutyType === 'TEARDOWN' ? 'PACK-UP' : ass.dutyType}
                         </Badge>
+                      </Table.Td>
+                      <Table.Td ta="center">
+                        {ass.isOvertime ? (
+                          <Badge color="green" variant="filled" size="sm">OT</Badge>
+                        ) : (
+                          <Text size="xs" c="dimmed">—</Text>
+                        )}
                       </Table.Td>
                       <Table.Td>{formatTimeOnly(ass.dutyStart)}</Table.Td>
                       <Table.Td>{formatTimeOnly(ass.dutyEnd)}</Table.Td>
@@ -633,7 +652,7 @@ export default function RequestDetailModal({
               </Alert>
             )}
 
-            {isPackUpDone && (
+                        {isPackUpDone && (
               <Alert
                 icon={<IconCheck size={16} />}
                 color="teal"
@@ -641,10 +660,10 @@ export default function RequestDetailModal({
                 mb="md"
               >
                 This event has been marked as packed up on{' '}
-                <b>{formatDate(request.packUpDoneAt!)}</b>
+                <b>{formatDateOnly(request.packUpDoneAt!)} at {formatTimeOnly(request.packUpDoneAt!)}</b>
                 {request.packUpDoneBy && (
                   <>
-                    {' '}by <b>{request.packUpDoneBy.fname} {request.packUpDoneBy.lname}</b>
+                    {' '}by <b>{request.packUpDoneBy.fname} {request.packUpDoneBy.lname} ({request.packUpDoneBy.departmentCode})</b>
                   </>
                 )}.
                 Equipment quantities have been restored.
@@ -652,6 +671,20 @@ export default function RequestDetailModal({
                   <Text size="xs" mt={4} c="dimmed">
                     <b>Notes:</b> {request.packUpDoneNotes}
                   </Text>
+                )}
+
+                {request.packUpDonePhotos && request.packUpDonePhotos.length > 0 && (
+                  <Box mt="md">
+                    <Button
+                      variant="filled"
+                      color="teal"
+                      size="xs"
+                      leftSection={<IconPhoto size={14} />}
+                      onClick={openPackUpGallery}
+                    >
+                      View Pack Up Photos ({request.packUpDonePhotos.length})
+                    </Button>
+                  </Box>
                 )}
               </Alert>
             )}
@@ -788,5 +821,92 @@ export default function RequestDetailModal({
         )}
       </Stack>
     </Modal>
-  );
+
+    {/* 🆕 Pack Up Photos Gallery Modal */}
+    <Modal
+      opened={packUpGalleryOpened}
+      onClose={closePackUpGallery}
+      title={`Pack Up Photos (${request.packUpDonePhotos?.length || 0})`}
+      size="xl"
+      centered
+      zIndex={200}
+    >
+      {request.packUpDonePhotos && request.packUpDonePhotos.length > 0 && (
+        <Stack gap="md">
+          {/* Main large preview */}
+          <Box
+            style={{
+              width: '100%',
+              height: 500,
+              backgroundColor: 'var(--mantine-color-gray-0)',
+              borderRadius: 8,
+              overflow: 'hidden',
+              position: 'relative',
+            }}
+          >
+            <Image
+              src={request.packUpDonePhotos[activePhotoIndex]}
+              alt={`Pack up photo ${activePhotoIndex + 1}`}
+              fill
+              unoptimized
+              sizes="100vw"
+              style={{ objectFit: 'contain' }}
+            />
+          </Box>
+
+          {/* Thumbnail strip (only if more than 1 photo) */}
+          {request.packUpDonePhotos.length > 1 && (
+            <SimpleGrid cols={{ base: 4, sm: 5, md: 6 }} spacing="xs">
+              {request.packUpDonePhotos.map((url, i) => (
+                <Paper
+                  key={i}
+                  withBorder
+                  radius="sm"
+                  style={{
+                    cursor: 'pointer',
+                    overflow: 'hidden',
+                    aspectRatio: '4/3',
+                    position: 'relative',
+                    borderColor:
+                      i === activePhotoIndex
+                        ? 'var(--mantine-color-teal-5)'
+                        : undefined,
+                    borderWidth: i === activePhotoIndex ? 2 : 1,
+                  }}
+                  onClick={() => setActivePhotoIndex(i)}
+                >
+                  <Image
+                    src={url}
+                    alt={`Thumbnail ${i + 1}`}
+                    fill
+                    unoptimized
+                    sizes="(max-width: 768px) 25vw, 16vw"
+                    style={{ objectFit: 'cover' }}
+                  />
+                </Paper>
+              ))}
+            </SimpleGrid>
+          )}
+
+          {/* Action buttons */}
+          <Group justify="space-between">
+            <Button
+              variant="light"
+              color="gray"
+              component="a"
+              href={request.packUpDonePhotos[activePhotoIndex]}
+              target="_blank"
+              leftSection={<IconPhoto size={14} />}
+            >
+              Open in new tab
+            </Button>
+            <Button variant="light" onClick={closePackUpGallery}>
+              Close
+            </Button>
+          </Group>
+        </Stack>
+      )}
+    </Modal>
+  </>
+);
 }

@@ -83,6 +83,11 @@ export type EventPlace = Prisma.EventPlaceModel
  */
 export type Equipment = Prisma.EquipmentModel
 /**
+ * Model EquipmentPlace
+ * 
+ */
+export type EquipmentPlace = Prisma.EquipmentPlaceModel
+/**
  * Model FacilityEquipmentRequest
  * 
  */

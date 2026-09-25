@@ -28,12 +28,23 @@ export interface UserContext {
 // ==========================================
 // FRF TYPES
 // ==========================================
+export type SystemBranch = 'MAIN' | 'IMUS' | 'NASTECH' | 'SHS';
+
+export interface EquipmentPlace {
+  placeId: string;
+  isBundled: boolean;
+  place?: { id: string; name: string; branch: SystemBranch };
+}
+
 export interface Equipment {
   id: string;
   name: string;
   departmentCode: string;
   isSingleItem: boolean;
   quantityAvailable: number;
+  quantityReserved?: number;
+  branch?: SystemBranch | null;
+  places?: EquipmentPlace[];
 }
 
 export interface FacilityApproval {
@@ -61,6 +72,7 @@ export interface FacilityAssignment {
   dutyEnd: string;
   dutyType: 'SETUP' | 'TEARDOWN' | 'OPERATOR' | 'ASSISTANT';
   notes?: string;
+  isOvertime?: boolean;
 }
 
 export interface FacilityEquipmentRequest {
@@ -110,6 +122,7 @@ export interface FacilityReservation {
   packUpDoneById?: string;
   packUpDoneNotes?: string;
   packUpDoneBy?: { id: string; fname: string; lname: string; email: string; departmentCode: string };
+  packUpDonePhotos?: string[];
 
   staffChangeRequestedAt?: string;
   staffChangeRequestedById?: string;
@@ -121,6 +134,8 @@ export interface EventPlace {
   id: string;
   name: string;
   isActive: boolean;
+  branch: SystemBranch; 
+  category?: 'REGULAR' | 'CATEGORY_1' | 'CATEGORY_2';
 }
 
 // ==========================================
@@ -211,6 +226,7 @@ export interface ITOAssignment {
   dutyEnd: Date;
   dutyType: 'SETUP' | 'TEARDOWN' | 'OPERATOR' | 'ASSISTANT';
   notes?: string;
+  isOvertime?: boolean;
 }
 
 // ==========================================

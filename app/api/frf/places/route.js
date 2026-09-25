@@ -101,7 +101,7 @@ export async function POST(request) {
       data: {
         name: name.trim(),
         isActive: isActive !== undefined ? isActive : true,
-        category: category || 'REGULAR',
+        category: category || 'REGULAR'
       }
     });
 
@@ -221,14 +221,25 @@ export async function DELETE(request) {
       );
     }
 
-    // Check if place is being used in any reservation
-    const inUse = await prisma.facilityReservation.count({
-      where: { placeId: id }
+    // 🆕 Check if place is used in any ACTIVE reservation dates
+    const inUse = await prisma.facilityReservationDate.count({
+      where: {
+        placeId: id,
+        reservation: {
+          status: {
+            in: ['PENDING_APPROVAL', 'APPROVED', 'RESCHEDULE_PENDING', 'COMPLETED'],
+          },
+        },
+      },
     });
 
     if (inUse > 0) {
       return NextResponse.json(
-        { success: false, message: 'Cannot delete place that is being used in reservations' },
+        {
+          success: false,
+          message:
+            'Cannot delete this place. It is still used in pending, approved, or completed reservations. Deactivate it instead.',
+        },
         { status: 409 }
       );
     }

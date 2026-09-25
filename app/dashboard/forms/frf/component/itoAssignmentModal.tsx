@@ -17,7 +17,8 @@ import {
   ThemeIcon,
   Divider,
   Badge,
-  Textarea
+  Textarea,
+  Checkbox
 } from '@mantine/core';
 import { TimeInput } from '@mantine/dates';
 import {
@@ -57,6 +58,7 @@ type AssignmentRow = {
   startTime: string;
   endTime: string;
   notes: string;
+  isOvertime: boolean;
 };
 
 // Validation result per date
@@ -140,6 +142,7 @@ export default function ITOAssignmentModal({
           startTime: formatTimeString(new Date(ass.dutyStart)),
           endTime: formatTimeString(new Date(ass.dutyEnd)),
           notes: ass.notes || '',
+          isOvertime: ass.isOvertime ?? false,
         };
       });
       setRows(newRows);
@@ -278,10 +281,25 @@ export default function ITOAssignmentModal({
 
         const [sH, sM] = row.startTime.split(':').map(Number);
         const [eH, eM] = row.endTime.split(':').map(Number);
-        const dutyStart = new Date(opt.eventStart);
+
+        // 🆕 Base on event END day (teardown happens after event)
+        const dutyStart = new Date(opt.eventEnd);
         dutyStart.setHours(sH, sM, 0, 0);
-        const dutyEnd = new Date(opt.eventStart);
+        const dutyEnd = new Date(opt.eventEnd);
         dutyEnd.setHours(eH, eM, 0, 0);
+
+        // 🆕 If start time is early morning (AM) but event ends late (PM),
+        //    assume teardown is on the NEXT day
+        if (sH < 12 && dutyStart < opt.eventEnd) {
+          dutyStart.setDate(dutyStart.getDate() + 1);
+          dutyEnd.setDate(dutyEnd.getDate() + 1);
+        }
+
+        // 🆕 If end time is earlier than start time (e.g., 22:00 → 00:00),
+        //    the end crosses midnight → push end to next day
+        if (dutyEnd < dutyStart) {
+          dutyEnd.setDate(dutyEnd.getDate() + 1);
+        }
 
         const minEnd = new Date(opt.eventEnd);
         minEnd.setHours(opt.eventEnd.getHours() + 2);
@@ -369,6 +387,7 @@ export default function ITOAssignmentModal({
         startTime: '',
         endTime: '',
         notes: '',
+        isOvertime: false,
       },
     ]);
   };
@@ -399,19 +418,38 @@ export default function ITOAssignmentModal({
 
     // Build final payload
     const payload: ITOAssignment[] = validRows.map((r) => {
-      const dateObj = new Date(request!.dates[r.dateIndex].eventStart);
+      const eventStart = new Date(request!.dates[r.dateIndex].eventStart);
+      const eventEnd = new Date(request!.dates[r.dateIndex].eventEnd);
+
+      // 🆕 Base date: teardown is on event END day, others on event START day
+      const baseDate = r.type === 'teardown' ? eventEnd : eventStart;
+
       const [startHours, startMinutes] = r.startTime.split(':').map(Number);
       const [endHours, endMinutes] = r.endTime.split(':').map(Number);
-      const dutyStart = new Date(dateObj);
+
+      const dutyStart = new Date(baseDate);
       dutyStart.setHours(startHours, startMinutes, 0, 0);
-      const dutyEnd = new Date(dateObj);
+      const dutyEnd = new Date(baseDate);
       dutyEnd.setHours(endHours, endMinutes, 0, 0);
+
+      // 🆕 Teardown: if start is early morning (AM) but event ends late, next day
+      if (r.type === 'teardown' && startHours < 12 && dutyStart < eventEnd) {
+        dutyStart.setDate(dutyStart.getDate() + 1);
+        dutyEnd.setDate(dutyEnd.getDate() + 1);
+      }
+
+      // 🆕 If end is before start (wraps midnight), push end to next day
+      if (dutyEnd < dutyStart) {
+        dutyEnd.setDate(dutyEnd.getDate() + 1);
+      }
+
       return {
         userId: r.userId,
         dutyStart,
         dutyEnd,
         dutyType: r.type.toUpperCase() as 'SETUP' | 'TEARDOWN' | 'OPERATOR' | 'ASSISTANT',
         notes: r.notes || undefined,
+        isOvertime: r.isOvertime,
       };
     });
 
@@ -475,24 +513,32 @@ export default function ITOAssignmentModal({
           </Alert>
         )}
         <Alert icon={<IconInfoCircle size={16} />} color="blue">
-          <b>*DEPARTMENT HEAD / Officer-In-Charge ONLY*</b> Assign ITO staff for overtime during the event.
+          <b>*DEPARTMENT HEAD / Officer-In-Charge ONLY*</b>
           <br />
+          List <b>ALL</b> ITO staff duties for this event — including setup, pack-up, operators, and assistants.
+          Mark the <b>OT (Overtime)</b> checkbox for duties rendered outside regular working hours.
+          <br /><br />
           <b>Validation Rules:</b>
           <ul style={{ marginTop: 4, fontSize: '14px' }}>
-            <li>Every date must have at least one Setup and one Teardown.</li>
+            <li>Every date must have at least one Setup and one Pack-up.</li>
             <li>Setup: start time must be at least <b>2 hours before</b> event start; end time must be ≤ event start.</li>
-            <li>Teardown: start time must be ≥ event end; end time must be at least <b>2 hours after</b> event end.</li>
+            <li>Pack-up: start time must be ≥ event end; end time must be at least <b>2 hours after</b> event end.</li>
+            <li>Operator / Assistant: must fall within the event start and end times.</li>
           </ul>
 
-          <br></br>
-
-          <b>*DEPARTMENT HEAD / Officer-In-Charge LAMANG*</b> Magtalaga ng mga tao para sa pag o-overtime sa event na ito.
           <br />
-          <b>Mga alituntunin:</b>
+
+          <b>*DEPARTMENT HEAD / Officer-In-Charge LAMANG*</b>
+          <br />
+          Ilista <b>LAHAT</b> ng duty ng ITO staff para sa event na ito — kasama ang setup, pack-up, operator, at assistant.
+          Markahan ng <b>OT (Overtime)</b> checkbox ang mga duty na ginawa <b>lampas sa regular working hours</b>.
+          <br /><br />
+          <b>Mga Alituntunin:</b>
           <ul style={{ marginTop: 4, fontSize: '14px' }}>
-            <li>Ang kada petsa ay dapat may isang taga-ayos (Setup) at taga-ligpit (Pack-up)</li>
+            <li>Ang kada petsa ay dapat may isang taga-ayos (Setup) at taga-ligpit (Pack-up).</li>
             <li>Setup: Ang start time ay dapat <b>2 oras bago ang event start</b>; Ang end time ay dapat mas mababa o katumbas ng event start.</li>
-            <li>Teardown: Ang start time ay dapat mas mauna o katumbas ng event end; end time ay dapat di bababa sa <b>2 oras pagkatapos</b> ng event end.</li>
+            <li>Pack-up: Ang start time ay dapat mas mauna o katumbas ng event end; end time ay dapat di bababa sa <b>2 oras pagkatapos</b> ng event end.</li>
+            <li>Operator / Assistant: dapat nasa loob ng event start at end time.</li>
           </ul>
         </Alert>
 
@@ -605,7 +651,7 @@ export default function ITOAssignmentModal({
                   required
                 />
               </Grid.Col>
-              <Grid.Col span={2}>
+              <Grid.Col span={3}>
                 <Select
                   label="OT Duty Type"
                   placeholder="Setup o Pack up"
@@ -622,7 +668,20 @@ export default function ITOAssignmentModal({
                   required
                 />
               </Grid.Col>
-              <Grid.Col span={2}>
+              <Grid.Col
+                span={3}
+                style={{ display: 'flex', alignItems: 'flex-end', paddingBottom: 4 }}
+              >
+                <Checkbox
+                  label="Overtime (OT)"
+                  description="Mark kung OT duty ito"
+                  checked={row.isOvertime}
+                  onChange={(e) => updateRow(row.id, 'isOvertime', e.currentTarget.checked)}
+                  size="sm"
+                />
+              </Grid.Col>
+
+              <Grid.Col span={3}>
                 <TimeInput
                   label="Start Time"
                   value={row.startTime}
@@ -630,7 +689,7 @@ export default function ITOAssignmentModal({
                   required
                 />
               </Grid.Col>
-              <Grid.Col span={2}>
+              <Grid.Col span={3}>
                 <TimeInput
                   label="End Time"
                   value={row.endTime}
@@ -638,7 +697,7 @@ export default function ITOAssignmentModal({
                   required
                 />
               </Grid.Col>
-              <Grid.Col span={2}>
+              <Grid.Col span={4}>
                 <Textarea
                   label="Notes"
                   placeholder="e.g., Setup projector, assist with sound system, etc."
@@ -650,9 +709,9 @@ export default function ITOAssignmentModal({
                   maxRows={3}
                 />
               </Grid.Col>
-              <Grid.Col span={1} style={{ display: 'flex', alignItems: 'flex-end' }}>
-                <ActionIcon color="red" onClick={() => removeRow(row.id)}>
-                  <IconTrash size={16} />
+              <Grid.Col span={2} style={{ display: 'flex', alignItems: 'flex-end' }}>
+                <ActionIcon color="red" onClick={() => removeRow(row.id)} size="lg">
+                  <IconTrash size={18} />
                 </ActionIcon>
               </Grid.Col>
             </Grid>

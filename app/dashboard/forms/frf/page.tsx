@@ -177,6 +177,7 @@ export default function FRFDashboardPage() {
   }, []);
 
   const isHRD = currentUser?.departmentCode === 'HRD';
+  const isITOMain = currentUser?.departmentCode === 'ITO-MAIN';   // 🆕
 
   // ---- Filtered lists ----
   const myRequests = reservations.filter((r) => r.requestorId === currentUser?.id);
@@ -422,6 +423,7 @@ export default function FRFDashboardPage() {
               <th style="padding: 4px 8px; text-align: left; font-weight: 700; width: 16%;">Date</th>
               <th style="padding: 4px 8px; text-align: left; font-weight: 700; width: 22%;">Staff</th>
               <th style="padding: 4px 8px; text-align: left; font-weight: 700; width: 14%;">Duty Type</th>
+              <th style="padding: 4px 8px; text-align: center; font-weight: 700; width: 8%;">OT?</th>
               <th style="padding: 4px 8px; text-align: left; font-weight: 700; width: 12%;">Start</th>
               <th style="padding: 4px 8px; text-align: left; font-weight: 700; width: 12%;">End</th>
               <th style="padding: 4px 8px; text-align: left; font-weight: 700; width: 24%;">Notes</th>
@@ -440,6 +442,9 @@ export default function FRFDashboardPage() {
                 : ass.dutyType;
               const dateStr = formatDateOnly(ass.dutyStart);
               const notes = ass.notes ? ass.notes : '—';
+              const otLabel = ass.isOvertime
+                ? `<span style="padding: 2px 6px; border-radius: 3px; font-size: 10px; font-weight: 700; background: #d4edda; color: #155724;">OT</span>`
+                : '—';
               return `
                 <tr style="border-bottom: 1px dashed #ccc;">
                   <td style="padding: 4px 8px; font-size: 12px;">${dateStr}</td>
@@ -447,6 +452,7 @@ export default function FRFDashboardPage() {
                     ${ass.user.fname} ${ass.user.lname}
                   </td>
                   <td style="padding: 4px 8px; font-size: 12px;">${dutyTypeLabel}</td>
+                  <td style="padding: 4px 8px; font-size: 12px; text-align: center;">${otLabel}</td>
                   <td style="padding: 4px 8px; font-size: 12px;">${formatTimeOnly(ass.dutyStart)}</td>
                   <td style="padding: 4px 8px; font-size: 12px;">${formatTimeOnly(ass.dutyEnd)}</td>
                   <td style="padding: 4px 8px; font-size: 12px; color: #444; word-wrap: break-word;">
@@ -518,6 +524,21 @@ export default function FRFDashboardPage() {
           </div>`
         : '';
 
+      const packUpPhotos = (reservation.packUpDonePhotos || []).length > 0
+        ? `
+          <div style="margin-top: 10px;">
+            <div style="font-weight: 600; font-size: 11px; color: #333; margin-bottom: 4px;">Photo Proof:</div>
+            <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+              ${(reservation.packUpDonePhotos || []).map(url => `
+                <div style="border: 1px solid #ccc; border-radius: 3px; overflow: hidden; width: 120px; height: 90px;">
+                  <img src="${url}" style="width: 100%; height: 100%; object-fit: cover;" />
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        `
+        : '';
+
       packUpDoneHtml = `
         <div class="section" style="background: #f3f5f3; border: 1px solid #c0c0c0; padding: 12px; border-radius: 4px; margin-top: 16px;">
           <div style="font-weight: 700; font-size: 14px; text-decoration: underline; color: #858585; margin-bottom: 6px;">
@@ -530,6 +551,7 @@ export default function FRFDashboardPage() {
               All equipment quantities have been restored to inventory.
             </div>
             ${packUpNotes}
+            ${packUpPhotos}
           </div>
         </div>
       `;
@@ -573,7 +595,7 @@ export default function FRFDashboardPage() {
             <div class="meta-item"><span class="meta-label">Status:</span> ${reservation.status}</div>
             <div class="meta-item"><span class="meta-label">Type:</span> ${reservation.type.replace('_', ' ')}</div>
             <div class="meta-item"><span class="meta-label">Event Title:</span> ${eventTitle}</div>
-            <div class="meta-item"><span class="meta-label">Requestor:</span> ${reservation.requestor.fname} ${reservation.requestor.lname}</div>
+            <div class="meta-item"><span class="meta-label">Requestor (Focal Person):</span> ${reservation.requestor.fname} ${reservation.requestor.lname}</div>
             <div class="meta-item"><span class="meta-label">Department:</span> ${reservation.requestorDept || 'N/A'}</div>
             <div class="meta-item"><span class="meta-label">Attendees:</span> ${reservation.attendeesCount}</div>
             <div class="meta-item"><span class="meta-label">Venue/s:</span> ${getUniqueVenues(reservation.dates)}</div>
@@ -753,19 +775,52 @@ export default function FRFDashboardPage() {
     setStepperKey((k) => k + 1);
   };
 
-  const handlePasswordSubmit = async (password: string, remarks: string) => {
+  const handlePasswordSubmit = async (
+    password: string,
+    remarks: string,
+    photos?: File[]
+  ) => {
     if (!pendingAction) return;
     setPassLoading(true);
     setPassError('');
     try {
-      // 🆕 Map special action names to match backend
       const actionMap: Record<string, string> = {
         'PACKUP_DONE': 'packup-done',
         'REQUEST_STAFF_CHANGE': 'request-staff-change',
       };
-      
+
       const actionName = actionMap[pendingAction.type] || pendingAction.type.toLowerCase();
 
+      // 🆕 PACKUP_DONE → multipart (photos)
+      if (pendingAction.type === 'PACKUP_DONE') {
+        const formData = new FormData();
+        formData.append('id', pendingAction.data.id as string);
+        formData.append('action', 'packup-done');
+        formData.append('password', password);
+        formData.append('remarks', remarks);
+        for (const file of photos || []) {
+          formData.append('packUpPhotos', file);
+        }
+
+        const res = await fetch('/api/frf/reservation', {
+          method: 'PATCH',
+          body: formData,
+        });
+
+        const result = await res.json();
+        if (res.ok) {
+          mutateReservations();
+          closePassModal();
+          setPendingAction(null);
+          if (detailOpened) closeDetail();
+          alert('Pack Up Done recorded successfully!');
+        } else {
+          setPassError(result.message || 'Action failed');
+        }
+        return;
+      }
+
+      // Everything else → JSON
       const payload: {
         id: string;
         action: string;
@@ -913,6 +968,14 @@ export default function FRFDashboardPage() {
     (isHeadOrOIC && currentUser?.departmentCode === 'ITO-MAIN') ||
     currentUser?.departmentCode === 'PSMO/FMO' ||
     currentUser?.departmentCode === 'CDO';
+  
+  const visibleTabs = [
+    'my_requests',
+    'pending_approval',
+    'action_board',
+    ...(isITOMain ? ['assigned_to_me'] : []),
+    'completed',
+  ];
 
   return (
     <Container fluid py="md">
@@ -980,15 +1043,17 @@ export default function FRFDashboardPage() {
                 <Tabs.Tab value="action_board" leftSection={<IconInfoCircle size={15} />}>
                   Action Board <Badge size="xs" variant="light" ml={6}>{actionBoard.length}</Badge>
                 </Tabs.Tab>
-                <Tabs.Tab value="assigned_to_me" leftSection={<IconUserCheck size={15} />}>
-                  Assigned to Me <Badge size="xs" variant="light" ml={6}>{assignedToMe.length}</Badge>
-                </Tabs.Tab>
+                {isITOMain && (
+                  <Tabs.Tab value="assigned_to_me" leftSection={<IconUserCheck size={15} />}>
+                    Assigned to Me <Badge size="xs" variant="light" ml={6}>{assignedToMe.length}</Badge>
+                  </Tabs.Tab>
+                )}
                 <Tabs.Tab value="completed" leftSection={<IconCircleCheck size={15} />}>
                   Fully Approved / Rejected<Badge size="xs" variant="light" ml={6}>{completed.length}</Badge>
                 </Tabs.Tab>
               </Tabs.List>
 
-              {['my_requests', 'pending_approval', 'action_board', 'assigned_to_me', 'completed'].map((tab) => {
+              {visibleTabs.map((tab) => {
                 let list: FacilityReservation[] = [];
                 if (tab === 'my_requests') list = myRequests;
                 else if (tab === 'pending_approval') {
@@ -1193,6 +1258,7 @@ export default function FRFDashboardPage() {
         loading={passLoading}
         error={passError}
         requireRemarks={pendingAction?.type === 'REJECT' || pendingAction?.type === 'RETURN' || pendingAction?.type === 'APPROVE' || pendingAction?.type === 'PACKUP_DONE' || pendingAction?.type === 'REQUEST_STAFF_CHANGE'}
+        enablePhotoUpload={pendingAction?.type === 'PACKUP_DONE'}
       />
 
       <ITOAssignmentModal

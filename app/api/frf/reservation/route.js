@@ -12,6 +12,7 @@ import {
   getDepartmentHeads,
   sendFRFHRDNotedNotification,
   sendFRFRescheduleNotification,
+  sendFRFAssignmentToStaff,
 } from '../../../lib/email_notification';
 import bcrypt from 'bcrypt';
 
@@ -448,7 +449,7 @@ export async function POST(request) {
         },
         isVenueOnly: isVenueOnly
       },
-      include: {
+            include: {
         approvals: true,
         equipmentRequests: {
           include: { equipment: true }
@@ -456,6 +457,40 @@ export async function POST(request) {
         dates: true
       }
     });
+
+    if (equipmentIds.length > 0) {
+      try {
+        await prisma.$transaction(async (tx) => {
+          for (const item of equipmentItems) {
+            const equipmentId = item.equipmentId || item.id;
+            const eq = await tx.equipment.findUnique({
+              where: { id: equipmentId },
+              select: { isSingleItem: true, quantityAvailable: true, quantityReserved: true, name: true }
+            });
+            if (!eq) continue;
+
+            const qty = eq.isSingleItem ? 1 : (item.quantity || 1);
+            const trulyAvailable = eq.quantityAvailable - eq.quantityReserved;
+            if (trulyAvailable < qty) {
+              throw new Error(`Not enough stock for ${eq.name}. Available: ${trulyAvailable}, requested: ${qty}.`);
+            }
+
+            await tx.equipment.update({
+              where: { id: equipmentId },
+              data: { quantityReserved: { increment: qty } }
+            });
+          }
+        });
+      } catch (reserveErr) {
+        // Rollback: remove the just-created reservation
+        await prisma.facilityReservation.delete({ where: { id: reservation.id } });
+        console.error('Equipment reservation failed:', reserveErr);
+        return NextResponse.json(
+          { success: false, message: reserveErr.message || 'Failed to reserve equipment' },
+          { status: 409 }
+        );
+      }
+    }
 
     // After creating the reservation (inside POST)
     try {
@@ -554,7 +589,173 @@ export async function PATCH(request) {
         );
       }
 
-      // Only resubmit is supported via multipart
+      // ==========================================
+      // 🆕 PACK UP DONE (with optional photos)
+      // ==========================================
+      if (action === 'packup-done') {
+        const remarks = formData.get('remarks') || '';
+        const files = formData.getAll('packUpPhotos');
+
+        const reservation = await prisma.facilityReservation.findUnique({
+          where: { id },
+          include: {
+            approvals: true,
+            dates: true,
+            equipmentRequests: true,
+            assignments: true,
+            requestor: true,
+          }
+        });
+
+        if (!reservation) {
+          return NextResponse.json({ success: false, message: 'Reservation not found' }, { status: 404 });
+        }
+
+        // 1. Reservation must be COMPLETED
+        if (reservation.status !== 'COMPLETED') {
+          return NextResponse.json(
+            { success: false, message: 'Pack Up Done is only available for completed reservations' },
+            { status: 400 }
+          );
+        }
+
+        // 2. Not yet marked
+        if (reservation.packUpDoneAt) {
+          return NextResponse.json(
+            { success: false, message: 'Pack Up Done has already been recorded for this reservation' },
+            { status: 400 }
+          );
+        }
+
+        // 3. Permission
+        const isAssigned = reservation.assignments.some(a => a.userId === user.id);
+        const isITOHeadOrOIC = user.departmentCode === 'ITO-MAIN' && isHeadOrOIC(user);
+        const isSuper = isSuperUser(user);
+
+        if (!isAssigned && !isITOHeadOrOIC && !isSuper) {
+          return NextResponse.json(
+            {
+              success: false,
+              message: 'Only assigned staff, ITO-MAIN Head/OIC, or SuperUser can mark Pack Up Done'
+            },
+            { status: 403 }
+          );
+        }
+
+        // 4. Event must have ended
+        if (!reservation.dates || reservation.dates.length === 0) {
+          return NextResponse.json(
+            { success: false, message: 'No event dates found' },
+            { status: 400 }
+          );
+        }
+
+        const latestEventEnd = reservation.dates.reduce((latest, d) => {
+          const end = new Date(d.eventEnd);
+          return end > latest ? end : latest;
+        }, new Date(0));
+
+        if (new Date() < latestEventEnd) {
+          return NextResponse.json(
+            {
+              success: false,
+              message: `Pack Up Done can only be marked after the event ends (${latestEventEnd.toLocaleString()})`
+            },
+            { status: 400 }
+          );
+        }
+
+        // 5. Remarks required
+        if (!remarks || remarks.trim() === '') {
+          return NextResponse.json(
+            { success: false, message: 'Notes are required for Pack Up Done' },
+            { status: 400 }
+          );
+        }
+
+        // 6. Upload photos to Vercel Blob
+        const photoUrls = [];
+        for (const file of files) {
+          if (file && file.size > 0) {
+            const cleanFilename = `frf/packup/${Date.now()}-${Math.floor(Math.random() * 1000)}-${file.name.replace(/[^a-zA-Z0-9.\-_]/g, "_")}`;
+            const blob = await put(cleanFilename, file, {
+              access: 'public',
+              addRandomSuffix: true,
+              token: process.env.DMSBLOB_READ_WRITE_TOKEN,
+              storeId: process.env.DMSBLOB_STORE_ID,
+            });
+            photoUrls.push(blob.url);
+          }
+        }
+
+        // 7. Save + restore equipment (transactional)
+        await prisma.$transaction(async (tx) => {
+          await tx.facilityReservation.update({
+            where: { id },
+            data: {
+              packUpDoneAt: new Date(),
+              packUpDoneById: user.id,
+              packUpDoneNotes: remarks.trim(),
+              packUpDonePhotos: photoUrls,  // 🆕
+            },
+          });
+
+          for (const req of reservation.equipmentRequests) {
+            await tx.equipment.update({
+              where: { id: req.equipmentId },
+              data: {
+                quantityAvailable: { increment: req.quantityRequested },
+              },
+            });
+          }
+        });
+
+        // 8. Notify requestor
+        try {
+          await prisma.notification.create({
+            data: {
+              title: 'Event Pack Up Done',
+              message: `The event for ${reservation.referenceId} has been marked as packed up by ${user.fname} ${user.lname}. Equipment has been released back to inventory.`,
+              isRead: false,
+              recipientId: reservation.requestorId,
+              senderId: user.id,
+            },
+          });
+        } catch (notifErr) {
+          console.error('Pack Up notification error:', notifErr);
+        }
+
+        // 9. Log
+        await logActivity({
+          req: request,
+          userId: user.id,
+          email: user.email,
+          action: 'FRF_PACKUP_DONE',
+          details: JSON.stringify({
+            reservationId: id,
+            markedBy: `${user.fname} ${user.lname}`,
+            markedByRole: user.role,
+            markedByDept: user.departmentCode,
+            photoCount: photoUrls.length,
+            restoredEquipment: reservation.equipmentRequests.map((eq) => ({
+              equipmentId: eq.equipmentId,
+              quantity: eq.quantityRequested,
+            })),
+          }),
+        });
+
+        return NextResponse.json({
+          success: true,
+          message: 'Pack Up Done recorded. Equipment quantities have been restored.',
+          data: {
+            packUpDoneAt: new Date().toISOString(),
+            packUpDoneById: user.id,
+            packUpDonePhotos: photoUrls,
+          },
+        });
+      }
+
+      // Only resubmit is supported via multipart (other than packup-done)
       if (action !== 'resubmit') {
         return NextResponse.json(
           { success: false, message: 'Invalid action for multipart request' },
@@ -747,6 +948,25 @@ export async function PATCH(request) {
             remarks: `Resubmitted by requestor on ${new Date().toLocaleString()}`
           }
         });
+
+        for (const item of equipmentRequests) {
+          const eq = await tx.equipment.findUnique({
+            where: { id: item.equipmentId },
+            select: { isSingleItem: true, quantityAvailable: true, quantityReserved: true, name: true }
+          });
+          if (!eq) continue;
+
+          const qty = eq.isSingleItem ? 1 : (item.quantity || 1);
+          const trulyAvailable = eq.quantityAvailable - eq.quantityReserved;
+          if (trulyAvailable < qty) {
+            throw new Error(`Not enough stock for ${eq.name}. Available: ${trulyAvailable}, requested: ${qty}.`);
+          }
+
+          await tx.equipment.update({
+            where: { id: item.equipmentId },
+            data: { quantityReserved: { increment: qty } }
+          });
+        }
       });
 
       await logActivity({
@@ -808,9 +1028,23 @@ export async function PATCH(request) {
           }
         },
         requestor: true,
-        dates: true,
-        equipmentRequests: true,
-        assignments: true,
+        dates: {
+          include: {
+            place: true,
+          },
+        },
+        equipmentRequests: {
+          include: {
+            equipment: true,
+          },
+        },
+        assignments: {
+          include: {
+            user: {
+              select: { id: true, fname: true, lname: true, email: true },
+            },
+          },
+        },
       }
     });
 
@@ -892,6 +1126,7 @@ export async function PATCH(request) {
             assignmentData = reservation.assignments.map(a => ({
               userId: a.userId,
               dutyType: a.dutyType,
+              isOvertime: a.isOvertime ?? false, 
               // We'll compute times from the old assignments
               oldStart: new Date(a.dutyStart),
               oldEnd: new Date(a.dutyEnd),
@@ -901,6 +1136,7 @@ export async function PATCH(request) {
             assignmentData = assignments.map(a => ({
               userId: a.userId,
               dutyType: a.dutyType,
+              isOvertime: a.isOvertime ?? false, 
               oldStart: new Date(a.dutyStart),
               oldEnd: new Date(a.dutyEnd),
             }));
@@ -936,6 +1172,7 @@ export async function PATCH(request) {
                 dutyStart: newStart,
                 dutyEnd: newEnd,
                 dutyType: ass.dutyType,
+                isOvertime: !!ass.isOvertime,
               }
             });
           }
@@ -978,6 +1215,7 @@ export async function PATCH(request) {
                 dutyEnd: new Date(assignment.dutyEnd),
                 dutyType: assignment.dutyType,
                 notes: assignment.notes || null,
+                isOvertime: !!assignment.isOvertime,
               }
             });
           }
@@ -989,18 +1227,28 @@ export async function PATCH(request) {
               const staffIds = assignments.map(a => a.userId);
               const staffUsers = await prisma.user.findMany({
                 where: { id: { in: staffIds } },
-                select: { id: true, fname: true, lname: true }
+                select: { id: true, email: true, fname: true, lname: true }   // 🆕 added email
               });
               const staffMap = Object.fromEntries(staffUsers.map(u => [u.id, u]));
 
               const assignmentDetails = assignments.map(a => ({
+                userId: a.userId,                                              // 🆕
                 staffName: `${staffMap[a.userId]?.fname} ${staffMap[a.userId]?.lname}`,
                 dutyStart: a.dutyStart,
                 dutyEnd: a.dutyEnd,
-                dutyType: a.dutyType
+                dutyType: a.dutyType,
+                isOvertime: a.isOvertime,                                      // 🆕
+                notes: a.notes,                                                // 🆕
               }));
 
               await sendFRFHRDNotification(hrdHeads, reservation, assignmentDetails);
+
+              // 🆕 Notify each assigned staff (personal duty email)
+              try {
+                await sendFRFAssignmentToStaff(staffUsers, reservation, assignmentDetails);
+              } catch (staffNotifErr) {
+                console.error('Staff assignment notification error:', staffNotifErr);
+              }
 
               const hrdUsers = await prisma.user.findMany({
                 where: {
@@ -1137,12 +1385,17 @@ export async function PATCH(request) {
           where: { reservationId: id }
         });
         for (const req of equipmentRequests) {
+          const eq = await prisma.equipment.findUnique({
+            where: { id: req.equipmentId },
+            select: { quantityReserved: true }
+          });
+          const reserveDec = Math.min(req.quantityRequested, eq?.quantityReserved ?? 0);
+
           await prisma.equipment.update({
             where: { id: req.equipmentId },
             data: {
-              quantityAvailable: {
-                decrement: req.quantityRequested
-              }
+              quantityAvailable: { decrement: req.quantityRequested },
+              quantityReserved: { decrement: reserveDec }
             }
           });
         }
@@ -1248,6 +1501,20 @@ export async function PATCH(request) {
         data: { status: 'REJECTED' }
       });
 
+      for (const req of reservation.equipmentRequests) {
+        const eq = await prisma.equipment.findUnique({
+          where: { id: req.equipmentId },
+          select: { quantityReserved: true }
+        });
+        const decrementBy = Math.min(req.quantityRequested, eq?.quantityReserved ?? 0);
+        if (decrementBy > 0) {
+          await prisma.equipment.update({
+            where: { id: req.equipmentId },
+            data: { quantityReserved: { decrement: decrementBy } }
+          });
+        }
+      }
+
       try {
         await prisma.notification.create({
           data: {
@@ -1332,6 +1599,20 @@ export async function PATCH(request) {
         where: { id },
         data: { status: 'REVISION_REQUESTED' }
       });
+
+      for (const req of reservation.equipmentRequests) {
+        const eq = await prisma.equipment.findUnique({
+          where: { id: req.equipmentId },
+          select: { quantityReserved: true }
+        });
+        const decrementBy = Math.min(req.quantityRequested, eq?.quantityReserved ?? 0);
+        if (decrementBy > 0) {
+          await prisma.equipment.update({
+            where: { id: req.equipmentId },
+            data: { quantityReserved: { decrement: decrementBy } }
+          });
+        }
+      }
 
       try {
         await prisma.notification.create({
@@ -1495,6 +1776,7 @@ export async function PATCH(request) {
             dutyEnd: new Date(assignment.dutyEnd),
             dutyType: assignment.dutyType,
             notes: assignment.notes || null,
+            isOvertime: !!assignment.isOvertime,
           },
           include: {
             user: {
@@ -1503,6 +1785,29 @@ export async function PATCH(request) {
           }
         });
         createdAssignments.push(created);
+      }
+
+      // 🆕 Notify newly assigned staff
+      try {
+        const uniqueStaffIds = [...new Set(assignments.map(a => a.userId))];
+        const staffUsers = await prisma.user.findMany({
+          where: { id: { in: uniqueStaffIds } },
+          select: { id: true, email: true, fname: true, lname: true },
+        });
+        const assignmentDetails = assignments.map(a => ({
+          userId: a.userId,
+          staffName: `${staffUsers.find(s => s.id === a.userId)?.fname || ''} ${staffUsers.find(s => s.id === a.userId)?.lname || ''}`.trim(),
+          dutyStart: a.dutyStart,
+          dutyEnd: a.dutyEnd,
+          dutyType: a.dutyType,
+          isOvertime: a.isOvertime,
+          notes: a.notes,
+        }));
+        if (staffUsers.length > 0) {
+          await sendFRFAssignmentToStaff(staffUsers, reservation, assignmentDetails);
+        }
+      } catch (staffNotifErr) {
+        console.error('Staff assignment notification error (assign action):', staffNotifErr);
       }
 
       await logActivity({
@@ -1741,10 +2046,7 @@ export async function PATCH(request) {
       });
     }
 
-    // ==========================================
-    // RESCHEDULE ACTION (DYNAMIC APPROVALS)
-    // ==========================================
-    if (action === 'reschedule') {
+        if (action === 'reschedule') {
       const isVenueOnly = reservation.isVenueOnly;
 
       // 1. Only requestor can reschedule
@@ -1763,41 +2065,37 @@ export async function PATCH(request) {
         );
       }
 
-            // 🆕 Validate min reschedule days
+      // 3. Extract fields from body (BEFORE validation)
+      const {
+        dates: newDatesArray,
+        reason,
+        type: newType,
+        attendeesCount: newAttendeesCount,
+        equipmentRequests: newEquipmentRequests,
+        withCharge: newWithCharge,
+        requestorNotes: newRequestorNotes,
+        eventName: newEventName
+      } = body;
+
+      if (!newDatesArray || newDatesArray.length === 0) {
+        return NextResponse.json(
+          { success: false, message: 'At least one new date is required' },
+          { status: 400 }
+        );
+      }
+
+      // 4. Validate min reschedule days
       const settings = await prisma.formSettings.findUnique({
         where: { id: 'single' },
       });
       const minRescheduleDays = settings?.minRescheduleDays ?? 3;
-
-      if (newDatesArray && newDatesArray.length > 0) {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const minAllowedDate = new Date(today);
-        minAllowedDate.setDate(today.getDate() + minRescheduleDays);
-
-        const earliestNewDate = newDatesArray.reduce((earliest, entry) => {
-          const d = new Date(entry.date);
-          d.setHours(0, 0, 0, 0);
-          return d < earliest ? d : earliest;
-        }, new Date(8640000000000000));
-
-        if (earliestNewDate < minAllowedDate) {
-          return NextResponse.json(
-            {
-              success: false,
-              message: `Reschedule date must be at least ${minRescheduleDays} day(s) from today (earliest allowed: ${minAllowedDate.toLocaleDateString()}).`,
-            },
-            { status: 400 }
-          );
-        }
-      }
 
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       const minAllowedDate = new Date(today);
       minAllowedDate.setDate(today.getDate() + minRescheduleDays);
 
-      const earliestNewDate = newDateArray.reduce((earliest, entry) => {
+      const earliestNewDate = newDatesArray.reduce((earliest, entry) => {
         const d = new Date(entry.date);
         d.setHours(0, 0, 0, 0);
         return d < earliest ? d : earliest;
@@ -1813,18 +2111,15 @@ export async function PATCH(request) {
         );
       }
 
-      // 3. Extract fields from body
-      const {
-        dates: newDatesArray,
-        reason,
-        type: newType,
-        attendeesCount: newAttendeesCount,
-        equipmentRequests: newEquipmentRequests,
-        withCharge: newWithCharge,
-        requestorNotes: newRequestorNotes,
-        eventName: newEventName
-      } = body;
-
+      if (earliestNewDate < minAllowedDate) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: `Reschedule date must be at least ${minRescheduleDays} day(s) from today (earliest allowed: ${minAllowedDate.toLocaleDateString()}).`,
+          },
+          { status: 400 }
+        );
+      }
       if (!newDatesArray || newDatesArray.length === 0) {
         return NextResponse.json(
           { success: false, message: 'At least one new date is required' },
@@ -2003,6 +2298,23 @@ export async function PATCH(request) {
 
       // 17. Update reservation
       await prisma.$transaction(async (tx) => {
+
+        for (const req of reservation.equipmentRequests) {
+          const eq = await tx.equipment.findUnique({
+            where: { id: req.equipmentId },
+            select: { quantityReserved: true }
+          });
+          const reserveDec = Math.min(req.quantityRequested, eq?.quantityReserved ?? 0);
+
+          await tx.equipment.update({
+            where: { id: req.equipmentId },
+            data: {
+              quantityAvailable: { increment: req.quantityRequested },
+              quantityReserved: { decrement: reserveDec }
+            }
+          });
+        }
+
         // Delete old dates and equipment
         await tx.facilityReservationDate.deleteMany({
           where: { reservationId: id }
@@ -2018,7 +2330,7 @@ export async function PATCH(request) {
             status: 'RESCHEDULE_PENDING',
             isReschedule: true,
             originalDates: originalDates,
-            
+            originalEquipment: originalEquipment,
             originalApprovals: originalApprovals,
             requestorNotes: newRequestorNotes || reason || `Reschedule requested: ${new Date().toLocaleString()}`,
             type: finalType,
@@ -2049,6 +2361,25 @@ export async function PATCH(request) {
           }
         });
       });
+
+      for (const item of equipmentToUse) {
+          const eq = await tx.equipment.findUnique({
+            where: { id: item.equipmentId },
+            select: { isSingleItem: true, quantityAvailable: true, quantityReserved: true, name: true }
+          });
+          if (!eq) continue;
+
+          const qty = eq.isSingleItem ? 1 : (item.quantity || 1);
+          const trulyAvailable = eq.quantityAvailable - eq.quantityReserved;
+          if (trulyAvailable < qty) {
+            throw new Error(`Not enough stock for ${eq.name}. Available: ${trulyAvailable}, requested: ${qty}.`);
+          }
+
+          await tx.equipment.update({
+            where: { id: item.equipmentId },
+            data: { quantityReserved: { increment: qty } }
+          });
+        }
 
       // 17. Notify the first department
       try {
@@ -2103,135 +2434,6 @@ export async function PATCH(request) {
         success: true,
         message: 'Reschedule request submitted for approval',
         data: { status: 'RESCHEDULE_PENDING' }
-      });
-    }
-
-    // ==========================================
-    // PACK UP DONE ACTION
-    // ==========================================
-    if (action === 'packup-done') {
-      // 1. Reservation must be COMPLETED
-      if (reservation.status !== 'COMPLETED') {
-        return NextResponse.json(
-          { success: false, message: 'Pack Up Done is only available for completed reservations' },
-          { status: 400 }
-        );
-      }
-
-      // 2. Not yet marked
-      if (reservation.packUpDoneAt) {
-        return NextResponse.json(
-          { success: false, message: 'Pack Up Done has already been recorded for this reservation' },
-          { status: 400 }
-        );
-      }
-
-      // 3. Permission: assigned staff, ITO-MAIN Head/OIC, or SuperUser
-      const isAssigned = reservation.assignments.some(a => a.userId === user.id);
-      const isITOHeadOrOIC = user.departmentCode === 'ITO-MAIN' && isHeadOrOIC(user);
-      const isSuper = isSuperUser(user);
-
-      if (!isAssigned && !isITOHeadOrOIC && !isSuper) {
-        return NextResponse.json(
-          {
-            success: false,
-            message: 'Only assigned staff, ITO-MAIN Head/OIC, or SuperUser can mark Pack Up Done'
-          },
-          { status: 403 }
-        );
-      }
-
-      // 4. Event must have already ended (latest eventEnd across dates)
-      if (!reservation.dates || reservation.dates.length === 0) {
-        return NextResponse.json(
-          { success: false, message: 'No event dates found' },
-          { status: 400 }
-        );
-      }
-
-      const latestEventEnd = reservation.dates.reduce((latest, d) => {
-        const end = new Date(d.eventEnd);
-        return end > latest ? end : latest;
-      }, new Date(0));
-
-      if (new Date() < latestEventEnd) {
-        return NextResponse.json(
-          {
-            success: false,
-            message: `Pack Up Done can only be marked after the event ends (${latestEventEnd.toLocaleString()})`
-          },
-          { status: 400 }
-        );
-      }
-
-      if (!remarks || remarks.trim() === '') {
-        return NextResponse.json(
-          { success: false, message: 'Notes are required for Pack Up Done' },
-          { status: 400 }
-        );
-      }
-
-      // 5. Restore equipment quantities + mark pack up done (transactional)
-      await prisma.$transaction(async (tx) => {
-        await tx.facilityReservation.update({
-          where: { id },
-          data: {
-            packUpDoneAt: new Date(),
-            packUpDoneById: user.id,
-            packUpDoneNotes: remarks || null,
-          },
-        });
-
-        for (const req of reservation.equipmentRequests) {
-          await tx.equipment.update({
-            where: { id: req.equipmentId },
-            data: {
-              quantityAvailable: { increment: req.quantityRequested },
-            },
-          });
-        }
-      });
-
-      // 6. Notify requestor
-      try {
-        await prisma.notification.create({
-          data: {
-            title: 'Event Pack Up Done',
-            message: `The event for ${reservation.referenceId} has been marked as packed up by ${user.fname} ${user.lname}. Equipment has been released back to inventory.`,
-            isRead: false,
-            recipientId: reservation.requestorId,
-            senderId: user.id,
-          },
-        });
-      } catch (notifErr) {
-        console.error('Pack Up notification error:', notifErr);
-      }
-
-      // 7. Log activity
-      await logActivity({
-        req: request,
-        userId: user.id,
-        email: user.email,
-        action: 'FRF_PACKUP_DONE',
-        details: JSON.stringify({
-          reservationId: id,
-          markedBy: `${user.fname} ${user.lname}`,
-          markedByRole: user.role,
-          markedByDept: user.departmentCode,
-          restoredEquipment: reservation.equipmentRequests.map((eq) => ({
-            equipmentId: eq.equipmentId,
-            quantity: eq.quantityRequested,
-          })),
-        }),
-      });
-
-      return NextResponse.json({
-        success: true,
-        message: 'Pack Up Done recorded. Equipment quantities have been restored.',
-        data: {
-          packUpDoneAt: new Date().toISOString(),
-          packUpDoneById: user.id,
-        },
       });
     }
 

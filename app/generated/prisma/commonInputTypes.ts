@@ -521,6 +521,23 @@ export type EnumEventPlaceCategoryWithAggregatesFilter<$PrismaModel = never> = {
   _max?: Prisma.NestedEnumEventPlaceCategoryFilter<$PrismaModel>
 }
 
+export type EnumSystemBranchNullableFilter<$PrismaModel = never> = {
+  equals?: $Enums.SystemBranch | Prisma.EnumSystemBranchFieldRefInput<$PrismaModel> | null
+  in?: $Enums.SystemBranch[] | Prisma.ListEnumSystemBranchFieldRefInput<$PrismaModel> | null
+  notIn?: $Enums.SystemBranch[] | Prisma.ListEnumSystemBranchFieldRefInput<$PrismaModel> | null
+  not?: Prisma.NestedEnumSystemBranchNullableFilter<$PrismaModel> | $Enums.SystemBranch | null
+}
+
+export type EnumSystemBranchNullableWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.SystemBranch | Prisma.EnumSystemBranchFieldRefInput<$PrismaModel> | null
+  in?: $Enums.SystemBranch[] | Prisma.ListEnumSystemBranchFieldRefInput<$PrismaModel> | null
+  notIn?: $Enums.SystemBranch[] | Prisma.ListEnumSystemBranchFieldRefInput<$PrismaModel> | null
+  not?: Prisma.NestedEnumSystemBranchNullableWithAggregatesFilter<$PrismaModel> | $Enums.SystemBranch | null
+  _count?: Prisma.NestedIntNullableFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumSystemBranchNullableFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumSystemBranchNullableFilter<$PrismaModel>
+}
+
 export type NestedStringFilter<$PrismaModel = never> = {
   equals?: string | Prisma.StringFieldRefInput<$PrismaModel>
   in?: string[] | Prisma.ListStringFieldRefInput<$PrismaModel>
@@ -1012,6 +1029,23 @@ export type NestedEnumEventPlaceCategoryWithAggregatesFilter<$PrismaModel = neve
   _count?: Prisma.NestedIntFilter<$PrismaModel>
   _min?: Prisma.NestedEnumEventPlaceCategoryFilter<$PrismaModel>
   _max?: Prisma.NestedEnumEventPlaceCategoryFilter<$PrismaModel>
+}
+
+export type NestedEnumSystemBranchNullableFilter<$PrismaModel = never> = {
+  equals?: $Enums.SystemBranch | Prisma.EnumSystemBranchFieldRefInput<$PrismaModel> | null
+  in?: $Enums.SystemBranch[] | Prisma.ListEnumSystemBranchFieldRefInput<$PrismaModel> | null
+  notIn?: $Enums.SystemBranch[] | Prisma.ListEnumSystemBranchFieldRefInput<$PrismaModel> | null
+  not?: Prisma.NestedEnumSystemBranchNullableFilter<$PrismaModel> | $Enums.SystemBranch | null
+}
+
+export type NestedEnumSystemBranchNullableWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.SystemBranch | Prisma.EnumSystemBranchFieldRefInput<$PrismaModel> | null
+  in?: $Enums.SystemBranch[] | Prisma.ListEnumSystemBranchFieldRefInput<$PrismaModel> | null
+  notIn?: $Enums.SystemBranch[] | Prisma.ListEnumSystemBranchFieldRefInput<$PrismaModel> | null
+  not?: Prisma.NestedEnumSystemBranchNullableWithAggregatesFilter<$PrismaModel> | $Enums.SystemBranch | null
+  _count?: Prisma.NestedIntNullableFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumSystemBranchNullableFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumSystemBranchNullableFilter<$PrismaModel>
 }
 
 

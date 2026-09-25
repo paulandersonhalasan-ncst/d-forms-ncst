@@ -64,6 +64,7 @@ export const ModelName = {
   FacilityAssignment: 'FacilityAssignment',
   EventPlace: 'EventPlace',
   Equipment: 'Equipment',
+  EquipmentPlace: 'EquipmentPlace',
   FacilityEquipmentRequest: 'FacilityEquipmentRequest',
   FacilityReservationDate: 'FacilityReservationDate',
   FormSettings: 'FormSettings'
@@ -329,13 +330,23 @@ export const EquipmentScalarFieldEnum = {
   departmentCode: 'departmentCode',
   isSingleItem: 'isSingleItem',
   quantityAvailable: 'quantityAvailable',
+  quantityReserved: 'quantityReserved',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
-  branch: 'branch',
-  quantityReserved: 'quantityReserved'
+  branch: 'branch'
 } as const
 
 export type EquipmentScalarFieldEnum = (typeof EquipmentScalarFieldEnum)[keyof typeof EquipmentScalarFieldEnum]
+
+
+export const EquipmentPlaceScalarFieldEnum = {
+  equipmentId: 'equipmentId',
+  placeId: 'placeId',
+  createdAt: 'createdAt',
+  isBundled: 'isBundled'
+} as const
+
+export type EquipmentPlaceScalarFieldEnum = (typeof EquipmentPlaceScalarFieldEnum)[keyof typeof EquipmentPlaceScalarFieldEnum]
 
 
 export const FacilityEquipmentRequestScalarFieldEnum = {

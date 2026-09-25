@@ -171,6 +171,7 @@ export default function RequestStepper({
   const [minDatePreset, setMinDatePreset] = useState<'tomorrow' | 'sevenDays'>('sevenDays');
 
   const [hoveredAttachment, setHoveredAttachment] = useState<number | null>(null);
+  const autoCheckedPlacesRef = useRef<Set<string>>(new Set());
 
   // --- Min date logic (moved up before useMemo) ---
   const getMinDate = useCallback((): Date => {
@@ -277,6 +278,9 @@ export default function RequestStepper({
           }
         })
         .catch(console.error);
+
+      // 🆕 Reset auto-check tracking on modal open
+      autoCheckedPlacesRef.current = new Set();
     }
   }, [opened]);
 
@@ -740,6 +744,80 @@ export default function RequestStepper({
     }
     }, [isRescheduleMode, editData, onReschedule, isEditing, onResubmit, password, rescheduleReason, hasChanges, attachmentsToKeep, onSuccess, onClose, settings.minRescheduleDays]);
 
+
+    const selectedPlaceIds = useMemo(
+      () => form.values.dates.map(d => d.placeId).filter(Boolean) as string[],
+      [form.values.dates]
+    );
+
+    const relevantEquipment = useMemo(() => {
+      if (selectedPlaceIds.length === 0) return equipment;
+
+      const selectedBranches = [
+        ...new Set(
+          selectedPlaceIds
+            .map(id => places.find(p => p.id === id)?.branch)
+            .filter(Boolean) as string[]
+        ),
+      ];
+
+      return equipment.filter(e => {
+        if (!e.branch) return true;
+        if (!selectedBranches.includes(e.branch)) return false;
+        if (!e.places || e.places.length === 0) return true;
+        return e.places.some(ep => selectedPlaceIds.includes(ep.placeId));
+      });
+    }, [equipment, selectedPlaceIds, places]);
+
+    const isEquipmentBundled = useCallback((e: Equipment): boolean => {
+      if (!e.places) return false;
+      return e.places.some(
+        ep => ep.isBundled && selectedPlaceIds.includes(ep.placeId)
+      );
+    }, [selectedPlaceIds]);
+
+    // 🆕 List of bundled items currently in scope
+    const bundledInScope = useMemo(
+      () => relevantEquipment.filter(e => isEquipmentBundled(e)),
+      [relevantEquipment, isEquipmentBundled]
+    );
+
+    useEffect(() => {
+      if (!opened) return;
+      if (selectedPlaceIds.length === 0) return;
+      if (equipment.length === 0) return;
+
+      const idsToAdd: string[] = [];
+
+      selectedPlaceIds.forEach(placeId => {
+        // Skip if we already auto-checked for this venue in this session
+        if (autoCheckedPlacesRef.current.has(placeId)) return;
+
+        // Find bundled equipment for this venue
+        const bundled = equipment.filter(e =>
+          e.places?.some(ep => ep.placeId === placeId && ep.isBundled)
+        );
+
+        bundled.forEach(e => {
+          const alreadySelected = form.values.equipmentRequests.some(
+            r => r.equipmentId === e.id
+          );
+          if (!alreadySelected) {
+            idsToAdd.push(e.id);
+          }
+        });
+
+        autoCheckedPlacesRef.current.add(placeId);
+      });
+
+      if (idsToAdd.length > 0) {
+        form.setFieldValue('equipmentRequests', [
+          ...form.values.equipmentRequests,
+          ...idsToAdd.map(id => ({ equipmentId: id, quantity: 1 })),
+        ]);
+      }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [opened, selectedPlaceIds, equipment]);
   // Determine modal title
   const modalTitle = isRescheduleMode
     ? 'Request Reschedule'
@@ -1184,6 +1262,44 @@ export default function RequestStepper({
               <i>Pumili ng kagamitan mula sa ITO, PSMO/FMO, at OP departments. Tukuyin ang dami para sa bawat item (kung naaangkop).</i>
             </Alert>
 
+            {selectedPlaceIds.length > 0 && (
+              <Alert icon={<IconInfoCircle size={16} />} color="grape" radius="md" mb="lg">
+                Showing usable equipment for: <b>
+                  {selectedPlaceIds
+                    .map(id => {
+                      const p = places.find(pp => pp.id === id);
+                      return p ? `${p.name} (${p.branch})` : id;
+                    })
+                    .filter((v, i, arr) => arr.indexOf(v) === i)
+                    .join(', ')}
+                </b>
+                {' '}+ global equipment.
+              </Alert>
+            )}
+
+            {bundledInScope.length > 0 && (
+              <Alert
+                icon={<span style={{ fontSize: 16 }}>⭐</span>}
+                color="orange"
+                radius="md"
+                mb="lg"
+                title="This venue has its own set of Equipment"
+              >
+                The following items are <b>automatically included</b> (you can uncheck them if
+                not needed):
+                <ul style={{ marginTop: 4, marginBottom: 0, paddingLeft: 20, fontSize: 13 }}>
+                  {bundledInScope.map(e => (
+                    <li key={e.id}>
+                      <b>{e.name}</b> ({e.departmentCode})
+                    </li>
+                  ))}
+                </ul>
+                <Text size="xs" c="dimmed" mt={4}>
+                  Anything else you add below is considered an <b>add-on</b>.
+                </Text>
+              </Alert>
+            )}
+
             <SimpleGrid cols={3} spacing="lg">
               {/* PSMO/FMO Equipment */}
               <Card withBorder p="md" radius="md">
@@ -1191,7 +1307,7 @@ export default function RequestStepper({
                   PSMO/FMO Equipment
                 </Text>
                 <Stack gap="sm">
-                  {equipment
+                  {relevantEquipment
                     .filter((e) => e.departmentCode === 'PSMO/FMO')
                     .map((e) => (
                       <Paper key={e.id} withBorder p="xs" radius="sm">
@@ -1199,6 +1315,18 @@ export default function RequestStepper({
                           <Checkbox
                             label={
                               <Text size="sm">
+                                {isEquipmentBundled(e) && (
+                                  <Badge
+                                    component="span"
+                                    size="xs"
+                                    color="orange"
+                                    variant="filled"
+                                    mr={4}
+                                    style={{ verticalAlign: 'middle' }}
+                                  >
+                                    ⭐SET
+                                  </Badge>
+                                )}
                                 {e.name}{' '}
                                 {e.isSingleItem ? (
                                   <Text component="span" size="xs" c="dimmed">
@@ -1206,7 +1334,8 @@ export default function RequestStepper({
                                   </Text>
                                 ) : (
                                   <Text component="span" size="xs" c="dimmed">
-                                    (Available: {e.quantityAvailable})
+                                    (Available: {e.quantityAvailable - (e.quantityReserved || 0)})
+                                    {e.quantityReserved ? ` · ${e.quantityReserved} reserved` : ''})
                                   </Text>
                                 )}
                               </Text>
@@ -1237,7 +1366,7 @@ export default function RequestStepper({
                               <NumberInput
                                 size="xs"
                                 min={1}
-                                max={e.quantityAvailable}
+                                max={e.quantityAvailable - (e.quantityReserved || 0)}
                                 value={
                                   form.values.equipmentRequests.find(
                                     (req) => req.equipmentId === e.id
@@ -1259,7 +1388,7 @@ export default function RequestStepper({
                   ITO Equipment
                 </Text>
                 <Stack gap="sm">
-                  {equipment
+                  {relevantEquipment
                     .filter((e) => e.departmentCode === 'ITO-MAIN')
                     .map((e) => (
                       <Paper key={e.id} withBorder p="xs" radius="sm">
@@ -1267,6 +1396,18 @@ export default function RequestStepper({
                           <Checkbox
                             label={
                               <Text size="sm">
+                                {isEquipmentBundled(e) && (
+                                  <Badge
+                                    component="span"
+                                    size="xs"
+                                    color="orange"
+                                    variant="filled"
+                                    mr={4}
+                                    style={{ verticalAlign: 'middle' }}
+                                  >
+                                    ⭐SET
+                                  </Badge>
+                                )}
                                 {e.name}{' '}
                                 {e.isSingleItem ? (
                                   <Text component="span" size="xs" c="dimmed">
@@ -1274,7 +1415,8 @@ export default function RequestStepper({
                                   </Text>
                                 ) : (
                                   <Text component="span" size="xs" c="dimmed">
-                                    (Available: {e.quantityAvailable})
+                                    (Available: {e.quantityAvailable - (e.quantityReserved || 0)})
+                                    {e.quantityReserved ? ` · ${e.quantityReserved} reserved` : ''})
                                   </Text>
                                 )}
                               </Text>
@@ -1305,7 +1447,7 @@ export default function RequestStepper({
                               <NumberInput
                                 size="xs"
                                 min={1}
-                                max={e.quantityAvailable}
+                                max={e.quantityAvailable - (e.quantityReserved || 0)}
                                 value={
                                   form.values.equipmentRequests.find(
                                     (req) => req.equipmentId === e.id
@@ -1327,7 +1469,7 @@ export default function RequestStepper({
                   OP Equipment
                 </Text>
                 <Stack gap="sm">
-                  {equipment
+                  {relevantEquipment
                     .filter((e) => e.departmentCode === 'OP')
                     .map((e) => (
                       <Paper key={e.id} withBorder p="xs" radius="sm">
@@ -1335,6 +1477,18 @@ export default function RequestStepper({
                           <Checkbox
                             label={
                               <Text size="sm">
+                                {isEquipmentBundled(e) && (
+                                  <Badge
+                                    component="span"
+                                    size="xs"
+                                    color="orange"
+                                    variant="filled"
+                                    mr={4}
+                                    style={{ verticalAlign: 'middle' }}
+                                  >
+                                    ⭐SET
+                                  </Badge>
+                                )}
                                 {e.name}{' '}
                                 {e.isSingleItem ? (
                                   <Text component="span" size="xs" c="dimmed">
@@ -1342,7 +1496,8 @@ export default function RequestStepper({
                                   </Text>
                                 ) : (
                                   <Text component="span" size="xs" c="dimmed">
-                                    (Available: {e.quantityAvailable})
+                                    (Available: {e.quantityAvailable - (e.quantityReserved || 0)})
+                                    {e.quantityReserved ? ` · ${e.quantityReserved} reserved` : ''})
                                   </Text>
                                 )}
                               </Text>
@@ -1373,7 +1528,7 @@ export default function RequestStepper({
                               <NumberInput
                                 size="xs"
                                 min={1}
-                                max={e.quantityAvailable}
+                                max={e.quantityAvailable - (e.quantityReserved || 0)}
                                 value={
                                   form.values.equipmentRequests.find(
                                     (req) => req.equipmentId === e.id
@@ -1395,7 +1550,7 @@ export default function RequestStepper({
                   CDO Equipment
                 </Text>
                 <Stack gap="sm">
-                  {equipment
+                  {relevantEquipment
                     .filter((e) => e.departmentCode === 'CDO')
                     .map((e) => (
                       <Paper key={e.id} withBorder p="xs" radius="sm">
@@ -1403,6 +1558,18 @@ export default function RequestStepper({
                           <Checkbox
                             label={
                               <Text size="sm">
+                                {isEquipmentBundled(e) && (
+                                  <Badge
+                                    component="span"
+                                    size="xs"
+                                    color="orange"
+                                    variant="filled"
+                                    mr={4}
+                                    style={{ verticalAlign: 'middle' }}
+                                  >
+                                    ⭐SET
+                                  </Badge>
+                                )}
                                 {e.name}{' '}
                                 {e.isSingleItem ? (
                                   <Text component="span" size="xs" c="dimmed">
@@ -1410,7 +1577,8 @@ export default function RequestStepper({
                                   </Text>
                                 ) : (
                                   <Text component="span" size="xs" c="dimmed">
-                                    (Available: {e.quantityAvailable})
+                                    (Available: {e.quantityAvailable - (e.quantityReserved || 0)})
+                                    {e.quantityReserved ? ` · ${e.quantityReserved} reserved` : ''})
                                   </Text>
                                 )}
                               </Text>
@@ -1441,7 +1609,7 @@ export default function RequestStepper({
                               <NumberInput
                                 size="xs"
                                 min={1}
-                                max={e.quantityAvailable}
+                                max={e.quantityAvailable - (e.quantityReserved || 0)}
                                 value={
                                   form.values.equipmentRequests.find(
                                     (req) => req.equipmentId === e.id

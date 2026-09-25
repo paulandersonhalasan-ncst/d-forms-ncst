@@ -5,6 +5,508 @@ import { prisma } from '../../prisma/prisma';
  * Get active Department Heads (including OIC) for a given department code
  * OIC = user with oic_start and oic_end covering current date/time
  */
+
+function renderFRFDetailsHTML(reservation, options = {}) {
+  const {
+    showApprovals = false,
+    showAssignments = false,
+    showPackUp = false,
+    accentColor = '#1a3a5c',
+  } = options;
+
+  const fmtDate = (v) =>
+    v ? new Date(v).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : '—';
+  const fmtDateTime = (v) =>
+    v ? new Date(v).toLocaleString('en-US', { timeZone: 'Asia/Manila' }) : '—';
+  const fmtTime = (v) =>
+    v
+      ? new Date(v).toLocaleTimeString('en-US', {
+          timeZone: 'Asia/Manila',
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true,
+        })
+      : '—';
+  const esc = (s) =>
+    String(s ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+
+  // ----- Unique venues -----
+  const venueMap = new Map();
+  (reservation.dates || []).forEach((d) => {
+    const name = d.place?.name || d.placeOther || 'TBA';
+    const key = name.trim().toLowerCase();
+    if (!venueMap.has(key)) venueMap.set(key, name.trim());
+  });
+  const venuesStr = Array.from(venueMap.values()).join(', ') || '—';
+
+  // ----- Meta grid -----
+  const metaGrid = `
+    <table cellpadding="0" cellspacing="0" border="0" style="width: 100%; border-collapse: collapse; background: #f8f9fa; border-radius: 6px; margin: 16px 0;">
+      <tr>
+        <td style="padding: 10px 12px; border-bottom: 1px solid #e9ecef;">
+          <div style="color: #666; font-size: 11px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase;">Status</div>
+          <div style="font-size: 13px; font-weight: 600; color: ${accentColor}; margin-top: 2px;">
+            ${esc(reservation.status)}
+            ${reservation.isReschedule ? `<span style="display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 10px; background: #fef3c7; color: #92400e; font-size: 10px; font-weight: 700;">RESCHEDULE</span>` : ''}
+            ${reservation.isVenueOnly ? `<span style="display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 10px; background: #e5e7eb; color: #4b5563; font-size: 10px; font-weight: 700;">VENUE ONLY</span>` : ''}
+          </div>
+        </td>
+        <td style="padding: 10px 12px; border-bottom: 1px solid #e9ecef;">
+          <div style="color: #666; font-size: 11px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase;">Type</div>
+          <div style="font-size: 13px; color: #1a3a5c; margin-top: 2px;">${esc((reservation.type || '').replace('_', ' '))}</div>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding: 10px 12px; border-bottom: 1px solid #e9ecef;">
+          <div style="color: #666; font-size: 11px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase;">Event Title</div>
+          <div style="font-size: 13px; color: #1a3a5c; margin-top: 2px;">${esc(reservation.eventName || '—')}</div>
+        </td>
+        <td style="padding: 10px 12px; border-bottom: 1px solid #e9ecef;">
+          <div style="color: #666; font-size: 11px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase;">Requestor</div>
+          <div style="font-size: 13px; color: #1a3a5c; margin-top: 2px;">${esc(reservation.requestor?.fname || '')} ${esc(reservation.requestor?.lname || '')}</div>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding: 10px 12px; border-bottom: 1px solid #e9ecef;">
+          <div style="color: #666; font-size: 11px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase;">Department</div>
+          <div style="font-size: 13px; color: #1a3a5c; margin-top: 2px;">${esc(reservation.requestorDept || '—')}</div>
+        </td>
+        <td style="padding: 10px 12px; border-bottom: 1px solid #e9ecef;">
+          <div style="color: #666; font-size: 11px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase;">Attendees</div>
+          <div style="font-size: 13px; color: #1a3a5c; margin-top: 2px;">${esc(reservation.attendeesCount)}</div>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding: 10px 12px;">
+          <div style="color: #666; font-size: 11px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase;">Venue/s</div>
+          <div style="font-size: 13px; color: #1a3a5c; margin-top: 2px;">${esc(venuesStr)}</div>
+        </td>
+        <td style="padding: 10px 12px;">
+          <div style="color: #666; font-size: 11px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase;">Usage Hours / With Charge</div>
+          <div style="font-size: 13px; color: #1a3a5c; margin-top: 2px;">${esc(reservation.usageHours ?? '—')} hrs · ${reservation.withCharge ? 'Yes' : 'No'}</div>
+        </td>
+      </tr>
+    </table>
+  `;
+
+  // ----- Requestor notes -----
+  const notesBlock = reservation.requestorNotes
+    ? `
+    <div style="margin: 16px 0; padding: 12px 16px; border-left: 3px solid #888; background: #f8f9fa;">
+      <div style="font-weight: 600; font-size: 12px; color: #666; margin-bottom: 4px;">REQUESTOR NOTES</div>
+      <div style="font-size: 13px; color: #333; white-space: pre-wrap; line-height: 1.5;">${esc(reservation.requestorNotes)}</div>
+    </div>`
+    : '';
+
+  // ----- Event dates -----
+  const datesHtml = (reservation.dates || [])
+    .map((d, i) => {
+      const placeName = d.place?.name || d.placeOther || 'TBA';
+      return `
+      <div style="margin: 8px 0; padding: 10px 12px; border-left: 3px solid ${accentColor}; background: #f8f9fa; border-radius: 4px;">
+        <div style="font-weight: 700; font-size: 13px; color: ${accentColor}; margin-bottom: 4px;">Date ${i + 1}: ${esc(fmtDate(d.eventStart))}</div>
+        <div style="font-size: 12px; color: #333; line-height: 1.6;">
+          <span style="color: #666;">Setup:</span> <b>${esc(fmtTime(d.setupTime))}</b> &nbsp;·&nbsp;
+          <span style="color: #666;">Event:</span> <b>${esc(fmtTime(d.eventStart))} – ${esc(fmtTime(d.eventEnd))}</b> &nbsp;·&nbsp;
+          <span style="color: #666;">Pack-up:</span> <b>${esc(fmtTime(d.teardownTime))}</b>
+          <br/>
+          <span style="color: #666;">Place:</span> <b>${esc(placeName)}</b>
+        </div>
+      </div>`;
+    })
+    .join('');
+
+  // ----- Equipment table -----
+  const equipmentRows = (reservation.equipmentRequests || []).length > 0
+    ? reservation.equipmentRequests
+        .map(
+          (eq, i) => `
+      <tr style="border-bottom: 1px dashed #dee2e6;">
+        <td style="padding: 6px 8px; text-align: center; font-size: 12px; color: #666;">${i + 1}</td>
+        <td style="padding: 6px 8px; font-size: 13px; color: #1a3a5c; font-weight: 500;">${esc(eq.equipment?.name || 'Unknown')}</td>
+        <td style="padding: 6px 8px; font-size: 12px; color: #666;">${esc(eq.equipment?.departmentCode || '—')}</td>
+        <td style="padding: 6px 8px; text-align: center; font-size: 13px; color: #1a3a5c; font-weight: 600;">${esc(eq.quantityRequested)}</td>
+      </tr>`
+        )
+        .join('')
+    : `<tr><td colspan="4" style="padding: 12px; text-align: center; font-size: 12px; font-style: italic; color: #999;">No equipment requested</td></tr>`;
+
+  const equipmentTable = `
+    <table cellpadding="0" cellspacing="0" border="0" style="width: 100%; border-collapse: collapse; margin-top: 8px;">
+      <thead>
+        <tr style="border-bottom: 2px solid #1a3a5c;">
+          <th style="padding: 6px 8px; text-align: center; font-size: 11px; color: #1a3a5c; letter-spacing: 0.4px; text-transform: uppercase; width: 8%;">#</th>
+          <th style="padding: 6px 8px; text-align: left; font-size: 11px; color: #1a3a5c; letter-spacing: 0.4px; text-transform: uppercase;">Equipment</th>
+          <th style="padding: 6px 8px; text-align: left; font-size: 11px; color: #1a3a5c; letter-spacing: 0.4px; text-transform: uppercase; width: 20%;">Dept</th>
+          <th style="padding: 6px 8px; text-align: center; font-size: 11px; color: #1a3a5c; letter-spacing: 0.4px; text-transform: uppercase; width: 12%;">Qty</th>
+        </tr>
+      </thead>
+      <tbody>${equipmentRows}</tbody>
+    </table>
+  `;
+
+  // ----- Assignments (optional) -----
+  let assignmentsBlock = '';
+  if (showAssignments && (reservation.assignments || []).length > 0) {
+    const rows = reservation.assignments
+      .map((a) => {
+        const duty =
+          a.dutyType === 'TEARDOWN' ? 'PACK-UP' : a.dutyType;
+        const otBadge = a.isOvertime
+          ? `<span style="display: inline-block; padding: 1px 6px; background: #d4edda; color: #155724; border-radius: 3px; font-size: 10px; font-weight: 700;">OT</span>`
+          : '—';
+        return `
+        <tr style="border-bottom: 1px dashed #dee2e6;">
+          <td style="padding: 6px 8px; font-size: 12px; color: #333;">${esc(fmtDate(a.dutyStart))}</td>
+          <td style="padding: 6px 8px; font-size: 13px; color: #1a3a5c; font-weight: 600;">${esc(a.user?.fname || '')} ${esc(a.user?.lname || '')}</td>
+          <td style="padding: 6px 8px; font-size: 12px; color: #333;">${esc(duty)}</td>
+          <td style="padding: 6px 8px; text-align: center; font-size: 12px;">${otBadge}</td>
+          <td style="padding: 6px 8px; font-size: 12px; color: #333;">${esc(fmtTime(a.dutyStart))}</td>
+          <td style="padding: 6px 8px; font-size: 12px; color: #333;">${esc(fmtTime(a.dutyEnd))}</td>
+          <td style="padding: 6px 8px; font-size: 12px; color: #666;">${esc(a.notes || '—')}</td>
+        </tr>`;
+      })
+      .join('');
+
+    assignmentsBlock = `
+      <div style="margin-top: 20px;">
+        <div style="font-weight: 700; font-size: 14px; color: ${accentColor}; border-bottom: 1px solid #e9ecef; padding-bottom: 6px; margin-bottom: 10px;">ITO Staff Duty Line-up</div>
+        <table cellpadding="0" cellspacing="0" border="0" style="width: 100%; border-collapse: collapse;">
+          <thead>
+            <tr style="border-bottom: 2px solid #1a3a5c;">
+              <th style="padding: 6px 8px; text-align: left; font-size: 11px; color: #1a3a5c; text-transform: uppercase;">Date</th>
+              <th style="padding: 6px 8px; text-align: left; font-size: 11px; color: #1a3a5c; text-transform: uppercase;">Staff</th>
+              <th style="padding: 6px 8px; text-align: left; font-size: 11px; color: #1a3a5c; text-transform: uppercase;">Duty</th>
+              <th style="padding: 6px 8px; text-align: center; font-size: 11px; color: #1a3a5c; text-transform: uppercase;">OT</th>
+              <th style="padding: 6px 8px; text-align: left; font-size: 11px; color: #1a3a5c; text-transform: uppercase;">Start</th>
+              <th style="padding: 6px 8px; text-align: left; font-size: 11px; color: #1a3a5c; text-transform: uppercase;">End</th>
+              <th style="padding: 6px 8px; text-align: left; font-size: 11px; color: #1a3a5c; text-transform: uppercase;">Notes</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  // ----- Approvals (optional) -----
+  let approvalsBlock = '';
+  if (showApprovals && (reservation.approvals || []).length > 0) {
+    const sorted = [...reservation.approvals].sort((a, b) => a.stepOrder - b.stepOrder);
+    const rows = sorted
+      .map((a) => {
+        const statusLabel =
+          a.status === 'ACKNOWLEDGED' && a.remarks?.includes('Noted by')
+            ? 'Noted'
+            : a.status;
+        const statusColor =
+          a.status === 'APPROVED'
+            ? { bg: '#d4edda', fg: '#155724' }
+            : a.status === 'REJECTED'
+            ? { bg: '#f8d7da', fg: '#721c24' }
+            : a.status === 'REVISION_REQUESTED'
+            ? { bg: '#fff3cd', fg: '#856404' }
+            : a.status === 'ACKNOWLEDGED'
+            ? { bg: '#cce5ff', fg: '#004085' }
+            : { bg: '#e9ecef', fg: '#495057' };
+
+        const performer = a.performedBy
+          ? `${a.performedBy.fname} ${a.performedBy.lname}`
+          : a.performedById
+          ? `User ${a.performedById}`
+          : '—';
+
+        return `
+        <tr style="border-bottom: 1px dashed #dee2e6;">
+          <td style="padding: 6px 8px; font-size: 13px; font-weight: 600; color: #1a3a5c;">${esc(a.departmentCode)}</td>
+          <td style="padding: 6px 8px;">
+            <span style="display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; background: ${statusColor.bg}; color: ${statusColor.fg};">${esc(statusLabel)}</span>
+          </td>
+          <td style="padding: 6px 8px; font-size: 12px; color: #333;">${esc(performer)}</td>
+          <td style="padding: 6px 8px; font-size: 11px; color: #666;">${a.performedAt ? esc(fmtDateTime(a.performedAt)) : '—'}</td>
+          <td style="padding: 6px 8px; font-size: 12px; color: #333; max-width: 220px;">${esc(a.remarks || a.revisionReason || '—')}</td>
+        </tr>`;
+      })
+      .join('');
+
+    approvalsBlock = `
+      <div style="margin-top: 20px;">
+        <div style="font-weight: 700; font-size: 14px; color: ${accentColor}; border-bottom: 1px solid #e9ecef; padding-bottom: 6px; margin-bottom: 10px;">Approval Flow</div>
+        <table cellpadding="0" cellspacing="0" border="0" style="width: 100%; border-collapse: collapse;">
+          <thead>
+            <tr style="border-bottom: 2px solid #1a3a5c;">
+              <th style="padding: 6px 8px; text-align: left; font-size: 11px; color: #1a3a5c; text-transform: uppercase; width: 15%;">Dept</th>
+              <th style="padding: 6px 8px; text-align: left; font-size: 11px; color: #1a3a5c; text-transform: uppercase; width: 12%;">Status</th>
+              <th style="padding: 6px 8px; text-align: left; font-size: 11px; color: #1a3a5c; text-transform: uppercase; width: 22%;">By</th>
+              <th style="padding: 6px 8px; text-align: left; font-size: 11px; color: #1a3a5c; text-transform: uppercase; width: 18%;">Timestamp</th>
+              <th style="padding: 6px 8px; text-align: left; font-size: 11px; color: #1a3a5c; text-transform: uppercase;">Remarks</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  // ----- Pack up (optional) -----
+  let packUpBlock = '';
+  if (showPackUp && reservation.packUpDoneAt) {
+    packUpBlock = `
+      <div style="margin-top: 20px; padding: 12px 16px; border: 1px solid #c0c0c0; background: #f3f5f3; border-radius: 6px;">
+        <div style="font-weight: 700; font-size: 14px; color: #4b5563; margin-bottom: 6px;">✓ PACK UP DONE</div>
+        <div style="font-size: 12px; color: #333; line-height: 1.6;">
+          <div><b>Marked by:</b> ${esc(reservation.packUpDoneBy?.fname || '')} ${esc(reservation.packUpDoneBy?.lname || '')} (${esc(reservation.packUpDoneBy?.departmentCode || '—')})</div>
+          <div><b>Date & Time:</b> ${esc(fmtDateTime(reservation.packUpDoneAt))}</div>
+          ${reservation.packUpDoneNotes ? `<div style="margin-top: 6px;"><b>Notes:</b> ${esc(reservation.packUpDoneNotes)}</div>` : ''}
+        </div>
+      </div>
+    `;
+  }
+
+    return `
+    ${metaGrid}
+    ${notesBlock}
+    <div style="margin-top: 20px;">
+      <div style="font-weight: 700; font-size: 14px; color: ${accentColor}; border-bottom: 1px solid #e9ecef; padding-bottom: 6px; margin-bottom: 10px;">Event Dates</div>
+      ${datesHtml || '<div style="color: #999; font-size: 12px; font-style: italic;">No dates specified</div>'}
+    </div>
+    <div style="margin-top: 20px;">
+      <div style="font-weight: 700; font-size: 14px; color: ${accentColor}; border-bottom: 1px solid #e9ecef; padding-bottom: 6px; margin-bottom: 10px;">Equipment Requested</div>
+      ${equipmentTable}
+    </div>
+    ${assignmentsBlock}
+    ${approvalsBlock}
+    ${packUpBlock}
+  `;
+}
+
+// ============================================
+// 🆕 FRF — Notify Assigned Staff (personal duty email)
+// ============================================
+
+/**
+ * Send a personal email to each staff member who was assigned to an event.
+ *
+ * @param {Array<{id:string, email:string, fname:string, lname:string}>} assignedStaffUsers
+ * @param {object} reservation
+ * @param {Array<{userId:string, staffName:string, dutyStart:any, dutyEnd:any, dutyType:string, isOvertime:boolean, notes?:string}>} assignments
+ */
+export async function sendFRFAssignmentToStaff(assignedStaffUsers, reservation, assignments) {
+  const actionUrl = `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/forms/frf`;
+  const accentColor = '#0d9488'; // teal
+
+  const esc = (s) =>
+    String(s ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+
+  const fmtDate = (v) =>
+    v ? new Date(v).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : '—';
+  const fmtTime = (v) =>
+    v ? new Date(v).toLocaleTimeString('en-US', { timeZone: 'Asia/Manila', hour: 'numeric', minute: '2-digit', hour12: true }) : '—';
+
+  const dutyLabel = (t) =>
+    t === 'TEARDOWN' ? 'Pack-up' : (t.charAt(0) + t.slice(1).toLowerCase());
+
+  const dutyBadgeColors = (t) => {
+    if (t === 'SETUP')     return { bg: '#dbeafe', fg: '#1e40af' };
+    if (t === 'TEARDOWN')  return { bg: '#fff3e0', fg: '#9a3412' };
+    if (t === 'OPERATOR')  return { bg: '#f3e8ff', fg: '#6b21a8' };
+    return { bg: '#e5e7eb', fg: '#374151' }; // ASSISTANT
+  };
+
+  // ----- Group assignments by user -----
+  const byUser = {};
+  for (const a of assignments) {
+    if (!byUser[a.userId]) byUser[a.userId] = [];
+    byUser[a.userId].push(a);
+  }
+
+  // ----- Unique venues -----
+  const venueMap = new Map();
+  (reservation.dates || []).forEach((d) => {
+    const name = d.place?.name || d.placeOther || 'TBA';
+    const key = name.trim().toLowerCase();
+    if (!venueMap.has(key)) venueMap.set(key, name.trim());
+  });
+  const venuesStr = Array.from(venueMap.values()).join(', ') || '—';
+
+  // ----- Event dates summary block -----
+  const datesBlock = (reservation.dates || [])
+    .map((d) => {
+      const placeName = d.place?.name || d.placeOther || 'TBA';
+      return `
+        <div style="margin: 6px 0; padding: 10px 12px; border-left: 3px solid ${accentColor}; background: #f8f9fa; border-radius: 4px;">
+          <div style="font-weight: 700; font-size: 13px; color: ${accentColor}; margin-bottom: 3px;">${esc(fmtDate(d.eventStart))}</div>
+          <div style="font-size: 12px; color: #333; line-height: 1.6;">
+            <b>Event:</b> ${esc(fmtTime(d.eventStart))} – ${esc(fmtTime(d.eventEnd))} &nbsp;·&nbsp;
+            <b>Place:</b> ${esc(placeName)}
+          </div>
+        </div>`;
+    })
+    .join('');
+
+  for (const staff of assignedStaffUsers) {
+    const myDuties = byUser[staff.id] || [];
+    if (myDuties.length === 0) continue;
+
+    const hasOT = myDuties.some((d) => d.isOvertime);
+
+    // ----- Personal duty table -----
+    const dutyRows = myDuties
+      .map((d) => {
+        const colors = dutyBadgeColors(d.dutyType);
+        const otBadge = d.isOvertime
+          ? `<span style="display: inline-block; padding: 1px 6px; background: #d4edda; color: #155724; border-radius: 3px; font-size: 10px; font-weight: 700;">OT</span>`
+          : '—';
+        return `
+          <tr style="border-bottom: 1px dashed #dee2e6;">
+            <td style="padding: 8px 10px; font-size: 12px; color: #333;">${esc(fmtDate(d.dutyStart))}</td>
+            <td style="padding: 8px 10px;">
+              <span style="display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; background: ${colors.bg}; color: ${colors.fg};">
+                ${esc(dutyLabel(d.dutyType))}
+              </span>
+            </td>
+            <td style="padding: 8px 10px; font-size: 12px; color: #333;">${esc(fmtTime(d.dutyStart))} – ${esc(fmtTime(d.dutyEnd))}</td>
+            <td style="padding: 8px 10px; text-align: center; font-size: 12px;">${otBadge}</td>
+            <td style="padding: 8px 10px; font-size: 12px; color: #666;">${esc(d.notes || '—')}</td>
+          </tr>`;
+      })
+      .join('');
+
+    const subject = `📌 You've Been Assigned – ${reservation.referenceId}`;
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>You've Been Assigned</title>
+      </head>
+      <body style="margin: 0; padding: 0; background-color: #f5f7fa; font-family: 'Inter', Arial, Helvetica, sans-serif;">
+        <div style="max-width: 760px; margin: 24px auto; background-color: #ffffff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); overflow: hidden;">
+
+          <!-- Header -->
+          <div style="padding: 28px 40px 20px 40px; border-bottom: 3px solid ${accentColor};">
+            <div style="font-size: 20px; font-weight: 700; color: ${accentColor}; letter-spacing: 0.3px;">📌 You've Been Assigned</div>
+            <div style="color: #666; font-size: 13px; margin-top: 4px;">
+              ${esc(reservation.referenceId)} &nbsp;·&nbsp; ${esc(
+  new Date().toLocaleString('en-US', {
+    timeZone: 'Asia/Manila',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  })
+)}
+            </div>
+          </div>
+
+          <!-- Body -->
+          <div style="padding: 24px 40px 32px 40px;">
+            <p style="font-size: 15px; color: #333; line-height: 1.6; margin: 0 0 14px 0;">
+              Dear <b>${esc(staff.fname)} ${esc(staff.lname)}</b>,
+            </p>
+            <p style="font-size: 14px; color: #333; line-height: 1.7; margin: 0 0 16px 0;">
+              You have been assigned as <b>technical staff</b> for the following facility event.
+              Kindly review your duty details below and make necessary preparations.
+              ${hasOT ? `<br/><br/><span style="display: inline-block; padding: 4px 10px; background: #d4edda; color: #155724; border-radius: 4px; font-size: 12px; font-weight: 700;">⏰ Your duty includes Overtime (OT)</span>` : ''}
+            </p>
+
+            <!-- Event summary -->
+            <table cellpadding="0" cellspacing="0" border="0" style="width: 100%; border-collapse: collapse; background: #f8f9fa; border-radius: 6px; margin: 16px 0;">
+              <tr>
+                <td style="padding: 10px 12px; border-bottom: 1px solid #e9ecef;">
+                  <div style="color: #666; font-size: 11px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase;">Event Title</div>
+                  <div style="font-size: 13px; color: #1a3a5c; margin-top: 2px;">${esc(reservation.eventName || '—')}</div>
+                </td>
+                <td style="padding: 10px 12px; border-bottom: 1px solid #e9ecef;">
+                  <div style="color: #666; font-size: 11px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase;">Requested by</div>
+                  <div style="font-size: 13px; color: #1a3a5c; margin-top: 2px;">${esc(reservation.requestorDept || '—')}</div>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding: 10px 12px;" colspan="2">
+                  <div style="color: #666; font-size: 11px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase;">Venue/s</div>
+                  <div style="font-size: 13px; color: #1a3a5c; margin-top: 2px;">${esc(venuesStr)}</div>
+                </td>
+              </tr>
+            </table>
+
+            <!-- Event Dates -->
+            <div style="margin-top: 20px;">
+              <div style="font-weight: 700; font-size: 14px; color: ${accentColor}; border-bottom: 1px solid #e9ecef; padding-bottom: 6px; margin-bottom: 10px;">Event Dates</div>
+              ${datesBlock || '<div style="color: #999; font-size: 12px; font-style: italic;">No dates specified</div>'}
+            </div>
+
+            <!-- Your Duty Line-up -->
+            <div style="margin-top: 24px;">
+              <div style="font-weight: 700; font-size: 14px; color: ${accentColor}; border-bottom: 1px solid #e9ecef; padding-bottom: 6px; margin-bottom: 10px;">🎯 Your Duty Line-up</div>
+              <table cellpadding="0" cellspacing="0" border="0" style="width: 100%; border-collapse: collapse;">
+                <thead>
+                  <tr style="border-bottom: 2px solid ${accentColor};">
+                    <th style="padding: 6px 10px; text-align: left; font-size: 11px; color: ${accentColor}; text-transform: uppercase; letter-spacing: 0.4px;">Date</th>
+                    <th style="padding: 6px 10px; text-align: left; font-size: 11px; color: ${accentColor}; text-transform: uppercase; letter-spacing: 0.4px;">Duty</th>
+                    <th style="padding: 6px 10px; text-align: left; font-size: 11px; color: ${accentColor}; text-transform: uppercase; letter-spacing: 0.4px;">Time</th>
+                    <th style="padding: 6px 10px; text-align: center; font-size: 11px; color: ${accentColor}; text-transform: uppercase; letter-spacing: 0.4px;">OT</th>
+                    <th style="padding: 6px 10px; text-align: left; font-size: 11px; color: ${accentColor}; text-transform: uppercase; letter-spacing: 0.4px;">Notes</th>
+                  </tr>
+                </thead>
+                <tbody>${dutyRows}</tbody>
+              </table>
+            </div>
+
+            <!-- CTA -->
+            <div style="text-align: center; margin-top: 28px;">
+              <a href="${actionUrl}" style="display: inline-block; padding: 12px 28px; background-color: #1a3a5c; color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 14px;">
+                View Full Details on NCST D-Forms
+              </a>
+            </div>
+            <p style="text-align: center; font-size: 11px; color: #999; margin: 14px 0 0 0;">
+              Or print this email to keep a physical copy of your duty slip.
+            </p>
+          </div>
+
+          <!-- Footer -->
+          <div style="padding: 20px 40px; border-top: 1px solid #e9ecef; background: #fafafa; text-align: center; font-size: 12px; color: #999;">
+            <p style="margin: 0;">
+              This is a system-generated notification from
+              <a href="${process.env.NEXT_PUBLIC_APP_URL}" style="color: #1a3a5c; text-decoration: none; font-weight: 600;">NCST D-Forms</a>.
+            </p>
+            <p style="margin: 6px 0 0 0; font-size: 11px; color: #bbb;">
+              Printed on ${esc(
+  new Date().toLocaleString('en-US', {
+    timeZone: 'Asia/Manila',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  })
+)}
+            </p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    try {
+      await sendEmailWithRetry({ to: staff.email, subject, html });
+    } catch (err) {
+      console.error(`Failed to send assignment email to ${staff.email}:`, err);
+    }
+  }
+}
+
 export async function getDepartmentHeads(deptCode) {
   const now = new Date();
   const heads = await prisma.user.findMany({
@@ -243,91 +745,99 @@ export async function sendFRFApprovalNotification(requestor, reservation, approv
 }
 
 export async function sendFRFApprovalToRequestor(requestor, reservation) {
-  const subject = `FRF Approved – ${reservation.referenceId}`;
+  const esc = (s) =>
+    String(s ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
 
-  // ----- Safe dates list -----
-  const datesList = reservation.dates?.length > 0
-    ? reservation.dates.map((d) => {
-        const dateStr = new Date(d.eventStart).toLocaleDateString('en-US', {
-          weekday: 'long',
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric'
-        });
-        const timeStr = `${new Date(d.eventStart).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })} – ${new Date(d.eventEnd).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`;
-        const placeStr = d.place?.name || d.placeOther || 'TBA';
-        return `<div style="margin: 4px 0;">${dateStr} &bull; ${timeStr} &bull; ${placeStr}</div>`;
-      }).join('')
-    : 'N/A';
+  const subject = `✅ FRF Fully Approved – ${reservation.referenceId}`;
 
-  // ----- Safe equipment list -----
-  const equipmentList = reservation.equipmentRequests?.length > 0
-    ? reservation.equipmentRequests.map(eq => {
-        const name = eq.equipment?.name || eq.equipmentId || 'Unknown';
-        return `${name} x${eq.quantityRequested}`;
-      }).join(', ')
-    : 'None';
-
-  // ----- Safe location -----
-  const firstDate = reservation.dates?.[0];
-  const location = firstDate?.place?.name || firstDate?.placeOther || 'TBA';
+  const actionUrl = `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/forms/frf`;
+  const detailsHtml = renderFRFDetailsHTML(reservation, {
+    showApprovals: true,       // complete na lahat
+    showAssignments: true,     // ITO staff lineup na
+    showPackUp: !!reservation.packUpDoneAt,
+    accentColor: '#16a34a',    // green for approved
+  });
 
   const html = `
     <!DOCTYPE html>
     <html>
     <head>
       <meta charset="UTF-8">
-      <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
-        body { font-family: 'Inter', Arial, sans-serif; margin: 0; padding: 0; background-color: #f5f7fa; }
-        .container { max-width: 700px; margin: 20px auto; background-color: #ffffff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); padding: 40px; }
-        .header { border-bottom: 3px solid #22c55e; padding-bottom: 20px; margin-bottom: 24px; }
-        .header h1 { font-size: 22px; font-weight: 700; color: #16a34a; margin: 0; }
-        .header .subtitle { color: #666; font-size: 14px; margin-top: 4px; }
-        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; margin: 16px 0; padding: 16px; background-color: #f8f9fa; border-radius: 6px; }
-        .info-grid .label { color: #666; font-size: 13px; font-weight: 600; }
-        .info-grid .value { font-size: 14px; font-weight: 500; color: #1a3a5c; }
-        .btn { display: inline-block; padding: 12px 24px; background-color: #1a3a5c; color: white; text-decoration: none; border-radius: 6px; font-weight: 600; margin-top: 16px; }
-        .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #e0e0e0; font-size: 13px; color: #999; text-align: center; }
-        @media print { .container { box-shadow: none; padding: 20px; } body { background-color: white; } }
-        @media (max-width: 600px) { .container { padding: 20px; } .info-grid { grid-template-columns: 1fr; } }
-      </style>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>FRF Approved</title>
     </head>
-    <body>
-      <div class="container">
-        <div class="header">
-          <h1>✅ Facility Reservation Approved</h1>
-          <div class="subtitle">${reservation.referenceId} &bull; ${new Date().toLocaleString()}</div>
+    <body style="margin: 0; padding: 0; background-color: #f5f7fa; font-family: 'Inter', Arial, Helvetica, sans-serif;">
+      <div style="max-width: 760px; margin: 24px auto; background-color: #ffffff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); overflow: hidden;">
+
+        <!-- Header -->
+        <div style="padding: 28px 40px 20px 40px; border-bottom: 3px solid #22c55e;">
+          <table cellpadding="0" cellspacing="0" border="0" style="width: 100%;">
+            <tr>
+              <td style="vertical-align: top;">
+                <div style="font-size: 20px; font-weight: 700; color: #16a34a; letter-spacing: 0.3px;">✅ Facility Reservation Approved</div>
+                <div style="color: #666; font-size: 13px; margin-top: 4px;">
+                  ${esc(reservation.referenceId)} &nbsp;·&nbsp; ${esc(
+                    new Date().toLocaleString('en-US', {
+                      timeZone: 'Asia/Manila',
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric',
+                      hour: 'numeric',
+                      minute: '2-digit',
+                      hour12: true,
+                    })
+                  )}
+                </div>
+              </td>
+            </tr>
+          </table>
         </div>
 
-        <div style="font-size: 15px; line-height: 1.6;">
-          <p>Dear ${requestor.fname} ${requestor.lname},</p>
-          <p>Your facility reservation request has been <strong style="color: #16a34a;">fully approved</strong>.</p>
-          <p>The facility is now reserved for your event.</p>
-        </div>
+        <!-- Body -->
+        <div style="padding: 24px 40px 32px 40px;">
+          <p style="font-size: 14px; color: #333; line-height: 1.6; margin: 0 0 12px 0;">
+            Dear ${esc(requestor.fname)} ${esc(requestor.lname)},
+          </p>
+          <p style="font-size: 14px; color: #333; line-height: 1.6; margin: 0 0 16px 0;">
+            Your facility reservation request has been <b style="color: #16a34a;">fully approved</b>.
+            The facility is now reserved for your event.
+          </p>
 
-        <div class="info-grid">
-          <div><div class="label">Reference</div><div class="value">${reservation.referenceId}</div></div>
-          <div><div class="label">Type</div><div class="value">${reservation.type?.replace('_', ' ') || 'N/A'}</div></div>
-          <div><div class="label">Attendees</div><div class="value">${reservation.attendeesCount}</div></div>
-          <div><div class="label">Location</div><div class="value">${location}</div></div>
-          <div style="grid-column: span 2;">
-            <div class="label">Event Dates</div>
-            <div class="value">${datesList}</div>
+          ${detailsHtml}
+
+          <!-- CTA -->
+          <div style="text-align: center; margin-top: 28px;">
+            <a href="${actionUrl}" style="display: inline-block; padding: 12px 28px; background-color: #1a3a5c; color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 14px;">
+              View Reservation on NCST D-Forms
+            </a>
           </div>
-          <div style="grid-column: span 2;">
-            <div class="label">Equipment Requested</div>
-            <div class="value">${equipmentList}</div>
-          </div>
+          <p style="text-align: center; font-size: 11px; color: #999; margin: 14px 0 0 0;">
+            Or print this email to keep a physical copy of the FRF.
+          </p>
         </div>
 
-        <div style="text-align: center;">
-          <a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/forms/frf" class="btn">View Reservation</a>
-        </div>
-
-        <div class="footer">
-          <p>This is a system-generated notification from <a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/forms/frf">NCST D-Forms</a>.</p>
-          <p style="font-size: 11px; color: #bbb;">Printed on ${new Date().toLocaleString()}</p>
+        <!-- Footer -->
+        <div style="padding: 20px 40px; border-top: 1px solid #e9ecef; background: #fafafa; text-align: center; font-size: 12px; color: #999;">
+          <p style="margin: 0;">
+            This is a system-generated notification from
+            <a href="${process.env.NEXT_PUBLIC_APP_URL}" style="color: #1a3a5c; text-decoration: none; font-weight: 600;">NCST D-Forms</a>.
+          </p>
+          <p style="margin: 6px 0 0 0; font-size: 11px; color: #bbb;">
+            Printed on ${esc(
+  new Date().toLocaleString('en-US', {
+    timeZone: 'Asia/Manila',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  })
+)}
+          </p>
         </div>
       </div>
     </body>
@@ -340,79 +850,91 @@ export async function sendFRFApprovalToRequestor(requestor, reservation) {
 export async function sendFRFApprovalToNextDepartments(nextDeptHeads, reservation, previousDept) {
   const subject = `📨 FRF Pending Approval – ${reservation.referenceId}`;
 
-  // ----- Safe date summary -----
-  const datesSummary = reservation.dates?.length > 0
-    ? reservation.dates.map(d =>
-        new Date(d.eventStart).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-      ).join(', ')
-    : 'N/A';
-
-  // ----- Safe location (from first date) -----
-  const firstDate = reservation.dates?.[0];
-  const location = firstDate?.place?.name || firstDate?.placeOther || 'TBA';
-
-  // ----- Safe equipment list (eq.equipment might be undefined) -----
-  const equipmentList = reservation.equipmentRequests?.length > 0
-    ? reservation.equipmentRequests.map(eq => {
-        const name = eq.equipment?.name || eq.equipmentId || 'Unknown';
-        return `${name} x${eq.quantityRequested}`;
-      }).join(', ')
-    : 'None';
+  const actionUrl = `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/forms/frf`;
+  const detailsHtml = renderFRFDetailsHTML(reservation, {
+    showApprovals: false,      // hindi pa kumpleto — nasa process pa
+    showAssignments: false,    // ITO pa lang ang nag-aassign
+    showPackUp: false,
+    accentColor: '#d97706',    // amber for "pending" state
+  });
 
   const html = `
     <!DOCTYPE html>
     <html>
     <head>
       <meta charset="UTF-8">
-      <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
-        body { font-family: 'Inter', Arial, sans-serif; margin: 0; padding: 0; background-color: #f5f7fa; }
-        .container { max-width: 700px; margin: 20px auto; background-color: #ffffff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); padding: 40px; }
-        .header { border-bottom: 3px solid #f59e0b; padding-bottom: 20px; margin-bottom: 24px; }
-        .header h1 { font-size: 22px; font-weight: 700; color: #d97706; margin: 0; }
-        .header .subtitle { color: #666; font-size: 14px; margin-top: 4px; }
-        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; margin: 16px 0; padding: 16px; background-color: #f8f9fa; border-radius: 6px; }
-        .info-grid .label { color: #666; font-size: 13px; font-weight: 600; }
-        .info-grid .value { font-size: 14px; font-weight: 500; color: #1a3a5c; }
-        .btn { display: inline-block; padding: 12px 24px; background-color: #1a3a5c; color: white; text-decoration: none; border-radius: 6px; font-weight: 600; margin-top: 16px; }
-        .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #e0e0e0; font-size: 13px; color: #999; text-align: center; }
-        @media print { .container { box-shadow: none; padding: 20px; } body { background-color: white; } }
-        @media (max-width: 600px) { .container { padding: 20px; } .info-grid { grid-template-columns: 1fr; } }
-      </style>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>FRF Pending Approval</title>
     </head>
-    <body>
-      <div class="container">
-        <div class="header">
-          <h1>📨 FRF Pending Approval</h1>
-          <div class="subtitle">${reservation.referenceId} &bull; ${new Date().toLocaleString()}</div>
+    <body style="margin: 0; padding: 0; background-color: #f5f7fa; font-family: 'Inter', Arial, Helvetica, sans-serif;">
+      <div style="max-width: 760px; margin: 24px auto; background-color: #ffffff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); overflow: hidden;">
+
+        <!-- Header -->
+        <div style="padding: 28px 40px 20px 40px; border-bottom: 3px solid #f59e0b;">
+          <table cellpadding="0" cellspacing="0" border="0" style="width: 100%;">
+            <tr>
+              <td style="vertical-align: top;">
+                <div style="font-size: 20px; font-weight: 700; color: #d97706; letter-spacing: 0.3px;">📨 FRF Pending Approval</div>
+                <div style="color: #666; font-size: 13px; margin-top: 4px;">
+                  ${esc(reservation.referenceId)} &nbsp;·&nbsp; ${esc(
+  new Date().toLocaleString('en-US', {
+    timeZone: 'Asia/Manila',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  })
+)}
+                </div>
+              </td>
+            </tr>
+          </table>
         </div>
 
-        <div style="font-size: 15px; line-height: 1.6;">
-          <p>Dear Department Head,</p>
-          <p>A facility reservation request is pending your <strong>signature/approval</strong>.</p>
-          <p><strong>Approved by:</strong> ${previousDept}</p>
-        </div>
+        <!-- Body -->
+        <div style="padding: 24px 40px 32px 40px;">
+          <p style="font-size: 14px; color: #333; line-height: 1.6; margin: 0 0 12px 0;">
+            Dear Department Head,
+          </p>
+          <p style="font-size: 14px; color: #333; line-height: 1.6; margin: 0 0 16px 0;">
+            A facility reservation request is pending your <b>signature / approval</b>.
+            Previous approver: <b>${esc(previousDept)}</b>.
+          </p>
 
-        <div class="info-grid">
-          <div><div class="label">Reference</div><div class="value">${reservation.referenceId}</div></div>
-          <div><div class="label">Type</div><div class="value">${reservation.type?.replace('_', ' ') || 'N/A'}</div></div>
-          <div><div class="label">Requestor</div><div class="value">${reservation.requestor?.fname || ''} ${reservation.requestor?.lname || ''}</div></div>
-          <div><div class="label">Department</div><div class="value">${reservation.requestorDept || 'N/A'}</div></div>
-          <div><div class="label">Location</div><div class="value">${location}</div></div>
-          <div><div class="label">Event Dates</div><div class="value">${datesSummary}</div></div>
-          <div style="grid-column: span 2;">
-            <div class="label">Equipment Requested</div>
-            <div class="value">${equipmentList}</div>
+          ${detailsHtml}
+
+          <!-- CTA -->
+          <div style="text-align: center; margin-top: 28px;">
+            <a href="${actionUrl}" style="display: inline-block; padding: 12px 28px; background-color: #1a3a5c; color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 14px;">
+              Review &amp; Approve on NCST D-Forms
+            </a>
           </div>
+          <p style="text-align: center; font-size: 11px; color: #999; margin: 14px 0 0 0;">
+            Or print this email to keep a physical copy of the FRF.
+          </p>
         </div>
 
-        <div style="text-align: center;">
-          <a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/forms/frf" class="btn">Review & Approve</a>
-        </div>
-
-        <div class="footer">
-          <p>This is a system-generated notification from <a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/forms/frf">NCST D-Forms</a>.</p>
-          <p style="font-size: 11px; color: #bbb;">Printed on ${new Date().toLocaleString()}</p>
+        <!-- Footer -->
+        <div style="padding: 20px 40px; border-top: 1px solid #e9ecef; background: #fafafa; text-align: center; font-size: 12px; color: #999;">
+          <p style="margin: 0;">
+            This is a system-generated notification from
+            <a href="${process.env.NEXT_PUBLIC_APP_URL}" style="color: #1a3a5c; text-decoration: none; font-weight: 600;">NCST D-Forms</a>.
+          </p>
+          <p style="margin: 6px 0 0 0; font-size: 11px; color: #bbb;">
+            Printed on ${esc(
+  new Date().toLocaleString('en-US', {
+    timeZone: 'Asia/Manila',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  })
+)}
+          </p>
         </div>
       </div>
     </body>

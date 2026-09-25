@@ -26,7 +26,10 @@ import {
   RollingNumber,
   HoverCard,
   Tabs,
-  Timeline 
+  Timeline,
+  ActionIcon,
+  Box,
+  Divider,
 } from '@mantine/core';
 import { DatePicker } from '@mantine/dates';
 import {
@@ -49,7 +52,8 @@ import {
   IconTool,
   IconX,
   IconClock,
-  IconInfoCircle
+  IconInfoCircle,
+  IconCalendarMonth,
 } from '@tabler/icons-react';
 import useSWR from 'swr';
 import { PieChart, LineChart, BarChart } from '@mantine/charts';
@@ -81,7 +85,8 @@ export default function AnalyticsPage() {
 
   const [exporting, setExporting] = useState(false);
 
-  const [analyticsTab, setAnalyticsTab] = useState<'iom' | 'frf'>('iom');
+  const [analyticsTab, setAnalyticsTab] = useState<'iom' | 'frf' | 'calendar'>('iom');
+  const [calendarMonth, setCalendarMonth] = useState<Date>(new Date());
 
   const router = useRouter();
 
@@ -356,6 +361,76 @@ export default function AnalyticsPage() {
     revalidateOnFocus: true,
     keepPreviousData: true,
   });
+
+  // ============ CALENDAR DATA ============
+  const calendarRange = useMemo(() => {
+    const start = dayjs(calendarMonth).startOf('month').startOf('week');
+    const end = dayjs(calendarMonth).endOf('month').endOf('week');
+    return {
+      from: start.format('YYYY-MM-DD'),
+      to: end.format('YYYY-MM-DD'),
+    };
+  }, [calendarMonth]);
+
+  const { data: calendarData, isLoading: calendarLoading } = useSWR(
+    analyticsTab === 'calendar'
+      ? `/api/frf/calendar?from=${calendarRange.from}&to=${calendarRange.to}`
+      : null,
+    fetcher,
+    { refreshInterval: 30000, revalidateOnFocus: true, keepPreviousData: true }
+  );
+
+  type CalendarEvent = {
+    reservationId: string;
+    referenceId: string;
+    eventName: string | null;
+    status: string;
+    requestorDept: string;
+    requestorName: string;
+    isReschedule: boolean;
+    isVenueOnly: boolean;
+    dateId: string;
+    date: string;
+    setupTime: string;
+    eventStart: string;
+    eventEnd: string;
+    teardownTime: string;
+    place: { id: string; name: string; category: string } | null;
+    placeOther: string | null;
+  };
+
+  const eventsByDate = useMemo(() => {
+    const map: Record<string, CalendarEvent[]> = {};
+    const list: CalendarEvent[] = calendarData?.data || [];
+    for (const e of list) {
+      const key = dayjs(e.date).format('YYYY-MM-DD');
+      if (!map[key]) map[key] = [];
+      map[key].push(e);
+    }
+    return map;
+  }, [calendarData]);
+
+  const calendarDays = useMemo(() => {
+    const monthStart = dayjs(calendarMonth).startOf('month').startOf('week');
+    const monthEnd = dayjs(calendarMonth).endOf('month').endOf('week');
+    const days: Date[] = [];
+    let cursor = monthStart;
+    while (cursor.isBefore(monthEnd) || cursor.isSame(monthEnd, 'day')) {
+      days.push(cursor.toDate());
+      cursor = cursor.add(1, 'day');
+    }
+    return days;
+  }, [calendarMonth]);
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'PENDING_APPROVAL': return 'yellow';
+      case 'APPROVED': return 'green';
+      case 'COMPLETED': return 'blue';
+      case 'RESCHEDULE_PENDING': return 'orange';
+      default: return 'gray';
+    }
+  };
 
   // --- Navigation for day/week/month ---
   const navigateDate = (direction: 'prev' | 'next') => {
@@ -692,92 +767,93 @@ export default function AnalyticsPage() {
         </Group>
 
         {/* Filters */}
-        <Paper
-          withBorder
-          radius="xl"
-          p="lg"
-          mb="lg"
-          style={{
-            background: cardBgNested,
-            borderColor: cardBorderNested,
-          }}
-        >
-          <Group align="flex-end" wrap="wrap" gap="md">
-            {isAdminOrSuper && (
-              <Select
-                label="Department"
-                data={departments}
-                value={selectedDept}
-                onChange={(val) => setSelectedDept(val || '')}
-                style={{ width: 220 }}
-              />
-            )}
-
-            {/* Navigation for day/week/month (hidden when custom or all) */}
-            {!['all', 'custom'].includes(timeRange) && (
-              <Stack gap={5}>
-                <Text size="sm" fw={500}>
-                  Navigate
-                </Text>
-                <Group gap="xs">
-                  <Button variant="light" onClick={() => navigateDate('prev')}>
-                    <IconChevronLeft size={16} />
-                  </Button>
-                  <Paper withBorder p="sm" radius="md" style={{ minWidth: 150 }}>
-                    <Text ta="center" fw={600}>
-                      {getDateLabel()}
-                    </Text>
-                  </Paper>
-                  <Button variant="light" onClick={() => navigateDate('next')}>
-                    <IconChevronRight size={16} />
-                  </Button>
-                </Group>
-              </Stack>
-            )}
-
-            {/* Date Range Segmented Control with Popover */}
-            <Stack gap={5}>
-              <Text fw={500} size="sm">
-                Date Range
-              </Text>
-
-              <SegmentedControl
-                value={timeRange}
-                onChange={(value) => setTimeRange(value as typeof timeRange)}
-                data={[
-                  { label: 'Day', value: 'day' },
-                  { label: 'Week', value: 'week' },
-                  { label: 'Month', value: 'month' },
-                  { label: 'Custom', value: 'custom' },
-                  { label: 'All', value: 'all' },
-                ]}
-              />
-
-              {timeRange === 'custom' && (
-                <DatePicker
-                  type="range"
-                  allowSingleDateInRange
-                  maxDate={new Date()}
-                  value={customDates}
-                  onChange={setCustomDates}
+        {analyticsTab !== 'calendar' && (
+          <Paper
+            withBorder
+            radius="xl"
+            p="lg"
+            mb="lg"
+            style={{
+              background: cardBgNested,
+              borderColor: cardBorderNested,
+            }}
+          >
+            <Group align="flex-end" wrap="wrap" gap="md">
+              {isAdminOrSuper && (
+                <Select
+                  label="Department"
+                  data={departments}
+                  value={selectedDept}
+                  onChange={(val) => setSelectedDept(val || '')}
+                  style={{ width: 220 }}
                 />
               )}
 
-            </Stack>
+              {/* Navigation for day/week/month (hidden when custom or all) */}
+              {!['all', 'custom'].includes(timeRange) && (
+                <Stack gap={5}>
+                  <Text size="sm" fw={500}>
+                    Navigate
+                  </Text>
+                  <Group gap="xs">
+                    <Button variant="light" onClick={() => navigateDate('prev')}>
+                      <IconChevronLeft size={16} />
+                    </Button>
+                    <Paper withBorder p="sm" radius="md" style={{ minWidth: 150 }}>
+                      <Text ta="center" fw={600}>
+                        {getDateLabel()}
+                      </Text>
+                    </Paper>
+                    <Button variant="light" onClick={() => navigateDate('next')}>
+                      <IconChevronRight size={16} />
+                    </Button>
+                  </Group>
+                </Stack>
+              )}
 
-            <Button
-                variant="light"
-                color="green"
-                leftSection={<IconFileExport size={16} />}
-                onClick={handleExportXLSX}
-                loading={exporting}
-                disabled={!analytics || exporting}
-              >
-                Export to Excel
-            </Button>
-          </Group>
-        </Paper>
+              {/* Date Range Segmented Control with Popover */}
+              <Stack gap={5}>
+                <Text fw={500} size="sm">
+                  Date Range
+                </Text>
 
+                <SegmentedControl
+                  value={timeRange}
+                  onChange={(value) => setTimeRange(value as typeof timeRange)}
+                  data={[
+                    { label: 'Day', value: 'day' },
+                    { label: 'Week', value: 'week' },
+                    { label: 'Month', value: 'month' },
+                    { label: 'Custom', value: 'custom' },
+                    { label: 'All', value: 'all' },
+                  ]}
+                />
+
+                {timeRange === 'custom' && (
+                  <DatePicker
+                    type="range"
+                    allowSingleDateInRange
+                    maxDate={new Date()}
+                    value={customDates}
+                    onChange={setCustomDates}
+                  />
+                )}
+
+              </Stack>
+
+              <Button
+                  variant="light"
+                  color="green"
+                  leftSection={<IconFileExport size={16} />}
+                  onClick={handleExportXLSX}
+                  loading={exporting}
+                  disabled={!analytics || exporting}
+                >
+                  Export to Excel
+              </Button>
+            </Group>
+          </Paper>
+        )}
         {/* ----- Main Content ----- */}
         {!analytics ? (
             <Loader />
@@ -796,6 +872,9 @@ export default function AnalyticsPage() {
                   </Tabs.Tab>
                   <Tabs.Tab value="frf" leftSection={<IconClipboardList size={16} />}>
                     FRF Analytics
+                  </Tabs.Tab>
+                  <Tabs.Tab value="calendar" leftSection={<IconCalendarStats size={16} />}>
+                    Live Calendar
                   </Tabs.Tab>
                 </Tabs.List>
 
@@ -1118,7 +1197,265 @@ export default function AnalyticsPage() {
                     <Text c="dimmed" ta="center" py="xl">No FRF analytics data available.</Text>
                   )}
                 </Tabs.Panel>
-              </Tabs>
+                {/* ============================================ */}
+                {/* ============ LIVE CALENDAR TAB ============ */}
+                {/* ============================================ */}
+                <Tabs.Panel value="calendar" pt="lg">
+                  <Stack gap="lg">
+                    {/* Legend */}
+                    <Group justify="space-between" wrap="wrap">
+                      <Group gap="xs">
+                        <Text size="xs" c="dimmed">
+                          Legend:
+                        </Text>
+                        <Badge color="yellow" variant="filled" size="sm">Pending</Badge>
+                        <Badge color="green" variant="filled" size="sm">Approved</Badge>
+                        <Badge color="blue" variant="filled" size="sm">Fully Approved (Approval Completed)</Badge>
+                        <Badge color="orange" variant="filled" size="sm">Reschedule</Badge>
+                      </Group>
+                      <Text size="xs" c="dimmed">
+                        Hover a date to see event details
+                      </Text>
+                    </Group>
+
+                    {/* Month navigation */}
+                    <Group justify="center" gap="md">
+                      <ActionIcon
+                        variant="light"
+                        size="lg"
+                        onClick={() =>
+                          setCalendarMonth(dayjs(calendarMonth).subtract(1, 'month').toDate())
+                        }
+                      >
+                        <IconChevronLeft size={18} />
+                      </ActionIcon>
+                      <Text fw={800} size="xl" style={{ minWidth: 220, textAlign: 'center' }}>
+                        {dayjs(calendarMonth).format('MMMM YYYY')}
+                      </Text>
+                      <ActionIcon
+                        variant="light"
+                        size="lg"
+                        onClick={() =>
+                          setCalendarMonth(dayjs(calendarMonth).add(1, 'month').toDate())
+                        }
+                      >
+                        <IconChevronRight size={18} />
+                      </ActionIcon>
+                      <Button
+                        variant="subtle"
+                        size="xs"
+                        onClick={() => setCalendarMonth(new Date())}
+                      >
+                        Today
+                      </Button>
+                    </Group>
+
+                    {/* Weekday headers */}
+                    <SimpleGrid cols={7} spacing={4}>
+                      {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => (
+                        <Text
+                          key={d}
+                          size="xs"
+                          fw={700}
+                          ta="center"
+                          c="dimmed"
+                          py={4}
+                        >
+                          {d}
+                        </Text>
+                      ))}
+                    </SimpleGrid>
+
+                    {/* Days grid */}
+                    {calendarLoading && !calendarData ? (
+                      <Box ta="center" py="xl"><Loader /></Box>
+                    ) : (
+                      <SimpleGrid cols={7} spacing={4}>
+                        {calendarDays.map((d) => {
+                          const key = dayjs(d).format('YYYY-MM-DD');
+                          const dayEvents = eventsByDate[key] || [];
+                          const isOutsideMonth = dayjs(d).month() !== dayjs(calendarMonth).month();
+                          const isToday = dayjs(d).isSame(dayjs(), 'day');
+                          const hasEvents = dayEvents.length > 0;
+
+                          return (
+                            <HoverCard
+                              key={key}
+                              width={380}
+                              shadow="lg"
+                              position="top"
+                              withArrow
+                              openDelay={150}
+                              closeDelay={100}
+                              withinPortal
+                              disabled={!hasEvents}
+                            >
+                              <HoverCard.Target>
+                                <Paper
+                                  withBorder
+                                  radius="sm"
+                                  p={6}
+                                  style={{
+                                    minHeight: 110,
+                                    opacity: isOutsideMonth ? 0.35 : 1,
+                                    backgroundColor: isToday
+                                      ? (isDark
+                                          ? 'var(--mantine-color-blue-9)'
+                                          : 'var(--mantine-color-blue-0)')
+                                      : cardBgNested,
+                                    borderColor: isToday
+                                      ? 'var(--mantine-color-blue-5)'
+                                      : cardBorderNested,
+                                    cursor: hasEvents ? 'help' : 'default',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: 4,
+                                    transition: 'transform 120ms ease, box-shadow 120ms ease',
+                                  }}
+                                  onMouseEnter={(ev) => {
+                                    if (hasEvents) {
+                                      ev.currentTarget.style.transform = 'translateY(-2px)';
+                                      ev.currentTarget.style.boxShadow = 'var(--mantine-shadow-sm)';
+                                    }
+                                  }}
+                                  onMouseLeave={(ev) => {
+                                    ev.currentTarget.style.transform = 'translateY(0)';
+                                    ev.currentTarget.style.boxShadow = 'none';
+                                  }}
+                                >
+                                  <Text
+                                    size="xs"
+                                    fw={700}
+                                    c={isToday ? 'blue' : undefined}
+                                  >
+                                    {dayjs(d).date()}
+                                  </Text>
+
+                                  <Stack gap={2} style={{ overflow: 'hidden' }}>
+                                    {dayEvents.slice(0, 2).map((e, i) => {
+                                      const color = getStatusColor(e.status);
+                                      return (
+                                        <Box
+                                          key={i}
+                                          style={{
+                                            fontSize: 10,
+                                            padding: '2px 4px',
+                                            borderRadius: 3,
+                                            backgroundColor: `var(--mantine-color-${color}-${
+                                              isDark ? 9 : 1
+                                            })`,
+                                            color: `var(--mantine-color-${color}-${
+                                              isDark ? 2 : 9
+                                            })`,
+                                            overflow: 'hidden',
+                                            textOverflow: 'ellipsis',
+                                            whiteSpace: 'nowrap',
+                                            fontWeight: 600,
+                                          }}
+                                        >
+                                          {e.place?.name || e.placeOther || 'TBA'}
+                                        </Box>
+                                      );
+                                    })}
+                                    {dayEvents.length > 2 && (
+                                      <Text size="10px" c="dimmed" fw={600}>
+                                        +{dayEvents.length - 2} more
+                                      </Text>
+                                    )}
+                                  </Stack>
+                                </Paper>
+                              </HoverCard.Target>
+
+                              <HoverCard.Dropdown>
+                                <Stack gap="sm">
+                                  <Group justify="space-between">
+                                    <Text fw={800} size="sm">
+                                      {dayjs(d).format('dddd, MMMM D, YYYY')}
+                                    </Text>
+                                    <Badge size="sm" variant="light">
+                                      {dayEvents.length} event{dayEvents.length > 1 ? 's' : ''}
+                                    </Badge>
+                                  </Group>
+                                  <Divider />
+                                  {dayEvents.map((e, i) => {
+                                    const color = getStatusColor(e.status);
+                                    return (
+                                      <Paper key={i} withBorder p="xs" radius="sm">
+                                        <Group justify="space-between" mb={4} wrap="nowrap">
+                                          <Text size="xs" fw={700}>
+                                            {e.referenceId}
+                                          </Text>
+                                          <Badge size="xs" color={color} variant="filled">
+                                            {e.status.replace('_', ' ')}
+                                          </Badge>
+                                        </Group>
+                                        <Text size="sm" fw={600} mb={4}>
+                                          {e.eventName || '—'}
+                                        </Text>
+                                        <Stack gap={2}>
+                                          <Text size="xs" c="dimmed">
+                                            <b>Venue:</b>{' '}
+                                            {e.place?.name || e.placeOther || 'TBA'}
+                                            {e.place?.category && e.place.category !== 'REGULAR' && (
+                                              <Badge
+                                                component="span"
+                                                size="xs"
+                                                ml={6}
+                                                variant="light"
+                                                color={
+                                                  e.place.category === 'CATEGORY_1'
+                                                    ? 'orange'
+                                                    : 'red'
+                                                }
+                                              >
+                                                {e.place.category === 'CATEGORY_1'
+                                                  ? 'Cat 1'
+                                                  : 'Cat 2'}
+                                              </Badge>
+                                            )}
+                                          </Text>
+                                          <Text size="xs" c="dimmed">
+                                            <b>Requestor (Focal Person):</b> {e.requestorName} ({e.requestorDept})
+                                          </Text>
+                                          <Text size="xs" c="dimmed">
+                                            <b>Setup:</b>{' '}
+                                            {dayjs(e.setupTime).format('h:mm A')} ·{' '}
+                                            <b>Event:</b>{' '}
+                                            {dayjs(e.eventStart).format('h:mm A')} –{' '}
+                                            {dayjs(e.eventEnd).format('h:mm A')}
+                                          </Text>
+                                          <Text size="xs" c="dimmed">
+                                            <b>Pack-up:</b>{' '}
+                                            {dayjs(e.teardownTime).format('h:mm A')}
+                                          </Text>
+                                          {(e.isReschedule || e.isVenueOnly) && (
+                                            <Group gap={4} mt={4}>
+                                              {e.isReschedule && (
+                                                <Badge size="xs" color="orange" variant="light">
+                                                  Reschedule
+                                                </Badge>
+                                              )}
+                                              {e.isVenueOnly && (
+                                                <Badge size="xs" color="gray" variant="light">
+                                                  Venue Only
+                                                </Badge>
+                                              )}
+                                            </Group>
+                                          )}
+                                        </Stack>
+                                      </Paper>
+                                    );
+                                  })}
+                                </Stack>
+                              </HoverCard.Dropdown>
+                            </HoverCard>
+                          );
+                        })}
+                      </SimpleGrid>
+                    )}
+                  </Stack>
+                </Tabs.Panel>
+              </Tabs> 
             </Stack>
           )}
       </Card>

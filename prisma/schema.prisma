@@ -491,7 +491,9 @@ model EventPlace {
 
   dateReservations     FacilityReservationDate[]
 
-  category             EventPlaceCategory @default(REGULAR)
+  category             EventPlaceCategory   @default(REGULAR)
+
+  equipment            EquipmentPlace[]
 }
 
 model Equipment {
@@ -501,16 +503,35 @@ model Equipment {
   department           Department           @relation(fields: [departmentCode], references: [code], onDelete: Restrict)
   isSingleItem         Boolean              @default(false)
   quantityAvailable    Int                  @default(0)
+  quantityReserved     Int                  @default(0)
   createdAt            DateTime             @default(now())
   updatedAt            DateTime             @updatedAt
 
+  branch               SystemBranch?        @default(MAIN)
+
+  places               EquipmentPlace[]
+
   equipmentRequests    FacilityEquipmentRequest[]
 
-  branch            SystemBranch  @default(MAIN)
-  quantityReserved  Int           @default(0) 
-
-  @@unique([name, departmentCode])
+  @@unique([name, departmentCode, branch])
   @@index([departmentCode])
+  @@index([branch])
+}
+
+model EquipmentPlace {
+  equipmentId          String
+  placeId              String
+
+  equipment            Equipment           @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  place                EventPlace          @relation(fields: [placeId], references: [id], onDelete: Cascade)
+
+  createdAt            DateTime            @default(now())
+
+  isBundled            Boolean             @default(false)
+
+  @@id([equipmentId, placeId])
+  @@index([placeId])
+  @@index([equipmentId])
 }
 
 model FacilityEquipmentRequest {

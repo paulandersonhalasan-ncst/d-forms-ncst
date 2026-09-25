@@ -1,7 +1,7 @@
 // app/dashboard/forms/frf/manage/page.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Container,
@@ -24,18 +24,29 @@ import {
   SimpleGrid,
   Alert,
   Collapse,
-  ActionIcon
+  ActionIcon,
+  MultiSelect,
+  Paper
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { IconPlus, IconBuilding, IconBox, IconArrowLeft, IconSettings, IconInfoCircle, IconChevronDown, } from '@tabler/icons-react';
 import useSWR from 'swr';
 
 // === Types ===
+type SystemBranch = 'MAIN' | 'IMUS' | 'NASTECH' | 'SHS';
+
 interface Place {
   id: string;
   name: string;
   isActive: boolean;
+  branch: SystemBranch;
   category?: 'REGULAR' | 'CATEGORY_1' | 'CATEGORY_2';
+}
+
+interface EquipmentPlace {
+  placeId: string;
+  isBundled: boolean; 
+  place?: { id: string; name: string; branch: SystemBranch };
 }
 
 interface EquipmentItem {
@@ -44,6 +55,11 @@ interface EquipmentItem {
   departmentCode: string;
   isSingleItem: boolean;
   quantityAvailable: number;
+  quantityReserved?: number;
+  branch?: SystemBranch | null;
+  places?: EquipmentPlace[];
+  useCount?: number;
+  totalDeployedQty?: number;
 }
 
 interface User {
@@ -122,6 +138,44 @@ function CollapsibleAlert({
   );
 }
 
+  type SortDirection = 'asc' | 'desc';
+
+  function SortableTh({
+    label,
+    column,
+    sortColumn,
+    sortDirection,
+    onSort,
+    width,
+  }: {
+    label: string;
+    column: string;
+    sortColumn: string | null;
+    sortDirection: SortDirection;
+    onSort: (col: string) => void;
+    width?: number | string;
+  }) {
+    const isActive = sortColumn === column;
+    return (
+      <Table.Th
+        style={{ width, cursor: 'pointer', userSelect: 'none' }}
+        onClick={() => onSort(column)}
+      >
+        <Group gap={4} wrap="nowrap">
+          <Text size="sm" fw={600}>{label}</Text>
+          <IconChevronDown
+            size={14}
+            style={{
+              opacity: isActive ? 1 : 0.3,
+              transform: isActive && sortDirection === 'asc' ? 'rotate(180deg)' : 'rotate(0deg)',
+              transition: 'transform 150ms ease',
+            }}
+          />
+        </Group>
+      </Table.Th>
+    );
+  }
+
 // === Places Management Component ===
 function PlacesTab({ currentUser }: TabProps) {
   const [opened, { open, close }] = useDisclosure(false);
@@ -129,13 +183,45 @@ function PlacesTab({ currentUser }: TabProps) {
   const [name, setName] = useState('');
   const [isActive, setIsActive] = useState(true);
   const [category, setCategory] = useState<Place['category']>('REGULAR');
+  const [branch, setBranch] = useState<SystemBranch>('MAIN');
   const [loading, setLoading] = useState(false);
+
+  // 🆕 Sort state
+  const [sortColumn, setSortColumn] = useState<string | null>(null);
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
 
   const { data, mutate, isLoading } = useSWR<{ data: Place[] }>(
     '/api/frf/places?includeInactive=true',
     fetcher
   );
-  const places = data?.data || [];
+  const rawPlaces = data?.data || [];
+
+  // 🆕 Sorted places
+  const places = useMemo(() => {
+    if (!sortColumn) return rawPlaces;
+    return [...rawPlaces].sort((a, b) => {
+      let aVal: string | number = '';
+      let bVal: string | number = '';
+      switch (sortColumn) {
+        case 'name': aVal = a.name; bVal = b.name; break;
+        case 'branch': aVal = a.branch; bVal = b.branch; break;
+        case 'category': aVal = a.category || ''; bVal = b.category || ''; break;
+        case 'isActive': aVal = a.isActive ? 1 : 0; bVal = b.isActive ? 1 : 0; break;
+      }
+      if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [rawPlaces, sortColumn, sortDirection]);
+
+  const handleSort = (col: string) => {
+    if (sortColumn === col) {
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortColumn(col);
+      setSortDirection('asc');
+    }
+  };
 
   const isSuperUser = currentUser?.role === 'SuperUser';
 
@@ -147,7 +233,7 @@ function PlacesTab({ currentUser }: TabProps) {
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, isActive, category }),
+        body: JSON.stringify({ name, isActive, category, branch }),
       });
       if (res.ok) {
         mutate();
@@ -155,6 +241,7 @@ function PlacesTab({ currentUser }: TabProps) {
         setName('');
         setIsActive(true);
         setCategory('REGULAR');
+        setBranch('MAIN');
         setEditing(null);
       }
     } catch (err) {
@@ -175,6 +262,7 @@ function PlacesTab({ currentUser }: TabProps) {
     setName(p.name);
     setIsActive(p.isActive);
     setCategory(p.category || 'REGULAR');
+    setBranch(p.branch || 'MAIN');
     open();
   };
 
@@ -216,17 +304,17 @@ function PlacesTab({ currentUser }: TabProps) {
           >
             <Table.Thead>
               <Table.Tr>
-                <Table.Th>Name</Table.Th>
-                <Table.Th>Category</Table.Th>
-                <Table.Th>Status</Table.Th>
+                <SortableTh label="Name" column="name" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} />
+                <SortableTh label="Branch" column="branch" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} />
+                <SortableTh label="Category" column="category" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} />
+                <SortableTh label="Status" column="isActive" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} />
                 {isSuperUser && <Table.Th style={{ width: 160 }}>Actions</Table.Th>}
-
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
               {places.length === 0 ? (
                 <Table.Tr>
-                  <Table.Td colSpan={isSuperUser ? 4 : 3}>   {/* 🆕 */}
+                  <Table.Td colSpan={isSuperUser ? 5 : 4}>
                     <Text c="dimmed" ta="center" py="xl">
                       No places yet.
                     </Text>
@@ -236,6 +324,9 @@ function PlacesTab({ currentUser }: TabProps) {
                 places.map((p) => (
                   <Table.Tr key={p.id}>
                     <Table.Td>{p.name}</Table.Td>
+                    <Table.Td>
+                      <Badge color="indigo" variant="light">{p.branch}</Badge>
+                    </Table.Td>
                     <Table.Td>
                       <Badge
                         color={
@@ -293,6 +384,14 @@ function PlacesTab({ currentUser }: TabProps) {
             required
           />
           <Select
+            label="Branch"
+            description="Which branch does this venue belong to?"
+            data={['MAIN', 'IMUS', 'NASTECH', 'SHS']}
+            value={branch}
+            onChange={(val) => setBranch((val as SystemBranch) || 'MAIN')}
+            required
+          />
+          <Select
             label="Category"
             description="Venue category for event scheduling limits"
             data={[
@@ -323,7 +422,6 @@ function PlacesTab({ currentUser }: TabProps) {
   );
 }
 
-// === Equipment Management Component ===
 function EquipmentTab({ currentUser }: TabProps) {
   const [opened, { open, close }] = useDisclosure(false);
   const [editing, setEditing] = useState<EquipmentItem | null>(null);
@@ -333,15 +431,84 @@ function EquipmentTab({ currentUser }: TabProps) {
   const [quantityAvailable, setQuantityAvailable] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [locationFilter, setLocationFilter] = useState<string>('all');
 
-  const isSuperUser = currentUser?.role === 'SuperUser';
-  const defaultDept = isSuperUser ? 'ITO-MAIN' : (currentUser?.departmentCode || 'ITO-MAIN');
+    const [branch, setBranch] = useState<SystemBranch | null>(null);
+    const [placeIds, setPlaceIds] = useState<string[]>([]);
+    const [bundledPlaceIds, setBundledPlaceIds] = useState<string[]>([]);
+
+    const isSuperUser = currentUser?.role === 'SuperUser';
+
+    // 🆕 moved UP here, before placesForBranch
+    const { data: placesData } = useSWR<{ data: Place[] }>(
+      '/api/frf/places',
+      fetcher
+    );
+    const places = placesData?.data || [];
+
+    // 🆕 now this works
+    const placesForBranch = useMemo(
+      () => (branch ? places.filter(p => p.branch === branch) : []),
+      [places, branch]
+    );
 
   const { data, mutate, isLoading } = useSWR<{ data: EquipmentItem[] }>(
     '/api/frf/equipment',
     fetcher
   );
-  const equipment = data?.data || [];
+
+  const allEquipment = data?.data || [];
+
+  // 🆕 Sort state
+  const [sortColumn, setSortColumn] = useState<string | null>(null);
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+
+  const handleSort = (col: string) => {
+    if (sortColumn === col) {
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortColumn(col);
+      setSortDirection('asc');
+    }
+  };
+
+  // 🆕 client-side filter + sort
+  const equipment = useMemo(() => {
+    let filtered = allEquipment;
+    if (locationFilter === 'global') {
+      filtered = allEquipment.filter(e => !e.branch);
+    } else if (locationFilter.startsWith('branch:')) {
+      const b = locationFilter.replace('branch:', '');
+      filtered = allEquipment.filter(e => e.branch === b && (!e.places || e.places.length === 0));
+    } else if (locationFilter !== 'all') {
+      filtered = allEquipment.filter(e =>
+        e.places?.some(p => p.placeId === locationFilter)
+      );
+    }
+
+    if (!sortColumn) return filtered;
+    return [...filtered].sort((a, b) => {
+      let aVal: string | number = '';
+      let bVal: string | number = '';
+      switch (sortColumn) {
+        case 'name': aVal = a.name; bVal = b.name; break;
+        case 'department': aVal = a.departmentCode; bVal = b.departmentCode; break;
+        case 'branch': aVal = a.branch || ''; bVal = b.branch || ''; break;
+        case 'type': aVal = a.isSingleItem ? 'Single Item' : 'Quantity'; bVal = b.isSingleItem ? 'Single Item' : 'Quantity'; break;
+        case 'available':
+          aVal = a.quantityAvailable - (a.quantityReserved || 0);
+          bVal = b.quantityAvailable - (b.quantityReserved || 0);
+          break;
+        case 'useCount':
+          aVal = a.useCount ?? 0;
+          bVal = b.useCount ?? 0;
+          break;
+      }
+      if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [allEquipment, locationFilter, sortColumn, sortDirection]);
 
   const handleSave = async () => {
     if (!name || !departmentCode) {
@@ -359,6 +526,9 @@ function EquipmentTab({ currentUser }: TabProps) {
         body: JSON.stringify({
           name,
           departmentCode,
+          branch: branch || null,
+          placeIds: branch ? placeIds : [],
+          bundledPlaceIds: branch ? bundledPlaceIds : [],
           isSingleItem,
           quantityAvailable: quantityAvailable || 0,
         }),
@@ -366,20 +536,27 @@ function EquipmentTab({ currentUser }: TabProps) {
       if (res.ok) {
         mutate();
         close();
-        setName('');
-        setDepartmentCode('PSMO/FMO');
-        setIsSingleItem(false);
-        setQuantityAvailable(0);
-        setEditing(null);
+        resetForm();
       } else {
-        const data = await res.json();
-        setError(data.message || 'Failed to save.');
+        const d = await res.json();
+        setError(d.message || 'Failed to save.');
       }
-    } catch (err) {
+    } catch {
       setError('An error occurred.');
     } finally {
       setLoading(false);
     }
+  };
+
+  const resetForm = () => {
+    setName('');
+    setDepartmentCode(currentUser?.departmentCode || 'ITO-MAIN');
+    setBranch(null);
+    setPlaceIds([]);
+    setBundledPlaceIds([]); 
+    setIsSingleItem(false);
+    setQuantityAvailable(0);
+    setEditing(null);
   };
 
   const handleDelete = async (id: string) => {
@@ -388,47 +565,60 @@ function EquipmentTab({ currentUser }: TabProps) {
     if (res.ok) mutate();
   };
 
-  const canAddEquipment = isSuperUser || currentUser?.role === 'DepartmentHead' || currentUser?.oic_start != null || currentUser?.oic_start != null;
+  const canAddEquipment =
+    isSuperUser ||
+    currentUser?.role === 'DepartmentHead' ||
+    currentUser?.oic_start != null ||
+    currentUser?.oic_end != null;
 
   return (
     <>
-      <Group justify="space-between" mb="md">
-        <Text>Manage available equipment per department.</Text>
-        {canAddEquipment && (
-          <Button
-            leftSection={<IconPlus size={16} />}
-            onClick={() => {
-              setEditing(null);
-              setName('');
-              setDepartmentCode(currentUser?.departmentCode || 'ITO-MAIN');
-              setIsSingleItem(false);
-              setQuantityAvailable(0);
-              open();
-            }}
-          >
-            Add Equipment
-          </Button>
-        )}
+      <Group justify="space-between" mb="md" wrap="wrap">
+        <Text>Manage available equipment per department and location.</Text>
+        <Group>
+          <Select
+            placeholder="Filter by location"
+            data={[
+              { value: 'all', label: 'All Equipment' },
+              { value: 'global', label: 'Global (Any Branch)' },
+              ...(['MAIN', 'IMUS', 'NASTECH', 'SHS'] as const).map(b => ({
+                value: `branch:${b}`,
+                label: `🏢 ${b} (Branch-wide)`,
+              })),
+              ...places.map(p => ({ value: p.id, label: `📍 ${p.name} (${p.branch})` })),
+            ]}
+            value={locationFilter}
+            onChange={(val) => setLocationFilter(val || 'all')}
+            size="sm"
+            w={260}
+          />
+          {canAddEquipment && (
+            <Button
+              leftSection={<IconPlus size={16} />}
+              onClick={() => {
+                resetForm();
+                setDepartmentCode(currentUser?.departmentCode || 'ITO-MAIN');
+                open();
+              }}
+            >
+              Add Equipment
+            </Button>
+          )}
+        </Group>
       </Group>
 
       <Card withBorder p="0" radius="md" pos="relative">
         <LoadingOverlay visible={isLoading || loading} zIndex={10} overlayProps={{ blur: 2 }} />
         <ScrollArea h="calc(100vh - 320px)">
-          <Table
-            highlightOnHover
-            striped
-            withColumnBorders
-            verticalSpacing="sm"
-            stickyHeader
-            horizontalSpacing="md"
-            withTableBorder
-          >
+          <Table highlightOnHover striped withColumnBorders verticalSpacing="sm" stickyHeader horizontalSpacing="md" withTableBorder>
             <Table.Thead>
               <Table.Tr>
-                <Table.Th>Name</Table.Th>
-                <Table.Th>Department</Table.Th>
-                <Table.Th>Type</Table.Th>
-                <Table.Th>Available</Table.Th>
+                <SortableTh label="Name" column="name" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} />
+                <SortableTh label="Department" column="department" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} />
+                <SortableTh label="Location" column="branch" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} />
+                <SortableTh label="Type" column="type" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} />
+                <SortableTh label="Available" column="available" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} />
+                <SortableTh label="Uses" column="useCount" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} />
                 {(isSuperUser || currentUser?.departmentCode) && (
                   <Table.Th style={{ width: 160 }}>Actions</Table.Th>
                 )}
@@ -437,10 +627,8 @@ function EquipmentTab({ currentUser }: TabProps) {
             <Table.Tbody>
               {equipment.length === 0 ? (
                 <Table.Tr>
-                  <Table.Td colSpan={5}>
-                    <Text c="dimmed" ta="center" py="xl">
-                      No equipment yet.
-                    </Text>
+                  <Table.Td colSpan={7}>
+                    <Text c="dimmed" ta="center" py="xl">No equipment found.</Text>
                   </Table.Td>
                 </Table.Tr>
               ) : (
@@ -448,15 +636,52 @@ function EquipmentTab({ currentUser }: TabProps) {
                   <Table.Tr key={e.id}>
                     <Table.Td>{e.name}</Table.Td>
                     <Table.Td>
-                      <Badge color="blue" variant="light">
-                        {e.departmentCode}
-                      </Badge>
+                      <Badge color="blue" variant="light">{e.departmentCode}</Badge>
+                    </Table.Td>
+                    <Table.Td>
+                      {!e.branch ? (
+                        <Badge color="gray" variant="light">All Branches</Badge>
+                      ) : e.places && e.places.length > 0 ? (
+                        <Group gap={4}>
+                          <Badge color="indigo" variant="light">{e.branch}</Badge>
+                          {e.places.map(ep => (
+                            <Badge
+                              key={ep.placeId}
+                              color={ep.isBundled ? 'orange' : 'grape'}
+                              variant="light"
+                              size="md"
+                            >
+                              {ep.isBundled ? '⭐ PART OF ' : '📍 '}
+                              {ep.place?.name || places.find(p => p.id === ep.placeId)?.name || '—'}
+                              {ep.isBundled ? ' EQUIPMENT SET' : ''}
+                            </Badge>
+                          ))}
+                        </Group>
+                      ) : (
+                        <Badge color="indigo" variant="light">{e.branch}</Badge>
+                      )}
                     </Table.Td>
                     <Table.Td>{e.isSingleItem ? 'Single Item' : 'Quantity'}</Table.Td>
-                    <Table.Td>{e.quantityAvailable}</Table.Td>
-                    {(isSuperUser || currentUser?.departmentCode === e.departmentCode) && (
+                    <Table.Td>{e.quantityAvailable - (e.quantityReserved || 0)}</Table.Td>
                     <Table.Td>
-                      <Group gap={4}>
+                      {e.useCount && e.useCount > 0 ? (
+                        <Group gap={4} wrap="nowrap">
+                          <Badge color="teal" variant="light" size="md">
+                            {e.useCount} {e.useCount === 1 ? 'use' : 'uses'}
+                          </Badge>
+                          {e.totalDeployedQty !== undefined && e.totalDeployedQty > 0 && !e.isSingleItem && (
+                            <Text size="xs" c="dimmed">
+                              ({e.totalDeployedQty} qty)
+                            </Text>
+                          )}
+                        </Group>
+                      ) : (
+                        <Text size="xs" c="dimmed">—</Text>
+                      )}
+                    </Table.Td>
+                    {(isSuperUser || currentUser?.departmentCode === e.departmentCode) && (
+                      <Table.Td>
+                        <Group gap={4}>
                           <Button
                             size="xs"
                             variant="default"
@@ -464,6 +689,11 @@ function EquipmentTab({ currentUser }: TabProps) {
                               setEditing(e);
                               setName(e.name);
                               setDepartmentCode(e.departmentCode);
+                              setBranch(e.branch || null);
+                              setPlaceIds(e.places?.map(p => p.placeId) || []);
+                              setBundledPlaceIds(
+                                e.places?.filter(p => p.isBundled).map(p => p.placeId) || []
+                              );
                               setIsSingleItem(e.isSingleItem);
                               setQuantityAvailable(e.quantityAvailable);
                               open();
@@ -471,16 +701,11 @@ function EquipmentTab({ currentUser }: TabProps) {
                           >
                             Edit
                           </Button>
-                          <Button
-                            size="xs"
-                            color="red"
-                            variant="outline"
-                            onClick={() => handleDelete(e.id)}
-                          >
+                          <Button size="xs" color="red" variant="outline" onClick={() => handleDelete(e.id)}>
                             Delete
                           </Button>
-                      </Group>
-                    </Table.Td>
+                        </Group>
+                      </Table.Td>
                     )}
                   </Table.Tr>
                 ))
@@ -490,19 +715,9 @@ function EquipmentTab({ currentUser }: TabProps) {
         </ScrollArea>
       </Card>
 
-      <Modal
-        opened={opened}
-        onClose={close}
-        title={editing ? 'Edit Equipment' : 'Add Equipment'}
-        size="md"
-      >
+      <Modal opened={opened} onClose={close} title={editing ? 'Edit Equipment' : 'Add Equipment'} size="md" centered>
         <Stack>
-          <TextInput
-            label="Name"
-            value={name}
-            onChange={(e) => setName(e.currentTarget.value)}
-            required
-          />
+          <TextInput label="Name" value={name} onChange={(e) => setName(e.currentTarget.value)} required />
           <Select
             label="Department"
             data={['ITO-MAIN', 'PSMO/FMO', 'OP', 'CDO']}
@@ -511,10 +726,75 @@ function EquipmentTab({ currentUser }: TabProps) {
             required
             disabled={!isSuperUser}
           />
+          <Select
+            label="Branch"
+            description="Leave blank for Global equipment (transportable to any branch)."
+            placeholder="Global (Any Branch)"
+            data={['MAIN', 'IMUS', 'NASTECH', 'SHS']}
+            value={branch}
+            onChange={(val) => {
+              setBranch((val as SystemBranch) || null);
+              setPlaceIds([]);
+            }}
+            clearable
+          />
+          {branch && (
+            <MultiSelect
+              label="Specific Venues (optional)"
+              description="Leave empty for 🏢 branch-wide. Select venues to lock to those only."
+              placeholder={
+                placesForBranch.length === 0
+                  ? 'No venues in this branch'
+                  : 'Select venues'
+              }
+              data={placesForBranch.map(p => ({ value: p.id, label: p.name }))}
+              value={placeIds}
+              onChange={(val) => {
+                setPlaceIds(val);
+                // Remove bundle flags for venues that are no longer selected
+                setBundledPlaceIds(prev => prev.filter(pid => val.includes(pid)));
+              }}
+              searchable
+              clearable
+              disabled={placesForBranch.length === 0}
+            />
+          )}
+
+          {/* 🆕 Bundle as Set Item per venue */}
+          {branch && placeIds.length > 0 && (
+            <Paper withBorder p="sm" radius="sm" bg="light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-8))">
+              <Text size="xs" fw={600} mb={4}>
+                Mark as Set Item for these venues:
+              </Text>
+              <Text size="xs" c="dimmed" mb="xs">
+                Set items will be auto-selected when a user reserves the venue (they can still uncheck).
+              </Text>
+              <Stack gap={6}>
+                {placeIds.map(pid => {
+                  const place = places.find(p => p.id === pid);
+                  return (
+                    <Checkbox
+                      key={pid}
+                      size="sm"
+                      label={place?.name || pid}
+                      checked={bundledPlaceIds.includes(pid)}
+                      onChange={(e) => {
+                        if (e.currentTarget.checked) {
+                          setBundledPlaceIds([...bundledPlaceIds, pid]);
+                        } else {
+                          setBundledPlaceIds(bundledPlaceIds.filter(x => x !== pid));
+                        }
+                      }}
+                    />
+                  );
+                })}
+              </Stack>
+            </Paper>
+          )}
           <Checkbox
             label="Single Item (e.g., projector, LED wall) – not quantity‑based"
             checked={isSingleItem}
-            onChange={(e) => setIsSingleItem(e.target.checked)}
+            onChange={(e) => setIsSingleItem(e.currentTarget.checked)}
           />
           <NumberInput
             label="Available Quantity"
@@ -523,18 +803,10 @@ function EquipmentTab({ currentUser }: TabProps) {
             onChange={(val) => setQuantityAvailable(Number(val) || 0)}
             disabled={isSingleItem}
           />
-          {error && (
-            <Text c="red" size="sm">
-              {error}
-            </Text>
-          )}
+          {error && <Text c="red" size="sm">{error}</Text>}
           <Group justify="flex-end">
-            <Button variant="light" onClick={close}>
-              Cancel
-            </Button>
-            <Button loading={loading} onClick={handleSave}>
-              Save
-            </Button>
+            <Button variant="light" onClick={close}>Cancel</Button>
+            <Button loading={loading} onClick={handleSave}>Save</Button>
           </Group>
         </Stack>
       </Modal>

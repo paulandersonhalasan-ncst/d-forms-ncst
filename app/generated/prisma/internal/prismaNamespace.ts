@@ -410,6 +410,7 @@ export const ModelName = {
   FacilityAssignment: 'FacilityAssignment',
   EventPlace: 'EventPlace',
   Equipment: 'Equipment',
+  EquipmentPlace: 'EquipmentPlace',
   FacilityEquipmentRequest: 'FacilityEquipmentRequest',
   FacilityReservationDate: 'FacilityReservationDate',
   FormSettings: 'FormSettings'
@@ -428,7 +429,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "user" | "department" | "activityLog" | "notification" | "loginLog" | "memo" | "memoRecipientStatus" | "memoHistory" | "facilityReservation" | "facilityApproval" | "facilityAssignment" | "eventPlace" | "equipment" | "facilityEquipmentRequest" | "facilityReservationDate" | "formSettings"
+    modelProps: "user" | "department" | "activityLog" | "notification" | "loginLog" | "memo" | "memoRecipientStatus" | "memoHistory" | "facilityReservation" | "facilityApproval" | "facilityAssignment" | "eventPlace" | "equipment" | "equipmentPlace" | "facilityEquipmentRequest" | "facilityReservationDate" | "formSettings"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -1394,6 +1395,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    EquipmentPlace: {
+      payload: Prisma.$EquipmentPlacePayload<ExtArgs>
+      fields: Prisma.EquipmentPlaceFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.EquipmentPlaceFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EquipmentPlacePayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.EquipmentPlaceFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EquipmentPlacePayload>
+        }
+        findFirst: {
+          args: Prisma.EquipmentPlaceFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EquipmentPlacePayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.EquipmentPlaceFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EquipmentPlacePayload>
+        }
+        findMany: {
+          args: Prisma.EquipmentPlaceFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EquipmentPlacePayload>[]
+        }
+        create: {
+          args: Prisma.EquipmentPlaceCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EquipmentPlacePayload>
+        }
+        createMany: {
+          args: Prisma.EquipmentPlaceCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.EquipmentPlaceCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EquipmentPlacePayload>[]
+        }
+        delete: {
+          args: Prisma.EquipmentPlaceDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EquipmentPlacePayload>
+        }
+        update: {
+          args: Prisma.EquipmentPlaceUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EquipmentPlacePayload>
+        }
+        deleteMany: {
+          args: Prisma.EquipmentPlaceDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.EquipmentPlaceUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.EquipmentPlaceUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EquipmentPlacePayload>[]
+        }
+        upsert: {
+          args: Prisma.EquipmentPlaceUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EquipmentPlacePayload>
+        }
+        aggregate: {
+          args: Prisma.EquipmentPlaceAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateEquipmentPlace>
+        }
+        groupBy: {
+          args: Prisma.EquipmentPlaceGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.EquipmentPlaceGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.EquipmentPlaceCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.EquipmentPlaceCountAggregateOutputType> | number
+        }
+      }
+    }
     FacilityEquipmentRequest: {
       payload: Prisma.$FacilityEquipmentRequestPayload<ExtArgs>
       fields: Prisma.FacilityEquipmentRequestFieldRefs
@@ -1899,13 +1974,23 @@ export const EquipmentScalarFieldEnum = {
   departmentCode: 'departmentCode',
   isSingleItem: 'isSingleItem',
   quantityAvailable: 'quantityAvailable',
+  quantityReserved: 'quantityReserved',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
-  branch: 'branch',
-  quantityReserved: 'quantityReserved'
+  branch: 'branch'
 } as const
 
 export type EquipmentScalarFieldEnum = (typeof EquipmentScalarFieldEnum)[keyof typeof EquipmentScalarFieldEnum]
+
+
+export const EquipmentPlaceScalarFieldEnum = {
+  equipmentId: 'equipmentId',
+  placeId: 'placeId',
+  createdAt: 'createdAt',
+  isBundled: 'isBundled'
+} as const
+
+export type EquipmentPlaceScalarFieldEnum = (typeof EquipmentPlaceScalarFieldEnum)[keyof typeof EquipmentPlaceScalarFieldEnum]
 
 
 export const FacilityEquipmentRequestScalarFieldEnum = {
@@ -2445,6 +2530,7 @@ export type GlobalOmitConfig = {
   facilityAssignment?: Prisma.FacilityAssignmentOmit
   eventPlace?: Prisma.EventPlaceOmit
   equipment?: Prisma.EquipmentOmit
+  equipmentPlace?: Prisma.EquipmentPlaceOmit
   facilityEquipmentRequest?: Prisma.FacilityEquipmentRequestOmit
   facilityReservationDate?: Prisma.FacilityReservationDateOmit
   formSettings?: Prisma.FormSettingsOmit
