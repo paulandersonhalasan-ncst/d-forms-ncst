@@ -61,8 +61,6 @@ model User {
   facilityAssignments  FacilityAssignment[]     @relation("FacilityAssignee")
 
   packUpDoneReservations FacilityReservation[] @relation("PackUpDoneBy")
-
-  staffChangeRequests FacilityReservation[] @relation("StaffChangeRequester")
 }
 
 model Department {
@@ -341,7 +339,7 @@ enum MemoHistoryAction {
 }
 
 // ====
-// FRF 
+// FRF
 // ====
 
 enum ReservationType {
@@ -411,11 +409,6 @@ model FacilityReservation {
   packUpDoneById     String?
   packUpDoneBy       User?      @relation("PackUpDoneBy", fields: [packUpDoneById], references: [id], onDelete: SetNull)
   packUpDoneNotes    String?    @db.Text
-
-  staffChangeRequestedAt     DateTime?
-  staffChangeRequestedById   String?
-  staffChangeRequestedBy     User?     @relation("StaffChangeRequester", fields: [staffChangeRequestedById], references: [id], onDelete: SetNull)
-  staffChangeReason          String?   @db.Text
 
   packUpDonePhotos   String[]  @default([])
   packUpDoneLocation String?

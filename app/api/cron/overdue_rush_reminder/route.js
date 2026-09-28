@@ -9,6 +9,8 @@ export async function GET(request) {
     const now = new Date();
     console.log('🔍 Current time (UTC):', now.toISOString());
 
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+
     // 1. Find all overdue RUSH memos (not closed)
     const overdueMemos = await prisma.memo.findMany({
       where: {

@@ -176,43 +176,19 @@ export default function FRFDashboardPage() {
     fetchUser();
   }, []);
 
-  const isHRD = currentUser?.departmentCode === 'HRD';
-  const isITOMain = currentUser?.departmentCode === 'ITO-MAIN';   // 🆕
+  const isITOMain = currentUser?.departmentCode === 'ITO-MAIN';
 
   // ---- Filtered lists ----
   const myRequests = reservations.filter((r) => r.requestorId === currentUser?.id);
 
   // Pending Approval: only for non-HRD users
   const pendingApproval = reservations.filter((r) => {
-    if (isHRD) return false;
     const status = r.status as string;
     if (status === 'COMPLETED' || status === 'REJECTED') return false;
     const myApproval = r.approvals.find((a) => a.departmentCode === currentUser?.departmentCode);
     if (!myApproval) return false;
-    // ✅ Show ANY request where this department's approval is PENDING
+    
     return myApproval.status === 'PENDING';
-  });
-
-  // 🆕 For Noting (HRD only) — EXCLUDE those awaiting staff change
-  const forNoting = reservations.filter((r) => {
-    if (!isHRD) return false;
-    const status = r.status as string;
-    if (status !== 'COMPLETED') return false;
-
-    const hrdApproval = r.approvals.find(a => a.departmentCode === 'HRD');
-    if (!hrdApproval) return false;
-
-    const isPending = hrdApproval.status === 'PENDING';
-    const isAcknowledgedButNotNoted =
-      hrdApproval.status === 'ACKNOWLEDGED' && !hrdApproval.remarks?.includes('Noted by');
-
-    if (!isPending && !isAcknowledgedButNotNoted) return false;
-
-    const allPreviousApproved = r.approvals
-      .filter(a => a.departmentCode !== 'HRD')
-      .every(a => a.status === 'APPROVED' || a.status === 'ACKNOWLEDGED');
-
-    return allPreviousApproved;
   });
 
   // Action Board:
@@ -251,21 +227,11 @@ export default function FRFDashboardPage() {
     return false;
   };
 
-  // Completed:
-  // - For HRD: only show if HRD approval is ACKNOWLEDGED with "Noted by"
-  // - For non-HRD: show COMPLETED or REJECTED only if the user is involved
   const completed = reservations.filter((r) => {
     const status = r.status as string;
 
     if (status === 'REJECTED') {
       return isUserInvolved(r);
-    }
-
-    if (isHRD) {
-      if (status !== 'COMPLETED') return false;
-      const hrdApproval = r.approvals.find(a => a.departmentCode === 'HRD');
-      if (!hrdApproval) return false;
-      return hrdApproval.status === 'ACKNOWLEDGED' && hrdApproval.remarks?.includes('Noted by');
     }
 
     if (status === 'COMPLETED') {
@@ -682,12 +648,6 @@ export default function FRFDashboardPage() {
       openPassModal();
       return;
     }
-    if (type === 'REQUEST_STAFF_CHANGE') {
-      setPendingAction({ type, data });
-      setPassError('');
-      openPassModal();
-      return;
-    }
     setPendingAction({ type, data });
     setPassError('');
     openPassModal();
@@ -786,7 +746,7 @@ export default function FRFDashboardPage() {
     try {
       const actionMap: Record<string, string> = {
         'PACKUP_DONE': 'packup-done',
-        'REQUEST_STAFF_CHANGE': 'request-staff-change',
+        'OCM_FINALIZE': 'ocm-finalize'
       };
 
       const actionName = actionMap[pendingAction.type] || pendingAction.type.toLowerCase();
@@ -1035,9 +995,9 @@ export default function FRFDashboardPage() {
                   My Requests <Badge size="xs" variant="light" ml={6}>{myRequests.length}</Badge>
                 </Tabs.Tab>
                 <Tabs.Tab value="pending_approval" leftSection={<IconInbox size={15} />}>
-                  {isHRD ? 'For Noting' : 'Pending Approval'}{' '}
+                  Pending Approval{' '}
                   <Badge size="xs" variant="light" ml={6}>
-                    {isHRD ? forNoting.length : pendingApproval.length}
+                    {pendingApproval.length}
                   </Badge>
                 </Tabs.Tab>
                 <Tabs.Tab value="action_board" leftSection={<IconInfoCircle size={15} />}>
@@ -1056,9 +1016,7 @@ export default function FRFDashboardPage() {
               {visibleTabs.map((tab) => {
                 let list: FacilityReservation[] = [];
                 if (tab === 'my_requests') list = myRequests;
-                else if (tab === 'pending_approval') {
-                  list = isHRD ? forNoting : pendingApproval;
-                }
+                else if (tab === 'pending_approval') list = pendingApproval;
                 else if (tab === 'action_board') list = actionBoard;
                 else if (tab === 'assigned_to_me') list = assignedToMe;
                 else if (tab === 'completed') list = completed;
@@ -1081,24 +1039,15 @@ export default function FRFDashboardPage() {
                     ),
                   },
                   pending_approval: {
-                    title: isHRD ? 'For Noting (HRD)' : 'Pending Approval',
-                    color: isHRD ? 'pink' : 'orange',
-                    body: isHRD ? (
-                      <>
-                        Completed events with ITO staff assignments that need your <b>noting</b> for OT (overtime)
-                        rendering records. Review the assigned staff and click <b>Noted</b> to confirm.
-                        <br /><br />
-                        Mga kumpletong event na may nakatalagang ITO staff para sa OT rendering. Suriin ang
-                        listahan at pindutin ang <b>Noted</b> para makumpirma. Ang mga ito ay
-                        <b> hindi mo kailangang aprubahan</b> — <i>noting</i> lang para sa records ng HRD.
-                      </>
-                    ) : (
+                    title: 'Pending Approval',
+                    color: 'orange',
+                    body: (
                       <>
                         Requests currently waiting for your department&apos;s approval. Review details, then choose
-                        <b> Approve</b>, <b> Reject</b>, or <b> Return for Revision</b>. If no other action is available except printing the request, it means that it has not yet been approved by other departments and you must wait for their action before you can approve it.
+                        <b> Approve</b>, <b> Reject</b>, or <b> Return for Revision</b>.
                         <br /><br />
                         Mga request na naghihintay ng approval ng iyong departamento. Suriin ang detalye, at piliin ang
-                        <b> Approve</b>, <b> Reject</b>, o <b> Return for Revision</b>. Kung walang ibang aksyon na pwede gawin bukod sa i-print ang request, ibig sabihin nito ay hindi pa ito naa-aprubahan ng ibang departamento at kailangan mo munang hintayin ang kanilang aksyon bago ka makapag-apruba.
+                        <b> Approve</b>, <b> Reject</b>, o <b> Return for Revision</b>.
                       </>
                     ),
                   },
@@ -1142,21 +1091,7 @@ export default function FRFDashboardPage() {
                         tinanggihan (Rejected). Mga request na may kinalaman ka lamang ang ipinapakita rito. (Para sa HRD Department, kasama rito ang mga request na na-noted na.)
                       </>
                     ),
-                  },
-                  awaiting_staff_change: {
-                    title: 'Awaiting Staff Change',
-                    color: 'orange',
-                    body: (
-                      <>
-                        Events you have requested to be <b>changed or updated</b> by ITO-MAIN.
-                        You cannot mark these as Noted until ITO-MAIN submits the new staff lineup.
-                        <br /><br />
-                        Mga event kung saan <b>nag-request ka ng staff change</b> sa ITO-MAIN.
-                        Hindi mo pa ma-mark as Noted ang mga ito hangga&apos;t hindi pa naisusumite ng
-                        ITO-MAIN ang bagong staff lineup.
-                      </>
-                    ),
-                  },
+                  }
                 };
 
                 const info = tabInfo[tab];
@@ -1257,7 +1192,7 @@ export default function FRFDashboardPage() {
         onSubmit={handlePasswordSubmit}
         loading={passLoading}
         error={passError}
-        requireRemarks={pendingAction?.type === 'REJECT' || pendingAction?.type === 'RETURN' || pendingAction?.type === 'APPROVE' || pendingAction?.type === 'PACKUP_DONE' || pendingAction?.type === 'REQUEST_STAFF_CHANGE'}
+        requireRemarks={pendingAction?.type === 'REJECT' || pendingAction?.type === 'RETURN' || pendingAction?.type === 'APPROVE' || pendingAction?.type === 'PACKUP_DONE'}
         enablePhotoUpload={pendingAction?.type === 'PACKUP_DONE'}
       />
 

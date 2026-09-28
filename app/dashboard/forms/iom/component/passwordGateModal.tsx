@@ -42,7 +42,7 @@ export default function PasswordGateModal({
   setActionAttachment,
   submitting,
   onSubmit,
-  zIndex = 1000,
+  zIndex = 5000,
 }: PasswordGateModalProps) {
   const actionType = pendingAction?.type;
 

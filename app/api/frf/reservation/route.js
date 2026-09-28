@@ -8,9 +8,7 @@ import { logActivity } from '../../../lib/logger';
 import {
   sendFRFApprovalToRequestor,
   sendFRFApprovalToNextDepartments,
-  sendFRFHRDNotification,
   getDepartmentHeads,
-  sendFRFHRDNotedNotification,
   sendFRFRescheduleNotification,
   sendFRFAssignmentToStaff,
 } from '../../../lib/email_notification';
@@ -367,7 +365,7 @@ export async function POST(request) {
     if (files && files.length > 0) {
       for (const file of files) {
         if (file && file.size > 0) {
-          const cleanFilename = `frf/${Date.now()}-${Math.floor(Math.random() * 1000)}-${file.name.replace(/[^a-zA-Z0-9.\-_]/g, "_")}`;
+          const cleanFilename = `frf/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.\-_]/g, "_")}`;
           const blob = await put(cleanFilename, file, {
             access: 'public',
             addRandomSuffix: true,
@@ -596,16 +594,35 @@ export async function PATCH(request) {
         const remarks = formData.get('remarks') || '';
         const files = formData.getAll('packUpPhotos');
 
-        const reservation = await prisma.facilityReservation.findUnique({
-          where: { id },
-          include: {
-            approvals: true,
-            dates: true,
-            equipmentRequests: true,
-            assignments: true,
-            requestor: true,
-          }
-        });
+      const reservation = await prisma.facilityReservation.findUnique({
+        where: { id },
+        include: {
+          approvals: {
+            orderBy: { stepOrder: 'asc' },
+            include: {
+              performedBy: { select: { fname: true, lname: true } }
+            }
+          },
+          requestor: true,
+          dates: {
+            include: {
+              place: true,
+            },
+          },
+          equipmentRequests: {
+            include: {
+              equipment: true,
+            },
+          },
+          assignments: {
+            include: {
+              user: {
+                select: { id: true, fname: true, lname: true, email: true },
+              },
+            },
+          },
+        }
+      });
 
         if (!reservation) {
           return NextResponse.json({ success: false, message: 'Reservation not found' }, { status: 404 });
@@ -677,7 +694,7 @@ export async function PATCH(request) {
         const photoUrls = [];
         for (const file of files) {
           if (file && file.size > 0) {
-            const cleanFilename = `frf/packup/${Date.now()}-${Math.floor(Math.random() * 1000)}-${file.name.replace(/[^a-zA-Z0-9.\-_]/g, "_")}`;
+            const cleanFilename = `frf/packup/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.\-_]/g, "_")}`;
             const blob = await put(cleanFilename, file, {
               access: 'public',
               addRandomSuffix: true,
@@ -696,17 +713,31 @@ export async function PATCH(request) {
               packUpDoneAt: new Date(),
               packUpDoneById: user.id,
               packUpDoneNotes: remarks.trim(),
-              packUpDonePhotos: photoUrls,  // 🆕
+              packUpDonePhotos: photoUrls,
             },
           });
 
           for (const req of reservation.equipmentRequests) {
-            await tx.equipment.update({
+            const eq = await tx.equipment.findUnique({
               where: { id: req.equipmentId },
-              data: {
-                quantityAvailable: { increment: req.quantityRequested },
-              },
+              select: { isSingleItem: true, quantityReserved: true }
             });
+            if (!eq) continue;
+
+            if (eq.isSingleItem) {
+              const releaseQty = Math.min(req.quantityRequested, eq.quantityReserved);
+              if (releaseQty > 0) {
+                await tx.equipment.update({
+                  where: { id: req.equipmentId },
+                  data: { quantityReserved: { decrement: releaseQty } }
+                });
+              }
+            } else {
+              await tx.equipment.update({
+                where: { id: req.equipmentId },
+                data: { quantityAvailable: { increment: req.quantityRequested } },
+              });
+            }
           }
         });
 
@@ -784,9 +815,23 @@ export async function PATCH(request) {
             }
           },
           requestor: true,
-          dates: true,
-          equipmentRequests: true,
-          assignments: true,
+          dates: {
+            include: {
+              place: true,
+            },
+          },
+          equipmentRequests: {
+            include: {
+              equipment: true,
+            },
+          },
+          assignments: {
+            include: {
+              user: {
+                select: { id: true, fname: true, lname: true, email: true },
+              },
+            },
+          },
         }
       });
 
@@ -885,7 +930,7 @@ export async function PATCH(request) {
       const newAttachmentPaths = [];
       for (const file of newFiles) {
         if (file && file.size > 0) {
-          const cleanFilename = `frf/${Date.now()}-${Math.floor(Math.random() * 1000)}-${file.name.replace(/[^a-zA-Z0-9.\-_]/g, "_")}`;
+          const cleanFilename = `frf/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.\-_]/g, "_")}`;
           const blob = await put(cleanFilename, file, {
             access: 'public',
             addRandomSuffix: true,
@@ -1018,35 +1063,35 @@ export async function PATCH(request) {
       );
     }
 
-    const reservation = await prisma.facilityReservation.findUnique({
-      where: { id },
-      include: {
-        approvals: {
-          orderBy: { stepOrder: 'asc' },
-          include: {
-            performedBy: { select: { fname: true, lname: true } }
-          }
-        },
-        requestor: true,
-        dates: {
-          include: {
-            place: true,
+      const reservation = await prisma.facilityReservation.findUnique({
+        where: { id },
+        include: {
+          approvals: {
+            orderBy: { stepOrder: 'asc' },
+            include: {
+              performedBy: { select: { fname: true, lname: true } }
+            }
           },
-        },
-        equipmentRequests: {
-          include: {
-            equipment: true,
-          },
-        },
-        assignments: {
-          include: {
-            user: {
-              select: { id: true, fname: true, lname: true, email: true },
+          requestor: true,
+          dates: {
+            include: {
+              place: true,
             },
           },
-        },
-      }
-    });
+          equipmentRequests: {
+            include: {
+              equipment: true,
+            },
+          },
+          assignments: {
+            include: {
+              user: {
+                select: { id: true, fname: true, lname: true, email: true },
+              },
+            },
+          },
+        }
+      });
 
     if (!reservation) {
       return NextResponse.json({ success: false, message: 'Reservation not found' }, { status: 404 });
@@ -1056,6 +1101,7 @@ export async function PATCH(request) {
     // APPROVE ACTION
     // ==========================================
     if (action === 'approve') {
+
       const pendingApproval = reservation.approvals.find(
         a => a.status === 'PENDING' && a.departmentCode === user.departmentCode
       );
@@ -1063,6 +1109,7 @@ export async function PATCH(request) {
       const isVenueOnly = reservation.isVenueOnly;
       const isITO = user.departmentCode === 'ITO-MAIN' || user.departmentCode === 'ITO';
 
+      // ---- Validations (unchanged) ----
       if (isVenueOnly && isITO) {
         return NextResponse.json(
           { success: false, message: 'ITO approval is not required for venue-only reservations.' },
@@ -1091,26 +1138,26 @@ export async function PATCH(request) {
         );
       }
 
-      console.log('🔍 reservation.isReschedule:', reservation.isReschedule);
-      console.log('🔍 reservation.isVenueOnly:', reservation.isVenueOnly);
-      console.log('🔍 user.departmentCode:', user.departmentCode);
-
-      // ---------- ITO Assignment Handling (FIXED) ----------
+      // ---------- ITO Assignment Handling ----------
+      // Only ITO users need to assign staff. Non-ITO users (PSMO/FMO, OCM, etc.)
+      // skip this entire block and proceed directly to approval update.
       if (isITO && !isVenueOnly) {
         console.log('✅ Entering ITO assignment block');
+
         if (reservation.isReschedule) {
+          // ---------- RESCHEDULE PATH: recreate assignments with new dates ----------
           console.log('✅ Reschedule detected – recreating assignments');
+
           // 1. Delete all existing assignments
           await prisma.facilityAssignment.deleteMany({
             where: { reservationId: id }
           });
 
-          // 2. Get the new dates from the reservation (already updated)
+          // 2. Get the new dates
           const newDates = await prisma.facilityReservationDate.findMany({
             where: { reservationId: id },
             orderBy: { date: 'asc' }
           });
-           console.log('📅 New dates found:', newDates.length);
 
           if (newDates.length === 0) {
             return NextResponse.json(
@@ -1122,34 +1169,30 @@ export async function PATCH(request) {
           // 3. Determine which assignments to use
           let assignmentData = assignments;
           if (!assignmentData || !Array.isArray(assignmentData) || assignmentData.length === 0) {
-            // Fallback: use existing assignments from the reservation (they still have the old dates)
+            // Fallback: use existing assignments (with old dates)
             assignmentData = reservation.assignments.map(a => ({
               userId: a.userId,
               dutyType: a.dutyType,
-              isOvertime: a.isOvertime ?? false, 
-              // We'll compute times from the old assignments
+              isOvertime: a.isOvertime ?? false,
               oldStart: new Date(a.dutyStart),
               oldEnd: new Date(a.dutyEnd),
             }));
           } else {
-            // Provided assignments – store their times
             assignmentData = assignments.map(a => ({
               userId: a.userId,
               dutyType: a.dutyType,
-              isOvertime: a.isOvertime ?? false, 
+              isOvertime: a.isOvertime ?? false,
               oldStart: new Date(a.dutyStart),
               oldEnd: new Date(a.dutyEnd),
             }));
           }
 
-          // 4. Re‑create assignments with new dates
+          // 4. Re-create assignments with new dates
           for (let i = 0; i < assignmentData.length; i++) {
             const ass = assignmentData[i];
-            // Use modulo to map to new dates (if more assignments than dates, cycle)
             const dateIndex = i % newDates.length;
             const dateObj = new Date(newDates[dateIndex].date);
 
-            // Preserve the time of day from the original assignment (if available) or default to 00:00
             let hoursStart = 0, minutesStart = 0, hoursEnd = 0, minutesEnd = 0;
             if (ass.oldStart) {
               hoursStart = ass.oldStart.getHours();
@@ -1177,9 +1220,49 @@ export async function PATCH(request) {
             });
           }
 
-          // Skip sending HRD notification for reschedule (already notified when reschedule was requested)
+          // Notify assigned staff of their NEW duty dates
+          try {
+            const staffIds = assignmentData.map(a => a.userId);
+            const staffUsers = await prisma.user.findMany({
+              where: { id: { in: staffIds } },
+              select: { id: true, email: true, fname: true, lname: true },
+            });
+
+            const freshAssignments = await prisma.facilityAssignment.findMany({
+              where: { reservationId: id },
+              include: {
+                user: { select: { id: true, fname: true, lname: true, email: true } },
+              },
+            });
+
+            const staffMap = Object.fromEntries(staffUsers.map(u => [u.id, u]));
+            const assignmentDetails = freshAssignments.map(a => ({
+              userId: a.userId,
+              staffName: `${staffMap[a.userId]?.fname || ''} ${staffMap[a.userId]?.lname || ''}`.trim(),
+              dutyStart: a.dutyStart,
+              dutyEnd: a.dutyEnd,
+              dutyType: a.dutyType,
+              isOvertime: a.isOvertime,
+              notes: a.notes,
+            }));
+
+            if (staffUsers.length > 0) {
+              const freshReservation = await prisma.facilityReservation.findUnique({
+                where: { id },
+                include: {
+                  requestor: true,
+                  dates: { include: { place: true } },
+                  equipmentRequests: { include: { equipment: true } },
+                },
+              });
+              await sendFRFAssignmentToStaff(staffUsers, freshReservation, assignmentDetails);
+            }
+          } catch (staffNotifErr) {
+            console.error('❌ [RESCHEDULE NOTIFY] Error:', staffNotifErr);
+          }
+
         } else {
-          // ---------- Normal ITO approval (new event) ----------
+          // ---------- NORMAL ITO APPROVAL (new event) ----------
           if (!assignments || !Array.isArray(assignments) || assignments.length === 0) {
             return NextResponse.json(
               { success: false, message: 'At least one staff assignment is required for ITO approval' },
@@ -1187,6 +1270,7 @@ export async function PATCH(request) {
             );
           }
 
+          // Validate each assignment
           for (const assignment of assignments) {
             if (!assignment.userId || !assignment.dutyStart || !assignment.dutyEnd || !assignment.dutyType) {
               return NextResponse.json(
@@ -1220,63 +1304,36 @@ export async function PATCH(request) {
             });
           }
 
-          // Send HRD notification for new assignments
+          // Notify assigned ITO staff
           try {
-            const hrdHeads = await getDepartmentHeads('HRD');
-            if (hrdHeads.length > 0) {
-              const staffIds = assignments.map(a => a.userId);
-              const staffUsers = await prisma.user.findMany({
-                where: { id: { in: staffIds } },
-                select: { id: true, email: true, fname: true, lname: true }   // 🆕 added email
-              });
-              const staffMap = Object.fromEntries(staffUsers.map(u => [u.id, u]));
+            const staffIds = assignments.map(a => a.userId);
+            const staffUsers = await prisma.user.findMany({
+              where: { id: { in: staffIds } },
+              select: { id: true, email: true, fname: true, lname: true },
+            });
 
-              const assignmentDetails = assignments.map(a => ({
-                userId: a.userId,                                              // 🆕
-                staffName: `${staffMap[a.userId]?.fname} ${staffMap[a.userId]?.lname}`,
-                dutyStart: a.dutyStart,
-                dutyEnd: a.dutyEnd,
-                dutyType: a.dutyType,
-                isOvertime: a.isOvertime,                                      // 🆕
-                notes: a.notes,                                                // 🆕
-              }));
+            const staffMap = Object.fromEntries(staffUsers.map(u => [u.id, u]));
 
-              await sendFRFHRDNotification(hrdHeads, reservation, assignmentDetails);
+            const assignmentDetails = assignments.map(a => ({
+              userId: a.userId,
+              staffName: `${staffMap[a.userId]?.fname || ''} ${staffMap[a.userId]?.lname || ''}`.trim(),
+              dutyStart: a.dutyStart,
+              dutyEnd: a.dutyEnd,
+              dutyType: a.dutyType,
+              isOvertime: a.isOvertime,
+              notes: a.notes,
+            }));
 
-              // 🆕 Notify each assigned staff (personal duty email)
-              try {
-                await sendFRFAssignmentToStaff(staffUsers, reservation, assignmentDetails);
-              } catch (staffNotifErr) {
-                console.error('Staff assignment notification error:', staffNotifErr);
-              }
-
-              const hrdUsers = await prisma.user.findMany({
-                where: {
-                  departmentCode: 'HRD',
-                  OR: [
-                    { role: 'DepartmentHead' },
-                    { oic_start: { lte: new Date().toISOString() }, oic_end: { gte: new Date().toISOString() } }
-                  ]
-                },
-                select: { id: true }
-              });
-              for (const u of hrdUsers) {
-                await prisma.notification.create({
-                  data: {
-                    title: 'FRF – OT Staff for Noting',
-                    message: `FRF ${reservation.referenceId} has ITO staff assigned for OT. Please note for records.`,
-                    isRead: false,
-                    recipientId: u.id,
-                    senderId: user.id
-                  }
-                });
-              }
+            if (staffUsers.length > 0) {
+              await sendFRFAssignmentToStaff(staffUsers, reservation, assignmentDetails);
             }
-          } catch (notifErr) {
-            console.error('HRD notification error:', notifErr);
+          } catch (staffNotifErr) {
+            console.error('❌ [NOTIFY] Staff assignment notification error:', staffNotifErr);
           }
         }
       }
+      // ⬆️ END: if (isITO && !isVenueOnly)
+      // Non-ITO users skip the entire block above and continue below.
 
       // ---------- Update the pending approval to APPROVED ----------
       await prisma.facilityApproval.update({
@@ -1289,43 +1346,7 @@ export async function PATCH(request) {
         }
       });
 
-      // If ITO approved, auto-acknowledge HRD (for both new and reschedule)
-      if (isITO) {
-        let hrdApproval = await prisma.facilityApproval.findFirst({
-          where: { reservationId: id, departmentCode: 'HRD' }
-        });
-
-        if (hrdApproval) {
-          if (hrdApproval.status === 'PENDING') {
-            await prisma.facilityApproval.update({
-              where: { id: hrdApproval.id },
-              data: {
-                status: 'ACKNOWLEDGED',
-                acknowledgedAt: new Date(),
-              }
-            });
-          } else {
-            await prisma.facilityApproval.update({
-              where: { id: hrdApproval.id },
-              data: {
-                acknowledgedAt: new Date(),
-              }
-            });
-          }
-        } else {
-          await prisma.facilityApproval.create({
-            data: {
-              reservationId: id,
-              departmentCode: 'HRD',
-              stepOrder: 999,
-              status: 'ACKNOWLEDGED',
-              acknowledgedAt: new Date(),
-            }
-          });
-        }
-      }
-
-      // ---------- Check if all NON‑HRD approvals are done ----------
+      // ---------- Check if all approvals are done ----------
       const allApprovals = await prisma.facilityApproval.findMany({
         where: { reservationId: id }
       });
@@ -1366,8 +1387,7 @@ export async function PATCH(request) {
         }
       }
 
-      const nonHrdApprovals = allApprovals.filter(a => a.departmentCode !== 'HRD');
-      const allNonHrdDone = nonHrdApprovals.every(a =>
+      const allNonHrdDone = allApprovals.every(a =>
         a.status === 'APPROVED' || a.status === 'ACKNOWLEDGED'
       );
 
@@ -1387,10 +1407,17 @@ export async function PATCH(request) {
         for (const req of equipmentRequests) {
           const eq = await prisma.equipment.findUnique({
             where: { id: req.equipmentId },
-            select: { quantityReserved: true }
+            select: { isSingleItem: true, quantityReserved: true }
           });
-          const reserveDec = Math.min(req.quantityRequested, eq?.quantityReserved ?? 0);
+          if (!eq) continue;
 
+          // ✅ Single items: reusable — don't decrement availability.
+          // Keep quantityReserved until Pack Up Done releases it.
+          if (eq.isSingleItem) {
+            continue;
+          }
+
+          const reserveDec = Math.min(req.quantityRequested, eq.quantityReserved);
           await prisma.equipment.update({
             where: { id: req.equipmentId },
             data: {
@@ -1690,81 +1717,10 @@ export async function PATCH(request) {
         }
       }
 
-      const canAssign =
-        !!reservation.staffChangeRequestedAt ||
-        reservation.assignments.length === 0;  
-      
-      console.log('🔍 canAssign check:', {
-        status: reservation.status,
-        assignmentsCount: reservation.assignments.length,
-        staffChangeRequestedAt: reservation.staffChangeRequestedAt,
-        canAssign,
-      });
+      // ITO-MAIN can always (re)assign staff for this reservation
 
-      if (!canAssign) {
-        return NextResponse.json(
-          { success: false, message: 'Assignment not allowed at this time. This reservation already has staff assigned. HRD must request a staff change first.' },
-          { status: 400 }
-        );
-      }
-
-      // 🆕 If staff change requested, delete existing + create new
-      if (reservation.staffChangeRequestedAt) {
-        await prisma.facilityAssignment.deleteMany({ where: { reservationId: id } });
-
-        // Clear the flag + notify HRD
-        await prisma.facilityReservation.update({
-          where: { id },
-          data: {
-            staffChangeRequestedAt: null,
-            staffChangeRequestedById: null,
-            staffChangeReason: null,
-          },
-        });
-
-        // Notify HRD that staff has been updated
-                // Notify HRD Head/OIC that staff has been updated
-        const hrdUsers = await prisma.user.findMany({
-          where: {
-            departmentCode: 'HRD',
-            OR: [
-              { role: 'DepartmentHead' },
-              { oic_start: { lte: new Date().toISOString() }, oic_end: { gte: new Date().toISOString() } },
-            ],
-          },
-          select: { id: true },
-        });
-
-        for (const hrd of hrdUsers) {
-          await prisma.notification.create({
-            data: {
-              title: 'Staff Assignment Updated',
-              message: `ITO-MAIN updated the staff assignment for FRF ${reservation.referenceId}.`,
-              isRead: false,
-              recipientId: hrd.id,
-              senderId: user.id,
-            },
-          });
-        }
-      }
-
-      // 🆕 Log the staff-change resolution separately
-      if (reservation.staffChangeRequestedAt) {
-        await logActivity({
-          req: request,
-          userId: user.id,
-          email: user.email,
-          action: 'FRF_STAFF_CHANGE_RESOLVED',
-          details: JSON.stringify({
-            reservationId: id,
-            referenceId: reservation.referenceId,
-            resolvedBy: `${user.fname} ${user.lname}`,
-            resolvedByDept: user.departmentCode,
-            newAssignmentsCount: assignments.length,
-            notifiedHRDHeads: (await getDepartmentHeads('HRD')).length,
-          }),
-        });
-      }
+      // If already has assignments, replace them
+      await prisma.facilityAssignment.deleteMany({ where: { reservationId: id } });
 
       const createdAssignments = [];
       for (const assignment of assignments) {
@@ -1919,134 +1875,7 @@ export async function PATCH(request) {
       });
     }
 
-    // ==========================================
-    // HRD NOTE ACTION
-    // ==========================================
-    if (action === 'note') {
-      if (user.departmentCode !== 'HRD') {
-        return NextResponse.json(
-          { success: false, message: 'Only HRD or OCM can mark as noted' },
-          { status: 403 }
-        );
-      }
-
-        if (reservation.staffChangeRequestedAt) {
-          return NextResponse.json(
-            {
-              success: false,
-              message: 'Cannot note the OT staff while a staff change is pending. Please wait for ITO-MAIN to update the assignments first.',
-            },
-            { status: 400 }
-          );
-        }
-
-      const reservationWithAssignments = await prisma.facilityReservation.findUnique({
-        where: { id },
-        include: {
-          approvals: true,
-          dates: true,
-          assignments: {
-            include: {
-              user: {
-                select: { id: true, email: true, fname: true, lname: true }
-              }
-            }
-          },
-          requestor: true
-        }
-      });
-
-      if (!reservationWithAssignments) {
-        return NextResponse.json({ success: false, message: 'Reservation not found' }, { status: 404 });
-      }
-
-      let hrdApproval = await prisma.facilityApproval.findFirst({
-        where: { reservationId: id, departmentCode: 'HRD' }
-      });
-
-      if (!hrdApproval) {
-        return NextResponse.json({ success: false, message: 'HRD approval record not found' }, { status: 404 });
-      }
-
-      await prisma.facilityApproval.update({
-        where: { id: hrdApproval.id },
-        data: {
-          status: 'ACKNOWLEDGED',
-          acknowledgedAt: new Date(),
-          remarks: `Noted by ${user.fname} ${user.lname} on ${new Date().toLocaleString()}`,
-          performedById: user.id,
-          performedAt: new Date()
-        }
-      });
-
-      try {
-        const itoHeads = await prisma.user.findMany({
-          where: {
-            departmentCode: 'ITO-MAIN',
-            OR: [
-              { role: 'DepartmentHead' },
-              { oic_start: { lte: new Date().toISOString() }, oic_end: { gte: new Date().toISOString() } }
-            ]
-          },
-          select: { id: true, email: true, fname: true, lname: true }
-        });
-
-        const assignedStaff = reservationWithAssignments.assignments.map(a => a.user);
-        const uniqueStaff = assignedStaff.filter((u, i, self) => 
-          self.findIndex(s => s.id === u.id) === i
-        );
-
-        for (const head of itoHeads) {
-          await prisma.notification.create({
-            data: {
-              title: 'FRF Noted by HRD',
-              message: `HRD has noted the OT staff assignments for FRF ${reservationWithAssignments.referenceId}.`,
-              isRead: false,
-              recipientId: head.id,
-              senderId: user.id
-            }
-          });
-        }
-
-        for (const staff of uniqueStaff) {
-          await prisma.notification.create({
-            data: {
-              title: 'FRF Noted by HRD',
-              message: `HRD has noted your OT assignment for FRF ${reservationWithAssignments.referenceId}.`,
-              isRead: false,
-              recipientId: staff.id,
-              senderId: user.id
-            }
-          });
-        }
-
-        if (itoHeads.length > 0 || uniqueStaff.length > 0) {
-          await sendFRFHRDNotedNotification(itoHeads, uniqueStaff, reservationWithAssignments);
-        }
-      } catch (notifErr) {
-        console.error('HRD note notification error:', notifErr);
-      }
-
-      await logActivity({
-        req: request,
-        userId: user.id,
-        email: user.email,
-        action: 'FRF_HRD_NOTE',
-        details: JSON.stringify({
-          reservationId: id,
-          notedBy: `${user.fname} ${user.lname}`,
-          notedAt: new Date().toISOString()
-        })
-      });
-
-      return NextResponse.json({
-        success: true,
-        message: 'Reservation noted by HRD',
-        data: { status: reservationWithAssignments.status }
-      });
-    }
-
-        if (action === 'reschedule') {
+    if (action === 'reschedule') {
       const isVenueOnly = reservation.isVenueOnly;
 
       // 1. Only requestor can reschedule
@@ -2281,6 +2110,14 @@ export async function PATCH(request) {
         placeOther: d.placeOther,
       }));
 
+      // 🆕 15.5. Store original equipment for history
+      const originalEquipment = reservation.equipmentRequests.map(eq => ({
+        equipmentId: eq.equipmentId,
+        quantityRequested: eq.quantityRequested,
+        equipmentName: eq.equipment?.name,
+        departmentCode: eq.equipment?.departmentCode,
+      }));
+
       // 16. Store original approvals as JSON for history
       const originalApprovals = reservation.approvals.map(a => ({
         id: a.id,
@@ -2296,24 +2133,35 @@ export async function PATCH(request) {
         performedBy: a.performedBy ? { fname: a.performedBy.fname, lname: a.performedBy.lname } : undefined,
       }));
 
-      // 17. Update reservation
-      await prisma.$transaction(async (tx) => {
+        await prisma.$transaction(async (tx) => {
 
-        for (const req of reservation.equipmentRequests) {
-          const eq = await tx.equipment.findUnique({
-            where: { id: req.equipmentId },
-            select: { quantityReserved: true }
-          });
-          const reserveDec = Math.min(req.quantityRequested, eq?.quantityReserved ?? 0);
+          for (const req of reservation.equipmentRequests) {
+            const eq = await tx.equipment.findUnique({
+              where: { id: req.equipmentId },
+              select: { isSingleItem: true, quantityReserved: true }
+            });
+            if (!eq) continue;
 
-          await tx.equipment.update({
-            where: { id: req.equipmentId },
-            data: {
-              quantityAvailable: { increment: req.quantityRequested },
-              quantityReserved: { decrement: reserveDec }
+            const reserveDec = Math.min(req.quantityRequested, eq.quantityReserved);
+
+            if (eq.isSingleItem) {
+              // ✅ Single items: release reservation only, don't touch availability
+              if (reserveDec > 0) {
+                await tx.equipment.update({
+                  where: { id: req.equipmentId },
+                  data: { quantityReserved: { decrement: reserveDec } }
+                });
+              }
+            } else {
+              await tx.equipment.update({
+                where: { id: req.equipmentId },
+                data: {
+                  quantityAvailable: { increment: req.quantityRequested },
+                  quantityReserved: { decrement: reserveDec }
+                }
+              });
             }
-          });
-        }
+          }
 
         // Delete old dates and equipment
         await tx.facilityReservationDate.deleteMany({
@@ -2363,23 +2211,23 @@ export async function PATCH(request) {
       });
 
       for (const item of equipmentToUse) {
-          const eq = await tx.equipment.findUnique({
-            where: { id: item.equipmentId },
-            select: { isSingleItem: true, quantityAvailable: true, quantityReserved: true, name: true }
-          });
-          if (!eq) continue;
+        const eq = await prisma.equipment.findUnique({
+          where: { id: item.equipmentId },
+          select: { isSingleItem: true, quantityAvailable: true, quantityReserved: true, name: true }
+        });
+        if (!eq) continue;
 
-          const qty = eq.isSingleItem ? 1 : (item.quantity || 1);
-          const trulyAvailable = eq.quantityAvailable - eq.quantityReserved;
-          if (trulyAvailable < qty) {
-            throw new Error(`Not enough stock for ${eq.name}. Available: ${trulyAvailable}, requested: ${qty}.`);
-          }
-
-          await tx.equipment.update({
-            where: { id: item.equipmentId },
-            data: { quantityReserved: { increment: qty } }
-          });
+        const qty = eq.isSingleItem ? 1 : (item.quantity || 1);
+        const trulyAvailable = eq.quantityAvailable - eq.quantityReserved;
+        if (trulyAvailable < qty) {
+          throw new Error(`Not enough stock for ${eq.name}. Available: ${trulyAvailable}, requested: ${qty}.`);
         }
+
+        await prisma.equipment.update({
+          where: { id: item.equipmentId },
+          data: { quantityReserved: { increment: qty } }
+        });
+      }
 
       // 17. Notify the first department
       try {
@@ -2437,105 +2285,6 @@ export async function PATCH(request) {
       });
     }
 
-    // ==========================================
-    // REQUEST STAFF CHANGE ACTION (HRD → ITO-MAIN)
-    // ==========================================
-    if (action === 'request-staff-change') {
-      // 1. Only HRD can request
-      if (user.departmentCode !== 'HRD') {
-        return NextResponse.json(
-          { success: false, message: 'Only HRD can request staff change' },
-          { status: 403 }
-        );
-      }
-
-      // 2. Only Head/OIC
-      if (!isHeadOrOIC(user) && !isSuperUser(user)) {
-        return NextResponse.json(
-          { success: false, message: 'Only HRD Head or OIC can request staff change' },
-          { status: 403 }
-        );
-      }
-
-      // 3. Reservation must be COMPLETED
-      if (reservation.status !== 'COMPLETED') {
-        return NextResponse.json(
-          { success: false, message: 'Staff change can only be requested for completed reservations' },
-          { status: 400 }
-        );
-      }
-
-      // 4. Not yet requested (avoid double submit)
-      if (reservation.staffChangeRequestedAt) {
-        return NextResponse.json(
-          { success: false, message: 'A staff change request is already pending' },
-          { status: 400 }
-        );
-      }
-
-      // 5. Reason required
-      if (!remarks || remarks.trim() === '') {
-        return NextResponse.json(
-          { success: false, message: 'Reason is required for staff change request' },
-          { status: 400 }
-        );
-      }
-
-      // 6. Update reservation + notify ITO-MAIN
-      await prisma.facilityReservation.update({
-        where: { id },
-        data: {
-          staffChangeRequestedAt: new Date(),
-          staffChangeRequestedById: user.id,
-          staffChangeReason: remarks,
-        },
-      });
-
-      // Notify ITO-MAIN Head/OIC
-      const itoHeads = await prisma.user.findMany({
-        where: {
-          departmentCode: 'ITO-MAIN',
-          OR: [
-            { role: 'DepartmentHead' },
-            { oic_start: { lte: new Date().toISOString() }, oic_end: { gte: new Date().toISOString() } },
-          ],
-        },
-        select: { id: true },
-      });
-
-      for (const head of itoHeads) {
-        await prisma.notification.create({
-          data: {
-            title: 'Staff Change Requested',
-            message: `HRD requested a staff change for FRF ${reservation.referenceId}. Reason: ${remarks}`,
-            isRead: false,
-            recipientId: head.id,
-            senderId: user.id,
-          },
-        });
-      }
-
-      // Log activity
-      await logActivity({
-        req: request,
-        userId: user.id,
-        email: user.email,
-        action: 'FRF_REQUEST_STAFF_CHANGE',
-        details: JSON.stringify({
-          reservationId: id,
-          referenceId: reservation.referenceId,
-          requestedBy: `${user.fname} ${user.lname}`,
-          requestedByDept: user.departmentCode,
-          reason: remarks,
-          notifiedITOHeads: itoHeads.length,
-        }),
-      });
-
-      return NextResponse.json({
-        success: true,
-        message: 'Staff change request sent to ITO-MAIN',
-      });
-    }
 
     // ==========================================
     // INVALID ACTION

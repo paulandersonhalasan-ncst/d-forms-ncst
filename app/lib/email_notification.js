@@ -6,12 +6,188 @@ import { prisma } from '../../prisma/prisma';
  * OIC = user with oic_start and oic_end covering current date/time
  */
 
+const esc = (s) =>
+  String(s ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
+const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+
+// ============================================
+// 🆕 Brand Palette (matches Mantine theme)
+// ============================================
+const BRAND = {
+  // Primary — regalNavy
+  navy:          '#003980',   // regalNavy[9]  — headings, CTA
+  navyMid:       '#377ff5',   // regalNavy[5]  — mid accent
+  navyLight:     '#ebf4ff',   // regalNavy[0]  — subtle tint
+
+  // Accent — customCreamYellow
+  cream:         '#feb118',   // creamYellow[6] — attention/pending
+  creamMid:      '#feb625',   // creamYellow[5]
+  creamDark:     '#a86f00',   // darker cream for text on cream bg
+  creamBg:       '#fff8e5',   // creamYellow[0] — info block bg
+  creamBorder:   '#fedf9e',   // creamYellow[2] — borders
+
+  // Neutrals
+  seashell:      '#fff8f2',   // page background
+  carbon:        '#242424',   // body text
+  white:         '#ffffff',
+  gray:          '#666666',
+  grayLight:     '#999999',
+  borderWarm:    '#f0e6d8',   // warm divider
+
+  // Semantic (keep)
+  success:       '#16a34a',
+  successBg:     '#d4edda',
+  successText:   '#155724',
+  danger:        '#dc2626',
+  dangerBg:      '#f8d7da',
+  dangerText:    '#721c24',
+  revision:      '#fff3cd',   // pending revision bg
+  revisionText:  '#856404',
+};
+
+// ============================================
+// 🎨 Shared email wrapper (para sa MEMO at iba pang simpleng notifications)
+// ============================================
+function renderEmailWrapper({
+  title,
+  icon = '',
+  accentColor = BRAND.navy,
+  subtitle = '',
+  bodyContent = '',
+  actionUrl = '',
+  actionLabel = 'View on NCST D-Forms',
+  footerNote = '',
+}) {
+  const nowStr = new Date().toLocaleString('en-US', {
+    timeZone: 'Asia/Manila',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
+
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>${esc(title)}</title>
+    </head>
+    <body style="margin: 0; padding: 0; background-color: ${BRAND.seashell}; font-family: 'Inter', Arial, Helvetica, sans-serif;">
+      <div style="max-width: 760px; margin: 24px auto; background-color: ${BRAND.white}; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); overflow: hidden;">
+
+        <!-- Header -->
+        <div style="padding: 28px 40px 20px 40px; border-bottom: 3px solid ${accentColor};">
+          <div style="font-size: 20px; font-weight: 700; color: ${accentColor}; letter-spacing: 0.3px;">
+            ${icon ? icon + ' ' : ''}${esc(title)}
+          </div>
+          ${subtitle ? `<div style="color: ${BRAND.gray}; font-size: 13px; margin-top: 4px;">${subtitle}</div>` : ''}
+        </div>
+
+        <!-- Body -->
+        <div style="padding: 24px 40px 32px 40px;">
+          ${bodyContent}
+
+          ${actionUrl ? `
+            <div style="text-align: center; margin-top: 28px;">
+              <a href="${actionUrl}" style="display: inline-block; padding: 12px 28px; background-color: ${BRAND.navy}; color: ${BRAND.white}; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 14px;">
+                ${esc(actionLabel)}
+              </a>
+            </div>
+          ` : ''}
+
+          ${footerNote ? `
+            <p style="text-align: center; font-size: 11px; color: ${BRAND.grayLight}; margin: 14px 0 0 0;">
+              ${esc(footerNote)}
+            </p>
+          ` : ''}
+        </div>
+
+        <!-- Footer -->
+        <div style="padding: 20px 40px; border-top: 1px solid ${BRAND.borderWarm}; background: #fafafa; text-align: center; font-size: 12px; color: ${BRAND.grayLight};">
+          <p style="margin: 0;">
+            This is a system-generated notification from
+            <a href="${baseUrl}" style="color: ${BRAND.navy}; text-decoration: none; font-weight: 600;">NCST D-Forms</a>.
+          </p>
+          <p style="margin: 6px 0 0 0; font-size: 11px; color: #bbb;">
+            Printed on ${esc(nowStr)}
+          </p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+}
+
+function renderInfoGrid(items) {
+  // items: [{ label, value, span?: 2 }]
+  // value should be pre-escaped HTML string
+  const rows = [];
+  let i = 0;
+  while (i < items.length) {
+    if (items[i].span === 2) {
+      rows.push(`
+        <tr>
+          <td colspan="2" style="padding: 10px 12px; border-bottom: 1px solid #e9ecef;">
+            <div style="color: ${BRAND.gray}; font-size: 11px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase;">${esc(items[i].label)}</div>
+            <div style="font-size: 13px; color: ${BRAND.navy}; margin-top: 2px;">${items[i].value}</div>
+          </td>
+        </tr>`);
+      i += 1;
+      continue;
+    }
+    const left = items[i];
+    const right = items[i + 1];
+    rows.push(`
+      <tr>
+        <td style="padding: 10px 12px; border-bottom: 1px solid #e9ecef;">
+          <div style="color: ${BRAND.gray}; font-size: 11px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase;">${esc(left.label)}</div>
+          <div style="font-size: 13px; color: ${BRAND.navy}; margin-top: 2px;">${left.value}</div>
+        </td>
+        ${right ? `
+          <td style="padding: 10px 12px; border-bottom: 1px solid #e9ecef;">
+            <div style="color: ${BRAND.gray}; font-size: 11px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase;">${esc(right.label)}</div>
+            <div style="font-size: 13px; color: ${BRAND.navy}; margin-top: 2px;">${right.value}</div>
+          </td>
+        ` : '<td style="padding: 10px 12px;"></td>'}
+      </tr>`);
+    i += right ? 2 : 1;
+  }
+
+  return `
+    <table cellpadding="0" cellspacing="0" border="0" style="width: 100%; border-collapse: collapse; background: #f8f9fa; border-radius: 6px; margin: 16px 0;">
+      ${rows.join('')}
+    </table>
+  `;
+}
+
+function greetingBlock(name) {
+  return `
+    <p style="font-size: 14px; color: ${BRAND.carbon}; line-height: 1.6; margin: 0 0 12px 0;">
+      Dear <b>${esc(name)}</b>,
+    </p>`;
+}
+
+function bodyText(content) {
+  // content should be pre-escaped HTML string
+  return `<p style="font-size: 14px; color: ${BRAND.carbon}; line-height: 1.7; margin: 0 0 16px 0;">${content}</p>`;
+}
+
 function renderFRFDetailsHTML(reservation, options = {}) {
   const {
     showApprovals = false,
     showAssignments = false,
     showPackUp = false,
-    accentColor = '#1a3a5c',
+    accentColor = BRAND.navy,
   } = options;
 
   const fmtDate = (v) =>
@@ -27,11 +203,6 @@ function renderFRFDetailsHTML(reservation, options = {}) {
           hour12: true,
         })
       : '—';
-  const esc = (s) =>
-    String(s ?? '')
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
 
   // ----- Unique venues -----
   const venueMap = new Map();
@@ -295,14 +466,8 @@ function renderFRFDetailsHTML(reservation, options = {}) {
  * @param {Array<{userId:string, staffName:string, dutyStart:any, dutyEnd:any, dutyType:string, isOvertime:boolean, notes?:string}>} assignments
  */
 export async function sendFRFAssignmentToStaff(assignedStaffUsers, reservation, assignments) {
-  const actionUrl = `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/forms/frf`;
-  const accentColor = '#0d9488'; // teal
-
-  const esc = (s) =>
-    String(s ?? '')
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
+  const actionUrl = `${baseUrl}/dashboard/forms/frf`;
+  const accentColor = BRAND.navyMid; // teal
 
   const fmtDate = (v) =>
     v ? new Date(v).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : '—';
@@ -500,9 +665,15 @@ export async function sendFRFAssignmentToStaff(assignedStaffUsers, reservation, 
     `;
 
     try {
-      await sendEmailWithRetry({ to: staff.email, subject, html });
+      console.log(`📧 [ASSIGN] Sending to ${staff.email}...`);
+      const result = await sendEmailWithRetry({ to: staff.email, subject, html });
+      if (result) {
+        console.log(`✅ [ASSIGN] Sent to ${staff.email}`);
+      } else {
+        console.warn(`⚠️ [ASSIGN] Failed to send to ${staff.email} (sendEmailWithRetry returned false)`);
+      }
     } catch (err) {
-      console.error(`Failed to send assignment email to ${staff.email}:`, err);
+      console.error(`❌ [ASSIGN] Error sending to ${staff.email}:`, err);
     }
   }
 }
@@ -563,19 +734,37 @@ async function getAdminAndSuperUsers() {
 // Memo Notification Helpers
 // ============================================
 
+// ============================================
+// Memo Notification Helpers
+// ============================================
+
 export async function sendMemoSubmittedForApproval(staff, memo) {
   const deptHeads = await getDepartmentHeads(memo.senderDept);
   if (deptHeads.length === 0) return;
 
   const subject = `📝 New Draft Memo for Approval – ${memo.referenceId}`;
-  const html = `
-    <h2>Draft Memo Pending Your Approval</h2>
-    <p><strong>From:</strong> ${staff.fname} ${staff.lname} (${memo.senderDept})</p>
-    <p><strong>Subject:</strong> ${memo.subject}</p>
-    <p><strong>Reference:</strong> ${memo.referenceId}</p>
-    <p>Please review and approve this memo via the D-Forms dashboard.</p>
-    <p><a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/forms/iom?tab=approval">Click here to review</a></p>
-  `;
+
+  const info = renderInfoGrid([
+    { label: 'Reference', value: esc(memo.referenceId) },
+    { label: 'From', value: `${esc(staff.fname)} ${esc(staff.lname)}` },
+    { label: 'Department', value: esc(memo.senderDept) },
+    { label: 'Priority', value: esc(memo.priority || 'ROUTINE') },
+    { label: 'Subject', value: esc(memo.subject), span: 2 },
+  ]);
+
+  const html = renderEmailWrapper({
+    title: 'Draft Memo Pending Your Approval',
+    icon: '📝',
+    accentColor: BRAND.cream,
+    subtitle: `${esc(memo.referenceId)} &nbsp;·&nbsp; ${esc(new Date().toLocaleString('en-US', { timeZone: 'Asia/Manila' }))}`,
+    bodyContent: `
+      ${greetingBlock('Department Head')}
+      ${bodyText(`A draft memo has been submitted and is pending your <b>signature / approval</b>.`)}
+      ${info}
+    `,
+    actionUrl: `${baseUrl}/dashboard/forms/iom?tab=approval`,
+    actionLabel: 'Review Memo on NCST D-Forms',
+  });
 
   for (const head of deptHeads) {
     await sendEmailWithRetry({ to: head.email, subject, html });
@@ -584,26 +773,55 @@ export async function sendMemoSubmittedForApproval(staff, memo) {
 
 export async function sendMemoApproved(sender, memo) {
   const subject = `✅ Memo Approved – ${memo.referenceId}`;
-  const html = `
-    <h2>Your Memo Has Been Approved</h2>
-    <p><strong>Subject:</strong> ${memo.subject}</p>
-    <p><strong>Reference:</strong> ${memo.referenceId}</p>
-    <p>Your memo has been approved and sent to all recipients.</p>
-    <p><a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/forms/iom?tab=outbound">View Memo</a></p>
-  `;
+
+  const info = renderInfoGrid([
+    { label: 'Reference', value: esc(memo.referenceId) },
+    { label: 'Priority', value: esc(memo.priority || 'ROUTINE') },
+    { label: 'Subject', value: esc(memo.subject), span: 2 },
+  ]);
+
+  const html = renderEmailWrapper({
+    title: 'Memo Approved',
+    icon: '✅',
+    accentColor: BRAND.success,
+    subtitle: `${esc(memo.referenceId)} &nbsp;·&nbsp; ${esc(new Date().toLocaleString('en-US', { timeZone: 'Asia/Manila' }))}`,
+    bodyContent: `
+      ${greetingBlock(`${sender.fname} ${sender.lname}`)}
+      ${bodyText(`Your memo has been <b style="color: ${BRAND.success};">approved</b> and sent to all recipients.`)}
+      ${info}
+    `,
+    actionUrl: `${baseUrl}/dashboard/forms/iom?tab=outbound`,
+    actionLabel: 'View Memo',
+  });
+
   await sendEmailWithRetry({ to: sender.email, subject, html });
 }
 
 export async function sendMemoInbound(recipientHeads, memo) {
   const subject = `📨 Inbound Memo – ${memo.referenceId}`;
-  const html = `
-    <h2>New Inbound Memo</h2>
-    <p><strong>From:</strong> ${memo.senderName} (${memo.senderDept})</p>
-    <p><strong>Subject:</strong> ${memo.subject}</p>
-    <p><strong>Reference:</strong> ${memo.referenceId}</p>
-    <p>Please acknowledge this memo.</p>
-    <p><a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/forms/iom?tab=inbound">View Inbound</a></p>
-  `;
+
+  const info = renderInfoGrid([
+    { label: 'Reference', value: esc(memo.referenceId) },
+    { label: 'Priority', value: esc(memo.priority || 'ROUTINE') },
+    { label: 'From', value: esc(memo.senderName) },
+    { label: 'Department', value: esc(memo.senderDept) },
+    { label: 'Subject', value: esc(memo.subject), span: 2 },
+  ]);
+
+  const html = renderEmailWrapper({
+    title: 'New Inbound Memo',
+    icon: '📨',
+    accentColor: BRAND.navy,
+    subtitle: `${esc(memo.referenceId)} &nbsp;·&nbsp; ${esc(new Date().toLocaleString('en-US', { timeZone: 'Asia/Manila' }))}`,
+    bodyContent: `
+      ${greetingBlock('Department Head')}
+      ${bodyText(`You have received a new inbound memo. Please <b>acknowledge</b> it in the system.`)}
+      ${info}
+    `,
+    actionUrl: `${baseUrl}/dashboard/forms/iom?tab=inbound`,
+    actionLabel: 'View Inbound Memo',
+  });
+
   for (const head of recipientHeads) {
     await sendEmailWithRetry({ to: head.email, subject, html });
   }
@@ -611,92 +829,204 @@ export async function sendMemoInbound(recipientHeads, memo) {
 
 export async function sendMemoAcknowledged(sender, memo, departmentName, acknowledgedBy) {
   const subject = `✅ Memo Acknowledged – ${memo.referenceId}`;
-  const html = `
-    <h2>Memo Acknowledged</h2>
-    <p><strong>Department:</strong> ${departmentName}</p>
-    <p><strong>Acknowledged by:</strong> ${acknowledgedBy}</p>
-    <p><strong>Subject:</strong> ${memo.subject}</p>
-    <p><strong>Reference:</strong> ${memo.referenceId}</p>
-  `;
+
+  const info = renderInfoGrid([
+    { label: 'Reference', value: esc(memo.referenceId) },
+    { label: 'Department', value: esc(departmentName) },
+    { label: 'Acknowledged by', value: esc(acknowledgedBy) },
+    { label: 'Subject', value: esc(memo.subject), span: 2 },
+  ]);
+
+  const html = renderEmailWrapper({
+    title: 'Memo Acknowledged',
+    icon: '✅',
+    accentColor: BRAND.success,
+    subtitle: `${esc(memo.referenceId)} &nbsp;·&nbsp; ${esc(new Date().toLocaleString('en-US', { timeZone: 'Asia/Manila' }))}`,
+    bodyContent: `
+      ${greetingBlock(`${sender.fname} ${sender.lname}`)}
+      ${bodyText(`Your memo has been <b>acknowledged</b> by the recipient department.`)}
+      ${info}
+    `,
+    actionUrl: `${baseUrl}/dashboard/forms/iom?tab=outbound`,
+    actionLabel: 'View Memo',
+  });
+
   await sendEmailWithRetry({ to: sender.email, subject, html });
 }
 
 export async function sendMemoProcessingStarted(sender, memo, processor) {
   const subject = `⚙️ Memo Processing Started – ${memo.referenceId}`;
-  const html = `
-    <h2>Memo Processing Started</h2>
-    <p><strong>Processor:</strong> ${processor.fname} ${processor.lname} (${processor.departmentCode})</p>
-    <p><strong>Subject:</strong> ${memo.subject}</p>
-    <p><strong>Reference:</strong> ${memo.referenceId}</p>
-  `;
+
+  const info = renderInfoGrid([
+    { label: 'Reference', value: esc(memo.referenceId) },
+    { label: 'Processor', value: `${esc(processor.fname)} ${esc(processor.lname)}` },
+    { label: 'Department', value: esc(processor.departmentCode) },
+    { label: 'Subject', value: esc(memo.subject), span: 2 },
+  ]);
+
+  const html = renderEmailWrapper({
+    title: 'Memo Processing Started',
+    icon: '⚙️',
+    accentColor: BRAND.navyMid,
+    subtitle: `${esc(memo.referenceId)} &nbsp;·&nbsp; ${esc(new Date().toLocaleString('en-US', { timeZone: 'Asia/Manila' }))}`,
+    bodyContent: `
+      ${greetingBlock(`${sender.fname} ${sender.lname}`)}
+      ${bodyText(`Your memo is now being <b>processed</b> by the recipient department.`)}
+      ${info}
+    `,
+    actionUrl: `${baseUrl}/dashboard/forms/iom?tab=outbound`,
+    actionLabel: 'View Memo',
+  });
+
   await sendEmailWithRetry({ to: sender.email, subject, html });
 }
 
 export async function sendMemoAssigned(assignedStaff, memo) {
   const subject = `📌 Memo Assigned to You – ${memo.referenceId}`;
-  const html = `
-    <h2>Memo Assigned to You</h2>
-    <p><strong>Subject:</strong> ${memo.subject}</p>
-    <p><strong>Reference:</strong> ${memo.referenceId}</p>
-    <p>You have been assigned to process this memo.</p>
-    <p><a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/forms/iom?tab=assigned_to_me">View Assigned Memos</a></p>
-  `;
+
+  const info = renderInfoGrid([
+    { label: 'Reference', value: esc(memo.referenceId) },
+    { label: 'Priority', value: esc(memo.priority || 'ROUTINE') },
+    { label: 'Subject', value: esc(memo.subject), span: 2 },
+  ]);
+
+  const html = renderEmailWrapper({
+    title: 'Memo Assigned to You',
+    icon: '📌',
+    accentColor: BRAND.navyMid,
+    subtitle: `${esc(memo.referenceId)} &nbsp;·&nbsp; ${esc(new Date().toLocaleString('en-US', { timeZone: 'Asia/Manila' }))}`,
+    bodyContent: `
+      ${greetingBlock(`${assignedStaff.fname} ${assignedStaff.lname}`)}
+      ${bodyText(`You have been <b>assigned</b> to process this memo. Please review and take the necessary action.`)}
+      ${info}
+    `,
+    actionUrl: `${baseUrl}/dashboard/forms/iom?tab=assigned_to_me`,
+    actionLabel: 'View Assigned Memos',
+  });
+
   await sendEmailWithRetry({ to: assignedStaff.email, subject, html });
 }
 
 export async function sendMemoClosed(sender, memo, closerName, departmentName) {
   const subject = `🔒 Memo Closed – ${memo.referenceId}`;
-  const html = `
-    <h2>Memo Closed</h2>
-    <p><strong>Closed by:</strong> ${closerName} (${departmentName})</p>
-    <p><strong>Subject:</strong> ${memo.subject}</p>
-    <p><strong>Reference:</strong> ${memo.referenceId}</p>
-  `;
+
+  const info = renderInfoGrid([
+    { label: 'Reference', value: esc(memo.referenceId) },
+    { label: 'Closed by', value: esc(closerName) },
+    { label: 'Department', value: esc(departmentName) },
+    { label: 'Subject', value: esc(memo.subject), span: 2 },
+  ]);
+
+  const html = renderEmailWrapper({
+    title: 'Memo Closed',
+    icon: '🔒',
+    accentColor: BRAND.gray,
+    subtitle: `${esc(memo.referenceId)} &nbsp;·&nbsp; ${esc(new Date().toLocaleString('en-US', { timeZone: 'Asia/Manila' }))}`,
+    bodyContent: `
+      ${greetingBlock(`${sender.fname} ${sender.lname}`)}
+      ${bodyText(`This memo has been <b>closed</b>. No further action is required.`)}
+      ${info}
+    `,
+    actionUrl: `${baseUrl}/dashboard/forms/iom?tab=outbound`,
+    actionLabel: 'View Memo',
+  });
+
   await sendEmailWithRetry({ to: sender.email, subject, html });
 }
 
 export async function sendReplyNotification(originalSender, replyMemo) {
   const subject = `💬 Reply to Your Memo – ${replyMemo.referenceId}`;
-  const html = `
-    <h2>Reply Received</h2>
-    <p><strong>From:</strong> ${replyMemo.senderName} (${replyMemo.senderDept})</p>
-    <p><strong>Subject:</strong> ${replyMemo.subject}</p>
-    <p><strong>Reference:</strong> ${replyMemo.referenceId}</p>
-    <p>You have received a reply to your memo.</p>
-    <p><a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/forms/iom?tab=outbound">View Reply</a></p>
-  `;
+
+  const info = renderInfoGrid([
+    { label: 'Reference', value: esc(replyMemo.referenceId) },
+    { label: 'From', value: esc(replyMemo.senderName) },
+    { label: 'Department', value: esc(replyMemo.senderDept) },
+    { label: 'Priority', value: esc(replyMemo.priority || 'ROUTINE') },
+    { label: 'Subject', value: esc(replyMemo.subject), span: 2 },
+  ]);
+
+  const html = renderEmailWrapper({
+    title: 'Reply Received',
+    icon: '💬',
+    accentColor: BRAND.navyMid,
+    subtitle: `${esc(replyMemo.referenceId)} &nbsp;·&nbsp; ${esc(new Date().toLocaleString('en-US', { timeZone: 'Asia/Manila' }))}`,
+    bodyContent: `
+      ${greetingBlock(`${originalSender.fname} ${originalSender.lname}`)}
+      ${bodyText(`You have received a <b>reply</b> to your memo.`)}
+      ${info}
+    `,
+    actionUrl: `${baseUrl}/dashboard/forms/iom?tab=outbound`,
+    actionLabel: 'View Reply',
+  });
+
   await sendEmailWithRetry({ to: originalSender.email, subject, html });
 }
 
-// ============================================
-// Memo Denied / Completed Notifications
-// ============================================
-
 export async function sendMemoDenied(sender, memo, departmentName, deniedBy, reason) {
   const subject = `🚫 Memo Denied – ${memo.referenceId}`;
-  const html = `
-    <h2>Memo Denied</h2>
-    <p><strong>Denied by:</strong> ${deniedBy} (${departmentName})</p>
-    <p><strong>Reason:</strong> ${reason || 'No reason provided.'}</p>
-    <p><strong>Subject:</strong> ${memo.subject}</p>
-    <p><strong>Reference:</strong> ${memo.referenceId}</p>
-    <p>Please review the denial and take necessary action.</p>
-    <p><a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/forms/iom?tab=outbound">View Memo</a></p>
-  `;
+
+  const reasonBlock = `
+    <div style="margin: 16px 0; padding: 12px 16px; border-left: 3px solid ${BRAND.danger}; background: ${BRAND.dangerBg}; border-radius: 4px;">
+      <div style="font-weight: 600; font-size: 12px; color: ${BRAND.dangerText}; margin-bottom: 4px;">REASON FOR DENIAL</div>
+      <div style="font-size: 13px; color: #333; white-space: pre-wrap; line-height: 1.5;">${esc(reason || 'No reason provided.')}</div>
+    </div>`;
+
+  const info = renderInfoGrid([
+    { label: 'Reference', value: esc(memo.referenceId) },
+    { label: 'Denied by', value: esc(deniedBy) },
+    { label: 'Department', value: esc(departmentName) },
+    { label: 'Subject', value: esc(memo.subject), span: 2 },
+  ]);
+
+  const html = renderEmailWrapper({
+    title: 'Memo Denied',
+    icon: '🚫',
+    accentColor: BRAND.danger,
+    subtitle: `${esc(memo.referenceId)} &nbsp;·&nbsp; ${esc(new Date().toLocaleString('en-US', { timeZone: 'Asia/Manila' }))}`,
+    bodyContent: `
+      ${greetingBlock(`${sender.fname} ${sender.lname}`)}
+      ${bodyText(`Unfortunately, your memo has been <b style="color: ${BRAND.danger};">denied</b>. Please review the reason and take the necessary action.`)}
+      ${reasonBlock}
+      ${info}
+    `,
+    actionUrl: `${baseUrl}/dashboard/forms/iom?tab=outbound`,
+    actionLabel: 'View Memo',
+  });
+
   await sendEmailWithRetry({ to: sender.email, subject, html });
 }
 
 export async function sendMemoCompleted(sender, memo, departmentName, completedBy, feedbackNote) {
   const subject = `✅ Memo Completed – ${memo.referenceId}`;
-  const html = `
-    <h2>Memo Completed</h2>
-    <p><strong>Completed by:</strong> ${completedBy} (${departmentName})</p>
-    <p><strong>Subject:</strong> ${memo.subject}</p>
-    <p><strong>Reference:</strong> ${memo.referenceId}</p>
-    <p><strong>Remarks:</strong> ${feedbackNote}</p>
-    <p>The memo has been marked as completed by the recipient department.</p>
-    <p><a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/forms/iom?tab=outbound">View Memo</a></p>
-  `;
+
+  const remarksBlock = feedbackNote ? `
+    <div style="margin: 16px 0; padding: 12px 16px; border-left: 3px solid ${BRAND.success}; background: #f0f9f4; border-radius: 4px;">
+      <div style="font-weight: 600; font-size: 12px; color: ${BRAND.successText}; margin-bottom: 4px;">REMARKS</div>
+      <div style="font-size: 13px; color: #333; white-space: pre-wrap; line-height: 1.5;">${esc(feedbackNote)}</div>
+    </div>` : '';
+
+  const info = renderInfoGrid([
+    { label: 'Reference', value: esc(memo.referenceId) },
+    { label: 'Completed by', value: esc(completedBy) },
+    { label: 'Department', value: esc(departmentName) },
+    { label: 'Subject', value: esc(memo.subject), span: 2 },
+  ]);
+
+  const html = renderEmailWrapper({
+    title: 'Memo Completed',
+    icon: '✅',
+    accentColor: BRAND.success,
+    subtitle: `${esc(memo.referenceId)} &nbsp;·&nbsp; ${esc(new Date().toLocaleString('en-US', { timeZone: 'Asia/Manila' }))}`,
+    bodyContent: `
+      ${greetingBlock(`${sender.fname} ${sender.lname}`)}
+      ${bodyText(`Your memo has been marked as <b style="color: ${BRAND.success};">completed</b> by the recipient department.`)}
+      ${remarksBlock}
+      ${info}
+    `,
+    actionUrl: `${baseUrl}/dashboard/forms/iom?tab=outbound`,
+    actionLabel: 'View Memo',
+  });
+
   await sendEmailWithRetry({ to: sender.email, subject, html });
 }
 
@@ -712,14 +1042,37 @@ export async function sendFailedLoginAlert(user, attempts, ip) {
   const recipients = [...admins, ...deptHeads];
 
   const subject = `🚨 Security Alert: Multiple Failed Login Attempts – ${user.email}`;
-  const html = `
-    <h2>Multiple Failed Login Attempts Detected</h2>
-    <p><strong>User:</strong> ${user.fname} ${user.lname} (${user.email})</p>
-    <p><strong>Department:</strong> ${user.departmentCode}</p>
-    <p><strong>Failed Attempts (last 10 min):</strong> ${attempts}</p>
-    <p><strong>IP Address:</strong> ${ip}</p>
-    <p>Please investigate if this is a legitimate user or a brute-force attack.</p>
-  `;
+
+  const warningBlock = `
+    <div style="margin: 16px 0; padding: 12px 16px; border-left: 3px solid ${BRAND.danger}; background: ${BRAND.dangerBg}; border-radius: 4px;">
+      <div style="font-weight: 700; font-size: 13px; color: ${BRAND.dangerText};">⚠️ Suspicious Activity Detected</div>
+      <div style="font-size: 12px; color: #333; margin-top: 4px; line-height: 1.5;">
+        Please investigate immediately. This could be a brute-force attack or a compromised account.
+      </div>
+    </div>`;
+
+  const info = renderInfoGrid([
+    { label: 'User', value: `${esc(user.fname)} ${esc(user.lname)}` },
+    { label: 'Email', value: esc(user.email) },
+    { label: 'Department', value: esc(user.departmentCode) },
+    { label: 'Failed Attempts (last 10 min)', value: `<b>${esc(attempts)}</b>` },
+    { label: 'IP Address', value: `<code style="background: #e9ecef; padding: 1px 6px; border-radius: 3px; font-size: 12px;">${esc(ip)}</code>`, span: 2 },
+  ]);
+
+  const html = renderEmailWrapper({
+    title: 'Security Alert — Failed Login Attempts',
+    icon: '🚨',
+    accentColor: BRAND.danger,
+    subtitle: esc(new Date().toLocaleString('en-US', { timeZone: 'Asia/Manila' })),
+    bodyContent: `
+      ${greetingBlock('Administrator / Department Head')}
+      ${bodyText(`Multiple failed login attempts have been detected for the following account.`)}
+      ${warningBlock}
+      ${info}
+    `,
+    actionUrl: `${baseUrl}/dashboard/activity_logs`,
+    actionLabel: 'View Activity Logs',
+  });
 
   for (const admin of recipients) {
     await sendEmailWithRetry({ to: admin.email, subject, html });
@@ -745,11 +1098,6 @@ export async function sendFRFApprovalNotification(requestor, reservation, approv
 }
 
 export async function sendFRFApprovalToRequestor(requestor, reservation) {
-  const esc = (s) =>
-    String(s ?? '')
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
 
   const subject = `✅ FRF Fully Approved – ${reservation.referenceId}`;
 
@@ -758,7 +1106,7 @@ export async function sendFRFApprovalToRequestor(requestor, reservation) {
     showApprovals: true,       // complete na lahat
     showAssignments: true,     // ITO staff lineup na
     showPackUp: !!reservation.packUpDoneAt,
-    accentColor: '#16a34a',    // green for approved
+    accentColor: BRAND.navy,    // green for approved
   });
 
   const html = `
@@ -855,7 +1203,7 @@ export async function sendFRFApprovalToNextDepartments(nextDeptHeads, reservatio
     showApprovals: false,      // hindi pa kumpleto — nasa process pa
     showAssignments: false,    // ITO pa lang ang nag-aassign
     showPackUp: false,
-    accentColor: '#d97706',    // amber for "pending" state
+    accentColor: BRAND.cream,    // amber for "pending" state
   });
 
   const html = `
@@ -960,333 +1308,6 @@ export async function sendFRFAssignmentNotification(itoHead, reservation, assign
   await sendEmailWithRetry({ to: itoHead.email, subject, html });
 }
 
-// lib/email_notification.js
-
-export async function sendFRFHRDNotification(hrdHeads, reservation, assignments) {
-  // Group assignments by date for better organization
-  const groupedByDate = assignments.reduce((acc, a) => {
-    if (!hrdHeads || hrdHeads.length === 0) {
-      console.warn('No HRD heads found, skipping email notification.');
-      return;
-    }
-    const dateKey = new Date(a.dutyStart).toDateString();
-    if (!acc[dateKey]) acc[dateKey] = [];
-    acc[dateKey].push(a);
-    return acc;
-  }, {});
-
-  // Get all unique event dates
-  const eventDates = reservation.dates.map(d => new Date(d.eventStart));
-
-  // Build the staff list HTML
-  let staffListHtml = '';
-  for (const [dateKey, dateAssignments] of Object.entries(groupedByDate)) {
-    const displayDate = new Date(dateKey).toLocaleDateString('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
-
-    // Get the event for this date
-    const eventDate = reservation.dates.find(d => 
-      new Date(d.eventStart).toDateString() === dateKey
-    );
-    const eventLocation = reservation.place?.name || reservation.placeOther || 'TBA';
-    const eventTime = eventDate ? 
-      `${new Date(eventDate.eventStart).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })} – ${new Date(eventDate.eventEnd).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}` :
-      'TBA';
-
-    // Separate setup and teardown assignments
-    const setupStaff = dateAssignments.filter(a => a.dutyType === 'SETUP');
-    const teardownStaff = dateAssignments.filter(a => a.dutyType === 'TEARDOWN');
-
-    // Build duty description
-    let dutyDesc = '';
-    if (setupStaff.length > 0) {
-      const setupNames = setupStaff.map(s => s.staffName).join(', ');
-      const setupTime = new Date(setupStaff[0].dutyStart).toLocaleTimeString('en-US', {
-        hour: 'numeric',
-        minute: '2-digit',
-        hour12: true
-      });
-      dutyDesc += `
-        <div style="margin: 8px 0;">
-          <strong>Setup:</strong> ${setupNames}<br/>
-          <span style="color: #666; font-size: 13px;">Duty: ${setupTime} – ${new Date(setupStaff[0].dutyEnd).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}</span>
-        </div>
-      `;
-    }
-
-    if (teardownStaff.length > 0) {
-      const teardownNames = teardownStaff.map(s => s.staffName).join(', ');
-      const teardownTime = new Date(teardownStaff[0].dutyStart).toLocaleTimeString('en-US', {
-        hour: 'numeric',
-        minute: '2-digit',
-        hour12: true
-      });
-      dutyDesc += `
-        <div style="margin: 8px 0;">
-          <strong>Pack-up / Teardown:</strong> ${teardownNames}<br/>
-          <span style="color: #666; font-size: 13px;">Duty: ${teardownTime} – ${new Date(teardownStaff[0].dutyEnd).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}</span>
-        </div>
-      `;
-    }
-
-    staffListHtml += `
-      <div style="margin: 16px 0; padding: 12px; background-color: #f8f9fa; border-left: 4px solid #1a3a5c; border-radius: 4px;">
-        <div style="font-weight: 600; color: #1a3a5c; font-size: 14px;">
-          ${displayDate} – ${eventLocation}
-          <span style="font-weight: 400; color: #666; font-size: 13px; display: block;">
-            Event: ${eventTime}
-          </span>
-        </div>
-        ${dutyDesc}
-      </div>
-    `;
-  }
-
-  const subject = `📋 FRF – Overtime Staff for Noting – ${reservation.referenceId}`;
-  
-  const html = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="UTF-8">
-      <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
-        body {
-          font-family: 'Inter', Arial, sans-serif;
-          margin: 0;
-          padding: 0;
-          background-color: #f5f7fa;
-        }
-        .container {
-          max-width: 800px;
-          margin: 20px auto;
-          background-color: #ffffff;
-          border-radius: 12px;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-          padding: 40px;
-        }
-        .header {
-          border-bottom: 3px solid #1a3a5c;
-          padding-bottom: 20px;
-          margin-bottom: 24px;
-        }
-        .header h1 {
-          font-size: 22px;
-          font-weight: 700;
-          color: #1a3a5c;
-          margin: 0;
-        }
-        .header .subtitle {
-          color: #666;
-          font-size: 14px;
-          margin-top: 4px;
-        }
-        .greeting {
-          font-size: 16px;
-          margin-bottom: 16px;
-          padding: 16px;
-          background-color: #f8f9fa;
-          border-radius: 6px;
-        }
-        .info-grid {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 8px 16px;
-          margin: 16px 0 20px 0;
-          padding: 16px;
-          background-color: #f8f9fa;
-          border-radius: 6px;
-        }
-        .info-grid .label {
-          color: #666;
-          font-size: 13px;
-          font-weight: 600;
-        }
-        .info-grid .value {
-          font-size: 14px;
-          font-weight: 500;
-          color: #1a3a5c;
-        }
-        .staff-section {
-          margin-top: 20px;
-        }
-        .staff-section h2 {
-          font-size: 16px;
-          font-weight: 600;
-          color: #1a3a5c;
-          margin-bottom: 12px;
-        }
-        .footer {
-          margin-top: 30px;
-          padding-top: 20px;
-          border-top: 1px solid #e0e0e0;
-          font-size: 13px;
-          color: #999;
-          text-align: center;
-        }
-        .footer a {
-          color: #1a3a5c;
-          text-decoration: none;
-        }
-        .badge {
-          display: inline-block;
-          padding: 2px 8px;
-          border-radius: 12px;
-          font-size: 11px;
-          font-weight: 600;
-          background-color: #e9ecef;
-          color: #495057;
-        }
-        .badge-blue {
-          background-color: #dbeafe;
-          color: #1a3a5c;
-        }
-        .badge-orange {
-          background-color: #fff3e0;
-          color: #e65100;
-        }
-        @media print {
-          .container {
-            box-shadow: none;
-            padding: 20px;
-          }
-          body {
-            background-color: white;
-          }
-        }
-        @media (max-width: 600px) {
-          .container { padding: 20px; }
-          .info-grid { grid-template-columns: 1fr; }
-        }
-      </style>
-    </head>
-    <body>
-      <div class="container">
-        <!-- HEADER -->
-        <div class="header">
-          <h1>Facility Reservation Form (FRF)</h1>
-          <div class="subtitle">
-            Overtime Staff for Noting &bull; ${reservation.referenceId}
-          </div>
-        </div>
-
-        <!-- GREETING -->
-        <div class="greeting">
-          <strong>Dear HRD,</strong><br/><br/>
-          This is to inform your good office that the following personnel will render overtime for the events listed below.
-        </div>
-
-        <!-- RESERVATION INFO -->
-        <div class="info-grid">
-          <div>
-            <div class="label">Reference</div>
-            <div class="value">${reservation.referenceId}</div>
-          </div>
-          <div>
-            <div class="label">Type</div>
-            <div class="value">${reservation.type.replace('_', ' ')}</div>
-          </div>
-          <div>
-            <div class="label">Requestor</div>
-            <div class="value">${reservation.requestor?.fname || ''} ${reservation.requestor?.lname || ''}</div>
-          </div>
-          <div>
-            <div class="label">Department</div>
-            <div class="value">${reservation.requestorDept || 'N/A'}</div>
-          </div>
-        </div>
-
-        <!-- STAFF ASSIGNMENTS -->
-        <div class="staff-section">
-          <h2>🎯 Personnel with Overtime</h2>
-          ${staffListHtml}
-        </div>
-
-        <!-- FOOTER -->
-        <div class="footer">
-          <p>
-            This is a system-generated notification from <a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/forms/frf">NCST D-Forms</a>.<br/>
-            For details, please view the FRF on the dashboard.
-          </p>
-          <p style="font-size: 11px; color: #bbb;">
-            Printed on ${new Date().toLocaleString()}
-          </p>
-        </div>
-      </div>
-    </body>
-    </html>
-  `;
-
-  for (const head of hrdHeads) {
-    await sendEmailWithRetry({ to: head.email, subject, html });
-  }
-}
-
-// ============================================
-// FRF HRD Noted Notification
-// ============================================
-
-export async function sendFRFHRDNotedNotification(itoHeads, staffUsers, reservation) {
-  // Build list of assigned staff with their duty details
-  const staffList = staffUsers.map(u => 
-    `${u.fname} ${u.lname}`
-  ).join(', ');
-
-  const subject = `📋 FRF Noted by HRD – ${reservation.referenceId}`;
-  const html = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="UTF-8">
-      <style>
-        body { font-family: Arial, sans-serif; background: #f5f7fa; margin: 0; padding: 20px; }
-        .container { max-width: 700px; margin: 0 auto; background: #ffffff; border-radius: 12px; padding: 30px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
-        .header { border-bottom: 3px solid #1a3a5c; padding-bottom: 15px; margin-bottom: 20px; }
-        .header h1 { font-size: 22px; color: #1a3a5c; margin: 0; }
-        .info { background: #f8f9fa; padding: 15px; border-radius: 6px; margin: 15px 0; }
-        .info p { margin: 5px 0; }
-        .footer { margin-top: 25px; padding-top: 15px; border-top: 1px solid #e0e0e0; font-size: 13px; color: #999; text-align: center; }
-      </style>
-    </head>
-    <body>
-      <div class="container">
-        <div class="header">
-          <h1>✅ HRD Noted Your FRF</h1>
-          <div style="color: #666; font-size: 14px;">${reservation.referenceId}</div>
-        </div>
-        <p><strong>Dear ITO Team,</strong></p>
-        <p>Human Resource Department (HRD) has <strong>noted</strong> the overtime staff assignments for the following FRF:</p>
-        <div class="info">
-          <p><strong>Reference:</strong> ${reservation.referenceId}</p>
-          <p><strong>Event Type:</strong> ${reservation.type.replace('_', ' ')}</p>
-          <p><strong>Date(s):</strong> ${reservation.dates.map(d => new Date(d.eventStart).toLocaleDateString()).join(', ')}</p>
-          <p><strong>Assigned Staff:</strong> ${staffList}</p>
-        </div>
-        <p>You may now proceed with the final arrangements.</p>
-        <p><a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/forms/frf" style="display: inline-block; background: #1a3a5c; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px;">View Reservation</a></p>
-        <div class="footer">
-          This is a system-generated notification from <a href="${process.env.NEXT_PUBLIC_APP_URL}">NCST D-Forms</a>.
-        </div>
-      </div>
-    </body>
-    </html>
-  `;
-
-  // Send to ITO department heads
-  for (const head of itoHeads) {
-    await sendEmailWithRetry({ to: head.email, subject, html });
-  }
-
-  // Send to each assigned staff
-  for (const staff of staffUsers) {
-    await sendEmailWithRetry({ to: staff.email, subject, html });
-  }
-}
-
 // ============================================
 // FRF Reschedule Notification
 // ============================================
@@ -1305,17 +1326,17 @@ export async function sendFRFRescheduleNotification(deptHeads, reservation, curr
       <meta charset="UTF-8">
       <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
-        body { font-family: 'Inter', Arial, sans-serif; margin: 0; padding: 0; background-color: #f5f7fa; }
+        body { font-family: 'Inter', Arial, sans-serif; margin: 0; padding: 0; background-color: ${BRAND.seashell}; }
         .container { max-width: 700px; margin: 20px auto; background-color: #ffffff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); padding: 40px; }
-        .header { border-bottom: 3px solid #f59e0b; padding-bottom: 20px; margin-bottom: 24px; }
-        .header h1 { font-size: 22px; font-weight: 700; color: #d97706; margin: 0; }
-        .header .subtitle { color: #666; font-size: 14px; margin-top: 4px; }
-        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; margin: 16px 0; padding: 16px; background-color: #f8f9fa; border-radius: 6px; }
-        .info-grid .label { color: #666; font-size: 13px; font-weight: 600; }
-        .info-grid .value { font-size: 14px; font-weight: 500; color: #1a3a5c; }
-        .btn { display: inline-block; padding: 12px 24px; background-color: #1a3a5c; color: white; text-decoration: none; border-radius: 6px; font-weight: 600; margin-top: 16px; }
-        .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #e0e0e0; font-size: 13px; color: #999; text-align: center; }
-        .badge-reschedule { background: #fef3c7; color: #92400e; padding: 2px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+        .header { border-bottom: 3px solid ${BRAND.cream}; padding-bottom: 20px; margin-bottom: 24px; }
+        .header h1 { font-size: 22px; font-weight: 700; color: ${BRAND.creamDark}; margin: 0; }
+        .header .subtitle { color: ${BRAND.gray}; font-size: 14px; margin-top: 4px; }
+        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; margin: 16px 0; padding: 16px; background-color: ${BRAND.creamBg}; border-radius: 6px; }
+        .info-grid .label { color: ${BRAND.gray}; font-size: 13px; font-weight: 600; }
+        .info-grid .value { font-size: 14px; font-weight: 500; color: ${BRAND.navy}; }
+        .btn { display: inline-block; padding: 12px 24px; background-color: ${BRAND.navy}; color: white; text-decoration: none; border-radius: 6px; font-weight: 600; margin-top: 16px; }
+        .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid ${BRAND.borderWarm}; font-size: 13px; color: ${BRAND.grayLight}; text-align: center; }
+        .badge-reschedule { background: ${BRAND.creamMid}; color: ${BRAND.creamDark}; padding: 2px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; }
       </style>
     </head>
     <body>

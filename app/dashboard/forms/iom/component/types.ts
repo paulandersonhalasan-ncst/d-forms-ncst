@@ -49,6 +49,9 @@ export interface MemoRecipientStatus {
     fname: string;
     lname: string;
   } | null;
+
+  updatedAt?: string | null;
+  lastActivityAt?: string | null;
 }
 
 export interface Memo {

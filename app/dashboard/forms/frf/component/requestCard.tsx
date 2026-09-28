@@ -1,9 +1,8 @@
 // app/dashboard/forms/frf/components/RequestCard.tsx
 'use client';
 
-import { Card, Group, Text, Badge, Stack, UnstyledButton, ActionIcon, Box } from '@mantine/core';
+import { Card, Group, Text, Badge, Stack, UnstyledButton} from '@mantine/core';
 import { FacilityReservation, UserContext, FRFActionType, isActiveHeadOrOIC  } from './types';
-import { IconEye, IconCheck, IconX, IconRefresh, IconClock } from '@tabler/icons-react';
 
 interface RequestCardProps {
   request: FacilityReservation;
@@ -68,11 +67,6 @@ export default function RequestCard({
               >
                 {request.status.replace('_', ' ')}
               </Badge>
-              {request.staffChangeRequestedAt && (
-                <Badge color="orange" leftSection={<IconClock size={10} />}>
-                  Awaiting Staff Change
-                </Badge>
-              )}
             </Group>
           </Group>
           <Text size="sm">{request.eventName}</Text>

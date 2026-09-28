@@ -1,20 +1,46 @@
 // app/dashboard/forms/frf/components/PasswordGateModal.tsx
 'use client';
 
-import { Modal, Stack, Text, PasswordInput, Textarea, Button, Group, FileInput, Box } from '@mantine/core';
-import { IconLock, IconPhoto } from '@tabler/icons-react';
+import {
+  Modal,
+  Stack,
+  Text,
+  PasswordInput,
+  Textarea,
+  Button,
+  Group,
+  FileInput,
+  Box,
+  Paper,
+  ActionIcon,
+  ThemeIcon,
+} from '@mantine/core';
+import {
+  IconLock,
+  IconPhoto,
+  IconTrash,
+  IconFile,
+  IconUpload,
+} from '@tabler/icons-react';
 import { useState } from 'react';
 
 interface PasswordGateModalProps {
   opened: boolean;
   onClose: () => void;
-  action: string; // 'approve', 'reject', 'return', 'resubmit', 'assign', 'ocm-finalize'
+  action: string;
   onSubmit: (password: string, remarks: string, photos?: File[]) => void;
   loading: boolean;
   error?: string;
-  requireRemarks?: boolean; // for reject/return
-  enablePhotoUpload?: boolean; // 🆕 for packup-done
+  requireRemarks?: boolean;
+  enablePhotoUpload?: boolean;
 }
+
+// Helper: format file size
+const formatFileSize = (bytes: number): string => {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+};
 
 export default function PasswordGateModal({
   opened,
@@ -29,11 +55,12 @@ export default function PasswordGateModal({
   const [password, setPassword] = useState('');
   const [remarks, setRemarks] = useState('');
   const [photos, setPhotos] = useState<File[]>([]);
+  const [hoveredPhoto, setHoveredPhoto] = useState<number | null>(null);
 
   const handleSubmit = () => {
     if (!password) return;
     if (requireRemarks && !remarks) return;
-    if (enablePhotoUpload && photos.length === 0) return; // 🆕 photo required for packup
+    if (enablePhotoUpload && photos.length === 0) return;
     onSubmit(password, remarks, photos);
     setPassword('');
     setRemarks('');
@@ -44,7 +71,12 @@ export default function PasswordGateModal({
     setPassword('');
     setRemarks('');
     setPhotos([]);
+    setHoveredPhoto(null);
     onClose();
+  };
+
+  const removePhoto = (index: number) => {
+    setPhotos((prev) => prev.filter((_, i) => i !== index));
   };
 
   const getTitle = () => {
@@ -55,13 +87,13 @@ export default function PasswordGateModal({
       case 'resubmit': return 'Resubmit Revision';
       case 'assign': return 'Assign ITO Staff';
       case 'ocm-finalize': return 'OCM Final Edit';
-      case 'note': return 'Mark as Noted';
       case 'PACKUP_DONE': return 'Mark Pack Up Done';
       default: return 'Confirm Action';
     }
   };
 
-  const isRemarksRequired = ['reject', 'return', 'PACKUP_DONE'].includes(action) || requireRemarks;
+  const isRemarksRequired =
+    ['reject', 'return', 'PACKUP_DONE'].includes(action) || requireRemarks;
 
   return (
     <Modal
@@ -84,9 +116,11 @@ export default function PasswordGateModal({
           {isRemarksRequired && (
             <Textarea
               label={action === 'PACKUP_DONE' ? 'Notes / Remarks' : 'Remarks'}
-              placeholder={action === 'PACKUP_DONE'
-                ? 'Halimbawa: Nailigpit na lahat ng equipment, walang nawala, at ibinalik sa storage.'
-                : 'Explain why...'}
+              placeholder={
+                action === 'PACKUP_DONE'
+                  ? 'Halimbawa: Nailigpit na lahat ng equipment, walang nawala, at ibinalik sa storage.'
+                  : 'Explain why...'
+              }
               required
               value={remarks}
               onChange={(e) => setRemarks(e.currentTarget.value)}
@@ -94,15 +128,21 @@ export default function PasswordGateModal({
             />
           )}
 
+          {/* ============ PACK UP PHOTOS SECTION ============ */}
           {enablePhotoUpload && (
             <Box>
+              <Text fw={600} size="sm" mb={4}>
+                Pack Up Photos <Text component="span" c="red">*</Text>
+              </Text>
+              <Text size="xs" c="dimmed" mb="xs">
+                Upload photos taken with your GPS camera app as proof of pack up. You can add multiple photos.
+              </Text>
+
               <FileInput
-                label="Pack Up Photos (required)"
-                description="Upload photos taken with your GPS camera app as proof of pack up."
-                placeholder="Click to upload photos"
+                placeholder="Click to upload photos or drag and drop"
                 multiple
                 accept="image/*"
-                leftSection={<IconPhoto size={16} />}
+                leftSection={<IconUpload size={16} />}
                 value={photos}
                 onChange={(files) => setPhotos(files || [])}
                 required
@@ -110,13 +150,83 @@ export default function PasswordGateModal({
                   input: {
                     borderStyle: 'dashed',
                     borderWidth: '2px',
+                    padding: '10px 12px',
+                    cursor: 'pointer',
+                    transition: 'all 150ms ease',
+                    '&:hover': {
+                      borderColor: theme.colors.blue[4],
+                      backgroundColor: theme.colors.blue[0],
+                    },
                   },
                 })}
               />
+
+              {/* === LIST OF UPLOADED PHOTOS === */}
               {photos.length > 0 && (
-                <Text size="xs" c="dimmed" mt={6}>
-                  {photos.length} photo{photos.length > 1 ? 's' : ''} ready to upload
-                </Text>
+                <Box mt="md">
+                  <Group justify="space-between" mb="xs">
+                    <Text size="xs" fw={600} c="dimmed">
+                      Uploaded Photos ({photos.length})
+                    </Text>
+                    <Text
+                      size="xs"
+                      c="red"
+                      style={{ cursor: 'pointer', textDecoration: 'underline' }}
+                      onClick={() => setPhotos([])}
+                    >
+                      Remove all
+                    </Text>
+                  </Group>
+
+                  <Stack gap="xs">
+                    {photos.map((file, index) => (
+                      <Paper
+                        key={`${file.name}-${index}`}
+                        withBorder
+                        p="xs"
+                        radius="sm"
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: 12,
+                          transition: 'all 150ms ease',
+                        }}
+                      >
+                        <Group gap="sm" style={{ flex: 1, minWidth: 0 }}>
+                          <ThemeIcon color="grape" variant="light" size="lg" radius="md">
+                            <IconPhoto size={18} />
+                          </ThemeIcon>
+                          <Box style={{ minWidth: 0, flex: 1 }}>
+                            <Text size="sm" fw={500} lineClamp={1} title={file.name}>
+                              {file.name}
+                            </Text>
+                            <Text size="xs" c="dimmed">
+                              {formatFileSize(file.size)}
+                            </Text>
+                          </Box>
+                        </Group>
+
+                        <ActionIcon
+                          color="red"
+                          variant="filled"
+                          size={38}
+                          radius="md"
+                          onClick={() => removePhoto(index)}
+                          aria-label={`Remove ${file.name}`}
+                          onMouseEnter={() => setHoveredPhoto(index)}
+                          onMouseLeave={() => setHoveredPhoto(null)}
+                          style={{
+                            opacity: hoveredPhoto === index ? 1 : 0.85,
+                            transition: 'opacity 150ms ease',
+                          }}
+                        >
+                          <IconTrash size={18} />
+                        </ActionIcon>
+                      </Paper>
+                    ))}
+                  </Stack>
+                </Box>
               )}
             </Box>
           )}
@@ -132,16 +242,12 @@ export default function PasswordGateModal({
           />
 
           <Group justify="flex-end">
-            <Button
-              variant="light"
-              onClick={handleClose}
-              type="button"           /* 🆕 huwag mag-submit */
-            >
+            <Button variant="light" onClick={handleClose} type="button">
               Cancel
             </Button>
             <Button
               color={action === 'reject' ? 'red' : action === 'PACKUP_DONE' ? 'teal' : 'blue'}
-              type="submit"           /* 🆕 ito na ang sasagot sa Enter */
+              type="submit"
               loading={loading}
               disabled={
                 !password ||

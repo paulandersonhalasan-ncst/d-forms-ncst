@@ -12,7 +12,6 @@ import {
   Paper,
   SimpleGrid,
   ThemeIcon,
-  Anchor,
   Alert,
   Box,
   Table
@@ -25,23 +24,20 @@ import {
   IconRefresh,
   IconCalendarEvent,
   IconUsers,
-  IconMapPin,
-  IconClock,
   IconDeviceFloppy,
   IconFile,
   IconPhoto,
   IconFileTypePdf,
   IconAlertCircle,
   IconUserCheck,
-  IconInfoCircle,
   IconPrinter,
-  IconSchool,
   IconReportMoney,
   IconBuildingPavilion
 } from '@tabler/icons-react';
 import Image from 'next/image';
 import { useState } from 'react';
 import { useDisclosure } from '@mantine/hooks';
+
 
 interface RequestDetailModalProps {
   opened: boolean;
@@ -95,7 +91,6 @@ export default function RequestDetailModal({
   const isTerminal = isRejected;
 
   const myApproval = request.approvals.find((a) => a.departmentCode === currentUser?.departmentCode);
-  const isHRD = currentUser?.departmentCode === 'HRD';
   const ocmApproval = request.approvals.find(a => a.departmentCode === 'OCM');
   
   const isHeadOrOIC = isActiveHeadOrOIC(currentUser);
@@ -111,20 +106,17 @@ export default function RequestDetailModal({
   const isReschedulePending = request.status === 'RESCHEDULE_PENDING';
 
   // Non‑HRD actions
-  const canApprove = !isHRD && !isTerminal && myApproval?.status === 'PENDING' && isHeadOrOIC;
-  const canReject = !isHRD && !isTerminal && myApproval?.status === 'PENDING' && isHeadOrOIC;
-  const canReturn =
-    !isHRD &&
-    !isTerminal &&
-    myApproval?.status === 'PENDING' && isHeadOrOIC;
+  const canApprove = !isTerminal && myApproval?.status === 'PENDING' && isHeadOrOIC;
+  const canReject = !isTerminal && myApproval?.status === 'PENDING' && isHeadOrOIC;
+  const canReturn = !isTerminal && myApproval?.status === 'PENDING' && isHeadOrOIC;
   
   const isVenueOnly = request.isVenueOnly;
 
   const canAssign =
     !isTerminal &&
     !isVenueOnly &&
-    !request.isReschedule && // use 'request' not 'reservation'
-    currentUser?.departmentCode === 'ITO-MAIN' &&
+    !request.isReschedule &&
+    (currentUser?.departmentCode === 'ITO-MAIN' || currentUser?.departmentCode === 'ITO')
     request.status === 'APPROVED' &&
     request.assignments.length === 0;
 
@@ -139,34 +131,17 @@ export default function RequestDetailModal({
     request.status === 'REVISION_REQUESTED' &&
     isRequestor;
 
-  const isITO = currentUser?.departmentCode === 'ITO-MAIN';
-
-  // HRD "Noted" – kahit COMPLETED, available ito
-  const hrdApproval = request.approvals.find(a => a.departmentCode === 'HRD');
-
-  const isAlreadyNoted =
-    hrdApproval?.status === 'ACKNOWLEDGED' &&
-    !!hrdApproval?.remarks?.includes('Noted by');
-  
-  const isAwaitingStaffChange = !!request.staffChangeRequestedAt;
-
-  const canNote =
-    !isVenueOnly &&
-    isHRD &&
-    hrdApproval &&
-    (hrdApproval.status === 'ACKNOWLEDGED' || hrdApproval.status === 'PENDING') &&
-    !hrdApproval.remarks?.includes('Noted by') &&
-    !isAwaitingStaffChange;
+  const isITO = 
+    currentUser?.departmentCode === 'ITO-MAIN' || 
+    currentUser?.departmentCode === 'ITO';
     
   const hasAnyAction =
-    canApprove || canReject || canReturn || canAssign || canFinalize || canResubmit || canNote;
+    canApprove || canReject || canReturn || canAssign || canFinalize || canResubmit;
 
   const showActions =
     (isNextPending && !isTerminal) ||
     (isRequestor && request.status === 'REVISION_REQUESTED') ||
-    (isRequestor && (request.status === 'APPROVED' || request.status === 'COMPLETED') && !request.isReschedule) ||
-    canNote ||
-    (isHRD && isCompleted && !isAwaitingStaffChange && !request.staffChangeRequestedAt);
+    (isRequestor && (request.status === 'APPROVED' || request.status === 'COMPLETED') && !request.isReschedule);
 
   // Formatting helpers
   const formatDate = (dateVal: string | Date): string => {
@@ -234,7 +209,8 @@ export default function RequestDetailModal({
   );
 
   const isITOHeadOrOIC =
-  currentUser?.departmentCode === 'ITO-MAIN' && isHeadOrOIC;
+    (currentUser?.departmentCode === 'ITO-MAIN' || currentUser?.departmentCode === 'ITO') &&
+    isHeadOrOIC;
 
   // Latest event end across all dates
   const latestEventEnd = (request.dates || []).reduce((latest, d) => {
@@ -361,41 +337,6 @@ export default function RequestDetailModal({
             </Text>
           )}
         </Paper>
-
-        {request.staffChangeRequestedAt && isITOHeadOrOIC && (
-          <Alert color="pink" title="Staff Change Requested" icon={<IconInfoCircle size={16} />}>
-            HRD has requested a staff change on {formatDate(request.staffChangeRequestedAt)}.
-            {request.staffChangeReason && (
-              <Text size="xs" mt={4}><b>Reason:</b> {request.staffChangeReason}</Text>
-            )}
-            {isITOHeadOrOIC && ' Please update the staff assignments.'}
-          </Alert>
-        )}
-
-        {/* 🆕 Alert para sa HRD habang naghihintay */}
-        {isHRD && isAwaitingStaffChange && (
-          <Alert
-            color="orange"
-            title="Awaiting Staff Change"
-            icon={<IconClock size={16} />}
-          >
-            <Stack gap={4}>
-              <Text size="sm">
-                You have requested a staff change on{' '}
-                <b>{formatDate(request.staffChangeRequestedAt!)}</b>.
-                Waiting for <b>ITO-MAIN</b> to update the staff assignments.
-              </Text>
-              {request.staffChangeReason && (
-                <Text size="xs" c="dimmed">
-                  <b>Reason:</b> {request.staffChangeReason}
-                </Text>
-              )}
-              <Text size="xs" c="orange" fw={600}>
-                You cannot mark the OT as Noted until ITO-MAIN submits the new staff lineup.
-              </Text>
-            </Stack>
-          </Alert>
-        )}
 
         {/* Event Dates Section */}
         <Paper withBorder p="md" radius="md">
@@ -540,34 +481,17 @@ export default function RequestDetailModal({
             requestorDept={request.requestorDept}
             isReschedule={request.isReschedule}
             originalApprovals={request.originalApprovals}
+            reservationMeta={{
+              createdAt: request.createdAt,
+              updatedAt: request.updatedAt,
+              isReschedule: request.isReschedule,
+            }}
           />
         </Paper>
 
         {/* ITO Staff Assignments */}
         {displayAssignments.length > 0 && (
           <Paper withBorder p="md" radius="md">
-            {isHRD && (
-              <Alert
-                icon={<IconInfoCircle size={16} />}
-                color="blue"
-                mb="sm"
-                title="HRD – ITO Staff for Noting"
-              >
-                {request.isReschedule && (
-                  <>
-                    <strong>⚠️ Reminder:</strong> This is a reschedule of an event that has been moved to a new schedule/venue. Please note the ITO staff assignments for the new dates (if the date of event was changed).
-                    <br /><br />
-                  </>
-                )}
-                Below is the list of <b>all ITO staff</b> assigned to this event. Duties marked with an{' '}
-                <b>OT badge</b> are rendered <b>outside regular working hours</b> (overtime). Duties{' '}
-                <b>without an OT mark</b> are rendered within regular duty hours. Please review and click <strong>&ldquo;Noted&rdquo;</strong> to confirm.
-                <br /><br />
-                Ito ang listahan ng <b>lahat ng ITO staff</b> na nakatalaga sa event na ito. Ang mga duty na may{' '}
-                <b>OT badge</b> ay ginawa <b>lampas sa regular working hours</b> (overtime). Ang mga duty na{' '}
-                <b>walang OT mark</b> ay ginawa sa loob ng regular duty hours. Suriin ang listahan at pindutin ang <strong>&ldquo;Noted&rdquo;</strong> upang makumpirma na na-note na ng departamento nyo ito.
-              </Alert>
-            )}
             <Group gap="xs" mb="sm">
               <ThemeIcon variant="light" color="grape" size="sm">
                 <IconUserCheck size={14} />
@@ -648,7 +572,6 @@ export default function RequestDetailModal({
                 mb="md"
               >
                 This reservation has been completely approved and is now archived.
-                {canNote && ' Please note the OT staff assignments below.'}
               </Alert>
             )}
 
@@ -734,12 +657,6 @@ export default function RequestDetailModal({
                     </Button>
                   )}
 
-                  {!isTerminal && canAssign && (
-                    <Button color="indigo" onClick={onAssign}>
-                      Assign ITO Staff
-                    </Button>
-                  )}
-
                   {!isTerminal && canFinalize && (
                     <Button color="blue" onClick={onFinalize}>
                       OCM Final Edit
@@ -756,27 +673,6 @@ export default function RequestDetailModal({
                     </Button>
                   )}
 
-                  {(canNote) && (
-                    <Button
-                      color="blue"
-                      leftSection={<IconCheck size={16} />}
-                      onClick={() => onAction('NOTE', { id: request.id })}
-                    >
-                      Noted
-                    </Button>
-                  )}
-
-                  {/* HRD: Request Staff Change — hindi na lumalabas kapag na-noted na */}
-                  {isHRD && isHeadOrOIC && isCompleted && !isAlreadyNoted && !request.staffChangeRequestedAt && (
-                    <Button
-                      color="pink"
-                      leftSection={<IconUsers size={16} />}
-                      onClick={() => onAction('REQUEST_STAFF_CHANGE', { id: request.id })}
-                    >
-                      Request Staff Change
-                    </Button>
-                  )}
-
                   {canReschedule && (
                     <Button
                       color="yellow"
@@ -787,12 +683,6 @@ export default function RequestDetailModal({
                     </Button>
                   )}
                 </>
-              )}
-
-              {isITOHeadOrOIC && request.staffChangeRequestedAt && (
-                <Button color="indigo" onClick={onAssign}>
-                  Edit Staff Assignment
-                </Button>
               )}
 
               {canPackUpDone && (

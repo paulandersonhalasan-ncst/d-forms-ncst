@@ -2,16 +2,24 @@
 
 'use client';
 
-import { Group, Box, Text, Badge, ThemeIcon, Paper, Stack, Popover, useMantineColorScheme } from '@mantine/core';
+import { Group, Box, Text, Badge, ThemeIcon, Paper, Stack, Popover, useMantineColorScheme, Divider } from '@mantine/core';
 import { IconCheck, IconX, IconClock, IconRefresh } from '@tabler/icons-react';
 import { useState, useRef } from 'react';
 import { FacilityApproval } from './types';
+import ElapsedIndicator from '../../shared_components/ElapsedIndicator';
+import { getFRFApprovalAnchor } from '../../../../lib/timeElapsed';
 
 interface ApprovalTimelineProps {
   approvals: FacilityApproval[];
   requestorDept?: string;
   isReschedule?: boolean;
   originalApprovals?: FacilityApproval[];
+  // 🆕 Reservation meta para makapag-compute ng elapsed anchor
+  reservationMeta?: {
+    createdAt?: string;
+    updatedAt?: string;
+    isReschedule?: boolean;
+  };
 }
 
 export default function ApprovalTimeline({
@@ -19,6 +27,7 @@ export default function ApprovalTimeline({
   requestorDept,
   isReschedule,
   originalApprovals,
+  reservationMeta,
 }: ApprovalTimelineProps) {
   const [openedPopover, setOpenedPopover] = useState<string | null>(null);
   const closeTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -111,6 +120,14 @@ export default function ApprovalTimeline({
             ? `User ${approval.performedById}`
             : '—';
 
+          // 🆕 Compute anchor for the CURRENT pending step only
+          const pendingAnchor =
+            !isOriginal &&
+            reservationMeta &&
+            approval.status === 'PENDING'
+              ? getFRFApprovalAnchor(approval, approvalsList, reservationMeta)
+              : null;
+
           return (
             <Group key={approval.id || index} gap={0} wrap="nowrap" style={{ flexShrink: 0 }}>
               <Popover
@@ -118,7 +135,7 @@ export default function ApprovalTimeline({
                 position="bottom"
                 withArrow
                 shadow="md"
-                width={260}
+                width={280}
                 closeOnClickOutside={false}
                 closeOnEscape={false}
                 styles={{
@@ -185,7 +202,7 @@ export default function ApprovalTimeline({
                       <Badge size="xs" color={color} variant="filled">
                         {label}
                       </Badge>
-                      {performerName && (
+                      {performerName && performerName !== '—' && (
                         <Text size="xs" c="dimmed">
                           <b>By:</b> {performerName}
                         </Text>
@@ -209,6 +226,19 @@ export default function ApprovalTimeline({
                             </span>
                           )}
                         </Text>
+                      )}
+
+                      {/* 🆕 Elapsed indicator para sa pending steps */}
+                      {pendingAnchor && (
+                        <>
+                          <Divider my={4} />
+                          <ElapsedIndicator
+                            start={pendingAnchor}
+                            label="Waiting"
+                            size="xs"
+                            withTooltip={false}
+                          />
+                        </>
                       )}
                     </Stack>
                   </Paper>

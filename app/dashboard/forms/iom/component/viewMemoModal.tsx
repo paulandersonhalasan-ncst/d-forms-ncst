@@ -36,6 +36,8 @@ import {
 } from '@tabler/icons-react';
 import { Memo, UserContext } from './types';
 import { useState } from 'react';
+import ElapsedIndicator from '../../shared_components/ElapsedIndicator';
+import { getIOMRecipientAnchor, statusLabel } from '../../../../lib/timeElapsed';
 
 interface ViewMemoModalProps {
   opened: boolean;
@@ -145,7 +147,8 @@ export default function ViewMemoModal({
       title={displaySubject}
       size="lg"
       radius="md"
-      zIndex={5000}
+      zIndex={3000}
+      centered
     >
       <Stack gap="md">
         <Card withBorder p="md" bg="light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-8))">
@@ -265,7 +268,14 @@ export default function ViewMemoModal({
         </Text>
         <Stack gap={6}>
           {memo.recipients?.map((rec) => {
-            // ✅ Determine timestamp based on status
+            console.log('🔍 RECIPIENT DEBUG:', {
+              dept: rec.departmentName,
+              status: rec.status,
+              acknowledgedAt: rec.acknowledgedAt,
+              processedAt: rec.processedAt,
+              respondedAt: rec.respondedAt,
+              raw: rec,
+            });
             let actionTimestamp = null;
             let actionLabel = '';
 
@@ -292,7 +302,6 @@ export default function ViewMemoModal({
               actionLabel = 'Replied';
             }
 
-            // ✅ Kunin ang pinakabagong history entry para sa department na ito
             const deptHistory = memo.history
               ?.filter((h) => h.departmentName === rec.departmentName)
               ?.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()) || [];
@@ -314,14 +323,17 @@ export default function ViewMemoModal({
                     {rec.departmentName}
                   </Text>
 
-                  {/* Remarks from recipient's feedbackNote */}
+                  <ElapsedIndicator
+                    start={getIOMRecipientAnchor(rec, memo)}
+                    label={statusLabel(rec.status)}
+                  />
+
                   {rec.feedbackNote && (
                     <Text size="xs" c="orange">
                       Remarks: {rec.feedbackNote}
                     </Text>
                   )}
 
-                  {/* ✅ Per-department latest remark (hindi na global) */}
                   {showRemark && (
                     <Paper withBorder p="sm" radius="md" bg="light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-8))">
                       <Stack gap={2}>

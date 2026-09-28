@@ -18,8 +18,6 @@ function getNextEmailAccount() {
   }
   const account = SMTP_ACCOUNTS[currentAccountIndex];
   currentAccountIndex = (currentAccountIndex + 1) % SMTP_ACCOUNTS.length;
-
-  console.log(account);
   
   return account;
 }
@@ -65,7 +63,7 @@ export async function sendEmailWithRetry(options, retries = 2) {
 export async function sendPasswordResetEmail(email, resetLink) {
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
-      <h2 style="color: #1a3a5c;">NCST D-Forms</h2>
+      <h2 style="color: #003980;">NCST D-Forms</h2>
       <h3 style="color: #333;">Password Reset Request</h3>
       
       <p>Hello,</p>
