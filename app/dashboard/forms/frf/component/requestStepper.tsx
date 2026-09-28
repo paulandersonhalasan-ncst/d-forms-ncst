@@ -862,6 +862,12 @@ export default function RequestStepper({
       padding="lg"
       radius="md"
       closeOnClickOutside={false}
+      styles={{
+        inner: {
+          paddingLeft: 'var(--sidebar-offset, 0)',
+          transition: 'padding-left 0.25s ease',
+        },
+      }}
     >
       <form onSubmit={(e) => {
         e.preventDefault();

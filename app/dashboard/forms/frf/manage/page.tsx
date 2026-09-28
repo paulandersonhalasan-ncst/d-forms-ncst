@@ -375,7 +375,12 @@ function PlacesTab({ currentUser }: TabProps) {
         </ScrollArea>
       </Card>
 
-      <Modal opened={opened} onClose={close} title={editing ? 'Edit Place' : 'Add Place'}>
+      <Modal opened={opened} onClose={close} title={editing ? 'Edit Place' : 'Add Place'} styles={{
+        inner: {
+          paddingLeft: 'var(--sidebar-offset, 0)',
+          transition: 'padding-left 0.25s ease',
+        },
+      }}>
         <Stack>
           <TextInput
             label="Name"
@@ -715,7 +720,12 @@ function EquipmentTab({ currentUser }: TabProps) {
         </ScrollArea>
       </Card>
 
-      <Modal opened={opened} onClose={close} title={editing ? 'Edit Equipment' : 'Add Equipment'} size="md" centered>
+      <Modal opened={opened} onClose={close} title={editing ? 'Edit Equipment' : 'Add Equipment'} size="md" centered styles={{
+        inner: {
+          paddingLeft: 'var(--sidebar-offset, 0)',
+          transition: 'padding-left 0.25s ease',
+        },
+      }}>
         <Stack>
           <TextInput label="Name" value={name} onChange={(e) => setName(e.currentTarget.value)} required />
           <Select

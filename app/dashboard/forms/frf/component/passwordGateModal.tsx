@@ -103,6 +103,12 @@ export default function PasswordGateModal({
       centered
       zIndex={1000}
       size={enablePhotoUpload ? 'lg' : 'md'}
+      styles={{
+        inner: {
+          paddingLeft: 'var(--sidebar-offset, 0)',
+          transition: 'padding-left 0.25s ease',
+        },
+      }}
     >
       <form
         onSubmit={(e) => {

@@ -929,6 +929,8 @@ export default function FRFDashboardPage() {
     currentUser?.departmentCode === 'PSMO/FMO' ||
     currentUser?.departmentCode === 'CDO';
   
+  console.log("canmanageness? ", canManage);
+  
   const visibleTabs = [
     'my_requests',
     'pending_approval',

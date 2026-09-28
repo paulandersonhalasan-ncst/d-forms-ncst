@@ -40,15 +40,17 @@ export async function proxy(request) {
   };
 
   const canAccessFRFManage = () => {
-    if (!user) return false;
-    
-    const isITOFMOCDO = user.departmentCode === 'ITO-MAIN' || user.departmentCode === 'ITO' || user.departmentCode === 'CDO' || user.departmentCode === 'PSMO/FMO';
-    if (!isITOFMOCDO) return false;
-    
-    const isSuperUser = user.role === 'SuperUser';
-    const isDepartmentHead = user.role === 'DepartmentHead' || user.role === 'OIC';
-    
-    return isSuperUser || isDepartmentHead;
+      if (!user) return false;
+      
+      const isITOFMOCDO = user.departmentCode === 'ITO-MAIN' || user.departmentCode === 'ITO' || user.departmentCode === 'CDO' || user.departmentCode === 'PSMO/FMO';
+      if (!isITOFMOCDO) return false;
+      
+      const isSuperUser = user.role === 'SuperUser';
+      const isDepartmentHead = user.role === 'DepartmentHead';
+      // ✅ Use isCurrentlyOIC (computed above) instead of role === 'OIC'
+      // Because OIC status is temporary (via oic_start / oic_end), not a role
+      
+      return isSuperUser || isDepartmentHead || isCurrentlyOIC;
   };
 
   // ================================================

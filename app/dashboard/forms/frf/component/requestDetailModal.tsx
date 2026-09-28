@@ -239,6 +239,12 @@ export default function RequestDetailModal({
       padding="lg"
       radius="md"
       zIndex={100}
+      styles={{
+        inner: {
+          paddingLeft: 'var(--sidebar-offset, 0)',
+          transition: 'padding-left 0.25s ease',
+        },
+      }}
     >
       <Stack gap="lg">
         {/* Header: Status & Dates */}

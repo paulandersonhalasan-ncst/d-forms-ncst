@@ -111,7 +111,12 @@ export default function OCMFinalEditModal({
   };
 
   return (
-    <Modal opened={opened} onClose={onClose} title="OCM Final Edit (Archiving)" size="xl">
+    <Modal opened={opened} onClose={onClose} title="OCM Final Edit (Archiving)" size="xl" styles={{
+      inner: {
+        paddingLeft: 'var(--sidebar-offset, 0)',
+        transition: 'padding-left 0.25s ease',
+      },
+    }}>
       <Stack gap="md">
         <Text size="sm" c="dimmed">Edit the details for archiving. No further approval needed.</Text>
 

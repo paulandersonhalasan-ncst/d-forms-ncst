@@ -94,6 +94,12 @@ export default function CreateMemoModal({
       centered
       closeOnClickOutside={false}
       zIndex={5000}
+      styles={{
+        inner: {
+          paddingLeft: 'var(--sidebar-offset, 0)',
+          transition: 'padding-left 0.25s ease',
+        },
+      }}
     >
       <form onSubmit={form.onSubmit(onSubmit)}>
         <Stack gap="md">

@@ -48,6 +48,7 @@ interface ITOAssignmentModalProps {
   onConfirm: (assignments: ITOAssignment[]) => void;
   loading?: boolean;
   mode?: 'assign' | 'approve';
+
 }
 
 type AssignmentRow = {
@@ -108,18 +109,17 @@ export default function ITOAssignmentModal({
   }, [opened, request?.id, mode]);
 
   useEffect(() => {
-    const shouldPrefill =
-      (request?.isReschedule && mode === 'approve') ||
-      !!request?.staffChangeRequestedAt;
+  const shouldPrefill =
+    request?.isReschedule && mode === 'approve';
 
-    if (
-      opened &&
-      request &&
-      shouldPrefill &&
-      request.assignments &&
-      request.assignments.length > 0 &&
-      !hasPrefilledRef.current
-    ) {
+  if (
+    opened &&
+    request &&
+    shouldPrefill &&
+    request.assignments &&
+    request.assignments.length > 0 &&
+    !hasPrefilledRef.current
+  ) {
       const newRows: AssignmentRow[] = request.assignments.map(ass => {
         const dutyDate = new Date(ass.dutyStart);
         let dateIndex = 0;
@@ -469,49 +469,14 @@ export default function ITOAssignmentModal({
       title="Assign ITO Staff for Overtime"
       size="100%"
       zIndex={200}
+      styles={{
+        inner: {
+          paddingLeft: 'var(--sidebar-offset, 0)',
+          transition: 'padding-left 0.25s ease',
+        },
+      }}
     >
       <Stack gap="md">
-        {request?.staffChangeRequestedAt && request?.staffChangeReason && (
-          <Alert
-            icon={<IconInfoCircle size={16} />}
-            color="pink"
-            title="HRD Requested a Staff Change"
-          >
-            <Stack gap={6}>
-              <Text size="sm">
-                <b>Reason from HRD:</b>
-              </Text>
-              <Text size="sm" style={{ whiteSpace: 'pre-wrap', fontStyle: 'italic' }}>
-                &ldquo;{request.staffChangeReason}&rdquo;
-              </Text>
-
-              {request.staffChangeRequestedBy && (
-                <Text size="xs" c="dimmed">
-                  <b>Requested by:</b> {request.staffChangeRequestedBy.fname}{' '}
-                  {request.staffChangeRequestedBy.lname}
-                  {request.staffChangeRequestedAt && (
-                    <>
-                      {' '}&bull;{' '}
-                      {new Date(request.staffChangeRequestedAt).toLocaleString('en-US', {
-                        timeZone: 'Asia/Manila',
-                        month: 'short',
-                        day: 'numeric',
-                        year: 'numeric',
-                        hour: 'numeric',
-                        minute: '2-digit',
-                        hour12: true,
-                      })}
-                    </>
-                  )}
-                </Text>
-              )}
-
-              <Text size="xs" c="pink" fw={600} mt={4}>
-                Please review and update the staff assignments below based on this reason.
-              </Text>
-            </Stack>
-          </Alert>
-        )}
         <Alert icon={<IconInfoCircle size={16} />} color="blue">
           <b>*DEPARTMENT HEAD / Officer-In-Charge ONLY*</b>
           <br />
