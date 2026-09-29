@@ -130,7 +130,7 @@ export interface EventPlace {
   name: string;
   isActive: boolean;
   branch: SystemBranch; 
-  category?: 'REGULAR' | 'CATEGORY_1' | 'CATEGORY_2';
+  category?: 'REGULAR' | 'CATEGORY_1' | 'CATEGORY_2' | 'VIP';
 }
 
 // ==========================================

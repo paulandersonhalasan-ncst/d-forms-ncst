@@ -168,7 +168,19 @@ export default function RequestStepper({
     minAdvanceDaysVIP: 1,
     minRescheduleDays: 3,
   });
+
+  const [allowVipVenues, setAllowVipVenues] = useState(false); // separate state
   const [minDatePreset, setMinDatePreset] = useState<'tomorrow' | 'sevenDays'>('sevenDays');
+
+  // 🆕 Filter places by VIP mode
+  // VIP places only appear when the VIP radio ("tomorrow") is selected.
+  const availablePlaces = useMemo(() => {
+    const isVipMode = minDatePreset === 'tomorrow';
+    return places.filter((p) => {
+      if (p.category === 'VIP') return isVipMode;
+      return true;
+    });
+  }, [places, minDatePreset]);
 
   const [hoveredAttachment, setHoveredAttachment] = useState<number | null>(null);
   const autoCheckedPlacesRef = useRef<Set<string>>(new Set());
@@ -782,6 +794,27 @@ export default function RequestStepper({
       [relevantEquipment, isEquipmentBundled]
     );
 
+    // 🆕 Clear VIP placeIds kapag nag-leave ng VIP mode
+    useEffect(() => {
+      if (minDatePreset === 'tomorrow') return; // still VIP mode
+      if (places.length === 0) return;
+
+      const hasVipSelected = form.values.dates.some((d) =>
+        places.some((p) => p.id === d.placeId && p.category === 'VIP')
+      );
+
+      if (hasVipSelected) {
+        form.setFieldValue(
+          'dates',
+          form.values.dates.map((d) => {
+            const isVip = places.some((p) => p.id === d.placeId && p.category === 'VIP');
+            return isVip ? { ...d, placeId: undefined } : d;
+          })
+        );
+      }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [minDatePreset, places]);
+
     useEffect(() => {
       if (!opened) return;
       if (selectedPlaceIds.length === 0) return;
@@ -969,6 +1002,13 @@ export default function RequestStepper({
                       <Radio value="sevenDays" label="REGULAR" />
                     </Group>
                   </Radio.Group>
+                  {minDatePreset === 'tomorrow' && (
+                    <Alert icon={<IconInfoCircle size={14} />} color="violet" mt="xs" p="xs">
+                      <Text size="xs">
+                        <b>VIP Mode active.</b> VIP venues (⭐) are now selectable. VIP events bypass the 2-events-per-day limit.
+                      </Text>
+                    </Alert>
+                  )}
                 </Grid.Col>
               )}
               <Grid.Col span={12}>
@@ -1163,7 +1203,10 @@ export default function RequestStepper({
                                   </Text>
                                   <Select
                                     placeholder="Select venue"
-                                    data={places.map((p) => ({ value: p.id, label: p.name }))}
+                                    data={availablePlaces.map((p) => ({
+                                      value: p.id,
+                                      label: p.category === 'VIP' ? `⭐ ${p.name}` : p.name,
+                                    }))}
                                     value={entry.placeId}
                                     onChange={(val) => {
                                       const updated = form.values.dates.map((e) =>

@@ -159,7 +159,8 @@ export type ApprovalStatus = (typeof ApprovalStatus)[keyof typeof ApprovalStatus
 export const EventPlaceCategory = {
   REGULAR: 'REGULAR',
   CATEGORY_1: 'CATEGORY_1',
-  CATEGORY_2: 'CATEGORY_2'
+  CATEGORY_2: 'CATEGORY_2',
+  VIP: 'VIP'
 } as const
 
 export type EventPlaceCategory = (typeof EventPlaceCategory)[keyof typeof EventPlaceCategory]

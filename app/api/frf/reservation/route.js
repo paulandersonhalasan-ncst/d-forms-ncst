@@ -2332,6 +2332,12 @@ async function validateEventLimit(datesArray, venueIds, excludeId = null) {
   });
   const venueMap = Object.fromEntries(allVenues.map(v => [v.id, v]));
 
+  // 🆕 VIP bypass — kapag may VIP place sa request, wag na i-apply ang daily limit
+  const requestedHasVip = allVenues.some(v => v.category === 'VIP');
+  if (requestedHasVip) {
+    return []; // no limits for VIP events
+  }
+
   for (const dateEntry of datesArray) {
     const eventDate = new Date(dateEntry.date);
     const dateStart = new Date(eventDate);
@@ -2339,26 +2345,29 @@ async function validateEventLimit(datesArray, venueIds, excludeId = null) {
     const dateEnd = new Date(dateStart);
     dateEnd.setDate(dateEnd.getDate() + 1);
 
+    // 🆕 Exclude VIP reservations sa daily count (they don't occupy regular slots)
     const existingReservations = await prisma.facilityReservation.findMany({
       where: {
         status: { in: ['PENDING_APPROVAL', 'APPROVED', 'COMPLETED'] },
         id: excludeId ? { not: excludeId } : undefined,
         dates: {
           some: {
-            date: {
-              gte: dateStart,
-              lt: dateEnd,
-            }
+            date: { gte: dateStart, lt: dateEnd },
+            OR: [
+              { placeId: null },
+              { place: { category: { not: 'VIP' } } }
+            ]
           }
         }
       },
       include: {
         dates: {
           where: {
-            date: {
-              gte: dateStart,
-              lt: dateEnd,
-            }
+            date: { gte: dateStart, lt: dateEnd },
+            OR: [
+              { placeId: null },
+              { place: { category: { not: 'VIP' } } }
+            ]
           },
           include: { place: true }
         }
@@ -2368,11 +2377,11 @@ async function validateEventLimit(datesArray, venueIds, excludeId = null) {
     const existingCategories = new Set();
     for (const res of existingReservations) {
       for (const d of res.dates) {
-        if (d.place?.category) {
+        if (d.place?.category && d.place.category !== 'VIP') {
           existingCategories.add(d.place.category);
         } else if (d.place?.name) {
           const cat = await getVenueCategory(d.place.name);
-          if (cat !== 'REGULAR') existingCategories.add(cat);
+          if (cat !== 'REGULAR' && cat !== 'VIP') existingCategories.add(cat);
         }
       }
     }
@@ -2380,11 +2389,11 @@ async function validateEventLimit(datesArray, venueIds, excludeId = null) {
     const requestedCategories = new Set();
     for (const venueId of venueIds) {
       const venue = venueMap[venueId];
-      if (venue?.category && venue.category !== 'REGULAR') {
+      if (venue?.category && venue.category !== 'REGULAR' && venue.category !== 'VIP') {
         requestedCategories.add(venue.category);
       } else if (venue?.name) {
         const cat = await getVenueCategory(venue.name);
-        if (cat !== 'REGULAR') requestedCategories.add(cat);
+        if (cat !== 'REGULAR' && cat !== 'VIP') requestedCategories.add(cat);
       }
     }
 
@@ -2407,7 +2416,7 @@ async function validateEventLimit(datesArray, venueIds, excludeId = null) {
       );
     }
 
-    if (existingCategories.has('CATEGORY_1') && existingCategories.has('CATEGORY_2') && 
+    if (existingCategories.has('CATEGORY_1') && existingCategories.has('CATEGORY_2') &&
         (requestedCategories.has('CATEGORY_1') || requestedCategories.has('CATEGORY_2'))) {
       errors.push(
         `Both Category 1 and Category 2 are occupied on ${dateStart.toLocaleDateString()}`

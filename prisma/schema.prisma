@@ -469,6 +469,7 @@ enum EventPlaceCategory {
   REGULAR
   CATEGORY_1
   CATEGORY_2
+  VIP
 }
 
 model EventPlace {

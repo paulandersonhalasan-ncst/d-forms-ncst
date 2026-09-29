@@ -40,7 +40,7 @@ interface Place {
   name: string;
   isActive: boolean;
   branch: SystemBranch;
-  category?: 'REGULAR' | 'CATEGORY_1' | 'CATEGORY_2';
+  category?: 'REGULAR' | 'CATEGORY_1' | 'CATEGORY_2' | 'VIP';
 }
 
 interface EquipmentPlace {
@@ -332,13 +332,15 @@ function PlacesTab({ currentUser }: TabProps) {
                         color={
                           p.category === 'CATEGORY_1' ? 'orange' :
                           p.category === 'CATEGORY_2' ? 'red' :
+                          p.category === 'VIP' ? 'violet' :
                           'gray'
                         }
                         variant="light"
                       >
                         {p.category === 'CATEGORY_1' ? 'Category 1' :
-                         p.category === 'CATEGORY_2' ? 'Category 2' :
-                         'Regular'}
+                        p.category === 'CATEGORY_2' ? 'Category 2' :
+                        p.category === 'VIP' ? '⭐ VIP' :
+                        'Regular'}
                       </Badge>
                     </Table.Td>
                     <Table.Td>
@@ -403,6 +405,7 @@ function PlacesTab({ currentUser }: TabProps) {
               { value: 'REGULAR', label: 'Regular (No special limit)' },
               { value: 'CATEGORY_1', label: 'Category 1 (HRM Bar, Multipurpose Room)' },
               { value: 'CATEGORY_2', label: 'Category 2 (NCST Gym, NCST Field, Outside)' },
+              { value: 'VIP', label: '⭐ VIP (Board of Trustees — bypasses 2 events/day limit)' },
             ]}
             value={category}
             onChange={(val) => setCategory((val as Place['category']) || 'REGULAR')}
