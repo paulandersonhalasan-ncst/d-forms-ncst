@@ -1911,9 +1911,6 @@ export const FacilityReservationScalarFieldEnum = {
   packUpDoneAt: 'packUpDoneAt',
   packUpDoneById: 'packUpDoneById',
   packUpDoneNotes: 'packUpDoneNotes',
-  staffChangeRequestedAt: 'staffChangeRequestedAt',
-  staffChangeRequestedById: 'staffChangeRequestedById',
-  staffChangeReason: 'staffChangeReason',
   packUpDonePhotos: 'packUpDonePhotos',
   packUpDoneLocation: 'packUpDoneLocation'
 } as const
