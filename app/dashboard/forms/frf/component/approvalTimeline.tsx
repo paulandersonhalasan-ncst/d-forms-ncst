@@ -153,7 +153,9 @@ export default function ApprovalTimeline({
                       display: 'flex',
                       flexDirection: 'column',
                       alignItems: 'center',
+                      justifyContent: 'center',      // 🆕 vertical centering ng buong stack
                       width: 140,
+                      height: 96,                     // 🆕 fixed height — uniform lahat ng cards
                       flexShrink: 0,
                       padding: '8px 6px',
                       cursor: 'pointer',

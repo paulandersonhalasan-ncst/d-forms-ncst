@@ -239,7 +239,7 @@ export default function Sidebar({
                 left: 0,
                 top: 0,
                 transition: "background-color 0.3s ease",
-                zIndex: 900,
+                zIndex: 100,
             }}>
                 {/* Header: logo (click to expand) */}
                 <div style={{
@@ -535,7 +535,7 @@ export default function Sidebar({
             left: 0,
             top: 0,
             transition: "background-color 0.3s ease",
-            zIndex: 900,
+            zIndex: 100,
         }}>
             {/* HEADER: Logo, Clock, Role, Collapse toggle */}
             <div style={{

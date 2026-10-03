@@ -470,11 +470,19 @@ export default function ITOAssignmentModal({
       size="100%"
       zIndex={200}
       styles={{
-        inner: {
-          paddingLeft: 'var(--sidebar-offset, 0)',
-          transition: 'padding-left 0.25s ease',
-        },
-      }}
+      inner: {
+        // 🆕 sidebar offset + 16px breathing room sa lahat ng gilid
+        paddingLeft: 'calc(var(--sidebar-offset, 0px) + 16px)',
+        paddingRight: 16,
+        paddingTop: 16,
+        paddingBottom: 16,
+        transition: 'padding-left 0.25s ease',
+      },
+      content: {
+        // 🆕 hindi lalampas sa viewport, may scroll kung mahaba
+        maxHeight: 'calc(100vh - 32px)',
+      },
+    }}
     >
       <Stack gap="md">
         <Alert icon={<IconInfoCircle size={16} />} color="blue">
