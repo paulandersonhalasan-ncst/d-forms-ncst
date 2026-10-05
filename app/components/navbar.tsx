@@ -13,8 +13,6 @@ import {
     IconUser,
     IconBellRinging,
     IconDatabaseExport,
-    IconLayoutSidebarLeftCollapse,
-    IconLayoutSidebarLeftExpand,
 } from "@tabler/icons-react";
 import {
     Code,
@@ -29,13 +27,11 @@ import {
     SegmentedControl,
     Tooltip,
     Stack,
-    Center,
-    Divider,
     Popover,
-    Box
+    Box,
 } from "@mantine/core";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { TablerIcon } from "@tabler/icons-react";
 import { useNotifications } from './notifications/NotificationProvider';
@@ -43,7 +39,7 @@ import NotificationPopover from './notifications/NotificationPopover';
 import Clock from "./clock";
 
 // ============================================================
-// TYPES & MENU DATA (unchanged)
+// TYPES & MENU DATA
 // ============================================================
 interface SidebarProps {
     role: "SuperUser" | "OIC" | "DepartmentHead" | "Staff" | "Admin" | "Faculty";
@@ -52,8 +48,6 @@ interface SidebarProps {
     lname: string;
     oic_start?: string | null;
     oic_end?: string | null;
-    opened: boolean;
-    onToggle: () => void;
 }
 
 interface MenuItem {
@@ -74,50 +68,50 @@ const schoolMenuData: MenuItem[] = [
         label: "Notifications",
         icon: IconBellRinging,
         link: "/dashboard/notifications",
-        isPopover: true
+        isPopover: true,
     },
     {
         label: "Dashboard",
         icon: IconGauge,
-        link: "/dashboard/analytics"
+        link: "/dashboard/analytics",
     },
     {
         label: "Forms",
         icon: IconCategory2,
         links: [
             { label: "Inter-Office Memorandum", link: "/dashboard/forms/iom" },
-            { label: "Facility Reservation Form", link: "/dashboard/forms/frf" }
-        ]
+            { label: "Facility Reservation Form", link: "/dashboard/forms/frf" },
+        ],
     },
     {
         label: "Manage Users",
         icon: IconUserCog,
         link: "/dashboard/manage_users",
-        allowedRoles: ["Admin", "SuperUser"]
+        allowedRoles: ["Admin", "SuperUser"],
     },
     {
         label: "Account Settings",
         icon: IconUserCircle,
-        link: "/dashboard/account_settings"
+        link: "/dashboard/account_settings",
     },
     {
         label: "Activity Logs",
         icon: IconLogs,
         link: "/dashboard/activity_logs",
-        allowedRoles: ["SuperUser"]
+        allowedRoles: ["SuperUser"],
     },
     {
         label: "Manage Staff",
         icon: IconUser,
         link: "/dashboard/manage_staff",
-        allowedRoles: ["OIC", "DepartmentHead"]
+        allowedRoles: ["OIC", "DepartmentHead"],
     },
     {
         label: "Backup Data",
         icon: IconDatabaseExport,
         link: "/dashboard/super/backup",
-        allowedRoles: ["SuperUser"]
-    }
+        allowedRoles: ["SuperUser"],
+    },
 ];
 
 const FULL_WIDTH = 260;
@@ -127,15 +121,23 @@ const MINI_WIDTH = 72;
 // COMPONENT
 // ============================================================
 export default function Sidebar({
-    role, email, fname, lname, oic_start, oic_end,
-    opened, onToggle,
+    role,
+    email,
+    fname,
+    lname,
+    oic_start,
+    oic_end,
 }: SidebarProps) {
     const [isCurrentlyOIC, setIsCurrentlyOIC] = useState<boolean>(false);
+    const [isHovered, setIsHovered] = useState(false);
+    const [hoverKey, setHoverKey] = useState<string | null>(null);
+    const [mounted, setMounted] = useState(false);
+
+    // 🆕 Delay para hindi agad mag-collapse pag lumabas ng konti ang mouse
+    const leaveTimerRef = useRef<NodeJS.Timeout | null>(null);
 
     const router = useRouter();
     const pathname = usePathname();
-    const [hoverKey, setHoverKey] = useState<string | null>(null);
-    const [mounted, setMounted] = useState(false);
 
     const { colorScheme, setColorScheme, clearColorScheme } = useMantineColorScheme({ keepTransitions: true });
 
@@ -144,7 +146,6 @@ export default function Sidebar({
         return (localStorage.getItem('theme-preference') as 'light' | 'dark' | null) ?? 'light';
     });
 
-    // Sync Mantine scheme
     useEffect(() => {
         if (themeMode === 'system') clearColorScheme();
         else setColorScheme(themeMode);
@@ -178,7 +179,7 @@ export default function Sidebar({
                 const tapos = new Date(oic_end);
                 tapos.setHours(23, 59, 59, 999);
                 const checkCondition = ngayon >= simula && ngayon <= tapos;
-                setIsCurrentlyOIC(prev => prev === checkCondition ? prev : checkCondition);
+                setIsCurrentlyOIC(prev => (prev === checkCondition ? prev : checkCondition));
             } else {
                 setIsCurrentlyOIC(false);
             }
@@ -193,7 +194,7 @@ export default function Sidebar({
         };
     }, [oic_start, oic_end, email]);
 
-    const effectiveRole = (role === "Staff" && isCurrentlyOIC) ? "OIC" : role;
+    const effectiveRole = role === "Staff" && isCurrentlyOIC ? "OIC" : role;
 
     let sidebarBg = "";
     const textColor = effectiveRole === "Staff" || effectiveRole === "Faculty" ? "#242424" : "#ffffff";
@@ -225,10 +226,45 @@ export default function Sidebar({
         }
     };
 
-    if (!opened) {
-        return (
-            <nav style={{
-                width: MINI_WIDTH,
+    // 🆕 Hover handlers with small close delay
+    const handleMouseEnter = () => {
+        if (leaveTimerRef.current) {
+            clearTimeout(leaveTimerRef.current);
+            leaveTimerRef.current = null;
+        }
+        setIsHovered(true);
+    };
+
+    const handleMouseLeave = () => {
+        leaveTimerRef.current = setTimeout(() => {
+            setIsHovered(false);
+        }, 120);
+    };
+
+    const isExpanded = isHovered;
+    const borderColor =
+        effectiveRole === "Staff" || effectiveRole === "Faculty"
+            ? "1px solid rgba(0,0,0,0.08)"
+            : "1px solid rgba(255,255,255,0.08)";
+    
+    // 🆕 I-publish ang hover state sa CSS variable
+    useEffect(() => {
+    document.documentElement.style.setProperty(
+        '--sidebar-hovered',
+        isExpanded ? '1' : '0'
+    );
+    }, [isExpanded]);
+
+    // ============================================================
+    // RENDER
+    // ============================================================
+    
+    return (
+        <nav
+            onMouseEnter={handleMouseEnter}
+            onMouseLeave={handleMouseLeave}
+            style={{
+                width: isExpanded ? FULL_WIDTH : MINI_WIDTH,
                 height: "100vh",
                 background: sidebarBg,
                 color: textColor,
@@ -238,23 +274,44 @@ export default function Sidebar({
                 position: "fixed",
                 left: 0,
                 top: 0,
-                transition: "background-color 0.3s ease",
                 zIndex: 100,
-            }}>
-                {/* Header: logo (click to expand) */}
-                <div style={{
-                    padding: "20px 0",
+                overflow: "hidden",
+                transition:
+                    "width 0.25s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.3s ease",
+                boxShadow: isExpanded ? "4px 0 16px rgba(0,0,0,0.15)" : "none",
+                willChange: "width",
+            }}
+        >
+            {/* ================= MINI CONTENT ================= */}
+            <div
+                aria-hidden={isExpanded}
+                style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    width: MINI_WIDTH,
+                    height: "100%",
                     display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    borderBottom: effectiveRole === "Staff" || effectiveRole === "Faculty"
-                        ? "1px solid rgba(0,0,0,0.08)"
-                        : "1px solid rgba(255,255,255,0.08)",
-                }}>
-                    <Tooltip label="Expand" position="right" withArrow zIndex={1100}>
+                    flexDirection: "column",
+                    opacity: isExpanded ? 0 : 1,
+                    visibility: isExpanded ? "hidden" : "visible",
+                    pointerEvents: isExpanded ? "none" : "auto",
+                    transition: `opacity 0.15s ease, visibility 0s linear ${isExpanded ? "0.15s" : "0s"}`,
+                }}
+            >
+                {/* Header */}
+                <div
+                    style={{
+                        padding: "20px 0",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        borderBottom: borderColor,
+                    }}
+                >
+                    <Tooltip label="Hover to expand" position="right" withArrow zIndex={1100}>
                         <UnstyledButton
-                            onClick={onToggle}
-                            aria-label="Expand navigation"
+                            aria-label="NCST logo"
                             style={{
                                 width: 44,
                                 height: 44,
@@ -264,10 +321,12 @@ export default function Sidebar({
                                 justifyContent: "center",
                                 color: textColor,
                             }}
-                            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = hoverBg)}
-                            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
                         >
-                            <Image src="/favicon.ico" alt="NCST logo" style={{ width: 28, height: 28, borderRadius: 6 }} />
+                            <Image
+                                src="/favicon.ico"
+                                alt="NCST logo"
+                                style={{ width: 28, height: 28, borderRadius: 6 }}
+                            />
                         </UnstyledButton>
                     </Tooltip>
                 </div>
@@ -289,7 +348,6 @@ export default function Sidebar({
                                 else if (item.link) router.push(item.link);
                             };
 
-                            // 🆕 Shared icon button — SAME dimensions across all items
                             const iconButton = (
                                 <UnstyledButton
                                     onClick={item.links ? undefined : handleClick}
@@ -331,13 +389,12 @@ export default function Sidebar({
                                                 padding: 0,
                                             }}
                                         >
-                                            {unreadCount > 99 ? '99' : unreadCount}
+                                            {unreadCount > 99 ? "99" : unreadCount}
                                         </Badge>
                                     )}
                                 </UnstyledButton>
                             );
 
-                            // ✅ Notifications: swap order + enforce 46×46 wrapper para aligned
                             if (item.isPopover) {
                                 return (
                                     <Box
@@ -345,18 +402,13 @@ export default function Sidebar({
                                         style={{
                                             width: 46,
                                             height: 46,
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
+                                            display: "flex",
+                                            alignItems: "center",
+                                            justifyContent: "center",
                                         }}
                                     >
                                         <NotificationPopover>
-                                            <Tooltip
-                                                label={item.label}
-                                                position="right"
-                                                withArrow
-                                                zIndex={1100}
-                                            >
+                                            <Tooltip label={item.label} position="right" withArrow zIndex={1100}>
                                                 {iconButton}
                                             </Tooltip>
                                         </NotificationPopover>
@@ -364,7 +416,6 @@ export default function Sidebar({
                                 );
                             }
 
-                            // ✅ Items with sub-links: Popover flyout (right side)
                             if (item.links && item.links.length > 0) {
                                 return (
                                     <Popover
@@ -378,12 +429,7 @@ export default function Sidebar({
                                         offset={12}
                                     >
                                         <Popover.Target>
-                                            <Tooltip
-                                                label={item.label}
-                                                position="right"
-                                                withArrow
-                                                zIndex={1100}
-                                            >
+                                            <Tooltip label={item.label} position="right" withArrow zIndex={1100}>
                                                 {iconButton}
                                             </Tooltip>
                                         </Popover.Target>
@@ -406,7 +452,7 @@ export default function Sidebar({
                                                                 active={isSubActive}
                                                                 onClick={() => router.push(subItem.link)}
                                                                 styles={{
-                                                                    root: { borderRadius: 6, padding: '6px 10px' },
+                                                                    root: { borderRadius: 6, padding: "6px 10px" },
                                                                     label: { fontSize: 13, fontWeight: isSubActive ? 600 : 500 },
                                                                 }}
                                                             />
@@ -418,15 +464,8 @@ export default function Sidebar({
                                 );
                             }
 
-                            // ✅ Plain icon items
                             return (
-                                <Tooltip
-                                    key={item.label}
-                                    label={item.label}
-                                    position="right"
-                                    withArrow
-                                    zIndex={1100}
-                                >
+                                <Tooltip key={item.label} label={item.label} position="right" withArrow zIndex={1100}>
                                     {iconButton}
                                 </Tooltip>
                             );
@@ -434,43 +473,44 @@ export default function Sidebar({
                     </Stack>
                 </ScrollArea>
 
-                {/* Footer: OIC badge + theme toggle + logout icon */}
-                <div style={{
-                    padding: "12px 0",
-                    borderTop: effectiveRole === "Staff" || effectiveRole === "Faculty"
-                        ? "1px solid rgba(0,0,0,0.08)"
-                        : "1px solid rgba(255,255,255,0.08)",
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    gap: 10,
-                }}>
+                {/* Footer */}
+                <div
+                    style={{
+                        padding: "12px 0",
+                        borderTop: borderColor,
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        gap: 10,
+                    }}
+                >
                     {isCurrentlyOIC && (
                         <Tooltip label="Active OIC Access" position="right" withArrow zIndex={1100}>
-                            <Code style={{
-                                background: "#2f9e44",
-                                color: "#ffffff",
-                                fontSize: 9,
-                                fontWeight: 800,
-                                padding: "2px 4px",
-                                borderRadius: 4,
-                                boxShadow: "0 0 8px rgba(47, 158, 68, 0.5)",
-                            }}>
+                            <Code
+                                style={{
+                                    background: "#2f9e44",
+                                    color: "#ffffff",
+                                    fontSize: 9,
+                                    fontWeight: 800,
+                                    padding: "2px 4px",
+                                    borderRadius: 4,
+                                    boxShadow: "0 0 8px rgba(47, 158, 68, 0.5)",
+                                }}
+                            >
                                 OIC
                             </Code>
                         </Tooltip>
                     )}
 
-                    {/* 🆕 Theme toggle icon */}
                     {mounted && (
                         <Tooltip
-                            label={resolvedTheme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+                            label={resolvedTheme === "dark" ? "Switch to Light Mode" : "Switch to Dark Mode"}
                             position="right"
                             withArrow
                             zIndex={1100}
                         >
                             <UnstyledButton
-                                onClick={() => handleThemeChange(resolvedTheme === 'dark' ? 'light' : 'dark')}
+                                onClick={() => handleThemeChange(resolvedTheme === "dark" ? "light" : "dark")}
                                 aria-label="Toggle theme"
                                 style={{
                                     width: 40,
@@ -485,7 +525,7 @@ export default function Sidebar({
                                 onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = hoverBg)}
                                 onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
                             >
-                                {resolvedTheme === 'dark' ? (
+                                {resolvedTheme === "dark" ? (
                                     <IconSun size={20} stroke={1.8} />
                                 ) : (
                                     <IconMoon size={20} stroke={1.8} />
@@ -515,123 +555,115 @@ export default function Sidebar({
                         </UnstyledButton>
                     </Tooltip>
                 </div>
-            </nav>
-        );
-    }
-
-    // ============================================================
-    // FULL MODE (your original sidebar, unchanged)
-    // ============================================================
-    return (
-        <nav style={{
-            width: FULL_WIDTH,
-            height: "100vh",
-            background: sidebarBg,
-            color: textColor,
-            display: "flex",
-            flexDirection: "column",
-            borderRight: "1px solid rgba(0,0,0,0.05)",
-            position: "fixed",
-            left: 0,
-            top: 0,
-            transition: "background-color 0.3s ease",
-            zIndex: 100,
-        }}>
-            {/* HEADER: Logo, Clock, Role, Collapse toggle */}
-            <div style={{
-                padding: 24,
-                borderBottom: effectiveRole === "Staff" || effectiveRole === "Faculty"
-                    ? "1px solid rgba(0,0,0,0.08)"
-                    : "1px solid rgba(255,255,255,0.08)",
-            }}>
-            <Group justify="space-between">
-                <Tooltip label="Collapse" position="bottom" withArrow>
-                    <UnstyledButton
-                        onClick={onToggle}
-                        aria-label="Collapse navigation"
-                        style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 8,
-                            padding: "4px 8px",
-                            borderRadius: 6,
-                            color: textColor,
-                            transition: "background-color 0.15s ease",
-                        }}
-                        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = hoverBg)}
-                        onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
-                    >
-                        <Image src="/favicon.ico" alt="NCST logo" style={{ width: 24, height: 24, borderRadius: 4 }} />
-                        <Text fw={800} size="xl" style={{ whiteSpace: "nowrap" }}>NCST D-FORMS</Text>
-                    </UnstyledButton>
-                </Tooltip>
-                {mounted && (
-                    <Clock
-                        background={effectiveRole === "Staff" ? "rgba(0,0,0,0.1)" : "rgba(255,255,255,0.15)"}
-                        color={textColor}
-                    />
-                )}
-            </Group>
-
-            <Group justify="space-between" align="center" mt="xs">
-                <Text size="xs" fw={700} style={{ opacity: 0.7 }}>
-                    ROLE: {role.toUpperCase()}
-                </Text>
-
-                {isCurrentlyOIC && (
-                    <Code
-                        fw={800}
-                        style={{
-                            background: "#2f9e44",
-                            color: "#ffffff",
-                            fontSize: "10px",
-                            padding: "2px 6px",
-                            borderRadius: "4px",
-                            boxShadow: "0 0 8px rgba(47, 158, 68, 0.5)"
-                        }}
-                    >
-                        ACTIVE OIC ACCESS
-                    </Code>
-                )}
-            </Group>
             </div>
 
-            {/* BODY: same NavLink engine as original */}
-            <ScrollArea style={{ flex: 1, padding: "16px 0" }}>
-                <div style={{ paddingLeft: 12, paddingRight: 12 }}>
-                    {visibleMenu.map((item) => {
-                        let isMainActive = false;
-                        if (item.label === "Dashboard") {
-                            isMainActive = pathname === "/dashboard/analytics";
-                        } else if (item.link) {
-                            isMainActive = pathname === item.link;
-                        }
-
-                        const customNavLinkStyles = {
-                            label: { color: textColor, fontWeight: isMainActive ? 600 : 500 },
-                            description: { color: textColor },
-                            children: { paddingLeft: 16 },
-                            root: {
+            {/* ================= FULL CONTENT ================= */}
+            <div
+                aria-hidden={!isExpanded}
+                style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    width: FULL_WIDTH,
+                    height: "100%",
+                    display: "flex",
+                    flexDirection: "column",
+                    opacity: isExpanded ? 1 : 0,
+                    visibility: isExpanded ? "visible" : "hidden",
+                    pointerEvents: isExpanded ? "auto" : "none",
+                    transition: `opacity 0.2s ease 0.05s, visibility 0s linear ${isExpanded ? "0s" : "0.25s"}`,
+                }}
+            >
+                {/* HEADER: Logo, Clock, Role */}
+                <div style={{ padding: 24, borderBottom: borderColor }}>
+                    <Group justify="space-between">
+                        <UnstyledButton
+                            aria-label="NCST D-Forms"
+                            style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 8,
+                                padding: "4px 8px",
                                 borderRadius: 6,
-                                marginBottom: 4,
-                                backgroundColor: isMainActive ? activeBg : "transparent",
-                                "&:hover": { backgroundColor: `${hoverBg} !important` }
+                                color: textColor,
+                            }}
+                        >
+                            <Image
+                                src="/favicon.ico"
+                                alt="NCST logo"
+                                style={{ width: 24, height: 24, borderRadius: 4 }}
+                            />
+                            <Text fw={800} size="xl" style={{ whiteSpace: "nowrap" }}>
+                                NCST D-FORMS
+                            </Text>
+                        </UnstyledButton>
+                        {mounted && (
+                            <Clock
+                                background={effectiveRole === "Staff" ? "rgba(0,0,0,0.1)" : "rgba(255,255,255,0.15)"}
+                                color={textColor}
+                            />
+                        )}
+                    </Group>
+
+                    <Group justify="space-between" align="center" mt="xs">
+                        <Text size="xs" fw={700} style={{ opacity: 0.7 }}>
+                            ROLE: {role.toUpperCase()}
+                        </Text>
+
+                        {isCurrentlyOIC && (
+                            <Code
+                                fw={800}
+                                style={{
+                                    background: "#2f9e44",
+                                    color: "#ffffff",
+                                    fontSize: "10px",
+                                    padding: "2px 6px",
+                                    borderRadius: "4px",
+                                    boxShadow: "0 0 8px rgba(47, 158, 68, 0.5)",
+                                }}
+                            >
+                                ACTIVE OIC ACCESS
+                            </Code>
+                        )}
+                    </Group>
+                </div>
+
+                {/* BODY: NavLinks */}
+                <ScrollArea style={{ flex: 1, padding: "16px 0" }}>
+                    <div style={{ paddingLeft: 12, paddingRight: 12 }}>
+                        {visibleMenu.map((item) => {
+                            let isMainActive = false;
+                            if (item.label === "Dashboard") {
+                                isMainActive = pathname === "/dashboard/analytics";
+                            } else if (item.link) {
+                                isMainActive = pathname === item.link;
                             }
-                        };
 
-                        const handleMainClick = () => {
-                            if (item.label === "Dashboard") router.push("/dashboard/analytics");
-                            else if (item.link) router.push(item.link);
-                        };
+                            const customNavLinkStyles = {
+                                label: { color: textColor, fontWeight: isMainActive ? 600 : 500 },
+                                description: { color: textColor },
+                                children: { paddingLeft: 16 },
+                                root: {
+                                    borderRadius: 6,
+                                    marginBottom: 4,
+                                    backgroundColor: isMainActive ? activeBg : "transparent",
+                                    "&:hover": { backgroundColor: `${hoverBg} !important` },
+                                },
+                            };
 
-                        const badge = item.isPopover && unreadCount > 0 ? (
-                            <Badge color="red" variant="filled" size="sm" circle>
-                                {unreadCount > 99 ? '99+' : unreadCount}
-                            </Badge>
-                        ) : undefined;
+                            const handleMainClick = () => {
+                                if (item.label === "Dashboard") router.push("/dashboard/analytics");
+                                else if (item.link) router.push(item.link);
+                            };
 
-                        return (
-                            item.isPopover ? (
+                            const badge =
+                                item.isPopover && unreadCount > 0 ? (
+                                    <Badge color="red" variant="filled" size="sm" circle>
+                                        {unreadCount > 99 ? "99+" : unreadCount}
+                                    </Badge>
+                                ) : undefined;
+
+                            return item.isPopover ? (
                                 <NotificationPopover key={item.label}>
                                     <NavLink
                                         label={item.label}
@@ -642,8 +674,13 @@ export default function Sidebar({
                                         onMouseLeave={() => setHoverKey((k) => (k === item.label ? null : k))}
                                         style={{
                                             color: textColor,
-                                            backgroundColor: hoverKey === item.label ? hoverBg : (isMainActive ? activeBg : "transparent"),
-                                            cursor: 'pointer',
+                                            backgroundColor:
+                                                hoverKey === item.label
+                                                    ? hoverBg
+                                                    : isMainActive
+                                                    ? activeBg
+                                                    : "transparent",
+                                            cursor: "pointer",
                                         }}
                                         rightSection={badge}
                                     />
@@ -661,7 +698,12 @@ export default function Sidebar({
                                     style={{
                                         color: textColor,
                                         transition: "background-color 0.15s ease",
-                                        backgroundColor: hoverKey === item.label ? hoverBg : (isMainActive ? activeBg : "transparent")
+                                        backgroundColor:
+                                            hoverKey === item.label
+                                                ? hoverBg
+                                                : isMainActive
+                                                ? activeBg
+                                                : "transparent",
                                     }}
                                 >
                                     {item.links
@@ -680,100 +722,122 @@ export default function Sidebar({
                                                     onClick={() => router.push(subItem.link)}
                                                     onMouseEnter={() => setHoverKey(subKey)}
                                                     onMouseLeave={() => setHoverKey((k) => (k === subKey ? null : k))}
-                                                    style={{ backgroundColor: hoverKey === subKey ? hoverBg : (isSubActive ? activeBg : "transparent") }}
+                                                    style={{
+                                                        backgroundColor:
+                                                            hoverKey === subKey
+                                                                ? hoverBg
+                                                                : isSubActive
+                                                                ? activeBg
+                                                                : "transparent",
+                                                    }}
                                                     styles={{
                                                         root: { borderRadius: 6, marginBottom: 2 },
-                                                        label: { color: textColor, fontSize: "13px", fontWeight: isSubActive ? 600 : 400 }
+                                                        label: {
+                                                            color: textColor,
+                                                            fontSize: "13px",
+                                                            fontWeight: isSubActive ? 600 : 400,
+                                                        },
                                                     }}
                                                 />
                                             );
                                         })}
                                 </NavLink>
-                            )
-                        );
-                    })}
-                </div>
-            </ScrollArea>
-
-            {/* FOOTER: same as original */}
-            <div style={{
-                padding: 20,
-                borderTop: role === "Staff"
-                    ? "1px solid rgba(0,0,0,0.08)"
-                    : "1px solid rgba(255,255,255,0.08)",
-                display: "flex",
-                flexDirection: "column",
-                gap: 12,
-            }}>
-                <div style={{ fontSize: "13px", opacity: 0.8 }}>
-                    Logged in: <b>{email} | {lname}, {fname}</b>
-                </div>
-
-                {mounted && (
-                    <div style={{
-                        padding: "6px 10px",
-                        borderRadius: 6,
-                        background: resolvedTheme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)',
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between"
-                    }}>
-                        <Group gap="xs">
-                            {resolvedTheme === 'dark' ? (
-                                <IconMoon size={16} stroke={2} color={textColor} />
-                            ) : (
-                                <IconSun size={16} stroke={2} color={textColor} />
-                            )}
-                        </Group>
-
-                        <SegmentedControl
-                            size="xs"
-                            radius="md"
-                            value={themeMode}
-                            onChange={handleThemeChange}
-                            data={[
-                                { label: '☀️', value: 'light' },
-                                { label: '🌙', value: 'dark' }
-                            ]}
-                            color="violet"
-                            style={{
-                                background: resolvedTheme === 'light'
-                                    ? 'rgba(255,255,255,0.15)'
-                                    : 'rgba(0,0,0,0.15)',
-                                border: resolvedTheme === 'dark'
-                                    ? '1px solid rgba(255,255,255,0.15)'
-                                    : '1px solid rgba(0,0,0,0.08)',
-                                flex: 1,
-                                marginLeft: 8
-                            }}
-                            styles={{
-                                label: { fontWeight: 500, fontSize: "11px", padding: "2px 8px" },
-                                control: { border: "none", background: "transparent" }
-                            }}
-                        />
+                            );
+                        })}
                     </div>
-                )}
+                </ScrollArea>
 
-                <UnstyledButton
-                    onClick={handleLogout}
+                {/* FOOTER */}
+                <div
                     style={{
+                        padding: 20,
+                        borderTop: role === "Staff" ? "1px solid rgba(0,0,0,0.08)" : "1px solid rgba(255,255,255,0.08)",
                         display: "flex",
-                        alignItems: "center",
-                        padding: "8px 12px",
-                        borderRadius: 6,
-                        backgroundColor: "var(--mantine-color-red-5)",
-                        color: "var(--mantine-color-red-9)",
-                        fontSize: "14px",
-                        fontWeight: 600,
-                        transition: "background-color 0.15s ease",
-                        width: "100%"
+                        flexDirection: "column",
+                        gap: 12,
                     }}
-                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--mantine-color-red-4)")}
-                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "var(--mantine-color-red-5)")}
                 >
-                    <IconLogout size={16} stroke={2} style={{ marginRight: 8 }} />
-                    <span>Sign Out</span>
-                </UnstyledButton>
+                    <div style={{ fontSize: "13px", opacity: 0.8 }}>
+                        Logged in:{" "}
+                        <b>
+                            {email} | {lname}, {fname}
+                        </b>
+                    </div>
+
+                    {mounted && (
+                        <div
+                            style={{
+                                padding: "6px 10px",
+                                borderRadius: 6,
+                                background: resolvedTheme === "dark" ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                            }}
+                        >
+                            <Group gap="xs">
+                                {resolvedTheme === "dark" ? (
+                                    <IconMoon size={16} stroke={2} color={textColor} />
+                                ) : (
+                                    <IconSun size={16} stroke={2} color={textColor} />
+                                )}
+                            </Group>
+
+                            <SegmentedControl
+                                size="xs"
+                                radius="md"
+                                value={themeMode}
+                                onChange={handleThemeChange}
+                                data={[
+                                    { label: "☀️", value: "light" },
+                                    { label: "🌙", value: "dark" },
+                                ]}
+                                color="violet"
+                                style={{
+                                    background:
+                                        resolvedTheme === "light"
+                                            ? "rgba(255,255,255,0.15)"
+                                            : "rgba(0,0,0,0.15)",
+                                    border:
+                                        resolvedTheme === "dark"
+                                            ? "1px solid rgba(255,255,255,0.15)"
+                                            : "1px solid rgba(0,0,0,0.08)",
+                                    flex: 1,
+                                    marginLeft: 8,
+                                }}
+                                styles={{
+                                    label: { fontWeight: 500, fontSize: "11px", padding: "2px 8px" },
+                                    control: { border: "none", background: "transparent" },
+                                }}
+                            />
+                        </div>
+                    )}
+
+                    <UnstyledButton
+                        onClick={handleLogout}
+                        style={{
+                            display: "flex",
+                            alignItems: "center",
+                            padding: "8px 12px",
+                            borderRadius: 6,
+                            backgroundColor: "var(--mantine-color-red-5)",
+                            color: "var(--mantine-color-red-9)",
+                            fontSize: "14px",
+                            fontWeight: 600,
+                            transition: "background-color 0.15s ease",
+                            width: "100%",
+                        }}
+                        onMouseEnter={(e) =>
+                            (e.currentTarget.style.backgroundColor = "var(--mantine-color-red-4)")
+                        }
+                        onMouseLeave={(e) =>
+                            (e.currentTarget.style.backgroundColor = "var(--mantine-color-red-5)")
+                        }
+                    >
+                        <IconLogout size={16} stroke={2} style={{ marginRight: 8 }} />
+                        <span>Sign Out</span>
+                    </UnstyledButton>
+                </div>
             </div>
         </nav>
     );

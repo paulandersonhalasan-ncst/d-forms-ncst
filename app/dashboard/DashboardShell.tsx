@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';   // 🆕 add useEffect
+import React, { useState, useEffect } from 'react';
 import Sidebar from '../components/navbar';
 
 interface DashboardShellProps {
@@ -13,29 +13,22 @@ interface DashboardShellProps {
   children: React.ReactNode;
 }
 
-const FULL_WIDTH = 260;
 const MINI_WIDTH = 72;
 
 export default function DashboardShell({
   role, email, fname, lname, oic_start, oic_end, children,
 }: DashboardShellProps) {
-  const [sidebarOpened, setSidebarOpened] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return true;
-    return window.innerWidth >= 768;
-  });
-
-  // 🆕 Expose sidebar width as global CSS variable
-  // Modals will consume this to shift their centering.
+  // 🆕 Always expose the MINI width to modals — hover should not shift them
   useEffect(() => {
-    const width = sidebarOpened ? FULL_WIDTH : MINI_WIDTH;
-    document.documentElement.style.setProperty('--sidebar-offset', `${width}px`);
+    document.documentElement.style.setProperty('--sidebar-offset', `${MINI_WIDTH}px`);
     return () => {
       document.documentElement.style.removeProperty('--sidebar-offset');
     };
-  }, [sidebarOpened]);
+  }, []);
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh' }}>
+    <div style={{ minHeight: '100vh' }}>
+      {/* Sidebar is self-managed: mini by default, expands on hover */}
       <Sidebar
         role={role}
         email={email}
@@ -43,14 +36,11 @@ export default function DashboardShell({
         lname={lname}
         oic_start={oic_start}
         oic_end={oic_end}
-        opened={sidebarOpened}
-        onToggle={() => setSidebarOpened((o) => !o)}
       />
 
       <main
         style={{
-          flex: 1,
-          marginLeft: sidebarOpened ? FULL_WIDTH : MINI_WIDTH,
+          marginLeft: MINI_WIDTH,     // 🆕 hindi na sumasabay sa hover
           padding: 32,
           background: 'var(--background)',
           minHeight: '100vh',
@@ -58,6 +48,23 @@ export default function DashboardShell({
         }}
       >
         {children}
+      
+      {/* 🆕 Subtle dark overlay kapag naka-hover ang sidebar */}
+      <div
+        aria-hidden="true"
+        style={{
+          position: 'fixed',
+          top: 0,
+          right: 0,
+          bottom: 0,
+          left: 0,
+          background: '#000',
+          opacity: 'calc(0.6 * var(--sidebar-hovered, 0))',
+          transition: 'opacity 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
+          pointerEvents: 'none',
+          zIndex: 99,
+        }}
+      />
       </main>
     </div>
   );
