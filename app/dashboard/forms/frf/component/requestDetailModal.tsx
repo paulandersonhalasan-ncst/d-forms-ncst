@@ -238,7 +238,7 @@ export default function RequestDetailModal({
       title={`Reservation ${request.referenceId}`}
       padding="lg"
       radius="md"
-      zIndex={100}
+      zIndex={1000}
       styles={{
         inner: {
           paddingLeft: 'var(--sidebar-offset, 0)',

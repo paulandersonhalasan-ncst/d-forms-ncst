@@ -247,11 +247,14 @@ export default function Sidebar({
             ? "1px solid rgba(0,0,0,0.08)"
             : "1px solid rgba(255,255,255,0.08)";
     
-    // 🆕 I-publish ang hover state sa CSS variable
     useEffect(() => {
     document.documentElement.style.setProperty(
         '--sidebar-hovered',
         isExpanded ? '1' : '0'
+    );
+    document.documentElement.style.setProperty(
+        '--sidebar-hovered-pointer',
+        isExpanded ? 'none' : 'auto'
     );
     }, [isExpanded]);
 

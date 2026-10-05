@@ -40,31 +40,19 @@ export default function DashboardShell({
 
       <main
         style={{
-          marginLeft: MINI_WIDTH,     // 🆕 hindi na sumasabay sa hover
+          marginLeft: MINI_WIDTH,
           padding: 32,
           background: 'var(--background)',
           minHeight: '100vh',
-          transition: 'margin-left 0.25s ease',
+
+          filter: 'blur(calc(16px * var(--sidebar-hovered, 0)))',
+          transition: 'filter 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+          willChange: 'filter',
+
+          pointerEvents: 'var(--sidebar-hovered-pointer, auto)' as React.CSSProperties['pointerEvents'],
         }}
       >
         {children}
-      
-      {/* 🆕 Subtle dark overlay kapag naka-hover ang sidebar */}
-      <div
-        aria-hidden="true"
-        style={{
-          position: 'fixed',
-          top: 0,
-          right: 0,
-          bottom: 0,
-          left: 0,
-          background: '#000',
-          opacity: 'calc(0.6 * var(--sidebar-hovered, 0))',
-          transition: 'opacity 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
-          pointerEvents: 'none',
-          zIndex: 99,
-        }}
-      />
       </main>
     </div>
   );
