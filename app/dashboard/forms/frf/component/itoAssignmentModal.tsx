@@ -18,9 +18,12 @@ import {
   Divider,
   Badge,
   Textarea,
-  Checkbox
+  Checkbox,
+  UnstyledButton,
+  Collapse,
 } from '@mantine/core';
 import { TimeInput } from '@mantine/dates';
+import { useMediaQuery } from '@mantine/hooks';
 import {
   IconTrash,
   IconPlus,
@@ -28,6 +31,7 @@ import {
   IconCheck,
   IconX,
   IconAlertCircle,
+  IconChevronDown
 } from '@tabler/icons-react';
 import { FacilityReservation, UserContext, ITOAssignment } from './types';
 
@@ -90,6 +94,9 @@ export default function ITOAssignmentModal({
   const [staffList, setStaffList] = useState<{ value: string; label: string }[]>([]);
   const [rows, setRows] = useState<AssignmentRow[]>([]);
   const [error, setError] = useState('');
+  const [rulesExpanded, setRulesExpanded] = useState(false); // 📱 for collapsible alert
+
+  const isMobile = useMediaQuery('(max-width: 768px)');
   
   const hasPrefilledRef = useRef(false);
 
@@ -468,7 +475,9 @@ export default function ITOAssignmentModal({
       onClose={onClose}
       title="Assign ITO Staff for Overtime"
       size="100%"
-      zIndex={200}
+      fullScreen={isMobile}
+      zIndex={1000}
+      centered
       styles={{
       inner: {
         // 🆕 sidebar offset + 16px breathing room sa lahat ng gilid
@@ -485,34 +494,79 @@ export default function ITOAssignmentModal({
     }}
     >
       <Stack gap="md">
-        <Alert icon={<IconInfoCircle size={16} />} color="blue">
-          <b>*DEPARTMENT HEAD / Officer-In-Charge ONLY*</b>
-          <br />
-          List <b>ALL</b> ITO staff duties for this event — including setup, pack-up, operators, and assistants.
-          Mark the <b>OT (Overtime)</b> checkbox for duties rendered outside regular working hours.
-          <br /><br />
-          <b>Validation Rules:</b>
-          <ul style={{ marginTop: 4, fontSize: '14px' }}>
-            <li>Every date must have at least one Setup and one Pack-up.</li>
-            <li>Setup: start time must be at least <b>2 hours before</b> event start; end time must be ≤ event start.</li>
-            <li>Pack-up: start time must be ≥ event end; end time must be at least <b>2 hours after</b> event end.</li>
-            <li>Operator / Assistant: must fall within the event start and end times.</li>
-          </ul>
+        <Alert
+          icon={<IconInfoCircle size={isMobile ? 14 : 16} />}
+          color="blue"
+          p={isMobile ? 'xs' : 'md'}
+        >
+          <Text size={isMobile ? 'xs' : 'sm'} fw={700}>
+            *DEPARTMENT HEAD / OIC ONLY*
+          </Text>
+          <Text size={isMobile ? '11px' : 'xs'} mt={4} lh={1.5}>
+            List all ITO staff duties for this event — setup, pack-up, operators, and assistants.
+            Mark <b>OT</b> for off-hours duties.
+          </Text>
 
-          <br />
-
-          <b>*DEPARTMENT HEAD / Officer-In-Charge LAMANG*</b>
-          <br />
-          Ilista <b>LAHAT</b> ng duty ng ITO staff para sa event na ito — kasama ang setup, pack-up, operator, at assistant.
-          Markahan ng <b>OT (Overtime)</b> checkbox ang mga duty na ginawa <b>lampas sa regular working hours</b>.
-          <br /><br />
-          <b>Mga Alituntunin:</b>
-          <ul style={{ marginTop: 4, fontSize: '14px' }}>
-            <li>Ang kada petsa ay dapat may isang taga-ayos (Setup) at taga-ligpit (Pack-up).</li>
-            <li>Setup: Ang start time ay dapat <b>2 oras bago ang event start</b>; Ang end time ay dapat mas mababa o katumbas ng event start.</li>
-            <li>Pack-up: Ang start time ay dapat mas mauna o katumbas ng event end; end time ay dapat di bababa sa <b>2 oras pagkatapos</b> ng event end.</li>
-            <li>Operator / Assistant: dapat nasa loob ng event start at end time.</li>
-          </ul>
+          {isMobile ? (
+            /* 📱 Collapsible rules */
+            <>
+              <UnstyledButton
+                onClick={() => setRulesExpanded((o) => !o)}
+                mt="xs"
+                style={{ width: '100%' }}
+              >
+                <Group gap={4} justify="space-between" wrap="nowrap">
+                  <Text size="11px" fw={700} c="blue.6">
+                    {rulesExpanded ? '▼ Hide Rules' : '▶ Show Rules & Guidelines'}
+                  </Text>
+                  <IconChevronDown
+                    size={14}
+                    style={{
+                      transform: rulesExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                      transition: 'transform 150ms ease',
+                    }}
+                  />
+                </Group>
+              </UnstyledButton>
+              <Collapse expanded={rulesExpanded}>
+                <Box mt="xs" style={{ fontSize: '11px', lineHeight: 1.5 }}>
+                  <b>Validation Rules:</b>
+                  <ul style={{ marginTop: 2, marginBottom: 6, paddingLeft: 16 }}>
+                    <li>Every date needs ≥1 Setup and ≥1 Pack-up.</li>
+                    <li>Setup start ≥2h before event; end ≤ event start.</li>
+                    <li>Pack-up start ≥ event end; end ≥2h after event end.</li>
+                    <li>Operator/Assistant must fall within event times.</li>
+                  </ul>
+                  <b>Mga Alituntunin:</b>
+                  <ul style={{ marginTop: 2, marginBottom: 0, paddingLeft: 16 }}>
+                    <li>Bawat petsa: ≥1 Setup, ≥1 Pack-up.</li>
+                    <li>Setup: start ≥2h bago ang event; end ≤ event start.</li>
+                    <li>Pack-up: start ≥ event end; end ≥2h pagkatapos.</li>
+                    <li>Operator/Assistant: sa loob ng event time.</li>
+                  </ul>
+                </Box>
+              </Collapse>
+            </>
+          ) : (
+            /* 💻 Desktop: full rules */
+            <>
+              <Text fw={600} mt="xs" size="sm">Validation Rules:</Text>
+              <ul style={{ marginTop: 4, fontSize: '14px' }}>
+                <li>Every date must have at least one Setup and one Pack-up.</li>
+                <li>Setup: start time must be at least <b>2 hours before</b> event start; end time must be ≤ event start.</li>
+                <li>Pack-up: start time must be ≥ event end; end time must be at least <b>2 hours after</b> event end.</li>
+                <li>Operator / Assistant: must fall within the event start and end times.</li>
+              </ul>
+              <br />
+              <Text fw={600} size="sm">Mga Alituntunin:</Text>
+              <ul style={{ marginTop: 4, fontSize: '14px' }}>
+                <li>Ang kada petsa ay dapat may isang taga-ayos (Setup) at taga-ligpit (Pack-up).</li>
+                <li>Setup: Ang start time ay dapat <b>2 oras bago ang event start</b>; Ang end time ay dapat mas mababa o katumbas ng event start.</li>
+                <li>Pack-up: Ang start time ay dapat mas mauna o katumbas ng event end; end time ay dapat di bababa sa <b>2 oras pagkatapos</b> ng event end.</li>
+                <li>Operator / Assistant: dapat nasa loob ng event start at end time.</li>
+              </ul>
+            </>
+          )}
         </Alert>
 
         {/* === LIVE VALIDATION STATUS === */}
@@ -557,29 +611,32 @@ export default function ITOAssignmentModal({
                   borderLeft: `4px solid ${v.isValid ? 'var(--mantine-color-green-5)' : 'var(--mantine-color-red-5)'}`,
                 }}
               >
-                <Group justify="space-between">
-                  <Group gap="xs">
-                    <ThemeIcon
-                      color={v.isValid ? 'green' : 'red'}
-                      variant="light"
-                      size="sm"
-                      radius="xl"
-                    >
-                      {v.isValid ? <IconCheck size={14} /> : <IconX size={14} />}
-                    </ThemeIcon>
-                    <Text size="sm" fw={500}>
-                      {v.label}
-                    </Text>
+                <Stack gap={isMobile ? 6 : 0}>
+                  <Group justify="space-between" wrap="wrap" gap="xs">
+                    <Group gap="xs" wrap="nowrap" style={{ flex: 1, minWidth: 0 }}>
+                      <ThemeIcon
+                        color={v.isValid ? 'green' : 'red'}
+                        variant="light"
+                        size="sm"
+                        radius="xl"
+                        style={{ flexShrink: 0 }}
+                      >
+                        {v.isValid ? <IconCheck size={14} /> : <IconX size={14} />}
+                      </ThemeIcon>
+                      <Text size={isMobile ? 'xs' : 'sm'} fw={500} truncate>
+                        {v.label}
+                      </Text>
+                    </Group>
+                    <Group gap={4} wrap="nowrap">
+                      <Badge size={isMobile ? 'sm' : 'md'} color={v.hasSetup ? 'green' : 'red'} variant="light">
+                        S: {v.setupRows.length}
+                      </Badge>
+                      <Badge size={isMobile ? 'sm' : 'md'} color={v.hasTeardown ? 'green' : 'red'} variant="light">
+                        P: {v.teardownRows.length}
+                      </Badge>
+                    </Group>
                   </Group>
-                  <Group gap="xs">
-                    <Badge size="md" color={v.hasSetup ? 'green' : 'red'} variant="light">
-                      Setup: {v.setupRows.length}
-                    </Badge>
-                    <Badge size="md" color={v.hasTeardown ? 'green' : 'red'} variant="light">
-                      Teardown: {v.teardownRows.length}
-                    </Badge>
-                  </Group>
-                </Group>
+                </Stack>
                 {v.errors.length > 0 && (
                   <Box mt={4}>
                     {v.errors.map((err, idx) => (
@@ -595,10 +652,28 @@ export default function ITOAssignmentModal({
         )}
 
         {/* === ASSIGNMENT ROWS === */}
-        {rows.map((row) => (
-          <Paper key={row.id} withBorder p="md" radius="md">
+        {rows.map((row, rowIndex) => (
+          <Paper key={row.id} withBorder p={isMobile ? 'sm' : 'md'} radius="md">
+            {/* 📱 Mobile: Row header na may delete button */}
+            {isMobile && (
+              <Group justify="space-between" mb="xs" wrap="nowrap">
+                <Badge color="grape" variant="filled" size="sm">
+                  Row #{rowIndex + 1}
+                </Badge>
+                <ActionIcon
+                  color="red"
+                  variant="light"
+                  onClick={() => removeRow(row.id)}
+                  size="sm"
+                  aria-label="Remove this row"
+                >
+                  <IconTrash size={14} />
+                </ActionIcon>
+              </Group>
+            )}
+
             <Grid>
-              <Grid.Col span={3}>
+              <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
                 <Select
                   label="Petsa"
                   placeholder="Pumili ng petsa"
@@ -613,7 +688,7 @@ export default function ITOAssignmentModal({
                   required
                 />
               </Grid.Col>
-              <Grid.Col span={3}>
+              <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
                 <Select
                   label="Staff"
                   placeholder="Pumili ng staff"
@@ -624,7 +699,7 @@ export default function ITOAssignmentModal({
                   required
                 />
               </Grid.Col>
-              <Grid.Col span={3}>
+              <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
                 <Select
                   label="OT Duty Type"
                   placeholder="Setup o Pack up"
@@ -642,19 +717,20 @@ export default function ITOAssignmentModal({
                 />
               </Grid.Col>
               <Grid.Col
-                span={3}
+                span={{ base: 12, sm: 6, md: 3 }}
                 style={{ display: 'flex', alignItems: 'flex-end', paddingBottom: 4 }}
               >
                 <Checkbox
                   label="Overtime (OT)"
-                  description="Mark kung OT duty ito"
+                  description={isMobile ? undefined : 'Mark kung OT duty ito'}
                   checked={row.isOvertime}
                   onChange={(e) => updateRow(row.id, 'isOvertime', e.currentTarget.checked)}
                   size="sm"
+                  style={{ width: '100%' }}
                 />
               </Grid.Col>
 
-              <Grid.Col span={3}>
+              <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
                 <TimeInput
                   label="Start Time"
                   value={row.startTime}
@@ -662,7 +738,7 @@ export default function ITOAssignmentModal({
                   required
                 />
               </Grid.Col>
-              <Grid.Col span={3}>
+              <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
                 <TimeInput
                   label="End Time"
                   value={row.endTime}
@@ -670,7 +746,7 @@ export default function ITOAssignmentModal({
                   required
                 />
               </Grid.Col>
-              <Grid.Col span={4}>
+              <Grid.Col span={{ base: 12, sm: 12, md: 4 }}>
                 <Textarea
                   label="Notes"
                   placeholder="e.g., Setup projector, assist with sound system, etc."
@@ -682,11 +758,13 @@ export default function ITOAssignmentModal({
                   maxRows={3}
                 />
               </Grid.Col>
-              <Grid.Col span={2} style={{ display: 'flex', alignItems: 'flex-end' }}>
-                <ActionIcon color="red" onClick={() => removeRow(row.id)} size="lg">
-                  <IconTrash size={18} />
-                </ActionIcon>
-              </Grid.Col>
+              {!isMobile && (
+                <Grid.Col span={{ base: 6, sm: 6, md: 2 }} style={{ display: 'flex', alignItems: 'flex-end' }}>
+                  <ActionIcon color="red" onClick={() => removeRow(row.id)} size="lg" variant="light">
+                    <IconTrash size={18} />
+                  </ActionIcon>
+                </Grid.Col>
+              )}
             </Grid>
           </Paper>
         ))}
@@ -706,19 +784,39 @@ export default function ITOAssignmentModal({
           </Alert>
         )}
 
-        <Group justify="flex-end">
-          <Button variant="light" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button
-            loading={loading}
-            onClick={handleSubmit}
-            disabled={!isValid || rows.length === 0}
-            color={isValid ? 'blue' : 'gray'}
-          >
-            {buttonLabel}
-          </Button>
-        </Group>
+        {isMobile ? (
+          /* 📱 Mobile: stacked, full-width */
+          <Stack gap="xs" mt="md">
+            <Button
+              loading={loading}
+              onClick={handleSubmit}
+              disabled={!isValid || rows.length === 0}
+              color={isValid ? 'blue' : 'gray'}
+              size="md"
+              fullWidth
+            >
+              {buttonLabel}
+            </Button>
+            <Button variant="light" onClick={onClose} size="md" fullWidth>
+              Cancel
+            </Button>
+          </Stack>
+        ) : (
+          /* 💻 Desktop */
+          <Group justify="flex-end">
+            <Button variant="light" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button
+              loading={loading}
+              onClick={handleSubmit}
+              disabled={!isValid || rows.length === 0}
+              color={isValid ? 'blue' : 'gray'}
+            >
+              {buttonLabel}
+            </Button>
+          </Group>
+        )}
       </Stack>
     </Modal>
   );

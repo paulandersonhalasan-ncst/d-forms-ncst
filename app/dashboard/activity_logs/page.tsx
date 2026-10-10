@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
-import { Table, Badge, Card, Text, Group, Stack, Code, ScrollArea, TextInput, UnstyledButton, Button, LoadingOverlay, SegmentedControl } from "@mantine/core";
-import { IconSearch, IconTerminal2, IconChevronDown, IconChevronUp, IconSelector, IconDownload } from "@tabler/icons-react";
+import { Table, Badge, Card, Text, Group, Stack, Code, ScrollArea, TextInput, UnstyledButton, Button, LoadingOverlay, SegmentedControl, Paper, Divider, ThemeIcon } from "@mantine/core";
+import { useMediaQuery } from "@mantine/hooks";
+import { IconSearch, IconTerminal2, IconChevronDown, IconChevronUp, IconSelector, IconDownload, IconUser, IconClock, IconWorld, IconFileText } from "@tabler/icons-react";
 import {
   DatePicker,
 } from "@mantine/dates";
@@ -156,6 +157,7 @@ function getActionDisplayName(action: string): string {
 }
 
 export default function AuditLogsTable() {
+  const isMobile = useMediaQuery('(max-width: 768px)');
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
@@ -373,108 +375,272 @@ export default function AuditLogsTable() {
     <Card withBorder shadow="sm" radius="md" p="md" pos="relative">
       <LoadingOverlay visible={loading} zIndex={100} overlayProps={{ blur: 2 }} loaderProps={{ size: "lg" }} />
       <Stack gap="md">
-        <Group justify="space-between" align="flex-start">
+        <Group justify="space-between" align="flex-start" wrap="wrap">
           <div>
-            <Group gap="xs">
+            <Group gap="xs" wrap="wrap">
               <IconTerminal2 size={22} style={{ color: "var(--mantine-color-blue-6)" }} />
-              <Text size="xl" fw={700}>System Audit Logs</Text>
+              <Text size="xl" fw={700} style={{ fontSize: 'clamp(1.1rem, 3vw, 1.5rem)' }}>System Audit Logs</Text>
             </Group>
             <Text size="xs" c="dimmed">
               This is a table of all activity logs throughout NCST D-Forms. For Admin/SuperUser access only.
             </Text>
           </div>
 
-          <Group gap="sm" wrap="wrap">
-            <SegmentedControl
-              value={timeRange}
-              onChange={(value) => setTimeRange(value as typeof timeRange)}
-              data={[
-                { label: "Today", value: "day" },
-                { label: "Week", value: "week" },
-                { label: "Month", value: "month" },
-                { label: "Custom", value: "custom" },
-                { label: "All", value: "all" },
-              ]}
-            />
-
-            {timeRange === "custom" && (
-              <DatePicker
-                type="range"
-                allowSingleDateInRange
-                value={customDates}
-                onChange={setCustomDates}
+          {isMobile ? (
+            <Stack gap="xs" style={{ width: '100%' }}>
+              <SegmentedControl
+                fullWidth
+                value={timeRange}
+                onChange={(value) => setTimeRange(value as typeof timeRange)}
+                data={[
+                  { label: "D", value: "day" },
+                  { label: "W", value: "week" },
+                  { label: "M", value: "month" },
+                  { label: "C", value: "custom" },
+                  { label: "All", value: "all" },
+                ]}
+                size="xs"
+                styles={{ label: { fontSize: 11, padding: '2px 4px' } }}
               />
-            )}
-          </Group>
+              {timeRange === "custom" && (
+                <DatePicker
+                  type="range"
+                  allowSingleDateInRange
+                  value={customDates}
+                  onChange={setCustomDates}
+                  size="sm"
+                />
+              )}
+            </Stack>
+          ) : (
+            <Group gap="sm" wrap="wrap">
+              <SegmentedControl
+                value={timeRange}
+                onChange={(value) => setTimeRange(value as typeof timeRange)}
+                data={[
+                  { label: "Today", value: "day" },
+                  { label: "Week", value: "week" },
+                  { label: "Month", value: "month" },
+                  { label: "Custom", value: "custom" },
+                  { label: "All", value: "all" },
+                ]}
+              />
+              {timeRange === "custom" && (
+                <DatePicker
+                  type="range"
+                  allowSingleDateInRange
+                  value={customDates}
+                  onChange={setCustomDates}
+                />
+              )}
+            </Group>
+          )}
         </Group>
 
         {/* 🎯 FILTER CONTROLS (no action filter) */}
-        <Group gap="md" align="flex-end" wrap="wrap">
-          <TextInput
-            placeholder="Search email, name, action, details..."
-            value={search}
-            onChange={(e) => setSearch(e.currentTarget.value)}
-            leftSection={<IconSearch size={16} />}
-            style={{ flex: 1, minWidth: 200 }}
-          />
+        {isMobile ? (
+          <Stack gap="xs">
+            <TextInput
+              placeholder="Search email, name, action..."
+              value={search}
+              onChange={(e) => setSearch(e.currentTarget.value)}
+              leftSection={<IconSearch size={16} />}
+              size="sm"
+            />
+            <Button
+              variant="light"
+              color="green"
+              leftSection={<IconDownload size={16} />}
+              onClick={handleExportXLSX}
+              loading={exporting}
+              disabled={loading || sortedLogs.length === 0}
+              size="sm"
+              fullWidth
+            >
+              Export XLSX
+            </Button>
+          </Stack>
+        ) : (
+          <Group gap="md" align="flex-end" wrap="wrap">
+            <TextInput
+              placeholder="Search email, name, action, details..."
+              value={search}
+              onChange={(e) => setSearch(e.currentTarget.value)}
+              leftSection={<IconSearch size={16} />}
+              style={{ flex: 1, minWidth: 200 }}
+            />
+            <Button
+              variant="light"
+              color="green"
+              leftSection={<IconDownload size={16} />}
+              onClick={handleExportXLSX}
+              loading={exporting}
+              disabled={loading || sortedLogs.length === 0}
+            >
+              Export XLSX
+            </Button>
+          </Group>
+        )}
 
-          <Button 
-            variant="light" 
-            color="green" 
-            leftSection={<IconDownload size={16} />} 
-            onClick={handleExportXLSX}
-            loading={exporting}
-            disabled={loading || sortedLogs.length === 0}
-          >
-            Export XLSX
-          </Button>
-        </Group>
-
-        <ScrollArea h="calc(100vh - 350px)">
-          <Table 
-            highlightOnHover 
-            striped 
-            withColumnBorders 
-            verticalSpacing="md" 
-            horizontalSpacing="md" 
-            withTableBorder 
-            stickyHeader
-            style={{ tableLayout: "fixed", width: "100%" }} 
-          >
-            <Table.Thead>
-              <Table.Tr>
-                <ThSortable sorted={sortField === "user"} reversed={reverseSortDirection} onSort={() => handleSort("user")}>
-                  User / Identity Profile
-                </ThSortable>
-                <ThSortable sorted={sortField === "action"} reversed={reverseSortDirection} onSort={() => handleSort("action")}>
-                  Action
-                </ThSortable>
-                <Table.Th style={{ width: "37%", padding: "12px 16px" }}>
-                  <Text fw={600} size="sm">Activity Details</Text>
-                </Table.Th>
-                <ThSortable sorted={sortField === "ipAddress"} reversed={reverseSortDirection} onSort={() => handleSort("ipAddress")}>
-                  IP Address
-                </ThSortable>
-                <ThSortable sorted={sortField === "createdAt"} reversed={reverseSortDirection} onSort={() => handleSort("createdAt")}>
-                  Timestamp
-                </ThSortable>
-              </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
-              {rows.length > 0 ? (
-                rows
+        {isMobile ? (
+          /* 📱 MOBILE: Card per log */
+          <ScrollArea h="calc(100vh - 260px)" type="auto">
+            <Stack gap="sm">
+              {sortedLogs.length === 0 ? (
+                <Text c="dimmed" size="sm" ta="center" py="xl">
+                  No logs found.
+                </Text>
               ) : (
-                <Table.Tr>
-                  <Table.Td colSpan={5} style={{ textAlign: "center" }}>
-                    <Text c="dimmed" size="sm" my="md">
-                      No logs found.
-                    </Text>
-                  </Table.Td>
-                </Table.Tr>
+                sortedLogs.map((log) => (
+                  <Paper
+                    key={log.id}
+                    withBorder
+                    p="sm"
+                    radius="md"
+                    style={{
+                      background: 'light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-7))',
+                    }}
+                  >
+                    {/* Header: Actor + Action Badge */}
+                    <Group justify="space-between" wrap="nowrap" gap="xs" mb={6}>
+                      {log.user ? (
+                        <Group gap={6} wrap="nowrap" style={{ flex: 1, minWidth: 0 }}>
+                          <ThemeIcon color="blue" variant="light" size="sm" radius="xl">
+                            <IconUser size={12} />
+                          </ThemeIcon>
+                          <Stack gap={0} style={{ minWidth: 0, flex: 1 }}>
+                            <Text size="sm" fw={700} truncate>
+                              {log.user.fname} {log.user.lname}
+                            </Text>
+                            <Text size="10px" c="dimmed" truncate>
+                              {log.email}
+                            </Text>
+                          </Stack>
+                        </Group>
+                      ) : (
+                        <Group gap={6} wrap="nowrap" style={{ flex: 1, minWidth: 0 }}>
+                          <ThemeIcon color="orange" variant="light" size="sm" radius="xl">
+                            <IconUser size={12} />
+                          </ThemeIcon>
+                          <Stack gap={0} style={{ minWidth: 0, flex: 1 }}>
+                            <Text size="sm" fw={700} c="orange.7" truncate>
+                              {log.email}
+                            </Text>
+                            <Text size="10px" c="dimmed" fs="italic">
+                              Invalid / Deleted Account
+                            </Text>
+                          </Stack>
+                        </Group>
+                      )}
+                      <div style={{ flexShrink: 0 }}>
+                        {getActionBadge(log.action)}
+                      </div>
+                    </Group>
+
+                    {/* Badges row: Dept, Role, Branch */}
+                    {log.user && (
+                      <Group gap={4} wrap="wrap" mb={6}>
+                        <Badge size="xs" radius="xs" color="gray" variant="filled">
+                          {log.user.departmentCode}
+                        </Badge>
+                        <Badge size="xs" radius="xs" color="dark" variant="dot">
+                          {log.user.role}
+                        </Badge>
+                        <Badge size="xs" radius="xs" color="cyan" variant="light">
+                          {log.user.branch}
+                        </Badge>
+                        {log.user.employee_id && (
+                          <Badge size="xs" radius="xs" color="indigo" variant="light">
+                            ID: {log.user.employee_id}
+                          </Badge>
+                        )}
+                      </Group>
+                    )}
+
+                    <Divider my={6} />
+
+                    {/* Details */}
+                    <Stack gap={4}>
+                      <ExpandableDetails action={log.action} detailsStr={log.details} />
+                    </Stack>
+
+                    <Divider my={6} />
+
+                    {/* IP + Timestamp footer */}
+                    <Group justify="space-between" wrap="wrap" gap={6}>
+                      <Group gap={4} wrap="nowrap">
+                        <ThemeIcon color="cyan" variant="light" size={18} radius="md">
+                          <IconWorld size={10} />
+                        </ThemeIcon>
+                        {formatIP(log.ipAddress)}
+                      </Group>
+                      <Group gap={4} wrap="nowrap">
+                        <ThemeIcon color="orange" variant="light" size={18} radius="md">
+                          <IconClock size={10} />
+                        </ThemeIcon>
+                        <Stack gap={0}>
+                          <Text size="10px" fw={600}>
+                            {new Date(log.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                          </Text>
+                          <Text size="10px" c="dimmed">
+                            {new Date(log.createdAt).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                          </Text>
+                        </Stack>
+                      </Group>
+                    </Group>
+                  </Paper>
+                ))
               )}
-            </Table.Tbody>
-          </Table>
-        </ScrollArea>
+            </Stack>
+          </ScrollArea>
+        ) : (
+          /* 💻 DESKTOP: existing table */
+          <ScrollArea h="calc(100vh - 320px)">
+            <Table
+              highlightOnHover
+              striped
+              withColumnBorders
+              verticalSpacing="md"
+              horizontalSpacing="md"
+              withTableBorder
+              stickyHeader
+              style={{ tableLayout: "fixed", width: "100%" }}
+            >
+              <Table.Thead>
+                <Table.Tr>
+                  <ThSortable sorted={sortField === "user"} reversed={reverseSortDirection} onSort={() => handleSort("user")}>
+                    User / Identity Profile
+                  </ThSortable>
+                  <ThSortable sorted={sortField === "action"} reversed={reverseSortDirection} onSort={() => handleSort("action")}>
+                    Action
+                  </ThSortable>
+                  <Table.Th style={{ width: "37%", padding: "12px 16px" }}>
+                    <Text fw={600} size="sm">Activity Details</Text>
+                  </Table.Th>
+                  <ThSortable sorted={sortField === "ipAddress"} reversed={reverseSortDirection} onSort={() => handleSort("ipAddress")}>
+                    IP Address
+                  </ThSortable>
+                  <ThSortable sorted={sortField === "createdAt"} reversed={reverseSortDirection} onSort={() => handleSort("createdAt")}>
+                    Timestamp
+                  </ThSortable>
+                </Table.Tr>
+              </Table.Thead>
+              <Table.Tbody>
+                {rows.length > 0 ? (
+                  rows
+                ) : (
+                  <Table.Tr>
+                    <Table.Td colSpan={5} style={{ textAlign: "center" }}>
+                      <Text c="dimmed" size="sm" my="md">
+                        No logs found.
+                      </Text>
+                    </Table.Td>
+                  </Table.Tr>
+                )}
+              </Table.Tbody>
+            </Table>
+          </ScrollArea>
+        )}
       </Stack>
     </Card>
   );

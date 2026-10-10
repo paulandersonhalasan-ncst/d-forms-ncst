@@ -28,6 +28,7 @@ body,
     transition:
         background-color .25s ease,
         color .25s ease;
+    font-size: 13px;
 }
 
 .mantine-Paper-root,
@@ -40,4 +41,39 @@ body,
         background-color .25s ease,
         border-color .25s ease,
         color .25s ease;
+}
+
+/* 📱 MOBILE BASE ADJUSTMENTS */
+@media (max-width: 768px) {
+  html, body, #root {
+    font-size: 14px;
+    overflow-x: hidden;
+  }
+
+  /* Prevent horizontal scroll from fixed-width content */
+  body {
+    max-width: 100vw;
+  }
+
+  /* Modals: kill sidebar-offset on mobile (safety net) */
+  .mantine-Modal-inner {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  /* Tables scroll horizontally instead of overflowing */
+  .mantine-Table-root {
+    min-width: 600px;
+  }
+}
+
+/* 🔤 Global base font size */
+html {
+  font-size: 14px;
+}
+
+@media (max-width: 768px) {
+  html {
+    font-size: 13px;
+  }
 }

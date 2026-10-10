@@ -26,7 +26,9 @@ import {
   Collapse,
   ActionIcon,
   MultiSelect,
-  Paper
+  Paper,
+  Switch,
+  Divider
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { IconPlus, IconBuilding, IconBox, IconArrowLeft, IconSettings, IconInfoCircle, IconChevronDown, } from '@tabler/icons-react';
@@ -598,7 +600,7 @@ function EquipmentTab({ currentUser }: TabProps) {
             value={locationFilter}
             onChange={(val) => setLocationFilter(val || 'all')}
             size="sm"
-            w={260}
+            w={{ base: '100%', sm: 260 }}
           />
           {canAddEquipment && (
             <Button
@@ -834,6 +836,7 @@ function SettingsTab({ currentUser }: TabProps) {
     minAdvanceDaysVIP: 1,
     maxEventsPerDay: 2,
     minRescheduleDays: 3,
+    enableVipMode: true,
   });
   const [loading, setLoading] = useState(false);
 
@@ -864,6 +867,7 @@ function SettingsTab({ currentUser }: TabProps) {
           minAdvanceDaysVIP: settings.minAdvanceDaysVIP,
           maxEventsPerDay: settings.maxEventsPerDay,
           minRescheduleDays: settings.minRescheduleDays,
+          enableVipMode: settings.enableVipMode,
         }),
       });
       const result = await res.json();
@@ -891,7 +895,7 @@ function SettingsTab({ currentUser }: TabProps) {
           These settings apply to all new reservations.
         </Text>
 
-        <SimpleGrid cols={2} spacing="lg">
+        <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="lg">
           <NumberInput
             label="Regular Request (Minimum Advance Days)"
             description="Standard events require this many days before the event date."
@@ -929,6 +933,16 @@ function SettingsTab({ currentUser }: TabProps) {
             required
           />
         </SimpleGrid>
+
+        {/* 🆕 VIP Mode Toggle */}
+        <Divider label="VIP Mode" labelPosition="left" />
+        <Switch
+          label="Enable VIP Mode (Tomorrow / 1-day advance)"
+          description="When enabled, ITO-MAIN and PSMO/FMO Heads/OICs can create VIP reservations for the next day, bypassing the 2-events-per-day limit. Turn OFF to hide the VIP option entirely."
+          checked={settings.enableVipMode}
+          onChange={(e) => setSettings({ ...settings, enableVipMode: e.currentTarget.checked })}
+          size="md"
+        />
 
         <Group justify="flex-end">
           <Button loading={loading} onClick={handleSave} color="blue">
@@ -983,8 +997,8 @@ export default function ManagePage() {
   return (
     <Container fluid py="md">
       <Card withBorder radius="lg" p="lg">
-        <Group justify="space-between" align="center" mb="md">
-          <Title order={2}>Facility / Equipment Management</Title>
+        <Group justify="space-between" align="center" mb="md" wrap="wrap">
+          <Title order={2} style={{ fontSize: 'clamp(1.1rem, 3vw, 1.75rem)' }}>Facility / Equipment Management</Title>
           <Button
             leftSection={<IconArrowLeft size={16} />}
             onClick={() => router.push('/dashboard/forms/frf')}

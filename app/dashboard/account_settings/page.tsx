@@ -154,7 +154,7 @@ export default function AccountSettingsPage() {
   }
 
   return (
-    <main style={{ padding: 20, maxWidth: 600, margin: "0 auto" }}>
+    <main style={{ padding: '16px', maxWidth: 600, margin: "0 auto", width: '100%' }}>
       <Card withBorder shadow="sm" radius="md" p="lg">
         <h1>Account Settings</h1>
 

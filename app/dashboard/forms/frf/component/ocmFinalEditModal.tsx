@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import { useMediaQuery } from '@mantine/hooks';
 import {
   Modal,
   Stack,
@@ -57,7 +58,7 @@ export default function OCMFinalEditModal({
   onConfirm,
   loading = false,
 }: OCMFinalEditModalProps) {
-  
+  const isMobile = useMediaQuery('(max-width: 768px)');
   // In useMemo:
   const initialValues = useMemo<OCMFinalEditData>(() => {
     if (!request) {
@@ -111,7 +112,7 @@ export default function OCMFinalEditModal({
   };
 
   return (
-    <Modal opened={opened} onClose={onClose} title="OCM Final Edit (Archiving)" size="xl" styles={{
+    <Modal opened={opened} onClose={onClose} title="OCM Final Edit (Archiving)" size="xl" fullScreen={isMobile} styles={{
       inner: {
         paddingLeft: 'var(--sidebar-offset, 0)',
         transition: 'padding-left 0.25s ease',
@@ -156,7 +157,7 @@ export default function OCMFinalEditModal({
             {(formValues.dates || []).map((dateEntry, index) => (
               <Paper key={dateEntry.id || index} withBorder p="xs" radius="sm" style={{ borderLeft: '3px solid var(--mantine-color-blue-3)' }}>
                 <Grid>
-                  <Grid.Col span={6}>
+                  <Grid.Col span={{ base: 12, sm: 6 }}>
                     <TextInput
                       label={`Date ${index + 1} (Date)`}
                       type="datetime-local"
@@ -164,7 +165,7 @@ export default function OCMFinalEditModal({
                       onChange={(e) => handleDateChange(index, 'date', e.currentTarget.value)}
                     />
                   </Grid.Col>
-                  <Grid.Col span={6}>
+                  <Grid.Col span={{ base: 12, sm: 6 }}>
                     <Select
                       label="Place"
                       placeholder="Select a place"
@@ -174,7 +175,7 @@ export default function OCMFinalEditModal({
                       clearable
                     />
                   </Grid.Col>
-                  <Grid.Col span={6}>
+                  <Grid.Col span={{ base: 12, sm: 6 }}>
                     <TextInput
                       label="Other Place"
                       placeholder="Custom place"
@@ -182,7 +183,7 @@ export default function OCMFinalEditModal({
                       onChange={(e) => handleDateChange(index, 'placeOther', e.currentTarget.value)}
                     />
                   </Grid.Col>
-                  <Grid.Col span={6}>
+                  <Grid.Col span={{ base: 12, sm: 6 }}>
                     <TextInput
                       label="Starting Time"
                       type="datetime-local"
@@ -190,7 +191,7 @@ export default function OCMFinalEditModal({
                       onChange={(e) => handleDateChange(index, 'setupTime', e.currentTarget.value)}
                     />
                   </Grid.Col>
-                  <Grid.Col span={6}>
+                  <Grid.Col span={{ base: 12, sm: 6 }}>
                     <TextInput
                       label="Event Start"
                       type="datetime-local"
@@ -198,7 +199,7 @@ export default function OCMFinalEditModal({
                       onChange={(e) => handleDateChange(index, 'eventStart', e.currentTarget.value)}
                     />
                   </Grid.Col>
-                  <Grid.Col span={6}>
+                  <Grid.Col span={{ base: 12, sm: 6 }}>
                     <TextInput
                       label="Event End"
                       type="datetime-local"
@@ -206,7 +207,7 @@ export default function OCMFinalEditModal({
                       onChange={(e) => handleDateChange(index, 'eventEnd', e.currentTarget.value)}
                     />
                   </Grid.Col>
-                  <Grid.Col span={6}>
+                  <Grid.Col span={{ base: 12, sm: 6 }}>
                     <TextInput
                       label="Actual Time End"
                       type="datetime-local"

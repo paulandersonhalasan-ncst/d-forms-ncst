@@ -576,6 +576,8 @@ model FormSettings {
   maxEventsPerDay        Int      @default(2)
 
   minRescheduleDays      Int      @default(3)
+
+  enableVipMode            Boolean @default(true)
   
   updatedAt              DateTime @updatedAt
   updatedBy              String?

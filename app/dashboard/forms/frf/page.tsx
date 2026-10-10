@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { useDisclosure } from '@mantine/hooks';
+import { useDisclosure, useMediaQuery } from '@mantine/hooks';
 import {
   Container,
   Card,
@@ -22,8 +22,9 @@ import {
   ActionIcon,
   Alert, 
   Collapse,
+  Select
 } from '@mantine/core';
-import { IconPlus, IconInbox, IconSend, IconCircleCheck, IconUserCheck, IconInfoCircle, IconSettings, IconChevronDown, IconClock  } from '@tabler/icons-react';
+import { IconPlus, IconInbox, IconSend, IconCircleCheck, IconUserCheck, IconInfoCircle, IconSettings, IconChevronDown, IconCopy } from '@tabler/icons-react';
 import useSWR from 'swr';
 
 import {
@@ -123,7 +124,6 @@ export default function FRFDashboardPage() {
   const [selectedRequest, setSelectedRequest] = useState<FacilityReservation | null>(null);
   const [activeTab, setActiveTab] = useState<string | null>('my_requests');
   const [searchTerm, setSearchTerm] = useState('');
-  const [viewMode, setViewMode] = useState<'tile' | 'kanban'>('tile');
 
   // ---- Editing state ----
   const [editingReservation, setEditingReservation] = useState<FacilityReservation | null>(null);
@@ -177,6 +177,9 @@ export default function FRFDashboardPage() {
   }, []);
 
   const isITOMain = currentUser?.departmentCode === 'ITO-MAIN';
+  const isHRD = currentUser?.departmentCode === 'HRD'; 
+
+  const isMobile = useMediaQuery('(max-width: 768px)');
 
   // ---- Filtered lists ----
   const myRequests = reservations.filter((r) => r.requestorId === currentUser?.id);
@@ -216,6 +219,8 @@ export default function FRFDashboardPage() {
       r.status === 'COMPLETED' &&
       !r.packUpDoneAt
     );
+
+    const hrCopyReservations = isHRD ? reservations : [];
 
   // Helper: check if current user is involved in the reservation
   const isUserInvolved = (r: FacilityReservation): boolean => {
@@ -919,6 +924,34 @@ export default function FRFDashboardPage() {
     openDetail();
   };
 
+  // 📱 Tab options — gagamitin sa mobile Select dropdown
+  const tabOptions = useMemo(() => {
+    const opts: { value: string; label: string }[] = [];
+
+    // 🆕 HR Copy tab — laging nasa unahan para sa HR
+    if (isHRD) {
+      opts.push({ value: 'hr_copy', label: `📋 HR Copy — All Requests (${hrCopyReservations.length})` });
+    }
+
+    opts.push({ value: 'my_requests', label: `My Requests (${myRequests.length})` });
+    opts.push({ value: 'pending_approval', label: `Pending Approval (${pendingApproval.length})` });
+    opts.push({ value: 'action_board', label: `Action Board (${actionBoard.length})` });
+    if (isITOMain) {
+      opts.push({ value: 'assigned_to_me', label: `Assigned to Me (${assignedToMe.length})` });
+    }
+    opts.push({ value: 'completed', label: `Fully Approved / Rejected (${completed.length})` });
+    return opts;
+  }, [
+    isHRD,
+    hrCopyReservations.length,
+    myRequests.length,
+    pendingApproval.length,
+    actionBoard.length,
+    assignedToMe.length,
+    completed.length,
+    isITOMain,
+  ]);
+
   if (loading) {
     return <LoadingOverlay visible />;
   }
@@ -932,6 +965,7 @@ export default function FRFDashboardPage() {
   console.log("canmanageness? ", canManage);
   
   const visibleTabs = [
+    ...(isHRD ? ['hr_copy'] : []),
     'my_requests',
     'pending_approval',
     'action_board',
@@ -942,19 +976,19 @@ export default function FRFDashboardPage() {
   return (
     <Container fluid py="md">
       <Card withBorder radius="lg" p="lg" shadow="sm">
-        <Group justify="space-between" align="center" mb="xl">
+        <Group justify="space-between" align="center" mb="xl" wrap="wrap">
           <Stack gap={2}>
-            <Title order={2} fw={800}>Facility Reservation Workspace</Title>
+            <Title order={2} fw={800} style={{ fontSize: 'clamp(1.25rem, 4vw, 2rem)' }}>Facility Reservation Workspace</Title>
             <Group gap={6}>
               <Text size="xs" c="dimmed">Department:</Text>
               <Badge color="blue" variant="light" size="sm">{currentUser?.departmentCode || 'N/A'}</Badge>
               <Badge color="gray" variant="light" size="sm">{currentUser?.role || 'N/A'}</Badge>
             </Group>
           </Stack>
-          <Group>
-            {canManage && (
-              <Button
-                leftSection={<IconSettings size={16} />}
+          <Group wrap="wrap">
+              {canManage && (
+                <Button
+                  leftSection={<IconSettings size={16} />}
                 onClick={() => router.push('/dashboard/forms/frf/manage')}
                 variant="outline"
                 color="gray"
@@ -970,54 +1004,74 @@ export default function FRFDashboardPage() {
 
         <Box>
           <Card withBorder radius="md" mb="md" p="sm" bg="light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-8))">
-            <Group justify="space-between" align="flex-end">
+            <Group justify="space-between" align="flex-end" wrap="wrap">
               <TextInput
                 placeholder="Search by reference or place..."
                 label="Search"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.currentTarget.value)}
-                style={{ flex: 1 }}
-              />
-              <SegmentedControl
-                value={viewMode}
-                onChange={(val) => setViewMode(val as 'tile' | 'kanban')}
-                data={[
-                  { label: 'Tile', value: 'tile' },
-                  { label: 'Kanban', value: 'kanban' },
-                ]}
-                size="xs"
+                style={{ flex: 1, minWidth: 200 }}
               />
             </Group>
           </Card>
 
           <ScrollArea style={{ height: 'calc(100vh - 320px)' }} type="auto">
             <Tabs value={activeTab} onChange={setActiveTab} radius="md" variant="pills">
-              <Tabs.List mb="lg">
+              {isMobile ? (
+                <Select
+                  value={activeTab}
+                  onChange={setActiveTab}
+                  data={tabOptions}
+                  mb="md"
+                  size="sm"
+                  comboboxProps={{ zIndex: 5000 }}
+                  allowDeselect={false}
+                />
+              ) : (
+              <Tabs.List mb="lg" style={{ overflowX: 'auto', flexWrap: 'nowrap' }}>
+                {/* 🆕 HR Copy — ALL Requests (HR only) */}
+                {isHRD && (
+                  <Tabs.Tab value="hr_copy" leftSection={<IconCopy size={15} />}>
+                    HR Copy — All Requests{' '}
+                    <Badge size="xs" variant="light" ml={6} styles={{ label: { fontSize: 10 } }}>
+                      {hrCopyReservations.length}
+                    </Badge>
+                  </Tabs.Tab>
+                )}
+
                 <Tabs.Tab value="my_requests" leftSection={<IconSend size={15} />}>
                   My Requests <Badge size="xs" variant="light" ml={6}>{myRequests.length}</Badge>
                 </Tabs.Tab>
                 <Tabs.Tab value="pending_approval" leftSection={<IconInbox size={15} />}>
                   Pending Approval{' '}
-                  <Badge size="xs" variant="light" ml={6}>
+                  <Badge size="xs" variant="light" ml={6} styles={{ label: { fontSize: 10 } }}>
                     {pendingApproval.length}
                   </Badge>
                 </Tabs.Tab>
                 <Tabs.Tab value="action_board" leftSection={<IconInfoCircle size={15} />}>
-                  Action Board <Badge size="xs" variant="light" ml={6}>{actionBoard.length}</Badge>
+                  Action Board <Badge size="xs" variant="light" ml={6} styles={{ label: { fontSize: 10 } }}>
+                    {actionBoard.length}
+                  </Badge>
                 </Tabs.Tab>
                 {isITOMain && (
                   <Tabs.Tab value="assigned_to_me" leftSection={<IconUserCheck size={15} />}>
-                    Assigned to Me <Badge size="xs" variant="light" ml={6}>{assignedToMe.length}</Badge>
+                    Assigned to Me <Badge size="xs" variant="light" ml={6} styles={{ label: { fontSize: 10 } }}>
+                      {assignedToMe.length}
+                    </Badge>
                   </Tabs.Tab>
                 )}
                 <Tabs.Tab value="completed" leftSection={<IconCircleCheck size={15} />}>
-                  Fully Approved / Rejected<Badge size="xs" variant="light" ml={6}>{completed.length}</Badge>
+                  Fully Approved / Rejected<Badge size="xs" variant="light" ml={6} styles={{ label: { fontSize: 10 } }}>
+                    {completed.length}
+                  </Badge>
                 </Tabs.Tab>
               </Tabs.List>
+              )}
 
               {visibleTabs.map((tab) => {
                 let list: FacilityReservation[] = [];
-                if (tab === 'my_requests') list = myRequests;
+                if (tab === 'hr_copy') list = hrCopyReservations;
+                else if (tab === 'my_requests') list = myRequests;
                 else if (tab === 'pending_approval') list = pendingApproval;
                 else if (tab === 'action_board') list = actionBoard;
                 else if (tab === 'assigned_to_me') list = assignedToMe;
@@ -1025,8 +1079,23 @@ export default function FRFDashboardPage() {
 
                 const filtered = getFiltered(list);
 
-                // 🆕 Info card content per tab
                 const tabInfo: Record<string, { title: string; color: string; body: React.ReactNode }> = {
+                  // 🆕 HR Copy — exclusive sa HR
+                  hr_copy: {
+                    title: 'HR Copy — All Requests (Read-Only)',
+                    color: 'blue',
+                    body: (
+                      <>
+                        A complete, read-only view of <b>every</b> facility reservation across all departments. HR
+                        receives an automatic copy of each request but <b>does not approve</b> — this tab is purely
+                        for visibility and record-keeping.
+                        <br /><br />
+                        Kumpletong read-only view ng <b>lahat</b> ng facility reservation sa lahat ng department.
+                        Awtomatikong natatanggap ng HR ang kopya ng bawat request ngunit <b>hindi nag-a-approve</b> —
+                        ang tab na ito ay para lamang sa visibility at record-keeping.
+                      </>
+                    ),
+                  },
                   my_requests: {
                     title: 'My Requests',
                     color: 'blue',

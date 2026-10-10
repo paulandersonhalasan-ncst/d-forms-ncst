@@ -81,10 +81,10 @@ export default function RequestCard({
               : 'Place: N/A'}
           </Text>
           <Group gap={4}>
-            <Badge size="xs" variant="light">
+            <Badge size="xs" variant="light" styles={{ label: { fontSize: 10 } }}>
               {request.equipmentRequests.length} equipment
             </Badge>
-            <Badge size="xs" variant="light">
+            <Badge size="xs" variant="light" styles={{ label: { fontSize: 10 } }}>
               {request.attendeesCount} attendees
             </Badge>
           </Group>

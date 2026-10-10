@@ -36,7 +36,7 @@ import {
 } from '@tabler/icons-react';
 import Image from 'next/image';
 import { useState } from 'react';
-import { useDisclosure } from '@mantine/hooks';
+import { useDisclosure, useMediaQuery } from '@mantine/hooks';
 
 
 interface RequestDetailModalProps {
@@ -83,6 +83,7 @@ export default function RequestDetailModal({
 
   const [packUpGalleryOpened, { open: openPackUpGallery, close: closePackUpGallery }] = useDisclosure(false);
   const [activePhotoIndex, setActivePhotoIndex] = useState(0);
+  const isMobile = useMediaQuery('(max-width: 768px)');
 
   if (!request) return null;
 
@@ -235,6 +236,7 @@ export default function RequestDetailModal({
       opened={opened}
       onClose={onClose}
       size="80%"
+      fullScreen={isMobile}
       title={`Reservation ${request.referenceId}`}
       padding="lg"
       radius="md"
@@ -370,7 +372,7 @@ export default function RequestDetailModal({
                   }}
                 >
                   <Group gap="xs" mb={2}>
-                    <Badge size="xs" color="blue" variant="light">
+                    <Badge size="xs" color="blue" variant="light" styles={{ label: { fontSize: 10 } }}>
                       Date {index + 1}
                     </Badge>
                     <Text size="xs" c="dimmed">
@@ -453,6 +455,7 @@ export default function RequestDetailModal({
                       cursor: 'pointer',
                       transition: 'all 0.15s ease',
                       textDecoration: 'none',
+                      overflow: 'hidden',       // 🆕 prevent overflow
                     }}
                     onMouseEnter={(e) => {
                       e.currentTarget.style.transform = 'translateX(4px)';
@@ -461,13 +464,23 @@ export default function RequestDetailModal({
                       e.currentTarget.style.transform = 'translateX(0)';
                     }}
                   >
-                    <ThemeIcon color={color} variant="light" size="sm">
+                    <ThemeIcon color={color} variant="light" size="sm" style={{ flexShrink: 0 }}>
                       {icon}
                     </ThemeIcon>
-                    <Text size="sm" fw={500} style={{ flex: 1 }}>
+                    <Text
+                      size="sm"
+                      fw={500}
+                      truncate                         /* 🆕 ellipsis (...) */
+                      title={fileName}                 /* 🆕 tooltip sa hover */
+                      style={{ flex: 1, minWidth: 0 }} /* 🆕 minWidth: 0 para pwede mag-shrink */
+                    >
                       {fileName}
                     </Text>
-                    <Text size="xs" c="dimmed" style={{ marginLeft: 'auto' }}>
+                    <Text
+                      size="xs"
+                      c="dimmed"
+                      style={{ marginLeft: 'auto', flexShrink: 0 }}
+                    >
                       ↗
                     </Text>
                   </Paper>
@@ -496,64 +509,142 @@ export default function RequestDetailModal({
         </Paper>
 
         {/* ITO Staff Assignments */}
-        {displayAssignments.length > 0 && (
-          <Paper withBorder p="md" radius="md">
-            <Group gap="xs" mb="sm">
+       {displayAssignments.length > 0 && (
+          <Paper withBorder p={isMobile ? 'sm' : 'md'} radius="md">
+            <Group gap="xs" mb="sm" wrap="wrap">
               <ThemeIcon variant="light" color="grape" size="sm">
                 <IconUserCheck size={14} />
               </ThemeIcon>
               <Text fw={600} size="sm">ITO Staff | Event Duty Line-up</Text>
               {request.isReschedule && request.status === 'RESCHEDULE_PENDING' && (
-                <Badge color="yellow" size="sm">Proposed Assignments (Pending Approval)</Badge>
+                <Badge color="yellow" size="xs">Proposed (Pending Approval)</Badge>
               )}
             </Group>
 
-            <Table withTableBorder>
-              <Table.Thead>
-                <Table.Tr>
-                  <Table.Th>Date</Table.Th>
-                  <Table.Th>Staff</Table.Th>
-                  <Table.Th>Duty Type</Table.Th>
-                  <Table.Th ta="center">OT?</Table.Th>
-                  <Table.Th>Start</Table.Th>
-                  <Table.Th>End</Table.Th>
-                  <Table.Th>Notes</Table.Th>
-                </Table.Tr>
-              </Table.Thead>
-              <Table.Tbody>
-                {displayAssignments.map((ass) => {
+            {isMobile ? (
+              /* 📱 MOBILE: Card per assignment */
+              <Stack gap="xs">
+                {displayAssignments.map((ass, index) => {
                   const dateStr = formatDateOnly(ass.dutyStart);
+                  const dutyColor =
+                    ass.dutyType === 'SETUP' ? 'blue' :
+                    ass.dutyType === 'TEARDOWN' ? 'orange' : 'grape';
+                  const dutyLabel = ass.dutyType === 'TEARDOWN' ? 'PACK-UP' : ass.dutyType;
+
                   return (
-                    <Table.Tr key={ass.id}>
-                      <Table.Td>{dateStr}</Table.Td>
-                      <Table.Td>{ass.user.fname} {ass.user.lname}</Table.Td>
-                      <Table.Td>
-                        <Badge
-                          color={ass.dutyType === 'SETUP' ? 'blue' : ass.dutyType === 'TEARDOWN' ? 'orange' : 'grape'}
-                          size="sm"
-                        >
-                          {ass.dutyType === 'TEARDOWN' ? 'PACK-UP' : ass.dutyType}
-                        </Badge>
-                      </Table.Td>
-                      <Table.Td ta="center">
-                        {ass.isOvertime ? (
-                          <Badge color="green" variant="filled" size="sm">OT</Badge>
-                        ) : (
-                          <Text size="xs" c="dimmed">—</Text>
-                        )}
-                      </Table.Td>
-                      <Table.Td>{formatTimeOnly(ass.dutyStart)}</Table.Td>
-                      <Table.Td>{formatTimeOnly(ass.dutyEnd)}</Table.Td>
-                      <Table.Td>
-                        <Text size="xs" c="dimmed" style={{ whiteSpace: 'pre-wrap' }}>
-                          {ass.notes || '—'}
+                    <Paper
+                      key={ass.id}
+                      withBorder
+                      p="sm"
+                      radius="md"
+                      style={{
+                        background: 'light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-7))',
+                        borderLeft: `3px solid var(--mantine-color-${dutyColor}-5)`,
+                      }}
+                    >
+                      {/* Header: Row # + Duty Badge + OT badge */}
+                      <Group justify="space-between" mb={6} wrap="nowrap" gap={6}>
+                        <Group gap={6} wrap="nowrap">
+                          <Badge color="gray" variant="light" size="xs">
+                            #{index + 1}
+                          </Badge>
+                          <Badge color={dutyColor} variant="filled" size="sm">
+                            {dutyLabel}
+                          </Badge>
+                          {ass.isOvertime && (
+                            <Badge color="green" variant="filled" size="sm">
+                              OT
+                            </Badge>
+                          )}
+                        </Group>
+                      </Group>
+
+                      {/* Staff name (prominent) */}
+                      <Group gap={6} mb={4} wrap="nowrap">
+                        <ThemeIcon color="grape" variant="light" size="xs" radius="xl">
+                          <IconUserCheck size={10} />
+                        </ThemeIcon>
+                        <Text size="sm" fw={700} truncate>
+                          {ass.user.fname} {ass.user.lname}
                         </Text>
-                      </Table.Td>
-                    </Table.Tr>
+                      </Group>
+
+                      {/* Date + Time — 2 columns side by side */}
+                      <Group gap="xs" mt={6} pl={4} wrap="nowrap" align="flex-start">
+                        <Stack gap={2} style={{ flex: 1, minWidth: 0 }}>
+                          <Text size="10px" c="dimmed" fw={600}>DATE</Text>
+                          <Text size="xs" fw={500} lineClamp={2}>{dateStr}</Text>
+                        </Stack>
+                        <Stack gap={2} style={{ flex: 1.5, minWidth: 0 }}>
+                          <Text size="10px" c="dimmed" fw={600}>TIME</Text>
+                          <Text size="xs" fw={500}>
+                            {formatTimeOnly(ass.dutyStart)} – {formatTimeOnly(ass.dutyEnd)}
+                          </Text>
+                        </Stack>
+                      </Group>
+
+                      {/* Notes below */}
+                      {ass.notes && (
+                        <Stack gap={2} mt={4} pl={4}>
+                          <Text size="10px" c="dimmed" fw={600}>NOTES</Text>
+                          <Text size="xs" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                            {ass.notes}
+                          </Text>
+                        </Stack>
+                      )}
+                    </Paper>
                   );
                 })}
-              </Table.Tbody>
-            </Table>
+              </Stack>
+            ) : (
+              /* 💻 DESKTOP: existing table */
+              <Table withTableBorder>
+                <Table.Thead>
+                  <Table.Tr>
+                    <Table.Th>Date</Table.Th>
+                    <Table.Th>Staff</Table.Th>
+                    <Table.Th>Duty Type</Table.Th>
+                    <Table.Th ta="center">OT?</Table.Th>
+                    <Table.Th>Start</Table.Th>
+                    <Table.Th>End</Table.Th>
+                    <Table.Th>Notes</Table.Th>
+                  </Table.Tr>
+                </Table.Thead>
+                <Table.Tbody>
+                  {displayAssignments.map((ass) => {
+                    const dateStr = formatDateOnly(ass.dutyStart);
+                    return (
+                      <Table.Tr key={ass.id}>
+                        <Table.Td>{dateStr}</Table.Td>
+                        <Table.Td>{ass.user.fname} {ass.user.lname}</Table.Td>
+                        <Table.Td>
+                          <Badge
+                            color={ass.dutyType === 'SETUP' ? 'blue' : ass.dutyType === 'TEARDOWN' ? 'orange' : 'grape'}
+                            size="sm"
+                          >
+                            {ass.dutyType === 'TEARDOWN' ? 'PACK-UP' : ass.dutyType}
+                          </Badge>
+                        </Table.Td>
+                        <Table.Td ta="center">
+                          {ass.isOvertime ? (
+                            <Badge color="green" variant="filled" size="sm">OT</Badge>
+                          ) : (
+                            <Text size="xs" c="dimmed">—</Text>
+                          )}
+                        </Table.Td>
+                        <Table.Td>{formatTimeOnly(ass.dutyStart)}</Table.Td>
+                        <Table.Td>{formatTimeOnly(ass.dutyEnd)}</Table.Td>
+                        <Table.Td>
+                          <Text size="xs" c="dimmed" style={{ whiteSpace: 'pre-wrap' }}>
+                            {ass.notes || '—'}
+                          </Text>
+                        </Table.Td>
+                      </Table.Tr>
+                    );
+                  })}
+                </Table.Tbody>
+              </Table>
+            )}
           </Paper>
         )}
 
@@ -725,7 +816,7 @@ export default function RequestDetailModal({
       title={`Pack Up Photos (${request.packUpDonePhotos?.length || 0})`}
       size="xl"
       centered
-      zIndex={200}
+      zIndex={1000}
     >
       {request.packUpDonePhotos && request.packUpDonePhotos.length > 0 && (
         <Stack gap="md">

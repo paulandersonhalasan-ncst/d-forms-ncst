@@ -379,6 +379,7 @@ export const FormSettingsScalarFieldEnum = {
   minAdvanceDaysVIP: 'minAdvanceDaysVIP',
   maxEventsPerDay: 'maxEventsPerDay',
   minRescheduleDays: 'minRescheduleDays',
+  enableVipMode: 'enableVipMode',
   updatedAt: 'updatedAt',
   updatedBy: 'updatedBy'
 } as const

@@ -14,6 +14,12 @@ export const metadata = {
   description: 'Digital Forms System of National College of Science and Technology',
 };
 
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
+};
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>

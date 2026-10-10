@@ -46,6 +46,7 @@ export async function GET(request) {
           minAdvanceDaysVIP: 1,
           maxEventsPerDay: 2,
           minRescheduleDays: 3,
+          enableVipMode: true
         }
       });
     }
@@ -60,6 +61,7 @@ export async function GET(request) {
         minAdvanceDaysVIP: 1,
         maxEventsPerDay: 2,
         minRescheduleDays: 3,
+        enableVipMode: true
       }
     });
   }
@@ -90,7 +92,8 @@ export async function PUT(request) {
       minAdvanceDaysRegular, 
       minAdvanceDaysVIP, 
       maxEventsPerDay,
-      minRescheduleDays,   // 🆕
+      minRescheduleDays,
+      enableVipMode,   // 🆕
     } = body;
 
     if (
@@ -112,7 +115,8 @@ export async function PUT(request) {
         minAdvanceDaysRegular,
         minAdvanceDaysVIP,
         maxEventsPerDay,
-        minRescheduleDays,   // 🆕
+        minRescheduleDays,
+        enableVipMode,
         updatedBy: user.id,
         updatedAt: new Date(),
       },
@@ -121,7 +125,8 @@ export async function PUT(request) {
         minAdvanceDaysRegular,
         minAdvanceDaysVIP,
         maxEventsPerDay,
-        minRescheduleDays,   // 🆕
+        minRescheduleDays,
+        enableVipMode: enableVipMode ?? true,
         updatedBy: user.id,
         updatedAt: new Date(),
       },

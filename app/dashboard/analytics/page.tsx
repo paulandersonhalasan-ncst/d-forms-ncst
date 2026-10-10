@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { useMediaQuery } from '@mantine/hooks';
 import {
   Container,
   Card,
@@ -68,6 +69,9 @@ export default function AnalyticsPage() {
   const theme = useMantineTheme();
   const { colorScheme } = useMantineColorScheme();
   const isDark = colorScheme === 'dark';
+
+  // 📱 Mobile detection
+  const isMobile = useMediaQuery('(max-width: 768px)');
 
   // --- User & Department ---
   const [currentUser, setCurrentUser] = useState<UserContext | null>(null);
@@ -757,8 +761,8 @@ export default function AnalyticsPage() {
           borderColor: cardBorder,
         }}
       >
-        <Group justify="space-between" align="center" mb="xl">
-          <Title order={2} fw={800} style={{ color: textColor }}>
+        <Group justify="space-between" align="center" mb="xl" wrap="wrap">
+          <Title order={2} fw={800} style={{ color: textColor, fontSize: 'clamp(1.25rem, 4vw, 2rem)' }}>
             Department Analytics Dashboard
           </Title>
           <Badge size="lg" color="regalNavy" variant="filled">
@@ -771,63 +775,60 @@ export default function AnalyticsPage() {
           <Paper
             withBorder
             radius="xl"
-            p="lg"
+            p={isMobile ? 'sm' : 'lg'}
             mb="lg"
             style={{
               background: cardBgNested,
               borderColor: cardBorderNested,
             }}
           >
-            <Group align="flex-end" wrap="wrap" gap="md">
-              {isAdminOrSuper && (
-                <Select
-                  label="Department"
-                  data={departments}
-                  value={selectedDept}
-                  onChange={(val) => setSelectedDept(val || '')}
-                  style={{ width: 220 }}
-                />
-              )}
+            {isMobile ? (
+              /* 📱 MOBILE LAYOUT */
+              <Stack gap="sm">
+                {isAdminOrSuper && (
+                  <Select
+                    label="Department"
+                    data={departments}
+                    value={selectedDept}
+                    onChange={(val) => setSelectedDept(val || '')}
+                    size="sm"
+                  />
+                )}
 
-              {/* Navigation for day/week/month (hidden when custom or all) */}
-              {!['all', 'custom'].includes(timeRange) && (
-                <Stack gap={5}>
-                  <Text size="sm" fw={500}>
-                    Navigate
-                  </Text>
-                  <Group gap="xs">
-                    <Button variant="light" onClick={() => navigateDate('prev')}>
-                      <IconChevronLeft size={16} />
-                    </Button>
-                    <Paper withBorder p="sm" radius="md" style={{ minWidth: 150 }}>
-                      <Text ta="center" fw={600}>
-                        {getDateLabel()}
-                      </Text>
-                    </Paper>
-                    <Button variant="light" onClick={() => navigateDate('next')}>
-                      <IconChevronRight size={16} />
-                    </Button>
-                  </Group>
+                <Stack gap={4}>
+                  <Text size="xs" fw={600}>Date Range</Text>
+                  <SegmentedControl
+                    fullWidth
+                    value={timeRange}
+                    onChange={(value) => setTimeRange(value as typeof timeRange)}
+                    data={[
+                      { label: 'D', value: 'day' },
+                      { label: 'W', value: 'week' },
+                      { label: 'M', value: 'month' },
+                      { label: 'C', value: 'custom' },
+                      { label: 'All', value: 'all' },
+                    ]}
+                    size="xs"
+                    styles={{ label: { fontSize: 11, padding: '2px 4px' } }}
+                  />
                 </Stack>
-              )}
 
-              {/* Date Range Segmented Control with Popover */}
-              <Stack gap={5}>
-                <Text fw={500} size="sm">
-                  Date Range
-                </Text>
-
-                <SegmentedControl
-                  value={timeRange}
-                  onChange={(value) => setTimeRange(value as typeof timeRange)}
-                  data={[
-                    { label: 'Day', value: 'day' },
-                    { label: 'Week', value: 'week' },
-                    { label: 'Month', value: 'month' },
-                    { label: 'Custom', value: 'custom' },
-                    { label: 'All', value: 'all' },
-                  ]}
-                />
+                {!['all', 'custom'].includes(timeRange) && (
+                  <Stack gap={4}>
+                    <Text size="xs" fw={600}>Navigate</Text>
+                    <Group gap={6} wrap="nowrap">
+                      <Button variant="light" size="compact-sm" onClick={() => navigateDate('prev')}>
+                        <IconChevronLeft size={14} />
+                      </Button>
+                      <Paper withBorder p="xs" radius="md" style={{ flex: 1, textAlign: 'center' }}>
+                        <Text size="xs" fw={600}>{getDateLabel()}</Text>
+                      </Paper>
+                      <Button variant="light" size="compact-sm" onClick={() => navigateDate('next')}>
+                        <IconChevronRight size={14} />
+                      </Button>
+                    </Group>
+                  </Stack>
+                )}
 
                 {timeRange === 'custom' && (
                   <DatePicker
@@ -836,12 +837,78 @@ export default function AnalyticsPage() {
                     maxDate={new Date()}
                     value={customDates}
                     onChange={setCustomDates}
+                    size="sm"
                   />
                 )}
 
+                <Button
+                  variant="light"
+                  color="green"
+                  leftSection={<IconFileExport size={14} />}
+                  onClick={handleExportXLSX}
+                  loading={exporting}
+                  disabled={!analytics || exporting}
+                  size="sm"
+                  fullWidth
+                >
+                  Export to Excel
+                </Button>
               </Stack>
+            ) : (
+              /* 💻 DESKTOP LAYOUT (dating layout) */
+              <Group align="flex-end" wrap="wrap" gap="md">
+                {isAdminOrSuper && (
+                  <Select
+                    label="Department"
+                    data={departments}
+                    value={selectedDept}
+                    onChange={(val) => setSelectedDept(val || '')}
+                    style={{ width: 220 }}
+                  />
+                )}
 
-              <Button
+                {!['all', 'custom'].includes(timeRange) && (
+                  <Stack gap={5}>
+                    <Text size="sm" fw={500}>Navigate</Text>
+                    <Group gap="xs">
+                      <Button variant="light" onClick={() => navigateDate('prev')}>
+                        <IconChevronLeft size={16} />
+                      </Button>
+                      <Paper withBorder p="sm" radius="md" style={{ minWidth: 150 }}>
+                        <Text ta="center" fw={600}>{getDateLabel()}</Text>
+                      </Paper>
+                      <Button variant="light" onClick={() => navigateDate('next')}>
+                        <IconChevronRight size={16} />
+                      </Button>
+                    </Group>
+                  </Stack>
+                )}
+
+                <Stack gap={5}>
+                  <Text fw={500} size="sm">Date Range</Text>
+                  <SegmentedControl
+                    value={timeRange}
+                    onChange={(value) => setTimeRange(value as typeof timeRange)}
+                    data={[
+                      { label: 'Day', value: 'day' },
+                      { label: 'Week', value: 'week' },
+                      { label: 'Month', value: 'month' },
+                      { label: 'Custom', value: 'custom' },
+                      { label: 'All', value: 'all' },
+                    ]}
+                  />
+                  {timeRange === 'custom' && (
+                    <DatePicker
+                      type="range"
+                      allowSingleDateInRange
+                      maxDate={new Date()}
+                      value={customDates}
+                      onChange={setCustomDates}
+                    />
+                  )}
+                </Stack>
+
+                <Button
                   variant="light"
                   color="green"
                   leftSection={<IconFileExport size={16} />}
@@ -850,8 +917,9 @@ export default function AnalyticsPage() {
                   disabled={!analytics || exporting}
                 >
                   Export to Excel
-              </Button>
-            </Group>
+                </Button>
+              </Group>
+            )}
           </Paper>
         )}
         {/* ----- Main Content ----- */}
@@ -862,10 +930,24 @@ export default function AnalyticsPage() {
               {/* === ANALYTICS TYPE TABS === */}
               <Tabs
                 value={analyticsTab}
-                onChange={(val) => setAnalyticsTab((val as 'iom' | 'frf') || 'iom')}
+                onChange={(val) => setAnalyticsTab((val as 'iom' | 'frf' | 'calendar') || 'iom')}
                 variant="outline"
                 radius="xl"
               >
+                {isMobile ? (
+                  <Select
+                    value={analyticsTab}
+                    onChange={(val) => setAnalyticsTab((val as 'iom' | 'frf' | 'calendar') || 'iom')}
+                    data={[
+                      { value: 'iom', label: '📄 IOM Analytics' },
+                      { value: 'frf', label: '📋 FRF Analytics' },
+                      { value: 'calendar', label: '📅 Live Calendar' },
+                    ]}
+                    mb="md"
+                    size="sm"
+                    allowDeselect={false}
+                  />
+                ) : (
                 <Tabs.List>
                   <Tabs.Tab value="iom" leftSection={<IconFileText size={16} />}>
                     IOM Analytics
@@ -877,6 +959,7 @@ export default function AnalyticsPage() {
                     Live Calendar
                   </Tabs.Tab>
                 </Tabs.List>
+                )}
 
                 {/* ============================================ */}
                 {/* ============ IOM ANALYTICS TAB ============ */}
@@ -888,7 +971,7 @@ export default function AnalyticsPage() {
                       <Text size="sm" fw={700} c="dimmed">
                         Inter-Office Memorandum Overview
                       </Text>
-                      <SimpleGrid cols={5} spacing="md">
+                      <SimpleGrid cols={{ base: 2, sm: 3, md: 5 }} spacing="md">
                         {[
                           { label: 'Memos Created', value: analytics.overview.total, icon: IconFileText, color: 'blue', description: 'Kabuuang bilang ng mga memorandum na nilikha sa loob ng napiling date.' },
                           { label: 'Sent', value: analytics.overview.sent, icon: IconSend, color: 'cyan', description: `Mga memorandum na ipinadala ng ${activeDepartment}.` },
@@ -925,26 +1008,71 @@ export default function AnalyticsPage() {
                     {/* ---- IOM SHORTCUTS ---- */}
                     <Stack gap="xs">
                       <Text size="sm" fw={700} c="dimmed">E-IOM Shortcuts</Text>
-                      <Group grow wrap="nowrap" gap="md" align="stretch">
-                        {tabConfigs.map((config) => {
-                          const Icon = config.icon;
-                          return (
-                            <UnstyledButton key={config.value} onClick={() => router.push(`/dashboard/forms/iom?tab=${config.value}`)} style={{ flex: 1, minWidth: 0, cursor: 'pointer', transition: 'transform 0.2s ease' }} onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-4px)'; }} onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; }}>
-                              <Paper withBorder radius="xl" p="lg" style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: cardBgNested, borderColor: cardBorderNested }}>
-                                <Group justify="space-between" style={{ width: '100%' }}>
-                                  <Stack gap={0}>
-                                    <Text size="xs" fw={700}>{config.label}</Text>
-                                    <RollingNumber value={config.count} fw={500} fz={32} />
-                                  </Stack>
+
+                      {isMobile ? (
+                        /* 📱 Mobile: 2-column card grid */
+                        <SimpleGrid cols={2} spacing="xs">
+                          {tabConfigs.map((config) => {
+                            const Icon = config.icon;
+                            return (
+                              <UnstyledButton
+                                key={config.value}
+                                onClick={() => router.push(`/dashboard/forms/iom?tab=${config.value}`)}
+                                style={{ cursor: 'pointer', width: '100%', transition: 'transform 0.15s ease' }}
+                                onTouchStart={(e) => { e.currentTarget.style.transform = 'scale(0.96)'; }}
+                                onTouchEnd={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
+                              >
+                                <Paper
+                                  withBorder
+                                  radius="md"
+                                  p="sm"
+                                  style={{
+                                    background: cardBgNested,
+                                    borderColor: cardBorderNested,
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: 4,
+                                    minHeight: 96,
+                                    textAlign: 'center',
+                                  }}
+                                >
                                   <ThemeIcon size={30} radius="xl" color={config.color} variant="filled">
                                     <Icon size={15} />
                                   </ThemeIcon>
-                                </Group>
-                              </Paper>
-                            </UnstyledButton>
-                          );
-                        })}
-                      </Group>
+                                  <Text size="10px" fw={700} lh={1.15} lineClamp={2}>
+                                    {config.label}
+                                  </Text>
+                                  <RollingNumber value={config.count} fw={700} fz={22} />
+                                </Paper>
+                              </UnstyledButton>
+                            );
+                          })}
+                        </SimpleGrid>
+                      ) : (
+                        /* 💻 Desktop: dating row layout */
+                        <Group grow wrap="nowrap" gap="md" align="stretch">
+                          {tabConfigs.map((config) => {
+                            const Icon = config.icon;
+                            return (
+                              <UnstyledButton key={config.value} onClick={() => router.push(`/dashboard/forms/iom?tab=${config.value}`)} style={{ flex: 1, minWidth: 0, cursor: 'pointer', transition: 'transform 0.2s ease' }} onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-4px)'; }} onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; }}>
+                                <Paper withBorder radius="xl" p="lg" style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: cardBgNested, borderColor: cardBorderNested }}>
+                                  <Group justify="space-between" style={{ width: '100%' }}>
+                                    <Stack gap={0}>
+                                      <Text size="xs" fw={700}>{config.label}</Text>
+                                      <RollingNumber value={config.count} fw={500} fz={32} />
+                                    </Stack>
+                                    <ThemeIcon size={30} radius="xl" color={config.color} variant="filled">
+                                      <Icon size={15} />
+                                    </ThemeIcon>
+                                  </Group>
+                                </Paper>
+                              </UnstyledButton>
+                            );
+                          })}
+                        </Group>
+                      )}
                     </Stack>
 
                     {/* ---- IOM CHARTS (existing 3 pies) ---- */}
@@ -1015,15 +1143,20 @@ export default function AnalyticsPage() {
                     </SimpleGrid>
 
                     {/* IOM Avg Processing */}
-                    <Paper withBorder radius="xl" p="xl" style={{ background: cardBgNested, borderColor: cardBorderNested }}>
-                      <Group justify="space-between">
+                    <Paper withBorder radius="xl" p={isMobile ? 'md' : 'xl'} style={{ background: cardBgNested, borderColor: cardBorderNested }}>
+                      <Group justify="space-between" wrap={isMobile ? 'wrap' : 'nowrap'} gap="md">
                         <Stack gap={0}>
                           <Text fw={700}>IOM Average Processing Time</Text>
                           <Text c="dimmed" size="sm">Closed memos only</Text>
-                          <Text fz={42} fw={900}>{analytics.averageProcessingTime}</Text>
+                          <Text fz={isMobile ? 32 : 42} fw={900}>{analytics.averageProcessingTime}</Text>
                           <Text c="dimmed">days</Text>
                         </Stack>
-                        <RingProgress size={150} thickness={14} sections={[{ value: Math.min(analytics.averageProcessingTime * 5, 100), color: 'blue' }]} label={<Text ta="center" fw={800}>{analytics.averageProcessingTime}</Text>} />
+                        <RingProgress
+                          size={isMobile ? 110 : 150}
+                          thickness={isMobile ? 12 : 14}
+                          sections={[{ value: Math.min(analytics.averageProcessingTime * 5, 100), color: 'blue' }]}
+                          label={<Text ta="center" fw={800}>{analytics.averageProcessingTime}</Text>}
+                        />
                       </Group>
                     </Paper>
                   </Stack>
@@ -1078,31 +1211,81 @@ export default function AnalyticsPage() {
                       {/* ---- FRF SHORTCUTS ---- */}
                       <Stack gap="xs">
                         <Text size="sm" fw={700} c="dimmed">FRF Shortcuts</Text>
-                        <Group grow wrap="nowrap" gap="md" align="stretch">
-                          {[
-                            { label: 'Pending Approval', value: 'pending_approval', icon: IconClock, color: 'orange', count: analytics.frf.overview.forApproval },
-                            { label: 'Action Board', value: 'action_board', icon: IconInfoCircle, color: 'indigo', count: analytics.frf.overview.incoming + analytics.frf.overview.forApproval },
-                            { label: 'My Requests', value: 'my_requests', icon: IconSend, color: 'cyan', count: analytics.frf.overview.outgoing },
-                            { label: 'Completed', value: 'completed', icon: IconCircleCheck, color: 'green', count: analytics.frf.overview.completed },
-                          ].map((config) => {
-                            const Icon = config.icon;
-                            return (
-                              <UnstyledButton key={config.value} onClick={() => router.push(`/dashboard/forms/frf?tab=${config.value}`)} style={{ flex: 1, minWidth: 0, cursor: 'pointer', transition: 'transform 0.2s ease' }} onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-4px)'; }} onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; }}>
-                                <Paper withBorder radius="xl" p="lg" style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: cardBgNested, borderColor: cardBorderNested }}>
-                                  <Group justify="space-between" style={{ width: '100%' }}>
-                                    <Stack gap={0}>
-                                      <Text size="xs" fw={700}>{config.label}</Text>
-                                      <RollingNumber value={config.count} fw={500} fz={32} />
-                                    </Stack>
+
+                        {isMobile ? (
+                          /* 📱 Mobile: 2-column card grid */
+                          <SimpleGrid cols={2} spacing="xs">
+                            {[
+                              { label: 'Pending Approval', value: 'pending_approval', icon: IconClock, color: 'orange', count: analytics.frf.overview.forApproval },
+                              { label: 'Action Board', value: 'action_board', icon: IconInfoCircle, color: 'indigo', count: analytics.frf.overview.incoming + analytics.frf.overview.forApproval },
+                              { label: 'My Requests', value: 'my_requests', icon: IconSend, color: 'cyan', count: analytics.frf.overview.outgoing },
+                              { label: 'Completed', value: 'completed', icon: IconCircleCheck, color: 'green', count: analytics.frf.overview.completed },
+                            ].map((config) => {
+                              const Icon = config.icon;
+                              return (
+                                <UnstyledButton
+                                  key={config.value}
+                                  onClick={() => router.push(`/dashboard/forms/frf?tab=${config.value}`)}
+                                  style={{ cursor: 'pointer', width: '100%', transition: 'transform 0.15s ease' }}
+                                  onTouchStart={(e) => { e.currentTarget.style.transform = 'scale(0.96)'; }}
+                                  onTouchEnd={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
+                                >
+                                  <Paper
+                                    withBorder
+                                    radius="md"
+                                    p="sm"
+                                    style={{
+                                      background: cardBgNested,
+                                      borderColor: cardBorderNested,
+                                      display: 'flex',
+                                      flexDirection: 'column',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      gap: 4,
+                                      minHeight: 96,
+                                      textAlign: 'center',
+                                    }}
+                                  >
                                     <ThemeIcon size={30} radius="xl" color={config.color} variant="filled">
                                       <Icon size={15} />
                                     </ThemeIcon>
-                                  </Group>
-                                </Paper>
-                              </UnstyledButton>
-                            );
-                          })}
-                        </Group>
+                                    <Text size="10px" fw={700} lh={1.15} lineClamp={2}>
+                                      {config.label}
+                                    </Text>
+                                    <RollingNumber value={config.count} fw={700} fz={22} />
+                                  </Paper>
+                                </UnstyledButton>
+                              );
+                            })}
+                          </SimpleGrid>
+                        ) : (
+                          /* 💻 Desktop: dating row layout */
+                          <Group grow wrap="nowrap" gap="md" align="stretch">
+                            {[
+                              { label: 'Pending Approval', value: 'pending_approval', icon: IconClock, color: 'orange', count: analytics.frf.overview.forApproval },
+                              { label: 'Action Board', value: 'action_board', icon: IconInfoCircle, color: 'indigo', count: analytics.frf.overview.incoming + analytics.frf.overview.forApproval },
+                              { label: 'My Requests', value: 'my_requests', icon: IconSend, color: 'cyan', count: analytics.frf.overview.outgoing },
+                              { label: 'Completed', value: 'completed', icon: IconCircleCheck, color: 'green', count: analytics.frf.overview.completed },
+                            ].map((config) => {
+                              const Icon = config.icon;
+                              return (
+                                <UnstyledButton key={config.value} onClick={() => router.push(`/dashboard/forms/frf?tab=${config.value}`)} style={{ flex: 1, minWidth: 0, cursor: 'pointer', transition: 'transform 0.2s ease' }} onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-4px)'; }} onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; }}>
+                                  <Paper withBorder radius="xl" p="lg" style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: cardBgNested, borderColor: cardBorderNested }}>
+                                    <Group justify="space-between" style={{ width: '100%' }}>
+                                      <Stack gap={0}>
+                                        <Text size="xs" fw={700}>{config.label}</Text>
+                                        <RollingNumber value={config.count} fw={500} fz={32} />
+                                      </Stack>
+                                      <ThemeIcon size={30} radius="xl" color={config.color} variant="filled">
+                                        <Icon size={15} />
+                                      </ThemeIcon>
+                                    </Group>
+                                  </Paper>
+                                </UnstyledButton>
+                              );
+                            })}
+                          </Group>
+                        )}
                       </Stack>
 
                       {/* ---- FRF PIE CHARTS ---- */}
@@ -1203,47 +1386,49 @@ export default function AnalyticsPage() {
                 <Tabs.Panel value="calendar" pt="lg">
                   <Stack gap="lg">
                     {/* Legend */}
-                    <Group justify="space-between" wrap="wrap">
-                      <Group gap="xs">
-                        <Text size="xs" c="dimmed">
-                          Legend:
-                        </Text>
-                        <Badge color="yellow" variant="filled" size="sm">Pending</Badge>
-                        <Badge color="green" variant="filled" size="sm">Approved</Badge>
-                        <Badge color="blue" variant="filled" size="sm">Fully Approved (Approval Completed)</Badge>
-                        <Badge color="orange" variant="filled" size="sm">Reschedule</Badge>
+                    <Stack gap="xs">
+                      <Group gap={6} wrap="wrap">
+                        <Text size="xs" c="dimmed">Legend:</Text>
+                        <Badge color="yellow" variant="filled" size="xs">Pending</Badge>
+                        <Badge color="green" variant="filled" size="xs">Approved</Badge>
+                        <Badge color="blue" variant="filled" size="xs">Fully Approved</Badge>
+                        <Badge color="orange" variant="filled" size="xs">Reschedule</Badge>
                       </Group>
-                      <Text size="xs" c="dimmed">
-                        Hover a date to see event details
+                      <Text size="10px" c="dimmed" fs="italic">
+                        {isMobile ? '👆 Tap a date to see event details' : 'Hover a date to see event details'}
                       </Text>
-                    </Group>
+                    </Stack>
 
                     {/* Month navigation */}
-                    <Group justify="center" gap="md">
+                    <Group justify="center" gap={isMobile ? 'xs' : 'md'}>
                       <ActionIcon
                         variant="light"
-                        size="lg"
+                        size={isMobile ? 'md' : 'lg'}
                         onClick={() =>
                           setCalendarMonth(dayjs(calendarMonth).subtract(1, 'month').toDate())
                         }
                       >
-                        <IconChevronLeft size={18} />
+                        <IconChevronLeft size={isMobile ? 16 : 18} />
                       </ActionIcon>
-                      <Text fw={800} size="xl" style={{ minWidth: 220, textAlign: 'center' }}>
-                        {dayjs(calendarMonth).format('MMMM YYYY')}
+                      <Text
+                        fw={800}
+                        size={isMobile ? 'md' : 'xl'}
+                        style={{ minWidth: isMobile ? 130 : 220, textAlign: 'center' }}
+                      >
+                        {dayjs(calendarMonth).format(isMobile ? 'MMM YYYY' : 'MMMM YYYY')}
                       </Text>
                       <ActionIcon
                         variant="light"
-                        size="lg"
+                        size={isMobile ? 'md' : 'lg'}
                         onClick={() =>
                           setCalendarMonth(dayjs(calendarMonth).add(1, 'month').toDate())
                         }
                       >
-                        <IconChevronRight size={18} />
+                        <IconChevronRight size={isMobile ? 16 : 18} />
                       </ActionIcon>
                       <Button
                         variant="subtle"
-                        size="xs"
+                        size="compact-xs"
                         onClick={() => setCalendarMonth(new Date())}
                       >
                         Today
@@ -1251,10 +1436,13 @@ export default function AnalyticsPage() {
                     </Group>
 
                     {/* Weekday headers */}
-                    <SimpleGrid cols={7} spacing={4}>
-                      {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => (
+                    <SimpleGrid cols={7} spacing={isMobile ? 2 : 4}>
+                      {(isMobile
+                        ? ['S', 'M', 'T', 'W', 'T', 'F', 'S']
+                        : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+                      ).map((d, i) => (
                         <Text
-                          key={d}
+                          key={`${d}-${i}`}
                           size="xs"
                           fw={700}
                           ta="center"
@@ -1296,7 +1484,8 @@ export default function AnalyticsPage() {
                                   radius="sm"
                                   p={6}
                                   style={{
-                                    minHeight: 110,
+                                    minHeight: isMobile ? 70 : 110,
+                                    padding: isMobile ? 4 : 6,
                                     opacity: isOutsideMonth ? 0.35 : 1,
                                     backgroundColor: isToday
                                       ? (isDark
@@ -1385,7 +1574,7 @@ export default function AnalyticsPage() {
                                           <Text size="xs" fw={700}>
                                             {e.referenceId}
                                           </Text>
-                                          <Badge size="xs" color={color} variant="filled">
+                                          <Badge size="xs" color={color} variant="filled" mt={2} styles={{ label: { fontSize: 10 } }}>
                                             {e.status.replace('_', ' ')}
                                           </Badge>
                                         </Group>
@@ -1431,12 +1620,12 @@ export default function AnalyticsPage() {
                                           {(e.isReschedule || e.isVenueOnly) && (
                                             <Group gap={4} mt={4}>
                                               {e.isReschedule && (
-                                                <Badge size="xs" color="orange" variant="light">
+                                                <Badge size="xs" color="orange" variant="light" mt={2} styles={{ label: { fontSize: 10 } }}>
                                                   Reschedule
                                                 </Badge>
                                               )}
                                               {e.isVenueOnly && (
-                                                <Badge size="xs" color="gray" variant="light">
+                                                <Badge size="xs" color="gray" variant="light" mt={2} styles={{ label: { fontSize: 10 } }}>
                                                   Venue Only
                                                 </Badge>
                                               )}

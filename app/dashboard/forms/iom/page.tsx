@@ -1,9 +1,9 @@
 // app/page.tsx
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useForm } from '@mantine/form';
-import { useDisclosure, useToggle } from '@mantine/hooks';
+import { useDisclosure, useToggle, useMediaQuery } from '@mantine/hooks';
 import {
   Container,
   Card,
@@ -26,7 +26,8 @@ import {
   Collapse,
   ActionIcon,
   SegmentedControl,
-  ScrollArea
+  ScrollArea,
+  Select
 } from '@mantine/core';
 import {
   IconPlus,
@@ -182,6 +183,11 @@ function KanbanBoard({
   departmentStaff: { id: string; fname: string; lname: string }[];
   totalDepartments: number;
 }) {
+  const isMobile = useMediaQuery('(max-width: 768px)');
+
+  // 📱 Mobile: which priority is currently selected?
+  const [mobilePriority, setMobilePriority] = useState<Priority>('RUSH');
+  
   // ✅ Tamang type annotation
   const groups: Record<Priority, Memo[]> = {
     ROUTINE: memos.filter((m) => m.priority === 'ROUTINE'),
@@ -195,6 +201,75 @@ function KanbanBoard({
     RUSH: 'red',
   };
 
+  // 📱 MOBILE LAYOUT: Segmented Control + single column
+  if (isMobile) {
+    const activeItems = groups[mobilePriority];
+    const activeColor = columnColors[mobilePriority];
+
+    return (
+      <Stack gap="md">
+        {/* Segmented control na may counts */}
+        <SegmentedControl
+          fullWidth
+          value={mobilePriority}
+          onChange={(val) => setMobilePriority(val as Priority)}
+          data={(['RUSH', 'URGENT', 'ROUTINE'] as Priority[]).map((p) => ({
+            value: p,
+            label: `${p} (${groups[p].length})`,
+          }))}
+          size="sm"
+          color={
+            mobilePriority === 'RUSH' ? 'red' :
+            mobilePriority === 'URGENT' ? 'orange' : 'blue'
+          }
+          styles={{ label: { fontSize: 11, fontWeight: 600 } }}
+        />
+
+        {/* Single column — items ng selected priority */}
+        <ScrollArea style={{ height: 'calc(100vh - 420px)' }} type="auto">
+          {activeItems.length === 0 ? (
+            <Text c="dimmed" size="xs" ta="center" py="md">
+              No {mobilePriority.toLowerCase()} memos
+            </Text>
+          ) : (
+            <Stack gap="sm">
+              {activeItems.map((memo) => {
+                const rootId = memo.rootMemoId || memo.id;
+                const threadCount = allMemos.filter(
+                  (m) => m.rootMemoId === rootId || m.id === rootId
+                ).length;
+                const isImported = memo.referenceId?.startsWith('IMPORT-');
+                return (
+                  <MemoCard
+                    key={memo.id}
+                    memo={memo}
+                    isApprovalTab={isApprovalTab}
+                    currentUser={currentUser}
+                    activeDepartment={activeDepartment}
+                    isAdminOrSuper={isAdminOrSuper}
+                    isHeadOrOIC={isHeadOrOIC}
+                    processOICAllowance={processOICAllowance}
+                    threadCount={threadCount}
+                    totalDepartments={totalDepartments}
+                    onReply={isImported ? undefined : onReply}
+                    onPrint={onPrint}
+                    onViewThread={onViewThread}
+                    onExpand={onExpand}
+                    onSuperEdit={onSuperEdit}
+                    triggerActionPasswordCheck={triggerActionPasswordCheck}
+                    allMemos={allMemos}
+                    departmentStaff={departmentStaff}
+                  />
+                );
+              })}
+            </Stack>
+          )}
+        </ScrollArea>
+      </Stack>
+    );
+  }
+
+  // 💻 DESKTOP LAYOUT: 3-column grid (dating layout)
   return (
     <SimpleGrid cols={3} spacing="lg" style={{ alignItems: 'flex-start' }}>
       {Object.entries(groups).map(([priority, items]) => {
@@ -388,6 +463,8 @@ export default function IOMDashboardPage() {
 
   const [viewMode, setViewMode] = useState<'tile' | 'kanban'>('tile');
 
+  const isMobile = useMediaQuery('(max-width: 768px)');
+
   // ---- SWR for memos with polling (15 seconds) ----
   const { data: memosData, mutate: mutateMemos } = useSWR<Memo[]>(
     '../../../api/memos',
@@ -516,6 +593,10 @@ export default function IOMDashboardPage() {
     );
   });
 
+  const authoredByMeMemos = memos.filter(
+    (memo) => memo.senderId === currentUser?.id
+  );
+
   // Archived/Resolved
   const resolvedMemos = memos.filter((memo) => {
     // Skip kung walang recipients
@@ -541,6 +622,36 @@ export default function IOMDashboardPage() {
 
     return isRecipientResolved || isSenderResolved;
   });
+
+  const tabOptions = useMemo(() => {
+    const opts: { value: string; label: string; count: number }[] = [];
+    if (isHeadOrOIC) {
+      opts.push({ value: 'approval', label: 'For Approval', count: forApprovalMemos.length });
+      opts.push({ value: 'inbound', label: 'Inbound', count: inboundMemos.length });
+    }
+    opts.push({ value: 'authored_by_me', label: 'Authored by Me', count: authoredByMeMemos.length });
+    opts.push({ value: 'outbound', label: 'Outbound', count: outboundMemos.length });
+    opts.push({ value: 'action_board', label: 'Action Board', count: actionBoardMemos.length });
+    opts.push({ value: 'assigned_to_me', label: 'Assigned to Me', count: assignedToMeMemos.length });
+    opts.push({ value: 'archived', label: 'Archived / Resolved', count: resolvedMemos.length });
+    if (isAdminOrSuper) {
+      opts.push({ value: 'all_memos_global', label: 'Global View (Admin/Super)', count: allMemosGlobal.length });
+    }
+    opts.push({ value: 'imported', label: 'Imported Memos', count: importedMemos.length });
+    return opts;
+  }, [
+    isHeadOrOIC,
+    isAdminOrSuper,
+    forApprovalMemos.length,
+    inboundMemos.length,
+    authoredByMeMemos.length,
+    outboundMemos.length,
+    actionBoardMemos.length,
+    assignedToMeMemos.length,
+    resolvedMemos.length,
+    allMemosGlobal.length,
+    importedMemos.length,
+  ]);
 
   // ---- Active tab state (gamit ang isAdminOrSuper at isDepartmentHead) ----
   const [activeTab, setActiveTab] = useState<string | null>(() => {
@@ -1302,41 +1413,90 @@ export default function IOMDashboardPage() {
         <Box style={{ flex: 1, overflow: 'hidden' }}>
 
           {/* Search & Sort */}
-          <Card withBorder radius="md" mb="md" p="sm" bg="light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-8))">
-            <Group justify="space-between" align="flex-end">
-              <TextInput
-                placeholder="Search for subject, Memo content, department, reply..."
-                label="Search Memorandum"
-                value={searchTerm}
-                onChange={(event) => setSearchTerm(event.currentTarget.value)}
-                style={{ flex: 1 }}
-              />
-              <Group gap="md">
-                <Stack gap={4}>
-                  <Text size="xs" fw={500}>Sort by Date Created</Text>
-                  <Button
-                    variant="light"
-                    color={sortByDate === 'NEWEST' ? 'blue' : 'orange'}
-                    onClick={() => toggleSortByDate()}
-                    style={{ width: 180 }}
-                  >
-                    {sortByDate === 'NEWEST' ? '📅 Newest First' : '⏳ Oldest First'}
-                  </Button>
-                </Stack>
-                <Stack gap={4}>
-                  <Text size="xs" fw={500}>View</Text>
-                  <SegmentedControl
-                    value={viewMode}
-                    onChange={(val) => setViewMode(val as 'tile' | 'kanban')}
-                    data={[
-                      { label: 'Tile', value: 'tile' },
-                      { label: 'Kanban-Style', value: 'kanban' },
-                    ]}
-                    size="xs"
-                  />
-                </Stack>
+          <Card
+            withBorder
+            radius="md"
+            mb="md"
+            p={isMobile ? 'xs' : 'sm'}
+            bg="light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-8))"
+          >
+            {isMobile ? (
+              /* ========== MOBILE LAYOUT ========== */
+              <Stack gap={6}>
+                <TextInput
+                  placeholder="Search subject, content, department..."
+                  label="Search Memorandum"
+                  size="sm"
+                  value={searchTerm}
+                  onChange={(event) => setSearchTerm(event.currentTarget.value)}
+                />
+                <Group gap={6} align="flex-end" wrap="nowrap" grow>
+                  <Stack gap={4} style={{ flex: 1 }}>
+                    <Text size="10px" fw={600} c="dimmed" lh={1.1}>Sort</Text>
+                    <Button
+                      variant="light"
+                      size="sm"
+                      color={sortByDate === 'NEWEST' ? 'blue' : 'orange'}
+                      onClick={() => toggleSortByDate()}
+                      styles={{ label: { fontSize: 11, fontWeight: 600 } }}
+                      fullWidth
+                    >
+                      {sortByDate === 'NEWEST' ? '📅 Newest' : '⏳ Oldest'}
+                    </Button>
+                  </Stack>
+                  <Stack gap={4} style={{ flex: 1 }}>
+                    <Text size="10px" fw={600} c="dimmed" lh={1.2}>View</Text>
+                    <SegmentedControl
+                      fullWidth
+                      value={viewMode}
+                      onChange={(val) => setViewMode(val as 'tile' | 'kanban')}
+                      data={[
+                        { label: 'Tile', value: 'tile' },
+                        { label: 'Kanban', value: 'kanban' },
+                      ]}
+                      size="sm"
+                      styles={{ label: { fontSize: 11 } }}
+                    />
+                  </Stack>
+                </Group>
+              </Stack>
+            ) : (
+              /* ========== DESKTOP LAYOUT (dating layout) ========== */
+              <Group justify="space-between" align="flex-end">
+                <TextInput
+                  placeholder="Search for subject, Memo content, department, reply..."
+                  label="Search Memorandum"
+                  value={searchTerm}
+                  onChange={(event) => setSearchTerm(event.currentTarget.value)}
+                  style={{ flex: 1 }}
+                />
+                <Group gap="md">
+                  <Stack gap={4}>
+                    <Text size="xs" fw={500}>Sort by Date Created</Text>
+                    <Button
+                      variant="light"
+                      color={sortByDate === 'NEWEST' ? 'blue' : 'orange'}
+                      onClick={() => toggleSortByDate()}
+                      style={{ width: 180 }}
+                    >
+                      {sortByDate === 'NEWEST' ? '📅 Newest First' : '⏳ Oldest First'}
+                    </Button>
+                  </Stack>
+                  <Stack gap={4}>
+                    <Text size="xs" fw={500}>View</Text>
+                    <SegmentedControl
+                      value={viewMode}
+                      onChange={(val) => setViewMode(val as 'tile' | 'kanban')}
+                      data={[
+                        { label: 'Tile', value: 'tile' },
+                        { label: 'Kanban-Style', value: 'kanban' },
+                      ]}
+                      size="xs"
+                    />
+                  </Stack>
+                </Group>
               </Group>
-            </Group>
+            )}
           </Card>
 
           {/* Tabs */}
@@ -1348,12 +1508,29 @@ export default function IOMDashboardPage() {
             type="auto"
           >
             <Tabs value={activeTab} onChange={handleTabChange} radius="md" variant="pills">
-              <Tabs.List mb="lg">
+              {/* 📱 Mobile: Select dropdown instead of tabs */}
+              {isMobile ? (
+                <Select
+                  value={activeTab}
+                  onChange={handleTabChange}
+                  data={tabOptions.map((t) => ({
+                    value: t.value,
+                    label: `${t.label} (${t.count})`,
+                  }))}
+                  mb="md"
+                  size="sm"
+                  comboboxProps={{ zIndex: 5000 }}
+                  allowDeselect={false}
+                />
+              ) : (
+                <Tabs.List mb="lg">
                 {/* For Approval - Head only */}
                 {isHeadOrOIC && (
                   <Tabs.Tab value="approval" leftSection={<IconThumbUp size={15} />}>
                     For Approval{' '}
-                    <Badge size="xs" variant="light" ml={6}>{forApprovalMemos.length}</Badge>
+                    <Badge size="xs" variant="light" ml={6} styles={{ label: { fontSize: 10 } }}>
+                      {forApprovalMemos.length}
+                    </Badge>
                   </Tabs.Tab>
                 )}
                 
@@ -1361,48 +1538,71 @@ export default function IOMDashboardPage() {
                 {isHeadOrOIC && (
                   <Tabs.Tab value="inbound" leftSection={<IconInbox size={15} />}>
                     Inbound{' '}
-                    <Badge size="xs" variant="light" ml={6}>{inboundMemos.length}</Badge>
+                    <Badge size="xs" variant="light" ml={6} styles={{ label: { fontSize: 10 } }}>
+                      {inboundMemos.length}
+                    </Badge>
                   </Tabs.Tab>
                 )}
+
+                {/* 🆕 Authored by Me - Everyone */}
+                <Tabs.Tab value="authored_by_me" leftSection={<IconFileImport size={15} />}>
+                  Authored by Me{' '}
+                  <Badge size="xs" variant="light" ml={6} styles={{ label: { fontSize: 10 } }}>
+                    {authoredByMeMemos.length}
+                  </Badge>
+                </Tabs.Tab>
                 
                 {/* Outbound - Everyone */}
                 <Tabs.Tab value="outbound" leftSection={<IconSend size={15} />}>
                   Outbound{' '}
-                  <Badge size="xs" variant="light" ml={6}>{outboundMemos.length}</Badge>
+                  <Badge size="xs" variant="light" ml={6} styles={{ label: { fontSize: 10 } }}>
+                    {outboundMemos.length}
+                  </Badge>
                 </Tabs.Tab>
                 
                 {/* Action Board - Everyone (FREE MODE - lahat nakakakita, lahat pwedeng kumilos) */}
                 <Tabs.Tab value="action_board" leftSection={<IconPlayerPlay size={15} />}>
                   Action Board{' '}
-                  <Badge size="xs" variant="light" ml={6}>{actionBoardMemos.length}</Badge>
+                  <Badge size="xs" variant="light" ml={6} styles={{ label: { fontSize: 10 } }}>
+                    {actionBoardMemos.length}
+                  </Badge>
                 </Tabs.Tab>
                 
                 {/* Ipakita sa lahat (except Admin? pero okay lang din) */}
                 <Tabs.Tab value="assigned_to_me" leftSection={<IconUserCheck size={15} />}>
                   Assigned to Me{' '}
-                  <Badge size="xs" variant="light" ml={6}>{assignedToMeMemos.length}</Badge>
+                  <Badge size="xs" variant="light" ml={6} styles={{ label: { fontSize: 10 } }}>
+                    {assignedToMeMemos.length}
+                  </Badge>
                 </Tabs.Tab>
                 
                 {/* Archived */}
                 <Tabs.Tab value="archived" leftSection={<IconCircleCheck size={15} />}>
                   Archived / Resolved{' '}
-                  <Badge size="xs" variant="light" ml={6}>{resolvedMemos.length}</Badge>
+                  <Badge size="xs" variant="light" ml={6} styles={{ label: { fontSize: 10 } }}>
+                    {resolvedMemos.length}
+                  </Badge>
                 </Tabs.Tab>
               
 
                 {isAdminOrSuper && (
                   <Tabs.Tab value="all_memos_global" leftSection={<IconInfoCircle size={15} />}>
                     Global View (Admin/Super ONLY){' '}
-                    <Badge size="xs" variant="light" ml={6}>{allMemosGlobal.length}</Badge>
+                    <Badge size="xs" variant="light" ml={6} styles={{ label: { fontSize: 10 } }}>
+                      {allMemosGlobal.length}
+                    </Badge>
                   </Tabs.Tab>
                 )}
 
                 <Tabs.Tab value="imported" leftSection={<IconFileImport size={15} />}>
                   Imported Memos{' '}
-                  <Badge size="xs" variant="light" ml={6}>{importedMemos.length}</Badge>
+                  <Badge size="xs" variant="light" ml={6} styles={{ label: { fontSize: 10 } }}>
+                    {importedMemos.length}
+                  </Badge>
                 </Tabs.Tab>
 
               </Tabs.List>
+              )}
 
               <Tabs.Panel value="all_memos_global">
                 <CollapsibleAlert  icon={<IconInfoCircle size={16} />} title="System Administrator Global Ledger View" color="blue">
@@ -1544,6 +1744,41 @@ export default function IOMDashboardPage() {
                 ) : (
                   <KanbanBoard
                     memos={getFilteredMemos(assignedToMeMemos)}
+                    isApprovalTab={false}
+                    currentUser={currentUser}
+                    activeDepartment={activeDepartment}
+                    isAdminOrSuper={isAdminOrSuper}
+                    isHeadOrOIC={isHeadOrOIC}
+                    processOICAllowance={processOICAllowance}
+                    onReply={handleReplyClick}
+                    onPrint={handlePrintMemo}
+                    onViewThread={handleViewThread}
+                    onExpand={handleExpandNoteOpen}
+                    onSuperEdit={triggerSuperEditReview}
+                    triggerActionPasswordCheck={triggerActionPasswordCheck}
+                    allMemos={memos}
+                    departmentStaff={departmentStaff}
+                    totalDepartments={departments.length}
+                  />
+                )}
+
+              </Tabs.Panel>
+
+              <Tabs.Panel value="authored_by_me">
+                <CollapsibleAlert icon={<IconInfoCircle size={16} />} title="Authored by Me" color="blue">
+                  Complete list of all memoranda you have created — regardless of status. This includes your
+                  drafts, memos pending approval, approved memos, closed items, denied requests, and imported records.
+                  <br /><br />
+                  Kumpletong listahan ng lahat ng memorandum na iyong ginawa — anuman ang status. Kasama rito
+                  ang iyong mga draft, memo na naghihintay ng approval, naaprubahan, naisara, tinanggihan,
+                  at imported records.
+                </CollapsibleAlert>
+
+                {viewMode === 'tile' ? (
+                  renderMemoCards(getFilteredMemos(authoredByMeMemos))
+                ) : (
+                  <KanbanBoard
+                    memos={getFilteredMemos(authoredByMeMemos)}
                     isApprovalTab={false}
                     currentUser={currentUser}
                     activeDepartment={activeDepartment}
@@ -1737,7 +1972,7 @@ export default function IOMDashboardPage() {
       />
 
       {/* Thread Timeline Modal */}
-      <Modal opened={threadModalOpened} onClose={closeThreadModal} title="Memorandum Thread History" size="lg" radius="md" zIndex={4000}>
+      <Modal opened={threadModalOpened} onClose={closeThreadModal} title="Memorandum Thread History" size="lg" radius="md" zIndex={4000} centered>
         <Box p="md">
           {activeThreadMemos.length === 0 ? (
             <Loader size="sm" />
@@ -1758,7 +1993,7 @@ export default function IOMDashboardPage() {
                           </Badge>
                         )}
                       </Group>
-                      <Badge size="xs" variant="light">{tMemo.priority}</Badge>
+                      <Badge size="xs" variant="light" styles={{ label: { fontSize: 10 } }}>{tMemo.priority}</Badge>
                     </Group>
                   }
                 >

@@ -46,6 +46,7 @@ import {
   IconAlertCircle
 } from '@tabler/icons-react';
 import { DatePicker, TimeInput } from '@mantine/dates';
+import { useMediaQuery } from '@mantine/hooks';
 
 // Helper to generate temporary ID
 const generateId = (): string => Math.random().toString(36).substring(2, 9);
@@ -152,6 +153,7 @@ export default function RequestStepper({
   onReschedule
 }: RequestStepperProps) {
   const isHeadOrOIC = isActiveHeadOrOIC(currentUser);
+  const isMobile = useMediaQuery('(max-width: 768px)');
 
   const [activeStep, setActiveStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
@@ -163,10 +165,12 @@ export default function RequestStepper({
     minAdvanceDaysRegular: number;
     minAdvanceDaysVIP: number;
     minRescheduleDays: number;
+    enableVipMode?: boolean;
   }>({
     minAdvanceDaysRegular: 7,
     minAdvanceDaysVIP: 1,
     minRescheduleDays: 3,
+    enableVipMode: true, 
   });
 
   const [allowVipVenues, setAllowVipVenues] = useState(false); // separate state
@@ -287,6 +291,9 @@ export default function RequestStepper({
         .then(data => {
           if (data.success) {
             setSettings(data.data);
+            if (data.data.enableVipMode === false) {
+              setMinDatePreset('sevenDays');
+            }
           }
         })
         .catch(console.error);
@@ -794,6 +801,10 @@ export default function RequestStepper({
       [relevantEquipment, isEquipmentBundled]
     );
 
+    if (settings.enableVipMode === false && minDatePreset === 'tomorrow') {
+      setMinDatePreset('sevenDays');
+    }
+
     // 🆕 Clear VIP placeIds kapag nag-leave ng VIP mode
     useEffect(() => {
       if (minDatePreset === 'tomorrow') return; // still VIP mode
@@ -883,6 +894,7 @@ export default function RequestStepper({
       opened={opened}
       onClose={handleLocalClose}
       size="90%"
+      fullScreen={isMobile}
       title={
         <Group gap="xs">
           <IconCalendarEvent size={20} />
@@ -894,6 +906,7 @@ export default function RequestStepper({
       zIndex={200}
       padding="lg"
       radius="md"
+      centered
       closeOnClickOutside={false}
       styles={{
         inner: {
@@ -922,28 +935,37 @@ export default function RequestStepper({
           onStepClick={setActiveStep}
           allowNextStepsSelect={false}
           color="blue"
-          size="md"
-          mb="xl"
+          size={isMobile ? 'xs' : 'md'}
+          mb={isMobile ? 'md' : 'xl'}
+          iconSize={isMobile ? 26 : 42}
+          styles={{
+            stepLabel: { fontSize: isMobile ? 10 : undefined },
+            stepDescription: {
+              display: isMobile ? 'none' : undefined,
+              fontSize: 11,
+            },
+            separator: { marginLeft: isMobile ? 4 : 8, marginRight: isMobile ? 4 : 8 },
+          }}
         >
           <Stepper.Step
             label="Basic Info"
             description="Type, dates, place"
-            icon={<IconInfoCircle size={18} />}
+            icon={<IconInfoCircle size={isMobile ? 12 : 18} />}
           />
           <Stepper.Step
             label="Equipment"
             description="Select needed equipment"
-            icon={<IconDeviceFloppy size={18} />}
+            icon={<IconDeviceFloppy size={isMobile ? 12 : 18} />}
           />
           <Stepper.Step
-            label="Attachments & Notes"
+            label="Files & Notes"
             description="Upload documents"
-            icon={<IconClock size={18} />}
+            icon={<IconClock size={isMobile ? 12 : 18} />}
           />
           <Stepper.Step
             label="Review"
             description="Confirm details"
-            icon={<IconCheck size={18} />}
+            icon={<IconCheck size={isMobile ? 12 : 18} />}
           />
         </Stepper>
 
@@ -998,11 +1020,14 @@ export default function RequestStepper({
                     size="sm"
                   >
                     <Group mt="xs" gap="sm">
-                      <Radio value="tomorrow" label="(VIP - ITO/PSMO/FMO ONLY) Tomorrow (1 day)"/>
+                      {/* 🆕 Show VIP option only when enableVipMode is ON */}
+                      {settings.enableVipMode !== false && (
+                        <Radio value="tomorrow" label="(VIP - ITO/PSMO/FMO ONLY) Tomorrow (1 day)"/>
+                      )}
                       <Radio value="sevenDays" label="REGULAR" />
                     </Group>
                   </Radio.Group>
-                  {minDatePreset === 'tomorrow' && (
+                  {settings.enableVipMode !== false && minDatePreset === 'tomorrow' && (
                     <Alert icon={<IconInfoCircle size={14} />} color="violet" mt="xs" p="xs">
                       <Text size="xs">
                         <b>VIP Mode active.</b> VIP venues (⭐) are now selectable. VIP events bypass the 2-events-per-day limit.
@@ -1044,7 +1069,7 @@ export default function RequestStepper({
                       <Paper
                         key={entry.id}
                         withBorder
-                        p="xl"
+                        p={isMobile ? 'sm' : 'xl'}
                         radius="md"
                         bg="light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-7))"
                         style={{ position: 'relative', overflow: 'hidden' }}
@@ -1076,13 +1101,20 @@ export default function RequestStepper({
                             </Alert>
                           )}
                         </Group>
-                        <Grid gap="md" align="flex-start">
-                          {/* === COLUMN 1: Date Picker (centered) === */}
-                          <Grid.Col
-                            span={{ base: 12, sm: 3 }}
-                            display="flex"
-                            align-items="center"
-                            style={{ minHeight: '40px' }}
+                        <Box
+                          style={{
+                            display: 'flex',
+                            flexWrap: 'wrap',
+                            gap: isMobile ? 8 : 16,
+                            alignItems: 'flex-start',
+                          }}
+                        >
+                          {/* === Date Picker === */}
+                          <Box
+                            style={{
+                              flex: isMobile ? '1 1 100%' : '0 0 220px',
+                              minWidth: 0,
+                            }}
                           >
                             <DatePicker
                               value={entry.dateStr}
@@ -1098,10 +1130,14 @@ export default function RequestStepper({
                               size="xs"
                               style={{ width: '100%' }}
                             />
-                          </Grid.Col>
+                          </Box>
 
-                          {/* === COLUMN 2: Time Inputs + Venue === */}
-                          <Grid.Col span={{ base: 12, sm: 9 }}>
+                          <Box
+                            style={{
+                              flex: '1 1 260px',
+                              minWidth: 0,
+                            }}
+                          >
                             <Stack gap="xs">
                               {/* Row 1: Setup + Event Start */}
                               <SimpleGrid cols={{ base: 2, sm: 2 }} spacing="sm">
@@ -1246,8 +1282,8 @@ export default function RequestStepper({
                                 </div>
                               </SimpleGrid>
                             </Stack>
-                          </Grid.Col>
-                        </Grid>
+                          </Box>
+                        </Box>
                       </Paper>
                     ))}
                   </Stack>
@@ -1349,9 +1385,9 @@ export default function RequestStepper({
               </Alert>
             )}
 
-            <SimpleGrid cols={3} spacing="lg">
+            <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing={isMobile ? 'sm' : 'lg'}>
               {/* PSMO/FMO Equipment */}
-              <Card withBorder p="md" radius="md">
+              <Card withBorder p={isMobile ? 'sm' : 'md'} radius="md">
                 <Text fw={700} size="sm" mb="md" color="blue">
                   PSMO/FMO Equipment
                 </Text>
@@ -1362,8 +1398,8 @@ export default function RequestStepper({
                       <Paper key={e.id} withBorder p="xs" radius="sm">
                         <Group grow align="center">
                           <Checkbox
-                            label={
-                              <Text size="sm">
+                                                        label={
+                              <Text size={isMobile ? 'xs' : 'sm'}>
                                 {isEquipmentBundled(e) && (
                                   <Badge
                                     component="span"
@@ -1432,7 +1468,7 @@ export default function RequestStepper({
               </Card>
 
               {/* ITO Equipment */}
-              <Card withBorder p="md" radius="md">
+              <Card withBorder p={isMobile ? 'sm' : 'md'} radius="md">
                 <Text fw={700} size="sm" mb="md" color="grape">
                   ITO Equipment
                 </Text>
@@ -1443,8 +1479,8 @@ export default function RequestStepper({
                       <Paper key={e.id} withBorder p="xs" radius="sm">
                         <Group grow align="center">
                           <Checkbox
-                            label={
-                              <Text size="sm">
+                                                        label={
+                              <Text size={isMobile ? 'xs' : 'sm'}>
                                 {isEquipmentBundled(e) && (
                                   <Badge
                                     component="span"
@@ -1513,7 +1549,7 @@ export default function RequestStepper({
               </Card>
 
               {/* OP Equipment */}
-              <Card withBorder p="md" radius="md">
+              <Card withBorder p={isMobile ? 'sm' : 'md'} radius="md">
                 <Text fw={700} size="sm" mb="md" color="grape">
                   OP Equipment
                 </Text>
@@ -1524,8 +1560,8 @@ export default function RequestStepper({
                       <Paper key={e.id} withBorder p="xs" radius="sm">
                         <Group grow align="center">
                           <Checkbox
-                            label={
-                              <Text size="sm">
+                                                        label={
+                              <Text size={isMobile ? 'xs' : 'sm'}>
                                 {isEquipmentBundled(e) && (
                                   <Badge
                                     component="span"
@@ -1594,7 +1630,7 @@ export default function RequestStepper({
               </Card>
 
               {/* CDO Equipment */}
-              <Card withBorder p="md" radius="md">
+              <Card withBorder p={isMobile ? 'sm' : 'md'} radius="md">
                 <Text fw={700} size="sm" mb="md" color="teal">
                   CDO Equipment
                 </Text>
@@ -1605,8 +1641,8 @@ export default function RequestStepper({
                       <Paper key={e.id} withBorder p="xs" radius="sm">
                         <Group grow align="center">
                           <Checkbox
-                            label={
-                              <Text size="sm">
+                                                        label={
+                              <Text size={isMobile ? 'xs' : 'sm'}>
                                 {isEquipmentBundled(e) && (
                                   <Badge
                                     component="span"
@@ -1853,7 +1889,7 @@ export default function RequestStepper({
             <Paper withBorder p="md" radius="md">
               <Stack gap="md">
                 {/* Two‑column summary */}
-                <SimpleGrid cols={2} spacing="sm">
+                <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
                   <div>
                     <Text size="xs" c="dimmed" fw={600}>Type</Text>
                     <Text size="sm" fw={500}>{form.values.type.replace('_', ' ')}</Text>
@@ -1896,7 +1932,7 @@ export default function RequestStepper({
                             <Badge color="blue" size="xs" variant="light">Date {i + 1}</Badge>
                             <Text size="xs" fw={500}>{formatDateOnly(d.date)}</Text>
                           </Group>
-                          <SimpleGrid cols={2} spacing="xs" mt={4}>
+                          <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xs" mt={4}>
                             <Text size="xs"><b>Starting Time:</b> {d.setupTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</Text>
                             <Text size="xs"><b>Event:</b> {d.eventStart.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} – {d.eventEnd.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</Text>
                             <Text size="xs"><b>Actual Time End:</b> {d.teardownTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</Text>
@@ -1983,26 +2019,75 @@ export default function RequestStepper({
         )}
 
         {/* Navigation Buttons */}
-        <Group justify="space-between" mt="xl">
-          <Button variant="default" onClick={prevStep} disabled={activeStep === 0} type="button">
-            Back
-          </Button>
-
-          <Group gap="sm">
-            <Button variant="filled" color="red" onClick={onClose} type="button">
+        {isMobile ? (
+          /* 📱 Mobile: stacked, full-width, malaking tap targets */
+          <Stack gap="xs" mt="md">
+            <Group grow gap="xs">
+              <Button
+                variant="default"
+                onClick={prevStep}
+                disabled={activeStep === 0}
+                type="button"
+                size="md"
+              >
+                Back
+              </Button>
+              {activeStep === 3 ? (
+                <Button
+                  key="submit-btn"
+                  type="submit"
+                  loading={submitting}
+                  color="blue"
+                  size="md"
+                >
+                  {isRescheduleMode ? 'Submit Reschedule' : isEditing ? 'Resubmit' : 'Submit'}
+                </Button>
+              ) : (
+                <Button
+                  key="next-btn"
+                  onClick={nextStep}
+                  color="blue"
+                  type="button"
+                  size="md"
+                >
+                  Next
+                </Button>
+              )}
+            </Group>
+            <Button
+              variant="light"
+              color="red"
+              onClick={onClose}
+              type="button"
+              size="md"
+              fullWidth
+            >
               Cancel
             </Button>
-            {activeStep === 3 ? (
-              <Button key="submit-btn" type="submit" loading={submitting} color="blue">
-                {isRescheduleMode ? 'Submit Reschedule' : isEditing ? 'Resubmit Revision' : 'Submit Request'}
+          </Stack>
+        ) : (
+          /* 💻 Desktop: dating layout */
+          <Group justify="space-between" mt="xl">
+            <Button variant="default" onClick={prevStep} disabled={activeStep === 0} type="button">
+              Back
+            </Button>
+
+            <Group gap="sm">
+              <Button variant="filled" color="red" onClick={onClose} type="button">
+                Cancel
               </Button>
-            ) : (
-              <Button key="next-btn" onClick={nextStep} color="blue" type="button">
-                Next
-              </Button>
-            )}
+              {activeStep === 3 ? (
+                <Button key="submit-btn" type="submit" loading={submitting} color="blue">
+                  {isRescheduleMode ? 'Submit Reschedule' : isEditing ? 'Resubmit Revision' : 'Submit Request'}
+                </Button>
+              ) : (
+                <Button key="next-btn" onClick={nextStep} color="blue" type="button">
+                  Next
+                </Button>
+              )}
+            </Group>
           </Group>
-        </Group>
+        )}
       </form>
     </Modal>
   );

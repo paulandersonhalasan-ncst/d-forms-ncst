@@ -23,6 +23,7 @@ import {
   IconUpload,
 } from '@tabler/icons-react';
 import { useState } from 'react';
+import { useMediaQuery } from '@mantine/hooks';
 
 interface PasswordGateModalProps {
   opened: boolean;
@@ -56,6 +57,7 @@ export default function PasswordGateModal({
   const [remarks, setRemarks] = useState('');
   const [photos, setPhotos] = useState<File[]>([]);
   const [hoveredPhoto, setHoveredPhoto] = useState<number | null>(null);
+  const isMobile = useMediaQuery('(max-width: 768px)');
 
   const handleSubmit = () => {
     if (!password) return;
@@ -101,6 +103,7 @@ export default function PasswordGateModal({
       onClose={handleClose}
       title={getTitle()}
       centered
+      fullScreen={isMobile}
       zIndex={1000}
       size={enablePhotoUpload ? 'lg' : 'md'}
       styles={{

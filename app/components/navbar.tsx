@@ -48,6 +48,9 @@ interface SidebarProps {
     lname: string;
     oic_start?: string | null;
     oic_end?: string | null;
+    isMobile?: boolean;
+    mobileOpened?: boolean;
+    onMobileClose?: () => void;
 }
 
 interface MenuItem {
@@ -127,6 +130,9 @@ export default function Sidebar({
     lname,
     oic_start,
     oic_end,
+    isMobile = false,
+    mobileOpened = false,
+    onMobileClose,
 }: SidebarProps) {
     const [isCurrentlyOIC, setIsCurrentlyOIC] = useState<boolean>(false);
     const [isHovered, setIsHovered] = useState(false);
@@ -218,6 +224,7 @@ export default function Sidebar({
 
     const handleLogout = async () => {
         try {
+            if (isMobile) onMobileClose?.();
             const res = await fetch("/api/auth/logout", { method: "DELETE" });
             if (res.ok) window.location.replace("/");
             else console.error("Logout failed:", await res.text());
@@ -226,8 +233,8 @@ export default function Sidebar({
         }
     };
 
-    // 🆕 Hover handlers with small close delay
     const handleMouseEnter = () => {
+        if (isMobile) return; // walang hover sa mobile
         if (leaveTimerRef.current) {
             clearTimeout(leaveTimerRef.current);
             leaveTimerRef.current = null;
@@ -236,56 +243,83 @@ export default function Sidebar({
     };
 
     const handleMouseLeave = () => {
+        if (isMobile) return;
         leaveTimerRef.current = setTimeout(() => {
             setIsHovered(false);
         }, 120);
     };
 
-    const isExpanded = isHovered;
+    const isExpanded = isMobile ? mobileOpened : isHovered;
     const borderColor =
         effectiveRole === "Staff" || effectiveRole === "Faculty"
             ? "1px solid rgba(0,0,0,0.08)"
             : "1px solid rgba(255,255,255,0.08)";
     
     useEffect(() => {
-    document.documentElement.style.setProperty(
-        '--sidebar-hovered',
-        isExpanded ? '1' : '0'
-    );
-    document.documentElement.style.setProperty(
-        '--sidebar-hovered-pointer',
-        isExpanded ? 'none' : 'auto'
-    );
-    }, [isExpanded]);
+        // Sa mobile, huwag i-blur ang content — drawer lang ang buksan
+        if (isMobile) {
+            document.documentElement.style.setProperty('--sidebar-hovered', '0');
+            document.documentElement.style.setProperty('--sidebar-hovered-pointer', 'auto');
+            return;
+        }
+        document.documentElement.style.setProperty(
+            '--sidebar-hovered',
+            isExpanded ? '1' : '0'
+        );
+        document.documentElement.style.setProperty(
+            '--sidebar-hovered-pointer',
+            isExpanded ? 'none' : 'auto'
+        );
+    }, [isExpanded, isMobile]);
 
     // ============================================================
     // RENDER
     // ============================================================
     
     return (
-        <nav
-            onMouseEnter={handleMouseEnter}
-            onMouseLeave={handleMouseLeave}
-            style={{
-                width: isExpanded ? FULL_WIDTH : MINI_WIDTH,
-                height: "100vh",
-                background: sidebarBg,
-                color: textColor,
-                display: "flex",
-                flexDirection: "column",
-                borderRight: "1px solid rgba(0,0,0,0.05)",
-                position: "fixed",
-                left: 0,
-                top: 0,
-                zIndex: 100,
-                overflow: "hidden",
-                transition:
-                    "width 0.25s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.3s ease",
-                boxShadow: isExpanded ? "4px 0 16px rgba(0,0,0,0.15)" : "none",
-                willChange: "width",
-            }}
-        >
+        <>
+            {isMobile && mobileOpened && (
+                <div
+                    onClick={onMobileClose}
+                    style={{
+                        position: 'fixed',
+                        inset: 0,
+                        background: 'rgba(0,0,0,0.5)',
+                        zIndex: 199,
+                        transition: 'opacity 0.2s ease',
+                    }}
+                />
+            )}
+
+            <nav
+                onMouseEnter={handleMouseEnter}
+                onMouseLeave={handleMouseLeave}
+                style={{
+                    width: isMobile ? FULL_WIDTH : (isExpanded ? FULL_WIDTH : MINI_WIDTH),
+                    height: "100vh",
+                    background: sidebarBg,
+                    color: textColor,
+                    display: "flex",
+                    flexDirection: "column",
+                    borderRight: "1px solid rgba(0,0,0,0.05)",
+                    position: "fixed",
+                    left: 0,
+                    top: 0,
+                    zIndex: isMobile ? 200 : 100,
+                    overflow: "hidden",
+                    transform: isMobile
+                        ? (mobileOpened ? 'translateX(0)' : 'translateX(-100%)')
+                        : 'none',
+                    transition: isMobile
+                        ? "transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.3s ease"
+                        : "width 0.25s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.3s ease",
+                    boxShadow: isExpanded ? "4px 0 16px rgba(0,0,0,0.15)" : "none",
+                    willChange: "width, transform",
+                }}
+            >
+
             {/* ================= MINI CONTENT ================= */}
+            {!isMobile && (
             <div
                 aria-hidden={isExpanded}
                 style={{
@@ -349,6 +383,7 @@ export default function Sidebar({
                             const handleClick = () => {
                                 if (item.label === "Dashboard") router.push("/dashboard/analytics");
                                 else if (item.link) router.push(item.link);
+                                if (isMobile) onMobileClose?.();
                             };
 
                             const iconButton = (
@@ -559,6 +594,7 @@ export default function Sidebar({
                     </Tooltip>
                 </div>
             </div>
+            )}
 
             {/* ================= FULL CONTENT ================= */}
             <div
@@ -574,7 +610,9 @@ export default function Sidebar({
                     opacity: isExpanded ? 1 : 0,
                     visibility: isExpanded ? "visible" : "hidden",
                     pointerEvents: isExpanded ? "auto" : "none",
-                    transition: `opacity 0.2s ease 0.05s, visibility 0s linear ${isExpanded ? "0s" : "0.25s"}`,
+                    transition: isMobile
+                        ? `opacity 0.2s ease, visibility 0s linear ${isExpanded ? "0s" : "0.25s"}`
+                        : `opacity 0.2s ease 0.05s, visibility 0s linear ${isExpanded ? "0s" : "0.25s"}`,
                 }}
             >
                 {/* HEADER: Logo, Clock, Role */}
@@ -596,7 +634,7 @@ export default function Sidebar({
                                 alt="NCST logo"
                                 style={{ width: 24, height: 24, borderRadius: 4 }}
                             />
-                            <Text fw={800} size="xl" style={{ whiteSpace: "nowrap" }}>
+                            <Text fw={800} size="lg" style={{ whiteSpace: "nowrap" }}>
                                 NCST D-FORMS
                             </Text>
                         </UnstyledButton>
@@ -657,6 +695,7 @@ export default function Sidebar({
                             const handleMainClick = () => {
                                 if (item.label === "Dashboard") router.push("/dashboard/analytics");
                                 else if (item.link) router.push(item.link);
+                                if (isMobile) onMobileClose?.();
                             };
 
                             const badge =
@@ -665,6 +704,28 @@ export default function Sidebar({
                                         {unreadCount > 99 ? "99+" : unreadCount}
                                     </Badge>
                                 ) : undefined;
+
+                            // 📱 Mobile: diretsong pumunta sa notifications page (walang popover)
+                            if (item.isPopover && isMobile) {
+                                return (
+                                    <NavLink
+                                        key={item.label}
+                                        label={item.label}
+                                        leftSection={<item.icon size={18} stroke={1.5} color={textColor} />}
+                                        active={isMainActive}
+                                        onClick={() => {
+                                            router.push('/dashboard/notifications');
+                                            onMobileClose?.();
+                                        }}
+                                        styles={customNavLinkStyles}
+                                        style={{
+                                            color: textColor,
+                                            cursor: "pointer",
+                                        }}
+                                        rightSection={badge}
+                                    />
+                                );
+                            }
 
                             return item.isPopover ? (
                                 <NotificationPopover key={item.label}>
@@ -842,6 +903,7 @@ export default function Sidebar({
                     </UnstyledButton>
                 </div>
             </div>
-        </nav>
+             </nav>
+        </>
     );
 }
