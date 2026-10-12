@@ -31,8 +31,11 @@ import {
   ActionIcon,
   Box,
   Divider,
+  Menu,
+  Modal,
+  Radio
 } from '@mantine/core';
-import { DatePicker } from '@mantine/dates';
+import { DatePicker, DateInput  } from '@mantine/dates';
 import {
   IconChevronLeft,
   IconChevronRight,
@@ -63,6 +66,11 @@ import dayjs from 'dayjs';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 
+type XLSXType = typeof import('xlsx');
+import type * as XLSXNS from 'xlsx';
+
+
+
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
 export default function AnalyticsPage() {
@@ -88,6 +96,12 @@ export default function AnalyticsPage() {
   const [datePickerOpened, setDatePickerOpened] = useState(false);
 
   const [exporting, setExporting] = useState(false);
+
+  // ---- Export Modal State ----
+  const [exportModalOpened, setExportModalOpened] = useState(false);
+  const [exportScope, setExportScope] = useState<'current' | 'iom' | 'frf' | 'both'>('both');
+  const [exportRangeMode, setExportRangeMode] = useState<'current' | 'all' | 'custom'>('current');
+  const [exportCustomDates, setExportCustomDates] = useState<[string | null, string | null]>([null, null]);
 
   const [analyticsTab, setAnalyticsTab] = useState<'iom' | 'frf' | 'calendar'>('iom');
   const [calendarMonth, setCalendarMonth] = useState<Date>(new Date());
@@ -322,23 +336,6 @@ export default function AnalyticsPage() {
       count: memos.length, // ✅ Lahat ng memos
     });
   }
-
-  // --- Build API URL for analytics charts (with date filter) ---
-  const queryParams = new URLSearchParams({
-    departmentCode: effectiveDept || '',
-    timeRange,
-    ...(timeRange !== 'all' && timeRange !== 'custom' && { date: baseDate.toISOString() }),
-  });
-
-  if (timeRange === 'custom') {
-    const [start, end] = customDates;
-    if (start) {
-      queryParams.append('startDate', dayjs(start).format('YYYY-MM-DD'));
-    }
-    if (end) {
-      queryParams.append('endDate', dayjs(end).format('YYYY-MM-DD'));
-    }
-  }
   
   const url = useMemo(() => {
       const query = new URLSearchParams({
@@ -541,87 +538,332 @@ export default function AnalyticsPage() {
   const cardBorderNested = isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)';
   const textColor = isDark ? theme.white : theme.black;
 
-  const getDateRange = (): { start: Date; end: Date } => {
-    const now = new Date();
-    let start: Date, end: Date;
+// ✅ Reusable — used by BOTH display filter and export
+const computeDateRange = (
+  mode: 'day' | 'week' | 'month' | 'all' | 'custom',
+  base: Date,
+  custom: [string | null, string | null]
+): { start: Date; end: Date } => {
+  let start: Date;
+  let end: Date;
 
-    if (timeRange === 'all') {
+  if (mode === 'all') {
+    start = new Date(0);
+    end = new Date();
+  } else if (mode === 'custom') {
+    const [s, e] = custom;
+    start = s ? new Date(`${s}T00:00:00`) : new Date(0);
+    end = e ? new Date(`${e}T23:59:59.999`) : new Date();
+  } else {
+    const b = new Date(base);
+    if (mode === 'day') {
+      start = new Date(b);
+      start.setHours(0, 0, 0, 0);
+      end = new Date(b);
+      end.setHours(23, 59, 59, 999);
+    } else if (mode === 'week') {
+      const day = b.getDay();
+      const diff = b.getDate() - day + (day === 0 ? -6 : 1);
+      start = new Date(b);
+      start.setDate(diff);
+      start.setHours(0, 0, 0, 0);
+      end = new Date(start);
+      end.setDate(start.getDate() + 6);
+      end.setHours(23, 59, 59, 999);
+    } else {
+      // month
+      start = new Date(b.getFullYear(), b.getMonth(), 1);
+      end = new Date(b.getFullYear(), b.getMonth() + 1, 0);
+      end.setHours(23, 59, 59, 999);
+    }
+  }
+  return { start, end };
+};
+
+const getDateRange = () => computeDateRange(timeRange, baseDate, customDates);
+
+// ---- Helper: build a memo sheet ----
+const buildMemoSheet = (XLSX: XLSXType, title: string, rows: Memo[]) => {
+  const headers = [
+    'Reference ID',
+    'Subject',
+    'Sender Name',
+    'Sender Dept',
+    'Status',
+    'Priority',
+    'Purpose',
+    'Created At',
+    'Recipients',
+  ];
+
+  const data: (string | number)[][] = [
+    [title],
+    [`Total: ${rows.length}`],
+    [],
+    headers,
+    ...rows.map((m) => [
+      m.referenceId || '',
+      m.subject || '',
+      m.senderName || '',
+      m.senderDept || '',
+      m.status || '',
+      m.priority || '',
+      m.purpose || '',
+      dayjs(m.createdAt).format('YYYY-MM-DD HH:mm'),
+      m.recipients?.map((r) => r.departmentName).join(', ') || '',
+    ]),
+  ];
+
+  const ws = XLSX.utils.aoa_to_sheet(data);
+  ws['!cols'] = [
+    { wch: 20 },
+    { wch: 45 },
+    { wch: 22 },
+    { wch: 14 },
+    { wch: 14 },
+    { wch: 12 },
+    { wch: 16 },
+    { wch: 20 },
+    { wch: 40 },
+  ];
+  return ws;
+};
+
+// ---- Helper: build key/value sheet ----
+const buildKVSheet = (
+  XLSX: XLSXType,
+  title: string,
+  rows: [string, string | number][]
+) => {
+  const data: (string | number)[][] = [[title], [], ['Metric', 'Value'], ...rows];
+  const ws = XLSX.utils.aoa_to_sheet(data);
+  ws['!cols'] = [{ wch: 32 }, { wch: 18 }];
+  return ws;
+};
+
+// ---- Helper: build 2-column distribution sheet ----
+const buildDistSheet = (
+  XLSX: XLSXType,
+  sections: { title: string; rows: [string, number][] }[]
+) => {
+  const data: (string | number)[][] = [];
+  sections.forEach((sec, i) => {
+    if (i > 0) data.push([]);
+    data.push([sec.title]);
+    data.push(['Name', 'Count']);
+    sec.rows.forEach((r) => data.push(r));
+  });
+  const ws = XLSX.utils.aoa_to_sheet(data);
+  ws['!cols'] = [{ wch: 32 }, { wch: 12 }];
+  return ws;
+};
+
+// ---- Main Export ----
+type ExportScope = 'current' | 'iom' | 'frf' | 'both';
+
+const handleExportXLSX = async (scope: ExportScope = 'both') => {
+  if (!analytics) return;
+  setExporting(true);
+
+  try {
+    const XLSX = await import('xlsx');
+    const wb = XLSX.utils.book_new();
+
+    // ---------- Resolve export date range from export settings ----------
+    let start: Date;
+    let end: Date;
+    let dateRangeLabel: string;
+
+    if (exportRangeMode === 'current') {
+      const r = computeDateRange(timeRange, baseDate, customDates);
+      start = r.start;
+      end = r.end;
+      dateRangeLabel = `Same as Analytics (${getDateLabel() || 'All Time'})`;
+    } else if (exportRangeMode === 'all') {
       start = new Date(0);
       end = new Date();
-    } else if (timeRange === 'custom') {
-      const [s, e] = customDates;
-      start = s ? new Date(`${s}T00:00:00`) : new Date(0);
-      end = e ? new Date(`${e}T23:59:59.999`) : new Date();
+      dateRangeLabel = 'All Time';
     } else {
-      const base = new Date(baseDate);
-      if (timeRange === 'day') {
-        start = new Date(base);
-        start.setHours(0, 0, 0, 0);
-        end = new Date(base);
-        end.setHours(23, 59, 59, 999);
-      } else if (timeRange === 'week') {
-        const day = base.getDay();
-        const diff = base.getDate() - day + (day === 0 ? -6 : 1);
-        start = new Date(base);
-        start.setDate(diff);
-        start.setHours(0, 0, 0, 0);
-        end = new Date(start);
-        end.setDate(start.getDate() + 6);
-        end.setHours(23, 59, 59, 999);
-      } else if (timeRange === 'month') {
-        start = new Date(base.getFullYear(), base.getMonth(), 1);
-        end = new Date(base.getFullYear(), base.getMonth() + 1, 0);
-        end.setHours(23, 59, 59, 999);
-      } else {
-        // 🔒 Fallback – should never happen, but satisfies TypeScript
-        start = new Date(base);
-        start.setHours(0, 0, 0, 0);
-        end = new Date(base);
-        end.setHours(23, 59, 59, 999);
-      }
+      const r = computeDateRange('custom', baseDate, exportCustomDates);
+      start = r.start;
+      end = r.end;
+      dateRangeLabel = `${
+        exportCustomDates[0] ? dayjs(exportCustomDates[0]).format('MMM D, YYYY') : '—'
+      } → ${
+        exportCustomDates[1] ? dayjs(exportCustomDates[1]).format('MMM D, YYYY') : '—'
+      }`;
     }
-    return { start, end };
-  };
 
-  const handleExportXLSX = async () => {
-    if (!analytics) return;
-    setExporting(true);
-    try {
-      const XLSX = await import('xlsx');
+    const dept = effectiveDept || 'ALL';
+    const fileDate = dayjs().format('YYYY-MM-DD_HHmm');
 
-      const { start, end } = getDateRange();
-      const dept = effectiveDept || '';
+    // Decide what to include
+    const includeIOM =
+      (scope === 'iom' || scope === 'both' || scope === 'current') &&
+      (analyticsTab === 'iom' || scope === 'iom' || scope === 'both');
+    const includeFRF =
+      (scope === 'frf' || scope === 'both' || scope === 'current') &&
+      (analyticsTab === 'frf' || scope === 'frf' || scope === 'both') &&
+      !!analytics.frf;
 
-      // --- I-filter ang lahat ng memo na nasa date range ---
-      const allMemos = memosData || [];
-      const filteredMemos = allMemos.filter((memo) => {
-        const createdAt = new Date(memo.createdAt);
-        return createdAt >= start && createdAt <= end;
-      });
+    // ============================================================
+    // 1) METADATA / COVER SHEET  →  Shows ALL filter details
+    // ============================================================
+    const metaRows: (string | number)[][] = [
+      ['ANALYTICS EXPORT'],
+      [],
+      ['FILTERS APPLIED'],
+      ['Generated At', dayjs().format('YYYY-MM-DD HH:mm:ss')],
+      ['Department', dept],
+      ['Date Range Type', exportRangeMode === 'current' ? `SAME AS ANALYTICS (${timeRange.toUpperCase()})` : exportRangeMode.toUpperCase()],
+      ['Date Range', dateRangeLabel],
+      ['From', dayjs(start).format('YYYY-MM-DD HH:mm:ss')],
+      ['To', dayjs(end).format('YYYY-MM-DD HH:mm:ss')],
+      [
+        'Exported By',
+        [
+          currentUser?.fname,
+          (currentUser as UserContext & { lname?: string })?.lname,
+        ]
+          .filter(Boolean)
+          .join(' ') ||
+          currentUser?.email ||
+          'N/A',
+      ],
+      ['User Role', currentUser?.role || 'N/A'],
+      [],
+      ['EXPORT CONTENTS'],
+      ['Scope', scope.toUpperCase()],
+      ['Includes IOM', includeIOM ? 'YES' : 'NO'],
+      ['Includes FRF', includeFRF ? 'YES' : 'NO'],
+      [],
+      ['Sheets Included'],
+      ...(includeIOM
+        ? [
+            ['📊 IOM Summary', 'Overview counts & avg processing time'],
+            ['📈 IOM Distribution', 'Status / Priority / Purpose breakdown'],
+            ['📉 IOM Trends', 'Time-series activity'],
+            ['🏆 IOM Top', 'Top senders & recipients'],
+            ['📄 IOM Created', `Memos created by ${dept}`],
+            ['📥 IOM Received', `Memos received by ${dept}`],
+            ['⚡ IOM Active', 'Currently active memos'],
+            ['✅ IOM Resolved', 'Completed / closed / denied memos'],
+          ]
+        : []),
+      ...(includeFRF
+        ? [
+            ['📊 FRF Summary', 'Overview counts & avg processing time'],
+            ['📈 FRF Distribution', 'Status & type breakdown'],
+            ['📉 FRF Trends', 'FRF time-series activity'],
+            ['🏟️ FRF Venues', 'Most requested venues'],
+            ['🛠️ FRF Equipment', 'Most requested equipment'],
+          ]
+        : []),
+    ];
 
-      // --- Tukuyin ang mga kategorya ---
-      // 1. Created: lahat ng memo na ginawa ng departamento (senderDept === dept)
-      const createdMemos = filteredMemos.filter((m) => m.senderDept === dept);
+    const wsMeta = XLSX.utils.aoa_to_sheet(metaRows);
+    wsMeta['!cols'] = [{ wch: 24 }, { wch: 55 }];
+    XLSX.utils.book_append_sheet(wb, wsMeta, '📋 Overview');
 
-      // 2. Sent: pareho lang sa Created, pero para maging malinaw sa Excel, tawagin nating "Sent" (ito ay lumalabas sa overview)
-      const sentMemos = createdMemos; // Pareho lang
-
-      // 3. Received: mga memo na natanggap ng departamento (may recipient na departmentName === dept)
-      const receivedMemos = filteredMemos.filter((m) =>
-        m.recipients?.some((r) => r.departmentName === dept)
+    // ============================================================
+    // 2) IOM SHEETS
+    // ============================================================
+    if (includeIOM) {
+      // ---- Summary ----
+      const overview = analytics.overview || {};
+      XLSX.utils.book_append_sheet(
+        wb,
+        buildKVSheet(XLSX, 'IOM SUMMARY', [
+          ['Total Memos Created', overview.total ?? 0],
+          ['Sent', overview.sent ?? 0],
+          ['Received', overview.received ?? 0],
+          ['Active', overview.active ?? 0],
+          ['Resolved', overview.resolved ?? 0],
+          ['Avg Processing Time (days)', analytics.averageProcessingTime ?? 0],
+        ]),
+        '📊 IOM Summary'
       );
 
-      // 4. Active: mga memo na may recipient status na ACKNOWLEDGED o PROCESSING
-      const activeMemos = filteredMemos.filter((m) =>
+      // ---- Distribution ----
+      XLSX.utils.book_append_sheet(
+        wb,
+        buildDistSheet(XLSX, [
+          {
+            title: 'STATUS DISTRIBUTION',
+            rows: Object.entries(analytics.statusDistribution || {}).map(
+              ([k, v]) => [k, v as number]
+            ),
+          },
+          {
+            title: 'PRIORITY DISTRIBUTION',
+            rows: Object.entries(analytics.priorityDistribution || {}).map(
+              ([k, v]) => [k, v as number]
+            ),
+          },
+          {
+            title: 'PURPOSE DISTRIBUTION',
+            rows: Object.entries(analytics.purposeDistribution || {}).map(
+              ([k, v]) => [k, v as number]
+            ),
+          },
+        ]),
+        '📈 IOM Distribution'
+      );
+
+      // ---- Trends ----
+      if (analytics.trends?.length) {
+        const trendsData: (string | number)[][] = [
+          ['IOM TRENDS'],
+          [],
+          ['Date', 'Count'],
+          ...analytics.trends.map((t: { date: string; count: number }) => [
+            t.date,
+            t.count,
+          ]),
+        ];
+        const wsTrends = XLSX.utils.aoa_to_sheet(trendsData);
+        wsTrends['!cols'] = [{ wch: 26 }, { wch: 12 }];
+        XLSX.utils.book_append_sheet(wb, wsTrends, '📉 IOM Trends');
+      }
+
+      // ---- Top Senders / Recipients ----
+      if (analytics.topSenders?.length || analytics.topRecipients?.length) {
+        const topData: (string | number)[][] = [];
+        topData.push(['TOP SENDERS (Incoming)']);
+        topData.push(['Department', 'Count']);
+        (analytics.topSenders || []).forEach((s: { department: string; count: number }) =>
+          topData.push([s.department, s.count])
+        );
+        topData.push([]);
+        topData.push(['TOP RECIPIENTS (Outgoing)']);
+        topData.push(['Department', 'Count']);
+        (analytics.topRecipients || []).forEach((r: { department: string; count: number }) =>
+          topData.push([r.department, r.count])
+        );
+        const wsTop = XLSX.utils.aoa_to_sheet(topData);
+        wsTop['!cols'] = [{ wch: 32 }, { wch: 12 }];
+        XLSX.utils.book_append_sheet(wb, wsTop, '🏆 IOM Top');
+      }
+
+      // ---- Raw Memos (from client-side memosData) ----
+      const allMemos = Array.isArray(memosData) ? memosData : [];
+      const filtered = allMemos.filter((m) => {
+        const c = new Date(m.createdAt);
+        return c >= start && c <= end;
+      });
+
+      const created = filtered.filter((m) => m.senderDept === dept);
+      const received = filtered.filter((m) =>
+        m.recipients?.some((r) => r.departmentName === dept)
+      );
+      const active = filtered.filter((m) =>
         m.recipients?.some(
           (r) =>
             r.departmentName === dept &&
             ['ACKNOWLEDGED', 'PROCESSING'].includes(r.status)
         )
       );
-
-      // 5. Resolved: mga memo na may recipient status na COMPLETED, CLOSED, o DENIED
-      const resolvedMemos = filteredMemos.filter((m) =>
+      const resolved = filtered.filter((m) =>
         m.recipients?.some(
           (r) =>
             r.departmentName === dept &&
@@ -629,125 +871,153 @@ export default function AnalyticsPage() {
         )
       );
 
-      // --- Helper: gawing array ng rows para sa Excel ---
-      const headers = [
-        'Reference ID',
-        'Subject',
-        'Sender Name',
-        'Sender Dept',
-        'Status',
-        'Priority',
-        'Purpose',
-        'Created At',
-        'Recipients',
-      ];
+      XLSX.utils.book_append_sheet(
+        wb,
+        buildMemoSheet(XLSX, `IOM MEMOS CREATED BY ${dept}`, created),
+        '📄 IOM Created'
+      );
+      XLSX.utils.book_append_sheet(
+        wb,
+        buildMemoSheet(XLSX, `IOM MEMOS RECEIVED BY ${dept}`, received),
+        '📥 IOM Received'
+      );
+      XLSX.utils.book_append_sheet(
+        wb,
+        buildMemoSheet(XLSX, `IOM ACTIVE MEMOS — ${dept}`, active),
+        '⚡ IOM Active'
+      );
+      XLSX.utils.book_append_sheet(
+        wb,
+        buildMemoSheet(XLSX, `IOM RESOLVED MEMOS — ${dept}`, resolved),
+        '✅ IOM Resolved'
+      );
+    }
 
-      const memoToRow = (memo: Memo) => [
-        memo.referenceId || '',
-        memo.subject || '',
-        memo.senderName || '',
-        memo.senderDept || '',
-        memo.status || '',
-        memo.priority || '',
-        memo.purpose || '',
-        dayjs(memo.createdAt).format('YYYY-MM-DD HH:mm'),
-        memo.recipients?.map((r) => r.departmentName).join(', ') || '',
-      ];
+    // ============================================================
+    // 3) FRF SHEETS
+    // ============================================================
+    if (includeFRF && analytics.frf) {
+      const frf = analytics.frf;
 
-      // --- Buuin ang worksheet data ---
-      const wsData: (string | number)[][] = [];
+      // ---- Summary ----
+      XLSX.utils.book_append_sheet(
+        wb,
+        buildKVSheet(XLSX, 'FRF SUMMARY', [
+          ['Total Requests', frf.overview?.total ?? 0],
+          ['For Approval', frf.overview?.forApproval ?? 0],
+          ['Incoming', frf.overview?.incoming ?? 0],
+          ['Outgoing', frf.overview?.outgoing ?? 0],
+          ['Approved', frf.overview?.approved ?? 0],
+          ['Completed', frf.overview?.completed ?? 0],
+          ['Rejected', frf.overview?.rejected ?? 0],
+          ['Revision', frf.overview?.revision ?? 0],
+          ['Avg Processing Time (days)', frf.averageProcessingTime ?? 0],
+        ]),
+        '📊 FRF Summary'
+      );
 
-      // 1. Overview
-      const overview = analytics.overview;
-      wsData.push(['ANALYTICS OVERVIEW']);
-      wsData.push(['Memos Created', overview.total]);
-      wsData.push(['Sent', overview.sent]);
-      wsData.push(['Received', overview.received]);
-      wsData.push(['Active', overview.active]);
-      wsData.push(['Resolved', overview.resolved]);
-      wsData.push([]);
+      // ---- Distribution ----
+      XLSX.utils.book_append_sheet(
+        wb,
+        buildDistSheet(XLSX, [
+          {
+            title: 'STATUS DISTRIBUTION',
+            rows: Object.entries(frf.statusDistribution || {}).map(
+              ([k, v]) => [k, v as number]
+            ),
+          },
+          {
+            title: 'TYPE DISTRIBUTION',
+            rows: Object.entries(frf.typeDistribution || {}).map(
+              ([k, v]) => [k, v as number]
+            ),
+          },
+        ]),
+        '📈 FRF Distribution'
+      );
 
-      // 2. Memo List - Created (Sent)
-      wsData.push(['MEMO LIST - CREATED (SENT)']);
-      wsData.push(headers);
-      createdMemos.forEach((memo) => wsData.push(memoToRow(memo)));
-      wsData.push([]);
-
-      // 3. Memo List - Received
-      wsData.push(['MEMO LIST - RECEIVED']);
-      wsData.push(headers);
-      receivedMemos.forEach((memo) => wsData.push(memoToRow(memo)));
-      wsData.push([]);
-
-      // 4. Memo List - Active
-      wsData.push(['MEMO LIST - ACTIVE']);
-      wsData.push(headers);
-      activeMemos.forEach((memo) => wsData.push(memoToRow(memo)));
-      wsData.push([]);
-
-      // 5. Memo List - Resolved
-      wsData.push(['MEMO LIST - RESOLVED']);
-      wsData.push(headers);
-      resolvedMemos.forEach((memo) => wsData.push(memoToRow(memo)));
-      wsData.push([]);
-
-      // --- Gumawa ng worksheet ---
-      const ws = XLSX.utils.aoa_to_sheet(wsData);
-      ws['!cols'] = [
-        { wch: 20 },
-        { wch: 30 },
-        { wch: 25 },
-        { wch: 15 },
-        { wch: 12 },
-        { wch: 12 },
-        { wch: 15 },
-        { wch: 20 },
-        { wch: 40 },
-      ];
-
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'Analytics');
-
-      const dateStr = dayjs().format('YYYY-MM-DD');
-      const fileName = `analytics_${dept || 'all'}_${dateStr}.xlsx`;
-
-      // ---- FRF Sheet ----
-      if (analytics.frf) {
-        const frfHeaders = ['Reference ID', 'Event Name', 'Requestor Dept', 'Type', 'Status', 'Attendees', 'Created At'];
-        const frfData: (string | number)[][] = [];
-        frfData.push(['FRF ANALYTICS']);
-        frfData.push([]);
-        frfData.push(['Total Requests', analytics.frf.overview.total]);
-        frfData.push(['For Approval', analytics.frf.overview.forApproval]);
-        frfData.push(['Incoming', analytics.frf.overview.incoming]);
-        frfData.push(['Outgoing', analytics.frf.overview.outgoing]);
-        frfData.push(['Approved', analytics.frf.overview.approved]);
-        frfData.push(['Completed', analytics.frf.overview.completed]);
-        frfData.push(['Rejected', analytics.frf.overview.rejected]);
-        frfData.push([]);
-        frfData.push(['Top Venues']);
-        frfData.push(['Venue', 'Count']);
-        analytics.frf.topVenues.forEach((v: { venue: string; count: number }) => frfData.push([v.venue, v.count]));
-        frfData.push([]);
-        frfData.push(['Top Equipment']);
-        frfData.push(['Equipment', 'Count']);
-        analytics.frf.topEquipment.forEach((e: { equipment: string; count: number }) => frfData.push([e.equipment, e.count]));
-
-        const wsFrf = XLSX.utils.aoa_to_sheet(frfData);
-        wsFrf['!cols'] = [{ wch: 30 }, { wch: 20 }];
-        XLSX.utils.book_append_sheet(wb, wsFrf, 'FRF Analytics');
+      // ---- Trends ----
+      if (frf.trends?.length) {
+        const trendsData: (string | number)[][] = [
+          ['FRF TRENDS'],
+          [],
+          ['Date', 'Count'],
+          ...frf.trends.map((t: { date: string; count: number }) => [
+            t.date,
+            t.count,
+          ]),
+        ];
+        const wsTrends = XLSX.utils.aoa_to_sheet(trendsData);
+        wsTrends['!cols'] = [{ wch: 26 }, { wch: 12 }];
+        XLSX.utils.book_append_sheet(wb, wsTrends, '📉 FRF Trends');
       }
 
-      XLSX.writeFile(wb, fileName);
+      // ---- Venues ----
+      if (frf.topVenues?.length) {
+        const data: (string | number)[][] = [
+          ['TOP VENUES'],
+          [],
+          ['Venue', 'Count'],
+          ...frf.topVenues.map((v: { venue: string; count: number }) => [
+            v.venue,
+            v.count,
+          ]),
+        ];
+        const ws = XLSX.utils.aoa_to_sheet(data);
+        ws['!cols'] = [{ wch: 42 }, { wch: 12 }];
+        XLSX.utils.book_append_sheet(wb, ws, '🏟️ FRF Venues');
+      }
 
-      alert(`✅ Exported ${createdMemos.length} created, ${receivedMemos.length} received, ${activeMemos.length} active, ${resolvedMemos.length} resolved memos to ${fileName}`);
-    } catch (err) {
-      console.error(err);
-      alert('Export failed. Make sure xlsx package is installed.');
-    } finally {
-      setExporting(false);
+      // ---- Equipment ----
+      if (frf.topEquipment?.length) {
+        const data: (string | number)[][] = [
+          ['TOP EQUIPMENT'],
+          [],
+          ['Equipment', 'Count'],
+          ...frf.topEquipment.map((e: { equipment: string; count: number }) => [
+            e.equipment,
+            e.count,
+          ]),
+        ];
+        const ws = XLSX.utils.aoa_to_sheet(data);
+        ws['!cols'] = [{ wch: 42 }, { wch: 12 }];
+        XLSX.utils.book_append_sheet(wb, ws, '🛠️ FRF Equipment');
+      }
     }
-  };
+
+    // ============================================================
+    // 4) SAVE
+    // ============================================================
+    const scopeTag =
+      scope === 'both' ? 'FULL' : scope === 'iom' ? 'IOM' : scope === 'frf' ? 'FRF' : 'CURRENT';
+    const filterTag =
+      exportRangeMode === 'all'
+        ? 'AllTime'
+        : exportRangeMode === 'custom'
+        ? `${exportCustomDates[0] ?? 'from'}_${exportCustomDates[1] ?? 'to'}`
+        : timeRange === 'day'
+        ? dayjs(baseDate).format('YYYY-MM-DD')
+        : timeRange === 'week'
+        ? dayjs(baseDate).startOf('week').format('[W]YYYY-MM-DD')
+        : timeRange === 'month'
+        ? dayjs(baseDate).format('YYYY-MM')
+        : 'AllTime';
+
+    const fileName = `Analytics_${scopeTag}_${dept}_${filterTag}.xlsx`;
+    XLSX.writeFile(wb, fileName);
+
+    alert(
+      `✅ Export successful!\n\nScope: ${scopeTag}\nDepartment: ${dept}\nDate Range: ${dateRangeLabel}\nFile: ${fileName}`
+    );
+  } catch (err) {
+    console.error(err);
+    alert(
+      `Export failed: ${err instanceof Error ? err.message : 'Unknown error'}`
+    );
+  } finally {
+    setExporting(false);
+  }
+};
 
   return (
     <Container fluid py="md" pos="relative">
@@ -831,21 +1101,42 @@ export default function AnalyticsPage() {
                 )}
 
                 {timeRange === 'custom' && (
-                  <DatePicker
-                    type="range"
-                    allowSingleDateInRange
-                    maxDate={new Date()}
-                    value={customDates}
-                    onChange={setCustomDates}
-                    size="sm"
-                  />
+                  <Group gap="xs" align="flex-end" mt={4}>
+                    <DateInput
+                      label="From"
+                      placeholder="Start"
+                      value={customDates[0]}
+                      onChange={(v) => setCustomDates(([, to]) => [v, to])}
+                      valueFormat="MMM D, YYYY"
+                      maxDate={
+                        customDates[1] ? new Date(customDates[1]) : new Date()
+                      }
+                      clearable
+                      size="sm"
+                      style={{ width: 150 }}
+                    />
+                    <DateInput
+                      label="To"
+                      placeholder="End"
+                      value={customDates[1]}
+                      onChange={(v) => setCustomDates(([from]) => [from, v])}
+                      valueFormat="MMM D, YYYY"
+                      minDate={
+                        customDates[0] ? new Date(customDates[0]) : undefined
+                      }
+                      maxDate={new Date()}
+                      clearable
+                      size="sm"
+                      style={{ width: 150 }}
+                    />
+                  </Group>
                 )}
 
                 <Button
                   variant="light"
                   color="green"
                   leftSection={<IconFileExport size={14} />}
-                  onClick={handleExportXLSX}
+                  onClick={() => handleExportXLSX('current')}
                   loading={exporting}
                   disabled={!analytics || exporting}
                   size="sm"
@@ -898,25 +1189,45 @@ export default function AnalyticsPage() {
                     ]}
                   />
                   {timeRange === 'custom' && (
-                    <DatePicker
-                      type="range"
-                      allowSingleDateInRange
-                      maxDate={new Date()}
-                      value={customDates}
-                      onChange={setCustomDates}
-                    />
+                    <Stack gap="xs">
+                      <DateInput
+                        label="From"
+                        placeholder="Start date"
+                        value={customDates[0]}
+                        onChange={(v) => setCustomDates(([, to]) => [v, to])}
+                        valueFormat="MMM D, YYYY"
+                        maxDate={
+                          customDates[1] ? new Date(customDates[1]) : new Date()
+                        }
+                        clearable
+                        size="sm"
+                      />
+                      <DateInput
+                        label="To"
+                        placeholder="End date"
+                        value={customDates[1]}
+                        onChange={(v) => setCustomDates(([from]) => [from, v])}
+                        valueFormat="MMM D, YYYY"
+                        minDate={
+                          customDates[0] ? new Date(customDates[0]) : undefined
+                        }
+                        maxDate={new Date()}
+                        clearable
+                        size="sm"
+                      />
+                    </Stack>
                   )}
                 </Stack>
 
                 <Button
                   variant="light"
                   color="green"
-                  leftSection={<IconFileExport size={16} />}
-                  onClick={handleExportXLSX}
-                  loading={exporting}
+                  leftSection={<IconFileExport size={14} />}
+                  onClick={() => setExportModalOpened(true)}
                   disabled={!analytics || exporting}
+                  size="sm"
                 >
-                  Export to Excel
+                  Export Analytics
                 </Button>
               </Group>
             )}
@@ -1647,6 +1958,163 @@ export default function AnalyticsPage() {
               </Tabs> 
             </Stack>
           )}
+
+          <Modal
+            opened={exportModalOpened}
+            onClose={() => setExportModalOpened(false)}
+            title={<Text fw={700}>Export Analytics</Text>}
+            centered
+            size="md"
+            radius="lg"
+            overlayProps={{ backgroundOpacity: 0.5, blur: 2 }}
+          >
+            <Stack gap="lg">
+              {/* ---- Step 1: Scope ---- */}
+              <Stack gap="xs">
+                <Text size="sm" fw={600}>
+                  1. What to export?
+                </Text>
+                <SegmentedControl
+                  fullWidth
+                  size="xs"
+                  value={exportScope}
+                  onChange={(v) => setExportScope(v as typeof exportScope)}
+                  data={[
+                    { label: '📌 Current', value: 'current' },
+                    { label: '📄 IOM', value: 'iom' },
+                    { label: '📋 FRF', value: 'frf' },
+                    { label: '📦 Both', value: 'both' },
+                  ]}
+                  disabled={exporting}
+                />
+                <Text size="xs" c="dimmed">
+                  Current tab:{' '}
+                  <b>{analyticsTab === 'calendar' ? 'Live Calendar' : analyticsTab.toUpperCase()}</b>
+                  {exportScope === 'frf' && !analytics?.frf && (
+                    <Text component="span" c="red" ml={6}>
+                      (no FRF data available)
+                    </Text>
+                  )}
+                </Text>
+              </Stack>
+
+              {/* ---- Step 2: Date Range ---- */}
+              <Stack gap="xs">
+                <Text size="sm" fw={600}>
+                  2. Date range for export
+                </Text>
+                <SegmentedControl
+                  fullWidth
+                  size="xs"
+                  value={exportRangeMode}
+                  onChange={(v) => setExportRangeMode(v as typeof exportRangeMode)}
+                  data={[
+                    { label: 'Same as Analytics', value: 'current' },
+                    { label: 'All Time', value: 'all' },
+                    { label: 'Custom', value: 'custom' },
+                  ]}
+                  disabled={exporting}
+                />
+
+                {exportRangeMode === 'current' && (
+                  <Alert
+                    color="blue"
+                    variant="light"
+                    p="xs"
+                    icon={<IconInfoCircle size={14} />}
+                  >
+                    <Text size="xs">
+                      Using current analytics filter:{' '}
+                      <b>{getDateLabel() || 'All Time'}</b>
+                    </Text>
+                  </Alert>
+                )}
+
+                {exportRangeMode === 'custom' && (
+                  <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xs">
+                    <DateInput
+                      label="From"
+                      placeholder="Pick start date"
+                      value={exportCustomDates[0]}
+                      onChange={(v) => setExportCustomDates(([, to]) => [v, to])}
+                      valueFormat="MMM D, YYYY"
+                      maxDate={
+                        exportCustomDates[1]
+                          ? new Date(exportCustomDates[1])
+                          : new Date()
+                      }
+                      clearable
+                      size="sm"
+                    />
+                    <DateInput
+                      label="To"
+                      placeholder="Pick end date"
+                      value={exportCustomDates[1]}
+                      onChange={(v) => setExportCustomDates(([from]) => [from, v])}
+                      valueFormat="MMM D, YYYY"
+                      minDate={
+                        exportCustomDates[0]
+                          ? new Date(exportCustomDates[0])
+                          : undefined
+                      }
+                      maxDate={new Date()}
+                      clearable
+                      size="sm"
+                    />
+                  </SimpleGrid>
+                )}
+              </Stack>
+
+              {/* ---- Preview ---- */}
+              <Alert variant="light" color="gray" p="xs">
+                <Text size="xs" lh={1.5}>
+                  <b>Preview:</b>{' '}
+                  {exportScope === 'current'
+                    ? analyticsTab.toUpperCase()
+                    : exportScope === 'both'
+                    ? 'IOM + FRF'
+                    : exportScope.toUpperCase()}{' '}
+                  ·{' '}
+                  {exportRangeMode === 'current'
+                    ? getDateLabel() || 'All Time'
+                    : exportRangeMode === 'all'
+                    ? 'All Time'
+                    : exportCustomDates[0] && exportCustomDates[1]
+                    ? `${dayjs(exportCustomDates[0]).format('MMM D')} → ${dayjs(exportCustomDates[1]).format('MMM D, YYYY')}`
+                    : 'Custom (incomplete)'}
+                </Text>
+              </Alert>
+
+              {/* ---- Actions ---- */}
+              <Group justify="flex-end" gap="xs">
+                <Button
+                  variant="default"
+                  onClick={() => setExportModalOpened(false)}
+                  disabled={exporting}
+                  size="sm"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  color="green"
+                  leftSection={<IconFileExport size={16} />}
+                  loading={exporting}
+                  size="sm"
+                  onClick={async () => {
+                    await handleExportXLSX(exportScope);
+                    setExportModalOpened(false);
+                  }}
+                  disabled={
+                    (exportScope === 'frf' && !analytics?.frf) ||
+                    (exportRangeMode === 'custom' &&
+                      (!exportCustomDates[0] || !exportCustomDates[1]))
+                  }
+                >
+                  Export
+                </Button>
+              </Group>
+            </Stack>
+          </Modal>
       </Card>
     </Container>
   );
