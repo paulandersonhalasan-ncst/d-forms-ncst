@@ -177,7 +177,10 @@ export default function FRFDashboardPage() {
   }, []);
 
   const isITOMain = currentUser?.departmentCode === 'ITO-MAIN';
-  const isHRD = currentUser?.departmentCode === 'HRD'; 
+  const isHRDorSuper = 
+    currentUser?.departmentCode === 'HRD' || 
+    currentUser?.role === 'SuperUser' || 
+    currentUser?.role === 'Admin';
 
   const isMobile = useMediaQuery('(max-width: 768px)');
 
@@ -220,7 +223,7 @@ export default function FRFDashboardPage() {
       !r.packUpDoneAt
     );
 
-    const hrCopyReservations = isHRD ? reservations : [];
+    const hrCopyReservations = isHRDorSuper ? reservations : [];
 
   // Helper: check if current user is involved in the reservation
   const isUserInvolved = (r: FacilityReservation): boolean => {
@@ -924,33 +927,37 @@ export default function FRFDashboardPage() {
     openDetail();
   };
 
-  // 📱 Tab options — gagamitin sa mobile Select dropdown
   const tabOptions = useMemo(() => {
-    const opts: { value: string; label: string }[] = [];
+      const opts: { value: string; label: string }[] = [];
 
-    // 🆕 HR Copy tab — laging nasa unahan para sa HR
-    if (isHRD) {
-      opts.push({ value: 'hr_copy', label: `📋 HR Copy — All Requests (${hrCopyReservations.length})` });
-    }
+      // 🆕 HR Copy / All Requests tab
+      if (isHRDorSuper) {
+        const isAdminOrSuper = currentUser?.role === 'SuperUser' || currentUser?.role === 'Admin';
+        const tabLabel = isAdminOrSuper
+          ? `📋 All Requests (${hrCopyReservations.length})`
+          : `📋 HR Copy — All Requests (${hrCopyReservations.length})`;
+        opts.push({ value: 'hr_copy', label: tabLabel });
+      }
 
-    opts.push({ value: 'my_requests', label: `My Requests (${myRequests.length})` });
-    opts.push({ value: 'pending_approval', label: `Pending Approval (${pendingApproval.length})` });
-    opts.push({ value: 'action_board', label: `Action Board (${actionBoard.length})` });
-    if (isITOMain) {
-      opts.push({ value: 'assigned_to_me', label: `Assigned to Me (${assignedToMe.length})` });
-    }
-    opts.push({ value: 'completed', label: `Fully Approved / Rejected (${completed.length})` });
-    return opts;
-  }, [
-    isHRD,
-    hrCopyReservations.length,
-    myRequests.length,
-    pendingApproval.length,
-    actionBoard.length,
-    assignedToMe.length,
-    completed.length,
-    isITOMain,
-  ]);
+      opts.push({ value: 'my_requests', label: `My Requests (${myRequests.length})` });
+      opts.push({ value: 'pending_approval', label: `Pending Approval (${pendingApproval.length})` });
+      opts.push({ value: 'action_board', label: `Action Board (${actionBoard.length})` });
+      if (isITOMain) {
+        opts.push({ value: 'assigned_to_me', label: `Assigned to Me (${assignedToMe.length})` });
+      }
+      opts.push({ value: 'completed', label: `Fully Approved / Rejected (${completed.length})` });
+      return opts;
+    }, [
+      isHRDorSuper,
+      currentUser?.role,
+      hrCopyReservations.length,
+      myRequests.length,
+      pendingApproval.length,
+      actionBoard.length,
+      assignedToMe.length,
+      completed.length,
+      isITOMain,
+    ]);
 
   if (loading) {
     return <LoadingOverlay visible />;
@@ -965,7 +972,7 @@ export default function FRFDashboardPage() {
   console.log("canmanageness? ", canManage);
   
   const visibleTabs = [
-    ...(isHRD ? ['hr_copy'] : []),
+    ...(isHRDorSuper ? ['hr_copy'] : []),
     'my_requests',
     'pending_approval',
     'action_board',
@@ -1030,9 +1037,11 @@ export default function FRFDashboardPage() {
               ) : (
               <Tabs.List mb="lg" style={{ overflowX: 'auto', flexWrap: 'nowrap' }}>
                 {/* 🆕 HR Copy — ALL Requests (HR only) */}
-                {isHRD && (
+                {isHRDorSuper && (
                   <Tabs.Tab value="hr_copy" leftSection={<IconCopy size={15} />}>
-                    HR Copy — All Requests{' '}
+                    {(currentUser?.role === 'SuperUser' || currentUser?.role === 'Admin')
+                      ? 'All Requests'
+                      : 'HR Copy — All Requests'}{' '}
                     <Badge size="xs" variant="light" ml={6} styles={{ label: { fontSize: 10 } }}>
                       {hrCopyReservations.length}
                     </Badge>
@@ -1079,12 +1088,22 @@ export default function FRFDashboardPage() {
 
                 const filtered = getFiltered(list);
 
+                const isAdminOrSuper = currentUser?.role === 'SuperUser' || currentUser?.role === 'Admin';
+
                 const tabInfo: Record<string, { title: string; color: string; body: React.ReactNode }> = {
                   // 🆕 HR Copy — exclusive sa HR
                   hr_copy: {
-                    title: 'HR Copy — All Requests (Read-Only)',
+                    title: isAdminOrSuper
+                      ? 'All Requests (Admin / SuperUser View)'
+                      : 'HR Copy — All Requests (Read-Only)',
                     color: 'blue',
-                    body: (
+                    body: isAdminOrSuper ? (
+                      <>
+                        A complete view of <b>every</b> facility reservation across all departments for administrative monitoring and oversight.
+                        <br /><br />
+                        Kumpletong view ng <b>lahat</b> ng facility reservation sa lahat ng departamento para sa pamamahala at pagsubaybay.
+                      </>
+                    ) : (
                       <>
                         A complete, read-only view of <b>every</b> facility reservation across all departments. HR
                         receives an automatic copy of each request but <b>does not approve</b> — this tab is purely
