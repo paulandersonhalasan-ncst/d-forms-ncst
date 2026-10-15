@@ -677,6 +677,7 @@ export default function ITOAssignmentModal({
                 <Select
                   label="Petsa"
                   placeholder="Pumili ng petsa"
+                  comboboxProps={{ zIndex: 1100 }}
                   data={dateOptions.map((opt) => ({
                     value: opt.value,
                     label: opt.label,
@@ -692,6 +693,7 @@ export default function ITOAssignmentModal({
                 <Select
                   label="Staff"
                   placeholder="Pumili ng staff"
+                  comboboxProps={{ zIndex: 1100 }}
                   data={staffList}
                   value={row.userId}
                   onChange={(val) => updateRow(row.id, 'userId', val ?? '')}
@@ -703,6 +705,7 @@ export default function ITOAssignmentModal({
                 <Select
                   label="OT Duty Type"
                   placeholder="Setup o Pack up"
+                  comboboxProps={{ zIndex: 1100 }}
                   data={[
                     { value: 'setup', label: 'Setup' },
                     { value: 'teardown', label: 'Pack-up' },
