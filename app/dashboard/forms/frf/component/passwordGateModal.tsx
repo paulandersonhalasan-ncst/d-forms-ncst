@@ -104,7 +104,7 @@ export default function PasswordGateModal({
       title={getTitle()}
       centered
       fullScreen={isMobile}
-      zIndex={1000}
+      zIndex={5000}
       size={enablePhotoUpload ? 'lg' : 'md'}
       styles={{
         inner: {
