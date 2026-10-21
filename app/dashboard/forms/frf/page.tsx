@@ -49,6 +49,7 @@ import RequestDetailModal from './component/requestDetailModal';
 import PasswordGateModal from './component/passwordGateModal';
 import ITOAssignmentModal from './component/itoAssignmentModal';
 import OCMFinalEditModal from './component/ocmFinalEditModal';
+import { useSearchParams } from 'next/navigation';
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
@@ -111,6 +112,9 @@ function CollapsibleAlert({
 export default function FRFDashboardPage() {
   const router = useRouter();
 
+  const searchParams = useSearchParams();
+  const urlTab = searchParams.get('tab');
+
   // ---- Disclosures ----
   const [opened, { open, close }] = useDisclosure(false);
   const [detailOpened, { open: openDetail, close: closeDetail }] = useDisclosure(false);
@@ -122,7 +126,17 @@ export default function FRFDashboardPage() {
   const [currentUser, setCurrentUser] = useState<UserContext | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedRequest, setSelectedRequest] = useState<FacilityReservation | null>(null);
-  const [activeTab, setActiveTab] = useState<string | null>('my_requests');
+
+
+  const [activeTab, setActiveTab] = useState<string | null>(urlTab || 'my_requests');
+  const [prevUrlTab, setPrevUrlTab] = useState(urlTab);
+  if (urlTab !== prevUrlTab) {
+    setPrevUrlTab(urlTab);
+    if (urlTab) {
+      setActiveTab(urlTab);
+    }
+  }
+
   const [searchTerm, setSearchTerm] = useState('');
 
   // ---- Editing state ----

@@ -31,12 +31,12 @@ import {
 } from '@tabler/icons-react';
 import { useRouter } from 'next/navigation';
 import { useNotifications, NotificationItem } from '../../components/notifications/NotificationProvider';
+import { resolveNotificationRoute } from '../../components/notifications/NotificationPopover';
 
 type IconComponent = React.ComponentType<{ size?: number | string; stroke?: number | string; color?: string }>;
 
 export default function NotificationPage() {
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<string | null>('all');
 
   const { 
@@ -49,21 +49,14 @@ export default function NotificationPage() {
     clearAll 
   } = useNotifications();
 
-  const handleNotifClick = async (id: string, messageText: string, currentIsRead: boolean) => {
-    try {
-      setLoading(true);
-      if (!currentIsRead) {
-        await markAsRead(id);
-      }
+  const handleNotifClick = (notif: NotificationItem) => {
+    if (!notif.isRead) {
+      markAsRead(notif.id).catch((err) => console.error(err));
+    }
 
-      const refMatch = messageText.match(/(?:DRAFT-)?[A-Z]+-\d{4}-\d+(?:-\d+)?/);
-      if (refMatch) {
-        router.push('/dashboard/forms/iom');
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
+    const route = resolveNotificationRoute(notif);
+    if (route) {
+      router.push(route);
     }
   };
 
@@ -122,7 +115,7 @@ export default function NotificationPage() {
 
   return (
     <Box pos="relative" style={{ minHeight: '100vh' }}>
-      <LoadingOverlay visible={loading || isLoading} zIndex={1000} overlayProps={{ blur: 2, radius: 'sm' }} />
+      <LoadingOverlay visible={isLoading} zIndex={1000} overlayProps={{ blur: 2, radius: 'sm' }} />
 
       <Container size="lg" py="xl">
         <Paper p="xl" radius="md" withBorder mb="lg">
@@ -219,7 +212,7 @@ export default function NotificationPage() {
 
 interface NotificationsListProps {
   notifications: NotificationItem[];
-  onNotifClick: (id: string, message: string, isRead: boolean) => void;
+  onNotifClick: (notif: NotificationItem) => void;
   getNotificationIcon: (title: string) => { icon: IconComponent; color: string };
   getTimeAgo: (date?: string) => string; // ✅ allow undefined
   showUnreadOnly?: boolean;
@@ -253,7 +246,7 @@ function NotificationsList({
       {notifications.map((notif: NotificationItem) => {
         const { icon: Icon, color } = getNotificationIcon(notif.title);
         const isUnread = !notif.isRead;
-        const timeAgo = getTimeAgo(notif.createdAt); // ✅ undefined allowed
+        const timeAgo = getTimeAgo(notif.createdAt);
 
         return (
           <Paper
@@ -276,7 +269,7 @@ function NotificationsList({
               e.currentTarget.style.transform = 'translateY(0)';
               e.currentTarget.style.boxShadow = 'none';
             }}
-            onClick={() => onNotifClick(notif.id, notif.message, notif.isRead)}
+            onClick={() => onNotifClick(notif)}
           >
             <Group gap="md" wrap="nowrap" align="flex-start">
               <Box pos="relative">
@@ -317,7 +310,7 @@ function NotificationsList({
               <Box>
                 {isUnread && <Badge color="blue" size="xs" variant="filled">New</Badge>}
                 <Tooltip label={isUnread ? 'Mark as read' : 'Already read'}>
-                  <ActionIcon variant="subtle" color="gray" size="sm" onClick={(e) => { e.stopPropagation(); if (isUnread) onNotifClick(notif.id, notif.message, notif.isRead); }}>
+                  <ActionIcon variant="subtle" color="gray" size="sm" onClick={(e) => { e.stopPropagation(); if (isUnread) onNotifClick(notif); }}>
                     {isUnread ? <IconCheck size={14} /> : <IconCircleCheck size={14} />}
                   </ActionIcon>
                 </Tooltip>

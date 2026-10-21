@@ -287,7 +287,11 @@ export async function POST(request) {
               message: `${senderFullName} submitted a new draft memo requiring your signature approval. Ref: ${refId}`,
               isRead: false,
               recipientId: head.id,
-              senderId: authenticatedUser.id
+              senderId: authenticatedUser.id,
+              // 🆕 Routing metadata
+              linkUrl: `/dashboard/forms/iom?tab=approval&focus=${newMemo.id}`,
+              entityType: 'IOM',
+              entityId: newMemo.id,
             }))
           });
         }
@@ -297,7 +301,11 @@ export async function POST(request) {
             message: `Your draft memo "${subject}" has been queued. It is currently pending approval/signature from your Department Head. Ref: ${refId}`,
             isRead: false,
             recipientId: authenticatedUser.id,
-            senderId: authenticatedUser.id
+            senderId: authenticatedUser.id,
+            // 🆕 Routing metadata
+            linkUrl: `/dashboard/forms/iom?tab=authored_by_me&focus=${newMemo.id}`,
+            entityType: 'IOM',
+            entityId: newMemo.id,
           }
         });
       } else {
@@ -310,7 +318,11 @@ export async function POST(request) {
                 message: `New official memo released from ${userDept} department. Subject: ${subject}. Ref: ${refId}`,
                 isRead: false,
                 recipientId: head.id,
-                senderId: authenticatedUser.id
+                senderId: authenticatedUser.id,
+                // 🆕 Routing metadata
+                linkUrl: `/dashboard/forms/iom?tab=inbound&focus=${finalMemo.id}`,
+                entityType: 'IOM',
+                entityId: finalMemo.id,
               }))
             });
           }
@@ -658,22 +670,31 @@ export async function PATCH(request) {
             await prisma.notification.createMany({
               data: targetHeads.map(head => ({
                 title: "Inbound Inter-Office Memo",
-                message: `New official memo released from ${currentMemo.senderDept} department. Subject: ${finalSubject}. Ref: ${currentMemo.referenceId}`,
+                message: `New official memo released from ${currentMemo.senderDept} department. Subject: ${finalSubject}. Ref: ${newReferenceId}`,
                 isRead: false,
                 recipientId: head.id,
-                senderId: authenticatedUser.id
+                senderId: authenticatedUser.id,
+                // 🆕 Routing metadata
+                linkUrl: `/dashboard/forms/iom?tab=inbound&focus=${currentMemo.id}`,
+                entityType: 'IOM',
+                entityId: currentMemo.id,
               }))
             });
           }
         }
 
+        // Confirmation to the ORIGINAL sender (the staff whose draft was approved)
         await prisma.notification.create({
           data: {
             title: "Memo Approved & Broadcasted",
-            message: `Your memo "${finalSubject}" (Ref: ${currentMemo.referenceId}) has been approved and sent to all recipients.`,
+            message: `Your memo "${finalSubject}" (Ref: ${newReferenceId}) has been approved and sent to all recipients.`,
             isRead: false,
-            recipientId: authenticatedUser.id,
-            senderId: authenticatedUser.id
+            recipientId: currentMemo.senderId,   // 🆕 was authenticatedUser.id — should be the original sender
+            senderId: authenticatedUser.id,
+            // 🆕 Routing metadata
+            linkUrl: `/dashboard/forms/iom?tab=outbound&focus=${currentMemo.id}`,
+            entityType: 'IOM',
+            entityId: currentMemo.id,
           }
         });
       } catch (notifErr) {
@@ -1126,34 +1147,47 @@ export async function PATCH(request) {
     // Notifications (skip for REVISE_DRAFT)
     if (action !== 'REVISE_DRAFT' && action !== 'REVERT_TO_ORIGINAL') {
       try {
-        let notificationPayload = { recipientId: currentMemo.senderId, title: "", message: "" };
+        let notificationPayload = null;
+
         if (action === 'ACKNOWLEDGE') {
-          notificationPayload.title = "Document Acknowledged";
-          notificationPayload.message = `Department ${departmentName} acknowledged memo ${memoRefString}.`;
+          notificationPayload = {
+            recipientId: currentMemo.senderId,
+            title: "Document Acknowledged",
+            message: `Department ${departmentName} acknowledged memo ${memoRefString}. If all recipients have acknowledged, check ARCHIVED/RESOLVED Tab.`,
+          };
         } else if (action === 'CLOSED') {
           if (isSenderClosing) {
-            notificationPayload.title = "Memo Closed by Sender";
-            notificationPayload.message = `Memo ${memoRefString} has been closed by sender.`;
+            notificationPayload = {
+              recipientId: currentMemo.senderId,
+              title: "Memo Closed by Sender",
+              message: `Memo ${memoRefString} has been closed by sender.`,
+            };
           } else {
-            notificationPayload.title = "Action Item Completed";
-            notificationPayload.message = `Department ${departmentName} completed memo ${memoRefString}.`;
+            notificationPayload = {
+              recipientId: currentMemo.senderId,
+              title: "Action Item Completed",
+              message: `Department ${departmentName} completed memo ${memoRefString}.`,
+            };
           }
         } else if (action === 'DENY') {
-          notificationPayload.title = "Inbound Transaction Denied";
-          notificationPayload.message = `Memo ${memoRefString} denied by ${departmentName}.`;
-        } else if (action === 'APPROVE') {
-          // Notifications already sent above; skip here to avoid duplicate
-          // You can keep this or remove; but not needed as already sent in APPROVE block.
+          notificationPayload = {
+            recipientId: currentMemo.senderId,
+            title: "Inbound Transaction Denied",
+            message: `Memo ${memoRefString} denied by ${departmentName}.`,
+          };
         }
+        // APPROVE: handled in its own block above — no duplicate here
 
-        if (notificationPayload.title) {
+        if (notificationPayload) {
           await prisma.notification.create({
             data: {
-              title: notificationPayload.title,
-              message: notificationPayload.message,
+              ...notificationPayload,
               isRead: false,
-              recipientId: notificationPayload.recipientId,
-              senderId: authenticatedUser.id
+              senderId: authenticatedUser.id,
+              // 🆕 Routing metadata (was being dropped before)
+              linkUrl: `/dashboard/forms/iom?tab=outbound&focus=${currentMemo.id}`,
+              entityType: 'IOM',
+              entityId: currentMemo.id,
             }
           });
         }

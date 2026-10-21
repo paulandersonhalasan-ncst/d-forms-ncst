@@ -1784,7 +1784,10 @@ export const NotificationScalarFieldEnum = {
   isRead: 'isRead',
   createdAt: 'createdAt',
   recipientId: 'recipientId',
-  senderId: 'senderId'
+  senderId: 'senderId',
+  linkUrl: 'linkUrl',
+  entityType: 'entityType',
+  entityId: 'entityId'
 } as const
 
 export type NotificationScalarFieldEnum = (typeof NotificationScalarFieldEnum)[keyof typeof NotificationScalarFieldEnum]

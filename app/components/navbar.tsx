@@ -145,6 +145,21 @@ export default function Sidebar({
     const router = useRouter();
     const pathname = usePathname();
 
+    // 🆕 Force-reset hover state on any route change
+    // (render-phase sync — same pattern as approvalTimeline.tsx)
+    const [prevPath, setPrevPath] = useState(pathname);
+    if (pathname !== prevPath) {
+        setPrevPath(pathname);
+        if (isHovered) setIsHovered(false);
+        if (hoverKey !== null) setHoverKey(null);
+    }
+
+    // 🆕 Handler passed to NotificationPopover — collapses navbar BEFORE navigation
+    const handleNotificationNavigate = () => {
+        setIsHovered(false);
+        setHoverKey(null);
+    };
+
     const { colorScheme, setColorScheme, clearColorScheme } = useMantineColorScheme({ keepTransitions: true });
 
     const [themeMode, setThemeMode] = useState<'light' | 'dark' | 'system'>(() => {
@@ -440,12 +455,12 @@ export default function Sidebar({
                                         style={{
                                             width: 46,
                                             height: 46,
-                                            display: "flex",
-                                            alignItems: "center",
-                                            justifyContent: "center",
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
                                         }}
                                     >
-                                        <NotificationPopover>
+                                        <NotificationPopover onNavigate={handleNotificationNavigate}>
                                             <Tooltip label={item.label} position="right" withArrow zIndex={1100}>
                                                 {iconButton}
                                             </Tooltip>
@@ -728,7 +743,7 @@ export default function Sidebar({
                             }
 
                             return item.isPopover ? (
-                                <NotificationPopover key={item.label}>
+                                <NotificationPopover key={item.label} onNavigate={handleNotificationNavigate}>
                                     <NavLink
                                         label={item.label}
                                         leftSection={<item.icon size={18} stroke={1.5} color={textColor} />}

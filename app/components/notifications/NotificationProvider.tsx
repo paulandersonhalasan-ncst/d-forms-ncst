@@ -13,6 +13,10 @@ export interface NotificationItem {
   createdAt?: string;
   recipientId?: string;
   senderId?: string;
+  // Routing metadata
+  linkUrl?: string | null;
+  entityType?: string | null;
+  entityId?: string | null;
 }
 
 interface NotificationsResponse {
@@ -34,40 +38,32 @@ interface NotificationContextType {
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
-const fetcher = (url: string) => {
-    //console.log('🔄 Fetching notifications at:', new Date().toLocaleTimeString());
-    return fetch(url).then(res => res.json());
-};
+const fetcher = (url: string) => fetch(url).then(res => res.json());
 
 export function NotificationProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(false);
 
-  // 🎯 SWR with polling - ITO ANG SOURCE OF TRUTH
   const { data, mutate, error } = useSWR<NotificationsResponse>(
-    '/api/notifications', // Siguraduhing may leading slash (/) para laging sa root mag-fetch
+    '/api/notifications',
     fetcher,
     {
-      refreshInterval: 15000, // 👈 🎯 FIX 1: Ito ang magti-trigger ng POLLING (every 5 seconds)
-      revalidateOnFocus: true, // Mag-uupdate din agad pagkabukas ulit ng tab
-      shouldRetryOnError: false // Optional: Para hindi mag-spam ng retry kung sakaling mawalan ng net
+      refreshInterval: 15000,
+      revalidateOnFocus: true,
+      shouldRetryOnError: false,
     }
   );
 
-  // 🎯 FIX 2: Siguraduhing tama ang pagkuha natin sa binabato ng route.js
   const notifications = data?.notifications || [];
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
-  // 🟢 Listen for manual refresh from IOM page
   useEffect(() => {
     const handleRefresh = () => mutate();
     window.addEventListener('refresh-notifications', handleRefresh);
     return () => window.removeEventListener('refresh-notifications', handleRefresh);
   }, [mutate]);
 
-  // 🟢 Mark single notification as read
   const markAsRead = useCallback(async (id: string) => {
     try {
-      // Optimistic update
       mutate(
         {
           ...data,
@@ -85,14 +81,13 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         body: JSON.stringify({ notificationId: id }),
       });
 
-      mutate(); // Re-fetch to sync
+      mutate();
     } catch (err) {
       console.error('Failed to mark as read:', err);
-      mutate(); // Re-fetch on error
+      mutate();
     }
   }, [data, notifications, mutate]);
 
-  // 🟢 Mark all as read
   const markAllAsRead = useCallback(async () => {
     try {
       mutate(
@@ -117,7 +112,6 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     }
   }, [data, notifications, mutate]);
 
-  // 🟢 Clear all notifications
   const clearAll = useCallback(async () => {
     const confirmClear = window.confirm('Are you sure you want to clear your notifications?');
     if (!confirmClear) return;
@@ -137,7 +131,6 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     }
   }, [data, mutate]);
 
-  // 🟢 Refresh function (manual)
   const refresh = useCallback(() => {
     mutate();
   }, [mutate]);
@@ -161,7 +154,6 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   );
 }
 
-// 🟢 Custom hook para gamitin ang context
 export function useNotifications() {
   const context = useContext(NotificationContext);
   if (context === undefined) {

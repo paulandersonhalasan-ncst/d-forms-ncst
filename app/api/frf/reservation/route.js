@@ -517,7 +517,11 @@ export async function POST(request) {
                 message: `New FRF ${reservation.referenceId} needs your approval.`,
                 isRead: false,
                 recipientId: u.id,
-                senderId: user.id
+                senderId: user.id,
+                // 🆕 Routing metadata
+                linkUrl: `/dashboard/forms/frf?tab=pending_approval&focus=${reservation.id}`,
+                entityType: 'FRF',
+                entityId: reservation.id,
               }
             });
           }
@@ -750,6 +754,10 @@ export async function PATCH(request) {
               isRead: false,
               recipientId: reservation.requestorId,
               senderId: user.id,
+              // 🆕 Routing metadata
+              linkUrl: `/dashboard/forms/frf?tab=completed&focus=${reservation.id}`,
+              entityType: 'FRF',
+              entityId: reservation.id,
             },
           });
         } catch (notifErr) {
@@ -1377,7 +1385,11 @@ export async function PATCH(request) {
                   message: `FRF ${reservation.referenceId} needs your approval.`,
                   isRead: false,
                   recipientId: u.id,
-                  senderId: user.id
+                  senderId: user.id,
+                  // 🆕 Routing metadata
+                  linkUrl: `/dashboard/forms/frf?tab=pending_approval&focus=${reservation.id}`,
+                  entityType: 'FRF',
+                  entityId: reservation.id,
                 }
               });
             }
@@ -1436,7 +1448,11 @@ export async function PATCH(request) {
                 message: `Your FRF ${reservation.referenceId} has been completed.`,
                 isRead: false,
                 recipientId: requestor.id,
-                senderId: user.id
+                senderId: user.id,
+                // 🆕 Routing metadata
+                linkUrl: `/dashboard/forms/frf?tab=completed&focus=${reservation.id}`,
+                entityType: 'FRF',
+                entityId: reservation.id,
               }
             });
           }
@@ -1549,7 +1565,11 @@ export async function PATCH(request) {
             message: `Your FRF ${reservation.referenceId} was rejected by ${user.departmentCode}. Remarks: ${remarks || 'No remarks provided.'}`,
             isRead: false,
             recipientId: reservation.requestorId,
-            senderId: user.id
+            senderId: user.id,
+            // 🆕 Routing metadata
+            linkUrl: `/dashboard/forms/frf?tab=my_requests&focus=${reservation.id}`,
+            entityType: 'FRF',
+            entityId: reservation.id,
           }
         });
       } catch (notifErr) {
@@ -1648,7 +1668,11 @@ export async function PATCH(request) {
             message: `Your FRF ${reservation.referenceId} was returned for revision by ${user.departmentCode}. Reason: ${remarks || 'No reason provided.'}`,
             isRead: false,
             recipientId: reservation.requestorId,
-            senderId: user.id
+            senderId: user.id,
+            // 🆕 Routing metadata
+            linkUrl: `/dashboard/forms/frf?tab=my_requests&focus=${reservation.id}`,
+            entityType: 'FRF',
+            entityId: reservation.id
           }
         });
       } catch (notifErr) {
@@ -1861,7 +1885,11 @@ export async function PATCH(request) {
             message: `Your FRF ${reservation.referenceId} has been finalized and completed by OCM.`,
             isRead: false,
             recipientId: reservation.requestorId,
-            senderId: user.id
+            senderId: user.id,
+            // 🆕 Routing metadata
+            linkUrl: `/dashboard/forms/frf?tab=completed&focus=${reservation.id}`,
+            entityType: 'FRF',
+            entityId: reservation.id
           }
         });
       } catch (notifErr) {
@@ -2254,7 +2282,11 @@ export async function PATCH(request) {
                   message: `Reschedule request for ${reservation.referenceId} needs your approval.`,
                   isRead: false,
                   recipientId: u.id,
-                  senderId: user.id
+                  senderId: user.id,
+                  // 🆕 Routing metadata
+                  linkUrl: `/dashboard/forms/frf?tab=pending_approval&focus=${reservation.id}`,
+                  entityType: 'FRF',
+                  entityId: reservation.id,
                 }
               });
             }
