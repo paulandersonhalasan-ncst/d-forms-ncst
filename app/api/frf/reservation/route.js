@@ -519,7 +519,7 @@ export async function POST(request) {
                 recipientId: u.id,
                 senderId: user.id,
                 // 🆕 Routing metadata
-                linkUrl: `/dashboard/forms/frf?tab=pending_approval&focus=${reservation.id}`,
+                linkUrl: `/dashboard/forms/frf?tab=pending_approval`,
                 entityType: 'FRF',
                 entityId: reservation.id,
               }
@@ -755,7 +755,7 @@ export async function PATCH(request) {
               recipientId: reservation.requestorId,
               senderId: user.id,
               // 🆕 Routing metadata
-              linkUrl: `/dashboard/forms/frf?tab=completed&focus=${reservation.id}`,
+              linkUrl: `/dashboard/forms/frf?tab=completed`,
               entityType: 'FRF',
               entityId: reservation.id,
             },
@@ -1264,6 +1264,24 @@ export async function PATCH(request) {
                 },
               });
               await sendFRFAssignmentToStaff(staffUsers, freshReservation, assignmentDetails);
+
+              // 🆕 In-app notifications per assigned staff (with updated dates)
+              for (const staff of staffUsers) {
+                const myDuties = assignmentDetails.filter(a => a.userId === staff.id);
+                if (myDuties.length === 0) continue;
+                await prisma.notification.create({
+                  data: {
+                    title: "Your Event Assignment Was Updated",
+                    message: `Your duty assignment(s) for ${freshReservation.referenceId} were updated due to a reschedule. ${myDuties.length} duty assignment(s).`,
+                    isRead: false,
+                    recipientId: staff.id,
+                    senderId: user.id,
+                    linkUrl: `/dashboard/forms/frf?tab=assigned_to_me`,
+                    entityType: 'FRF',
+                    entityId: reservation.id,
+                  }
+                });
+              }
             }
           } catch (staffNotifErr) {
             console.error('❌ [RESCHEDULE NOTIFY] Error:', staffNotifErr);
@@ -1334,6 +1352,24 @@ export async function PATCH(request) {
 
             if (staffUsers.length > 0) {
               await sendFRFAssignmentToStaff(staffUsers, reservation, assignmentDetails);
+
+              // 🆕 In-app notifications per assigned staff
+              for (const staff of staffUsers) {
+                const myDuties = assignmentDetails.filter(a => a.userId === staff.id);
+                if (myDuties.length === 0) continue;
+                await prisma.notification.create({
+                  data: {
+                    title: "You've Been Assigned to an Event",
+                    message: `You have ${myDuties.length} duty assignment(s) for ${reservation.referenceId} — "${reservation.eventName || 'Facility Event'}".`,
+                    isRead: false,
+                    recipientId: staff.id,
+                    senderId: user.id,
+                    linkUrl: `/dashboard/forms/frf?tab=assigned_to_me`,
+                    entityType: 'FRF',
+                    entityId: reservation.id,
+                  }
+                });
+              }
             }
           } catch (staffNotifErr) {
             console.error('❌ [NOTIFY] Staff assignment notification error:', staffNotifErr);
@@ -1387,7 +1423,7 @@ export async function PATCH(request) {
                   recipientId: u.id,
                   senderId: user.id,
                   // 🆕 Routing metadata
-                  linkUrl: `/dashboard/forms/frf?tab=pending_approval&focus=${reservation.id}`,
+                  linkUrl: `/dashboard/forms/frf?tab=pending_approval`,
                   entityType: 'FRF',
                   entityId: reservation.id,
                 }
@@ -1450,7 +1486,7 @@ export async function PATCH(request) {
                 recipientId: requestor.id,
                 senderId: user.id,
                 // 🆕 Routing metadata
-                linkUrl: `/dashboard/forms/frf?tab=completed&focus=${reservation.id}`,
+                linkUrl: `/dashboard/forms/frf?tab=completed`,
                 entityType: 'FRF',
                 entityId: reservation.id,
               }
@@ -1567,7 +1603,7 @@ export async function PATCH(request) {
             recipientId: reservation.requestorId,
             senderId: user.id,
             // 🆕 Routing metadata
-            linkUrl: `/dashboard/forms/frf?tab=my_requests&focus=${reservation.id}`,
+            linkUrl: `/dashboard/forms/frf?tab=my_requests`,
             entityType: 'FRF',
             entityId: reservation.id,
           }
@@ -1670,7 +1706,7 @@ export async function PATCH(request) {
             recipientId: reservation.requestorId,
             senderId: user.id,
             // 🆕 Routing metadata
-            linkUrl: `/dashboard/forms/frf?tab=my_requests&focus=${reservation.id}`,
+            linkUrl: `/dashboard/forms/frf?tab=my_requests`,
             entityType: 'FRF',
             entityId: reservation.id
           }
@@ -1786,6 +1822,24 @@ export async function PATCH(request) {
         if (staffUsers.length > 0) {
           await sendFRFAssignmentToStaff(staffUsers, reservation, assignmentDetails);
         }
+
+        // 🆕 In-app notifications for each assigned staff
+        for (const staff of staffUsers) {
+          const myDuties = assignmentDetails.filter(a => a.userId === staff.id);
+          if (myDuties.length === 0) continue;
+          await prisma.notification.create({
+            data: {
+              title: "You've Been Assigned to an Event",
+              message: `You have ${myDuties.length} duty assignment(s) for ${reservation.referenceId} — "${reservation.eventName || 'Facility Event'}".`,
+              isRead: false,
+              recipientId: staff.id,
+              senderId: user.id,
+              linkUrl: `/dashboard/forms/frf?tab=assigned_to_me`,
+              entityType: 'FRF',
+              entityId: reservation.id,
+            }
+          });
+        }
       } catch (staffNotifErr) {
         console.error('Staff assignment notification error (assign action):', staffNotifErr);
       }
@@ -1887,7 +1941,7 @@ export async function PATCH(request) {
             recipientId: reservation.requestorId,
             senderId: user.id,
             // 🆕 Routing metadata
-            linkUrl: `/dashboard/forms/frf?tab=completed&focus=${reservation.id}`,
+            linkUrl: `/dashboard/forms/frf?tab=completed`,
             entityType: 'FRF',
             entityId: reservation.id
           }
@@ -2284,7 +2338,7 @@ export async function PATCH(request) {
                   recipientId: u.id,
                   senderId: user.id,
                   // 🆕 Routing metadata
-                  linkUrl: `/dashboard/forms/frf?tab=pending_approval&focus=${reservation.id}`,
+                  linkUrl: `/dashboard/forms/frf?tab=pending_approval`,
                   entityType: 'FRF',
                   entityId: reservation.id,
                 }

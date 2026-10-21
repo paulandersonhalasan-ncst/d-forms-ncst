@@ -401,13 +401,21 @@ export default function ViewMemoModal({
           })}
         </Stack>
 
-        {/* Assigned to (array) */}
-          {recipientRow?.assignedToNames && recipientRow.assignedToNames.length > 0 && (
-            <Text size="xs" c="dimmed">
-              <b>Assigned to:</b> {recipientRow.assignedToNames.join(', ')}
-              {recipientRow.assignedAt && ` (${new Date(recipientRow.assignedAt).toLocaleString()})`}
+        {/* Assigned to — all departments (parity with MemoCard header) */}
+        {(() => {
+          const allDeptAssignments = memo.recipients
+            ?.filter((r) => r.assignedToNames && r.assignedToNames.length > 0)
+            .map((r) => `${r.departmentName}: ${r.assignedToNames!.join(', ')}`)
+            .join(' · ') || '';
+
+          if (!allDeptAssignments) return null;
+
+          return (
+            <Text size="xs" c="dimmed" style={{ whiteSpace: 'pre-wrap' }}>
+              <b>Assigned to:</b> {allDeptAssignments}
             </Text>
-          )}
+          );
+        })()}
 
         {/* Dynamic footer: All Buttons in One Row */}
         <Group gap="xs" wrap="wrap" mt="xl" pt="md" style={{ borderTop: '1px solid var(--mantine-color-gray-3)' }}>

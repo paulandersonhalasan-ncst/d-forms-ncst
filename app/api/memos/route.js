@@ -351,18 +351,27 @@ export async function POST(request) {
 
       // If this is a reply (parentMemoId present), notify the original sender
       if (parentMemoId && parentMemoId !== 'null') {
-        const originalMemo = await prisma.memo.findUnique({
-          where: { id: parentMemoId },
-          select: { senderId: true },
-        });
-        if (originalMemo) {
-          const originalSender = await prisma.user.findUnique({
-            where: { id: originalMemo.senderId },
-            select: { email: true },
+        try {
+          const originalMemo = await prisma.memo.findUnique({
+            where: { id: parentMemoId },
+            select: { senderId: true },
           });
-          if (originalSender) {
-            await sendReplyNotification(originalSender, finalMemo);
+          if (originalMemo && originalMemo.senderId !== authenticatedUser.id) {
+            await prisma.notification.create({
+              data: {
+                title: "New Reply to Your Memo",
+                message: `${senderFullName} (${userDept}) replied to your memo — "${subject}". Ref: ${refId}`,
+                isRead: false,
+                recipientId: originalMemo.senderId,
+                senderId: authenticatedUser.id,
+                linkUrl: `/dashboard/forms/iom?tab=outbound&focus=${newMemo.id}`,
+                entityType: 'IOM',
+                entityId: newMemo.id,
+              }
+            });
           }
+        } catch (notifErr) {
+          console.error('Reply in-app notification error:', notifErr);
         }
       }
     } catch (emailErr) {
@@ -675,7 +684,7 @@ export async function PATCH(request) {
                 recipientId: head.id,
                 senderId: authenticatedUser.id,
                 // 🆕 Routing metadata
-                linkUrl: `/dashboard/forms/iom?tab=inbound&focus=${currentMemo.id}`,
+                linkUrl: `/dashboard/forms/iom?tab=inbound`,
                 entityType: 'IOM',
                 entityId: currentMemo.id,
               }))
@@ -692,7 +701,7 @@ export async function PATCH(request) {
             recipientId: currentMemo.senderId,   // 🆕 was authenticatedUser.id — should be the original sender
             senderId: authenticatedUser.id,
             // 🆕 Routing metadata
-            linkUrl: `/dashboard/forms/iom?tab=outbound&focus=${currentMemo.id}`,
+            linkUrl: `/dashboard/forms/iom?tab=outbound`,
             entityType: 'IOM',
             entityId: currentMemo.id,
           }
@@ -812,9 +821,6 @@ export async function PATCH(request) {
           if (!targetRecipient) {
             return NextResponse.json({ success: false, message: "Department not a recipient" }, { status: 400 });
           }
-          
-          const assignedId = targetRecipient.assignedToId || authenticatedUser.id;
-          const assignedName = targetRecipient.assignedToName || employeeName;
 
           const currentAssignedIds = targetRecipient.assignedToIds || [];
           const currentAssignedNames = targetRecipient.assignedToNames || [];
@@ -853,6 +859,26 @@ export async function PATCH(request) {
             console.error('❌ Email Notification Failed (START_PROCESSING):', emailErr);
           }
 
+          // 🆕 In-app notification → memo sender (skip self)
+          if (currentMemo.senderId !== authenticatedUser.id) {
+            try {
+              await prisma.notification.create({
+                data: {
+                  title: "Your Memo is Being Processed",
+                  message: `${employeeName} (${departmentName}) started processing memo ${currentMemo.referenceId} — "${currentMemo.subject}".`,
+                  isRead: false,
+                  recipientId: currentMemo.senderId,
+                  senderId: authenticatedUser.id,
+                  linkUrl: `/dashboard/forms/iom?tab=outbound`,
+                  entityType: 'IOM',
+                  entityId: currentMemo.id,
+                }
+              });
+            } catch (notifErr) {
+              console.error('START_PROCESSING notification error:', notifErr);
+            }
+          }
+
         } else if (action === 'JOIN_PROCESSING') {
           if (!targetRecipient) {
             return NextResponse.json({ success: false, message: "Department not a recipient" }, { status: 400 });
@@ -888,33 +914,23 @@ export async function PATCH(request) {
           historyActionType = "PROCESSING_JOINED";
 
           try {
-            // If the closer is not the sender, notify sender
-            if (!isSenderClosing && authenticatedUser.id !== currentMemo.senderId) {
-              const sender = await prisma.user.findUnique({
-                where: { id: currentMemo.senderId },
-                select: { email: true, fname: true, lname: true },
-              });
-              if (sender) {
-                await sendMemoClosed(
-                  sender,
-                  currentMemo,
-                  employeeName,
-                  departmentName
-                );
-              }
-            }
-            // Always notify sender's department heads
-            const senderDeptHeads = await getDepartmentHeads(currentMemo.senderDept);
-            if (senderDeptHeads.length > 0) {
-              const subject = `🔒 Memo Closed – ${currentMemo.referenceId}`;
-              const html = `
-                <h2>Memo Closed</h2>
-                <p><strong>Closed by:</strong> ${employeeName} (${departmentName || currentMemo.senderDept})</p>
-                <p><strong>Subject:</strong> ${currentMemo.subject}</p>
-                <p><strong>Reference:</strong> ${currentMemo.referenceId}</p>
-              `;
-              for (const head of senderDeptHeads) {
-                await sendEmailWithRetry({ to: head.email, subject, html });
+            // 🆕 In-app notification → memo sender (skip self)
+            if (currentMemo.senderId !== authenticatedUser.id) {
+              try {
+                await prisma.notification.create({
+                  data: {
+                    title: "Another Staff Joined Processing",
+                    message: `${employeeName} (${departmentName}) joined processing your memo ${currentMemo.referenceId} — "${currentMemo.subject}".`,
+                    isRead: false,
+                    recipientId: currentMemo.senderId,
+                    senderId: authenticatedUser.id,
+                    linkUrl: `/dashboard/forms/iom?tab=outbound`,
+                    entityType: 'IOM',
+                    entityId: currentMemo.id,
+                  }
+                });
+              } catch (notifErr) {
+                console.error('JOIN_PROCESSING notification error:', notifErr);
               }
             }
           } catch (emailErr) {
@@ -1042,20 +1058,21 @@ export async function PATCH(request) {
             return NextResponse.json({ success: false, message: "No staff selected for assignment" }, { status: 400 });
           }
 
-          const assignedUser = await prisma.user.findUnique({
+          const assignedUserInfo = await prisma.user.findUnique({
             where: { id: assignedToId },
-            select: { fname: true, lname: true }
+            select: { id: true, email: true, fname: true, lname: true }
           });
-          if (!assignedUser) {
+          if (!assignedUserInfo) {
             return NextResponse.json({ success: false, message: "Staff not found" }, { status: 404 });
           }
 
-          const assignedName = `${assignedUser.fname} ${assignedUser.lname}`;
+          const assignedName = `${assignedUserInfo.fname} ${assignedUserInfo.lname}`;
 
           const currentAssignedIds = targetRecipient.assignedToIds || [];
           const currentAssignedNames = targetRecipient.assignedToNames || [];
 
-          if (!currentAssignedIds.includes(assignedToId)) {
+          const wasNewAssignment = !currentAssignedIds.includes(assignedToId);
+          if (wasNewAssignment) {
             currentAssignedIds.push(assignedToId);
             currentAssignedNames.push(assignedName);
           }
@@ -1068,17 +1085,54 @@ export async function PATCH(request) {
           };
           historyActionType = "ASSIGNED";
 
-          // Send email to assigned staff
-          try {
-            const assignedUser = await prisma.user.findUnique({
-              where: { id: assignedToId },
-              select: { email: true, fname: true, lname: true },
-            });
-            if (assignedUser) {
-              await sendMemoAssigned(assignedUser, currentMemo);
+          // ✅ Only notify on FIRST assignment (avoid spam on re-assign)
+          if (wasNewAssignment) {
+            const assignerDept = departmentName || userDept;
+
+            // ── 1. Email to assigned staff ──────────────────────────
+            try {
+              await sendMemoAssigned(assignedUserInfo, currentMemo);
+            } catch (emailErr) {
+              console.error('❌ Email Notification Failed (ASSIGN):', emailErr);
             }
-          } catch (emailErr) {
-            console.error('❌ Email Notification Failed (ASSIGN):', emailErr);
+
+            // ── 2. In-app → ASSIGNED STAFF ──────────────────────────
+            try {
+              await prisma.notification.create({
+                data: {
+                  title: "Memo Assigned to You",
+                  message: `${employeeName} (${assignerDept}) assigned you to process memo ${currentMemo.referenceId} — "${currentMemo.subject}".`,
+                  isRead: false,
+                  recipientId: assignedToId,
+                  senderId: authenticatedUser.id,
+                  linkUrl: `/dashboard/forms/iom?tab=assigned_to_me`,
+                  entityType: 'IOM',
+                  entityId: currentMemo.id,
+                }
+              });
+            } catch (notifErr) {
+              console.error('Assigned staff notification error:', notifErr);
+            }
+
+            // ── 3. In-app → MEMO SENDER (skip self-notify) ─────────
+            if (currentMemo.senderId !== authenticatedUser.id) {
+              try {
+                await prisma.notification.create({
+                  data: {
+                    title: "Staff Assigned to Your Memo",
+                    message: `${employeeName} (${assignerDept}) assigned ${assignedName} to process your memo ${currentMemo.referenceId}.`,
+                    isRead: false,
+                    recipientId: currentMemo.senderId,
+                    senderId: authenticatedUser.id,
+                    linkUrl: `/dashboard/forms/iom?tab=outbound`,
+                    entityType: 'IOM',
+                    entityId: currentMemo.id,
+                  }
+                });
+              } catch (notifErr) {
+                console.error('Memo sender notification error:', notifErr);
+              }
+            }
           }
         } else {
           return NextResponse.json({ success: false, message: `Unknown action: ${action}` }, { status: 400 });
@@ -1160,20 +1214,20 @@ export async function PATCH(request) {
             notificationPayload = {
               recipientId: currentMemo.senderId,
               title: "Memo Closed by Sender",
-              message: `Memo ${memoRefString} has been closed by sender.`,
+              message: `Memo ${memoRefString} has been closed by sender. If not available under OUTBOUND, check ARCHIVED/RESOLVED Tab.`,
             };
           } else {
             notificationPayload = {
               recipientId: currentMemo.senderId,
               title: "Action Item Completed",
-              message: `Department ${departmentName} completed memo ${memoRefString}.`,
+              message: `Department ${departmentName} completed memo ${memoRefString}. If not available under OUTBOUND, check ARCHIVED/RESOLVED Tab.`,
             };
           }
         } else if (action === 'DENY') {
           notificationPayload = {
             recipientId: currentMemo.senderId,
             title: "Inbound Transaction Denied",
-            message: `Memo ${memoRefString} denied by ${departmentName}.`,
+            message: `Memo ${memoRefString} denied by ${departmentName}. If not available under OUTBOUND, check ARCHIVED/RESOLVED Tab.`,
           };
         }
         // APPROVE: handled in its own block above — no duplicate here
@@ -1185,7 +1239,7 @@ export async function PATCH(request) {
               isRead: false,
               senderId: authenticatedUser.id,
               // 🆕 Routing metadata (was being dropped before)
-              linkUrl: `/dashboard/forms/iom?tab=outbound&focus=${currentMemo.id}`,
+              linkUrl: `/dashboard/forms/iom?tab=outbound`,
               entityType: 'IOM',
               entityId: currentMemo.id,
             }

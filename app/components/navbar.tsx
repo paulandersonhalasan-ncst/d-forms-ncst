@@ -139,6 +139,8 @@ export default function Sidebar({
     const [hoverKey, setHoverKey] = useState<string | null>(null);
     const [mounted, setMounted] = useState(false);
 
+    const [notificationPopoverOpen, setNotificationPopoverOpen] = useState(false);
+
     // 🆕 Delay para hindi agad mag-collapse pag lumabas ng konti ang mouse
     const leaveTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -154,10 +156,10 @@ export default function Sidebar({
         if (hoverKey !== null) setHoverKey(null);
     }
 
-    // 🆕 Handler passed to NotificationPopover — collapses navbar BEFORE navigation
     const handleNotificationNavigate = () => {
         setIsHovered(false);
         setHoverKey(null);
+        setNotificationPopoverOpen(false);
     };
 
     const { colorScheme, setColorScheme, clearColorScheme } = useMantineColorScheme({ keepTransitions: true });
@@ -264,7 +266,12 @@ export default function Sidebar({
         }, 120);
     };
 
-    const isExpanded = isMobile ? mobileOpened : isHovered;
+    // Keep navbar expanded while the notification popover is open,
+    // otherwise moving toward the dropdown collapses the navbar and orphans the popover.
+    const isExpanded = isMobile
+        ? mobileOpened
+        : (isHovered || notificationPopoverOpen);
+
     const borderColor =
         effectiveRole === "Staff" || effectiveRole === "Faculty"
             ? "1px solid rgba(0,0,0,0.08)"
@@ -403,7 +410,7 @@ export default function Sidebar({
 
                             const iconButton = (
                                 <UnstyledButton
-                                    onClick={item.links ? undefined : handleClick}
+                                    onClick={item.links || item.isPopover ? undefined : handleClick}
                                     onMouseEnter={() => setHoverKey(item.label)}
                                     onMouseLeave={() => setHoverKey(null)}
                                     aria-label={item.label}
@@ -460,11 +467,14 @@ export default function Sidebar({
                                             justifyContent: 'center',
                                         }}
                                     >
-                                        <NotificationPopover onNavigate={handleNotificationNavigate}>
-                                            <Tooltip label={item.label} position="right" withArrow zIndex={1100}>
-                                                {iconButton}
-                                            </Tooltip>
-                                        </NotificationPopover>
+                                    <NotificationPopover
+                                        onNavigate={handleNotificationNavigate}
+                                        onOpenChange={setNotificationPopoverOpen}
+                                    >
+                                        <Tooltip label={item.label} position="right" withArrow zIndex={1100}>
+                                            {iconButton}
+                                        </Tooltip>
+                                    </NotificationPopover>
                                     </Box>
                                 );
                             }
@@ -743,7 +753,7 @@ export default function Sidebar({
                             }
 
                             return item.isPopover ? (
-                                <NotificationPopover key={item.label} onNavigate={handleNotificationNavigate}>
+                                <NotificationPopover key={item.label} onNavigate={handleNotificationNavigate} onOpenChange={setNotificationPopoverOpen}>
                                     <NavLink
                                         label={item.label}
                                         leftSection={<item.icon size={18} stroke={1.5} color={textColor} />}

@@ -2,7 +2,7 @@
 
 "use client";
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   Popover,
@@ -48,29 +48,89 @@ export function resolveNotificationRoute(notif: NotificationItem): string | null
 
 interface NotificationPopoverProps {
   children: React.ReactNode;
-  // 🆕 Fired right before any navigation — parent uses this to collapse its own hover state
+  /** Fired before navigation — parent (navbar) collapses its hover state */
   onNavigate?: () => void;
+  /** Fired whenever popover opens/closes — parent keeps itself expanded while open */
+  onOpenChange?: (opened: boolean) => void;
+  /** When true (default) the popover opens on hover. Set false to use click-toggle. */
+  openOnHover?: boolean;
 }
 
-export default function NotificationPopover({ children, onNavigate }: NotificationPopoverProps) {
+export default function NotificationPopover({
+  children,
+  onNavigate,
+  onOpenChange,
+  openOnHover = true,
+}: NotificationPopoverProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const [opened, setOpened] = useState(false);
+  const [opened, setOpenedState] = useState(false);
+  const closeTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Force-close on any route change
+  // Wrapped setter so parent always hears about state changes
+  const setOpened = (next: boolean) => {
+    setOpenedState(next);
+    onOpenChange?.(next);
+  };
+
+  // Force-close on any route change (render-phase sync, no useEffect)
   const [prevPath, setPrevPath] = useState(pathname);
   if (pathname !== prevPath) {
     setPrevPath(pathname);
-    if (opened) setOpened(false);
+    if (opened) {
+      setOpenedState(false);
+      onOpenChange?.(false);
+    }
   }
 
-  const { notifications, unreadCount, isLoading, markAsRead } = useNotifications();
+  // Cleanup pending timer on unmount
+  useEffect(() => {
+    return () => {
+      if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+    };
+  }, []);
 
+  const { notifications, unreadCount, isLoading, markAsRead } = useNotifications();
   const unreadList = notifications.filter((n) => !n.isRead);
 
+  const clearCloseTimer = () => {
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+  };
+
+  const scheduleClose = () => {
+    clearCloseTimer();
+    // 180ms grace period — allows cursor to travel from target → dropdown
+    closeTimerRef.current = setTimeout(() => setOpened(false), 180);
+  };
+
+  const handleTargetEnter = () => {
+    if (!openOnHover) return;
+    clearCloseTimer();
+    setOpened(true);
+  };
+
+  const handleTargetLeave = () => {
+    if (!openOnHover) return;
+    scheduleClose();
+  };
+
+  const handleDropdownEnter = () => {
+    if (!openOnHover) return;
+    clearCloseTimer();
+  };
+
+  const handleDropdownLeave = () => {
+    if (!openOnHover) return;
+    scheduleClose();
+  };
+
   const handleMiniCardClick = (notif: NotificationItem) => {
+    clearCloseTimer();
     setOpened(false);
-    onNavigate?.();     // 🆕 collapse navbar BEFORE navigation
+    onNavigate?.();
     if (!notif.isRead) {
       markAsRead(notif.id).catch((err) =>
         console.error('markAsRead failed:', err)
@@ -81,9 +141,21 @@ export default function NotificationPopover({ children, onNavigate }: Notificati
   };
 
   const handleSeeAll = () => {
+    clearCloseTimer();
     setOpened(false);
-    onNavigate?.();     // 🆕 collapse navbar BEFORE navigation
+    onNavigate?.();
     router.push('/dashboard/notifications');
+  };
+
+  // Target click:
+  //   - Hover mode → navigate straight to the notifications page
+  //   - Click mode → toggle
+  const handleTargetClick = () => {
+    if (openOnHover) {
+      handleSeeAll();
+    } else {
+      setOpened(!opened);
+    }
   };
 
   return (
@@ -97,23 +169,33 @@ export default function NotificationPopover({ children, onNavigate }: Notificati
       trapFocus={false}
       withinPortal
       returnFocus={false}
-      closeOnClickOutside
+      closeOnClickOutside={!openOnHover}   // hover mode: don't close on outside click
       closeOnEscape
       offset={12}
       zIndex={5000}
       radius="md"
-      transitionProps={{ duration: 0 }}
+      transitionProps={{
+        transition: 'pop',
+        duration: 130,      // enter animation
+        exitDuration: 90,   // exit animation
+      }}
     >
       <Popover.Target>
         <div
-          onClick={() => setOpened((o) => !o)}
+          onMouseEnter={handleTargetEnter}
+          onMouseLeave={handleTargetLeave}
+          onClick={handleTargetClick}
           style={{ width: '100%', cursor: 'pointer', position: 'relative' }}
         >
           {children}
         </div>
       </Popover.Target>
 
-      <Popover.Dropdown p={0}>
+      <Popover.Dropdown
+        p={0}
+        onMouseEnter={handleDropdownEnter}
+        onMouseLeave={handleDropdownLeave}
+      >
         <Group
           justify="space-between"
           p="md"
