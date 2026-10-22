@@ -139,6 +139,8 @@ export default function FRFDashboardPage() {
 
   const [searchTerm, setSearchTerm] = useState('');
 
+  const [isDraftMode, setIsDraftMode] = useState(false);
+
   // ---- Editing state ----
   const [editingReservation, setEditingReservation] = useState<FacilityReservation | null>(null);
   const [isEditingMode, setIsEditingMode] = useState(false);
@@ -638,6 +640,24 @@ export default function FRFDashboardPage() {
 
   // ---- Password gate handlers ----
   const handleAction = (type: FRFActionType, data: Record<string, unknown>) => {
+    if (type === 'SAVE_DRAFT') {
+      const id = data.id as string;
+      const reservation = reservations.find(r => r.id === id);
+      if (reservation) {
+        setEditingReservation(reservation);
+        setIsDraftMode(true);
+        setIsEditingMode(false);
+        setIsRescheduleMode(false);
+        setStepperKey(k => k + 1);
+        closeDetail();
+        open();
+      }
+      return;
+    }
+    if (type === 'DELETE_DRAFT') {
+      handleDeleteDraft(data.id as string);
+      return;
+    }
     if (type === 'RESUBMIT') {
       const id = data.id as string;
       const reservation = reservations.find(r => r.id === id);
@@ -749,11 +769,84 @@ export default function FRFDashboardPage() {
     }
   };
 
+  const handleSaveDraft = async (
+    draftId: string | null,
+    values: FRFFormValues,
+    attachmentsToKeep: string[]
+  ) => {
+    setPassLoading(true);
+    try {
+      const formData = new FormData();
+      if (draftId) {
+        formData.append('id', draftId);
+        formData.append('action', 'save-draft');
+      } else {
+        formData.append('isDraft', 'true');
+      }
+      formData.append('type', values.type);
+      if (values.eventName) formData.append('eventName', values.eventName);
+      formData.append('attendeesCount', String(values.attendeesCount));
+      if (values.usageHours) formData.append('usageHours', String(values.usageHours));
+      formData.append('withCharge', String(values.withCharge));
+      if (values.requestorNotes) formData.append('requestorNotes', values.requestorNotes);
+      formData.append('isVenueOnly', String(values.isVenueOnly || false));
+      formData.append('dates', JSON.stringify(values.dates.map(d => ({
+        date: d.date.toISOString(),
+        setupTime: d.setupTime.toISOString(),
+        eventStart: d.eventStart.toISOString(),
+        eventEnd: d.eventEnd.toISOString(),
+        teardownTime: d.teardownTime.toISOString(),
+        placeId: d.placeId,
+        placeOther: d.placeOther,
+      }))));
+      formData.append('equipmentItems', JSON.stringify(values.equipmentRequests));
+      formData.append('attachmentsToKeep', JSON.stringify(attachmentsToKeep));
+      for (const file of values.attachments) {
+        formData.append('attachments', file);      // POST uses 'attachments'
+        formData.append('newAttachments', file);   // PATCH uses 'newAttachments'
+      }
+
+      const method = draftId ? 'PATCH' : 'POST';
+      const res = await fetch('/api/frf/reservation', { method, body: formData });
+      const result = await res.json();
+      if (res.ok) {
+        mutateReservations();
+        alert(draftId ? 'Draft updated!' : 'Draft saved!');
+        handleModalClose();
+      } else {
+        alert(result.message || 'Failed to save draft');
+      }
+    } catch (err) {
+      console.error('Save draft error:', err);
+      alert('An error occurred while saving the draft');
+    } finally {
+      setPassLoading(false);
+    }
+  };
+
+  const handleDeleteDraft = async (draftId: string) => {
+    if (!confirm('Delete this draft? This cannot be undone.')) return;
+    try {
+      const res = await fetch(`/api/frf/reservation?id=${draftId}`, { method: 'DELETE' });
+      const result = await res.json();
+      if (res.ok) {
+        mutateReservations();
+        alert('Draft deleted');
+      } else {
+        alert(result.message || 'Failed to delete draft');
+      }
+    } catch (err) {
+      console.error('Delete draft error:', err);
+      alert('An error occurred');
+    }
+  };
+
   const handleModalClose = () => {
     close();
     setEditingReservation(null);
     setIsEditingMode(false);
     setIsRescheduleMode(false);
+    setIsDraftMode(false);
     setStepperKey((k) => k + 1);
   };
 
@@ -1261,8 +1354,10 @@ export default function FRFDashboardPage() {
         editData={editingReservation}
         isEditing={isEditingMode}
         isRescheduleMode={isRescheduleMode}
+        isDraftMode={isDraftMode} 
         onResubmit={handleResubmit}
-        onReschedule={handleReschedule} 
+        onReschedule={handleReschedule}
+        onSaveDraft={handleSaveDraft} 
       />
 
       <RequestDetailModal

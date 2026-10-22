@@ -164,7 +164,10 @@ export type FRFActionType =
   | 'ASSIGN'
   | 'OCM_FINALIZE'
   | 'RESCHEDULE'
-  | 'PACKUP_DONE';
+  | 'PACKUP_DONE'
+  | 'SAVE_DRAFT'
+  | 'SUBMIT_DRAFT'
+  | 'DELETE_DRAFT';
 
 export interface PendingAction {
   type: FRFActionType;

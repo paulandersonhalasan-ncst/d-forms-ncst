@@ -261,6 +261,7 @@ export async function POST(request) {
     const attendeesCount = parseInt(formData.get('attendeesCount')) || 0;
     const usageHours = parseFloat(formData.get('usageHours')) || null;
     const withCharge = formData.get('withCharge') === 'true';
+    const isDraft = formData.get('isDraft') === 'true'; 
     const requestorNotes = formData.get('requestorNotes') || null;
     const equipmentItems = JSON.parse(formData.get('equipmentItems') || '[]');
     const datesArray = JSON.parse(formData.get('dates') || '[]');
@@ -381,35 +382,44 @@ export async function POST(request) {
     // ✅ BUILD APPROVAL SEQUENCE WITH CDO CONDITION
     // ==========================================
     const isVenueOnly = formData.get('isVenueOnly') === 'true';
-
     const isRequestorHead = isHeadOrOIC(user);
 
-    const approvalSequence = getApprovalSequence(type, hasLedWall, hasCDOEquipment, hasITOEquipment)
-      .filter(dept => dept !== user.departmentCode);
-
-    const finalApprovalSequence = isVenueOnly
-      ? approvalSequence.filter(dept => dept !== 'ITO-MAIN')
-      : approvalSequence;
-
-    // Create approvals array
+    // 🆕 Drafts skip approval creation entirely — approvals added on submit-draft
     const approvals = [];
-    approvals.push({
-      departmentCode: user.departmentCode,
-      stepOrder: 1,
-      status: isRequestorHead ? 'APPROVED' : 'PENDING',
-      ...(isRequestorHead && {
-        performedById: user.id,
-        performedAt: new Date(),
-      }),
-    });
+    if (!isDraft) {
+      const approvalSequence = getApprovalSequence(type, hasLedWall, hasCDOEquipment, hasITOEquipment)
+        .filter(dept => dept !== user.departmentCode);
 
-    finalApprovalSequence.forEach((dept, index) => {
+      const finalApprovalSequence = isVenueOnly
+        ? approvalSequence.filter(dept => dept !== 'ITO-MAIN')
+        : approvalSequence;
+
       approvals.push({
-        departmentCode: dept,
-        stepOrder: 2 + index,
-        status: 'PENDING'
+        departmentCode: user.departmentCode,
+        stepOrder: 1,
+        status: isRequestorHead ? 'APPROVED' : 'PENDING',
+        ...(isRequestorHead && {
+          performedById: user.id,
+          performedAt: new Date(),
+        }),
       });
-    });
+
+      finalApprovalSequence.forEach((dept, index) => {
+        approvals.push({
+          departmentCode: dept,
+          stepOrder: 2 + index,
+          status: 'PENDING'
+        });
+      });
+    }
+
+    // finalApprovalSequence.forEach((dept, index) => {
+    //   approvals.push({
+    //     departmentCode: dept,
+    //     stepOrder: 2 + index,
+    //     status: 'PENDING'
+    //   });
+    // });
 
     // Create reservation with multiple dates
     const reservation = await prisma.facilityReservation.create({
@@ -424,10 +434,8 @@ export async function POST(request) {
         withCharge,
         requestorNotes: requestorNotes || undefined,
         attachments: attachmentPaths,
-        status: 'PENDING_APPROVAL',
-        approvals: {
-          create: approvals
-        },
+        status: isDraft ? 'DRAFT' : 'PENDING_APPROVAL',
+        ...(approvals.length > 0 ? { approvals: { create: approvals } } : {}),
         equipmentRequests: {
           create: equipmentItems.map(item => ({
             equipmentId: item.equipmentId || item.id,
@@ -456,7 +464,7 @@ export async function POST(request) {
       }
     });
 
-    if (equipmentIds.length > 0) {
+    if (!isDraft && equipmentIds.length > 0) {
       try {
         await prisma.$transaction(async (tx) => {
           for (const item of equipmentItems) {
@@ -491,51 +499,53 @@ export async function POST(request) {
     }
 
     // After creating the reservation (inside POST)
-    try {
-      const firstApproval = reservation.approvals.find(a => a.stepOrder === 2);
-      if (firstApproval) {
-        const nextDeptHeads = await getDepartmentHeads(firstApproval.departmentCode);
-        if (nextDeptHeads.length > 0) {
-          await sendFRFApprovalToNextDepartments(nextDeptHeads, reservation, user.departmentCode);
-          const nextUsers = await prisma.user.findMany({
-            where: {
-              departmentCode: firstApproval.departmentCode,
-              OR: [
-                { role: 'DepartmentHead' },
-                {
-                  oic_start: { lte: new Date().toISOString() },
-                  oic_end: { gte: new Date().toISOString() }
-                }
-              ]
-            },
-            select: { id: true }
-          });
-          for (const u of nextUsers) {
-            await prisma.notification.create({
-              data: {
-                title: 'FRF Pending Approval',
-                message: `New FRF ${reservation.referenceId} needs your approval.`,
-                isRead: false,
-                recipientId: u.id,
-                senderId: user.id,
-                // 🆕 Routing metadata
-                linkUrl: `/dashboard/forms/frf?tab=pending_approval`,
-                entityType: 'FRF',
-                entityId: reservation.id,
-              }
+    if (!isDraft) {  // 🆕 no notifications for draft saves
+        try {
+          const firstApproval = reservation.approvals.find(a => a.stepOrder === 2);
+          if (firstApproval) {
+          const nextDeptHeads = await getDepartmentHeads(firstApproval.departmentCode);
+          if (nextDeptHeads.length > 0) {
+            await sendFRFApprovalToNextDepartments(nextDeptHeads, reservation, user.departmentCode);
+            const nextUsers = await prisma.user.findMany({
+              where: {
+                departmentCode: firstApproval.departmentCode,
+                OR: [
+                  { role: 'DepartmentHead' },
+                  {
+                    oic_start: { lte: new Date().toISOString() },
+                    oic_end: { gte: new Date().toISOString() }
+                  }
+                ]
+              },
+              select: { id: true }
             });
+            for (const u of nextUsers) {
+              await prisma.notification.create({
+                data: {
+                  title: 'FRF Pending Approval',
+                  message: `New FRF ${reservation.referenceId} needs your approval.`,
+                  isRead: false,
+                  recipientId: u.id,
+                  senderId: user.id,
+                  // 🆕 Routing metadata
+                  linkUrl: `/dashboard/forms/frf?tab=pending_approval`,
+                  entityType: 'FRF',
+                  entityId: reservation.id,
+                }
+              });
+            }
           }
         }
+      } catch (notifErr) {
+        console.error('POST notification error:', notifErr);
       }
-    } catch (notifErr) {
-      console.error('POST notification error:', notifErr);
     }
 
     await logActivity({
       req: request,
       userId: user.id,
       email: user.email,
-      action: 'FRF_CREATE',
+      action: isDraft ? 'FRF_CREATE_DRAFT' : 'FRF_CREATE',
       details: JSON.stringify({
         referenceId,
         type,
@@ -567,28 +577,37 @@ export async function PATCH(request) {
 
     const contentType = request.headers.get('content-type') || '';
 
-    // ------------------------------
-    // Multipart (for resubmit with files)
-    // ------------------------------
     if (contentType.includes('multipart/form-data')) {
       const formData = await request.formData();
       const action = formData.get('action');
       const id = formData.get('id');
       const password = formData.get('password');
 
-      if (!id || !password) {
+      if (!id) {
         return NextResponse.json(
-          { success: false, message: 'ID and password are required' },
+          { success: false, message: 'Reservation ID is required' },
           { status: 400 }
         );
       }
 
-      const passwordValid = await verifyPassword(password, user.password, user.id);
-      if (!passwordValid) {
-        return NextResponse.json(
-          { success: false, message: 'Invalid password' },
-          { status: 403 }
-        );
+      // 🆕 save-draft is a low-friction autosave-like action — no password needed.
+      // The requestor is already verified via JWT + requestorId check inside the save-draft block.
+      const requiresPassword = action !== 'save-draft';
+
+      if (requiresPassword) {
+        if (!password) {
+          return NextResponse.json(
+            { success: false, message: 'Password is required for this action' },
+            { status: 400 }
+          );
+        }
+        const passwordValid = await verifyPassword(password, user.password, user.id);
+        if (!passwordValid) {
+          return NextResponse.json(
+            { success: false, message: 'Invalid password' },
+            { status: 403 }
+          );
+        }
       }
 
       // ==========================================
@@ -794,7 +813,328 @@ export async function PATCH(request) {
         });
       }
 
-      // Only resubmit is supported via multipart (other than packup-done)
+      // ==========================================
+      // 🆕 SAVE-DRAFT / SUBMIT-DRAFT
+      // ==========================================
+      if (action === 'save-draft' || action === 'submit-draft') {
+        const reservation = await prisma.facilityReservation.findUnique({
+          where: { id },
+          include: {
+            approvals: { orderBy: { stepOrder: 'asc' } },
+            requestor: true,
+            dates: { include: { place: true } },
+            equipmentRequests: { include: { equipment: true } },
+          }
+        });
+
+        if (!reservation) {
+          return NextResponse.json({ success: false, message: 'Reservation not found' }, { status: 404 });
+        }
+
+        if (reservation.requestorId !== user.id) {
+          return NextResponse.json({ success: false, message: 'Only the requestor can modify drafts' }, { status: 403 });
+        }
+
+        if (reservation.status !== 'DRAFT') {
+          return NextResponse.json({ success: false, message: 'Only drafts can be edited or submitted this way' }, { status: 400 });
+        }
+
+        // Extract fields
+        const type = formData.get('type');
+        const eventName = formData.get('eventName') || null;
+        const attendeesCount = parseInt(formData.get('attendeesCount')) || 0;
+        const usageHours = parseFloat(formData.get('usageHours')) || null;
+        const withCharge = formData.get('withCharge') === 'true';
+        const requestorNotes = formData.get('requestorNotes') || null;
+        const datesArray = JSON.parse(formData.get('dates') || '[]');
+        const equipmentRequests = JSON.parse(formData.get('equipmentItems') || formData.get('equipmentRequests') || '[]');
+        const attachmentsToKeep = JSON.parse(formData.get('attachmentsToKeep') || '[]');
+        const newFiles = formData.getAll('newAttachments');
+        const isVenueOnly = formData.get('isVenueOnly') === 'true';
+
+        // Basic validation (both actions)
+        if (!datesArray || datesArray.length === 0) {
+          return NextResponse.json({ success: false, message: 'At least one date is required' }, { status: 400 });
+        }
+
+        const capacityError = await validateMultiPurposeHallLimit(datesArray, attendeesCount);
+        if (capacityError) {
+          return NextResponse.json({ success: false, message: capacityError }, { status: 400 });
+        }
+
+        for (const entry of datesArray) {
+          const setup = new Date(entry.setupTime);
+          const start = new Date(entry.eventStart);
+          const end = new Date(entry.eventEnd);
+          const teardown = new Date(entry.teardownTime);
+
+          if (setup.getTime() + 3600000 > start.getTime()) {
+            return NextResponse.json({ success: false, message: 'Starting time must be at least 1 hour before Actual Time Start' }, { status: 400 });
+          }
+          if (end.getTime() > teardown.getTime()) {
+            return NextResponse.json({ success: false, message: 'Time End must be before or equal to Actual Time End' }, { status: 400 });
+          }
+        }
+
+        // Upload new attachments
+        const newAttachmentPaths = [];
+        for (const file of newFiles) {
+          if (file && file.size > 0) {
+            const cleanFilename = `frf/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.\-_]/g, "_")}`;
+            const blob = await put(cleanFilename, file, {
+              access: 'public',
+              addRandomSuffix: true,
+              token: process.env.DMSBLOB_READ_WRITE_TOKEN,
+              storeId: process.env.DMSBLOB_STORE_ID
+            });
+            newAttachmentPaths.push(blob.url);
+          }
+        }
+
+        const finalAttachments = [...attachmentsToKeep, ...newAttachmentPaths];
+
+        // ──────────────── SAVE-DRAFT (light validation) ────────────────
+        if (action === 'save-draft') {
+          await prisma.$transaction(async (tx) => {
+            await tx.facilityReservationDate.deleteMany({ where: { reservationId: id } });
+            await tx.facilityEquipmentRequest.deleteMany({ where: { reservationId: id } });
+
+            await tx.facilityReservation.update({
+              where: { id },
+              data: {
+                type,
+                eventName: eventName || undefined,
+                attendeesCount,
+                usageHours: usageHours || null,
+                withCharge,
+                requestorNotes: requestorNotes || undefined,
+                attachments: finalAttachments,
+                isVenueOnly,
+                dates: {
+                  create: datesArray.map(entry => ({
+                    date: new Date(entry.date),
+                    setupTime: new Date(entry.setupTime),
+                    eventStart: new Date(entry.eventStart),
+                    eventEnd: new Date(entry.eventEnd),
+                    teardownTime: new Date(entry.teardownTime),
+                    placeId: entry.placeId || undefined,
+                    placeOther: entry.placeOther || undefined,
+                  }))
+                },
+                equipmentRequests: {
+                  create: equipmentRequests.map(item => ({
+                    equipmentId: item.equipmentId,
+                    quantityRequested: item.quantity || 1
+                  }))
+                }
+              }
+            });
+          });
+
+          const removedAttachments = (reservation.attachments || []).filter(
+            (url) => !finalAttachments.includes(url)
+          );
+          if (removedAttachments.length > 0) {
+            try {
+              await del(removedAttachments);
+              console.log(`🗑️ [save-draft] Deleted ${removedAttachments.length} removed attachment blob(s)`);
+            } catch (delErr) {
+              // Non-fatal — DB is source of truth. Orphaned blobs just leak a few KB.
+              console.error('save-draft blob cleanup error:', delErr);
+            }
+          }
+
+          await logActivity({
+            req: request,
+            userId: user.id,
+            email: user.email,
+            action: 'FRF_DRAFT_SAVED',
+            details: JSON.stringify({ reservationId: id })
+          });
+
+          return NextResponse.json({ success: true, message: 'Draft saved', data: { status: 'DRAFT' } });
+        }
+
+        // ──────────────── SUBMIT-DRAFT (full validation + workflow) ────────────────
+        if (!requestorNotes || requestorNotes.trim() === '') {
+          return NextResponse.json({ success: false, message: 'Requestor notes are required before submitting' }, { status: 400 });
+        }
+        if (finalAttachments.length === 0) {
+          return NextResponse.json({ success: false, message: 'At least one attachment is required before submitting' }, { status: 400 });
+        }
+
+        // Detect equipment for approval sequence
+        const equipmentIds = equipmentRequests.map(item => item.equipmentId);
+        let hasLedWall = false, hasCDOEquipment = false, hasITOEquipment = false;
+        if (equipmentIds.length > 0) {
+          const equipmentList = await prisma.equipment.findMany({
+            where: { id: { in: equipmentIds } },
+            select: { id: true, name: true, departmentCode: true }
+          });
+          hasLedWall = equipmentList.some(eq => eq.name === 'LED Wall' || eq.name === 'LED_WALL' || eq.name === 'LED_Wall');
+          hasCDOEquipment = equipmentList.some(eq => eq.departmentCode === 'CDO');
+          hasITOEquipment = equipmentList.some(eq => eq.departmentCode === 'ITO-MAIN');
+        }
+
+        const isRequestorHead = isHeadOrOIC(user);
+        const approvalSequence = getApprovalSequence(type, hasLedWall, hasCDOEquipment, hasITOEquipment)
+          .filter(dept => dept !== user.departmentCode);
+        const finalApprovalSequence = isVenueOnly
+          ? approvalSequence.filter(dept => dept !== 'ITO-MAIN')
+          : approvalSequence;
+
+        const approvals = [{
+          departmentCode: user.departmentCode,
+          stepOrder: 1,
+          status: isRequestorHead ? 'APPROVED' : 'PENDING',
+          ...(isRequestorHead && { performedById: user.id, performedAt: new Date() }),
+        }];
+        finalApprovalSequence.forEach((dept, index) => {
+          approvals.push({ departmentCode: dept, stepOrder: 2 + index, status: 'PENDING' });
+        });
+
+        // Transact: update fields + recreate dates/equipment + create approvals + reserve stock
+        try {
+          await prisma.$transaction(async (tx) => {
+            await tx.facilityReservationDate.deleteMany({ where: { reservationId: id } });
+            await tx.facilityEquipmentRequest.deleteMany({ where: { reservationId: id } });
+
+            await tx.facilityReservation.update({
+              where: { id },
+              data: {
+                type,
+                eventName: eventName || undefined,
+                attendeesCount,
+                usageHours: usageHours || null,
+                withCharge,
+                requestorNotes: requestorNotes || undefined,
+                attachments: finalAttachments,
+                isVenueOnly,
+                status: 'PENDING_APPROVAL',
+                dates: {
+                  create: datesArray.map(entry => ({
+                    date: new Date(entry.date),
+                    setupTime: new Date(entry.setupTime),
+                    eventStart: new Date(entry.eventStart),
+                    eventEnd: new Date(entry.eventEnd),
+                    teardownTime: new Date(entry.teardownTime),
+                    placeId: entry.placeId || undefined,
+                    placeOther: entry.placeOther || undefined,
+                  }))
+                },
+                equipmentRequests: {
+                  create: equipmentRequests.map(item => ({
+                    equipmentId: item.equipmentId,
+                    quantityRequested: item.quantity || 1
+                  }))
+                },
+                approvals: { create: approvals }
+              }
+            });
+
+            // Reserve equipment (skip for venue-only or empty lists)
+            for (const item of equipmentRequests) {
+              const eq = await tx.equipment.findUnique({
+                where: { id: item.equipmentId },
+                select: { isSingleItem: true, quantityAvailable: true, quantityReserved: true, name: true }
+              });
+              if (!eq) continue;
+              const qty = eq.isSingleItem ? 1 : (item.quantity || 1);
+              const trulyAvailable = eq.quantityAvailable - eq.quantityReserved;
+              if (trulyAvailable < qty) {
+                throw new Error(`Not enough stock for ${eq.name}. Available: ${trulyAvailable}, requested: ${qty}.`);
+              }
+              await tx.equipment.update({
+                where: { id: item.equipmentId },
+                data: { quantityReserved: { increment: qty } }
+              });
+            }
+          });
+        } catch (submitErr) {
+          console.error('Submit-draft transaction failed:', submitErr);
+          return NextResponse.json({ success: false, message: submitErr.message || 'Failed to submit draft' }, { status: 409 });
+        }
+
+        // 🆕 Cleanup: delete blobs for attachments removed between draft and submit
+        // (e.g., user deleted an existing file while editing before submitting)
+        const removedAttachments = (reservation.attachments || []).filter(
+          (url) => !finalAttachments.includes(url)
+        );
+        if (removedAttachments.length > 0) {
+          try {
+            await del(removedAttachments);
+            console.log(`🗑️ [submit-draft] Deleted ${removedAttachments.length} removed attachment blob(s)`);
+          } catch (delErr) {
+            // Non-fatal — submit already succeeded at DB level
+            console.error('submit-draft blob cleanup error:', delErr);
+          }
+        }
+
+        // Notify first approver
+        try {
+          const freshReservation = await prisma.facilityReservation.findUnique({
+            where: { id },
+            include: {
+              approvals: { orderBy: { stepOrder: 'asc' } },
+              requestor: true,
+              dates: { include: { place: true } },
+              equipmentRequests: { include: { equipment: true } },
+            }
+          });
+
+          const firstApproval = freshReservation.approvals.find(a => a.stepOrder === 2);
+          if (firstApproval) {
+            const nextDeptHeads = await getDepartmentHeads(firstApproval.departmentCode);
+            if (nextDeptHeads.length > 0) {
+              await sendFRFApprovalToNextDepartments(nextDeptHeads, freshReservation, user.departmentCode);
+              const nextUsers = await prisma.user.findMany({
+                where: {
+                  departmentCode: firstApproval.departmentCode,
+                  OR: [
+                    { role: 'DepartmentHead' },
+                    { oic_start: { lte: new Date().toISOString() }, oic_end: { gte: new Date().toISOString() } }
+                  ]
+                },
+                select: { id: true }
+              });
+              for (const u of nextUsers) {
+                await prisma.notification.create({
+                  data: {
+                    title: 'FRF Pending Approval',
+                    message: `New FRF ${freshReservation.referenceId} needs your approval.`,
+                    isRead: false,
+                    recipientId: u.id,
+                    senderId: user.id,
+                    linkUrl: `/dashboard/forms/frf?tab=pending_approval&focus=${freshReservation.id}`,
+                    entityType: 'FRF',
+                    entityId: freshReservation.id,
+                  }
+                });
+              }
+            }
+          }
+        } catch (notifErr) {
+          console.error('Submit-draft notification error:', notifErr);
+        }
+
+        await logActivity({
+          req: request,
+          userId: user.id,
+          email: user.email,
+          action: 'FRF_DRAFT_SUBMITTED',
+          details: JSON.stringify({
+            reservationId: id,
+            type,
+            datesCount: datesArray.length,
+            removedAttachments: removedAttachments.length,
+            finalAttachmentCount: finalAttachments.length
+          })
+        });
+
+        return NextResponse.json({ success: true, message: 'Draft submitted for approval', data: { status: 'PENDING_APPROVAL' } });
+      }
+
+      // Only resubmit is supported via multipart (other than packup-done + draft actions)
       if (action !== 'resubmit') {
         return NextResponse.json(
           { success: false, message: 'Invalid action for multipart request' },
@@ -802,7 +1142,9 @@ export async function PATCH(request) {
         );
       }
 
-      // Kung may mga attachmentsToDelete mula sa frontend
+      // 🆕 Parse the frontend's explicit delete list but DEFER the actual del() call
+      // until AFTER the transaction succeeds. Deleting early risks losing blobs
+      // if the resubmit fails (leaving the DB with broken attachment URLs).
       const attachmentsToDelete = JSON.parse(formData.get('attachmentsToDelete') || '[]');
       if (attachmentsToDelete.length > 0) {
         try {
@@ -1022,6 +1364,27 @@ export async function PATCH(request) {
         }
       });
 
+      // 🆕 Cleanup: delete blobs that are no longer referenced by this reservation.
+      // Combines two sources:
+      //   1. Frontend's explicit attachmentsToDelete (legacy — future compat)
+      //   2. Server-side diff: any URL in the previous attachments[] that is
+      //      missing from the new finalAttachments[]
+      // Deduped so the same blob is never del()'d twice.
+      const removedAttachments = (reservation.attachments || []).filter(
+        (url) => !finalAttachments.includes(url)
+      );
+      const allToDelete = [...new Set([...attachmentsToDelete, ...removedAttachments])];
+
+      if (allToDelete.length > 0) {
+        try {
+          await del(allToDelete);
+          console.log(`🗑️ [resubmit] Deleted ${allToDelete.length} removed attachment blob(s)`);
+        } catch (delErr) {
+          // Non-fatal — DB is source of truth. Orphaned blobs just leak a few KB.
+          console.error('resubmit blob cleanup error:', delErr);
+        }
+      }
+
       await logActivity({
         req: request,
         userId: user.id,
@@ -1031,7 +1394,8 @@ export async function PATCH(request) {
           reservationId: id,
           datesCount: datesArray.length,
           attachmentsKept: attachmentsToKeep.length,
-          newAttachments: newAttachmentPaths.length
+          newAttachments: newAttachmentPaths.length,
+          removedAttachments: allToDelete.length,   // 🆕
         })
       });
 
@@ -2509,6 +2873,67 @@ async function validateEventLimit(datesArray, venueIds, excludeId = null) {
       );
     }
   }
+  
 
   return errors;
+}
+
+// ==========================================
+// DELETE /api/frf/reservation?id=xxx
+// Deletes a DRAFT reservation (requestor or SuperUser only)
+// ==========================================
+export async function DELETE(request) {
+  try {
+    const user = await getAuthenticatedUser(request);
+    if (!user) {
+      return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+    if (!id) {
+      return NextResponse.json({ success: false, message: 'Reservation ID is required' }, { status: 400 });
+    }
+
+    const reservation = await prisma.facilityReservation.findUnique({
+      where: { id },
+      select: { id: true, requestorId: true, status: true, attachments: true, referenceId: true }
+    });
+
+    if (!reservation) {
+      return NextResponse.json({ success: false, message: 'Reservation not found' }, { status: 404 });
+    }
+
+    if (reservation.requestorId !== user.id && !isSuperUser(user)) {
+      return NextResponse.json({ success: false, message: 'Only the requestor or SuperUser can delete this reservation' }, { status: 403 });
+    }
+
+    if (reservation.status !== 'DRAFT') {
+      return NextResponse.json({ success: false, message: 'Only draft reservations can be deleted' }, { status: 400 });
+    }
+
+    // Best-effort blob cleanup
+    if (reservation.attachments && reservation.attachments.length > 0) {
+      try {
+        await del(reservation.attachments);
+      } catch (delErr) {
+        console.error('Draft attachment blob deletion error:', delErr);
+      }
+    }
+
+    await prisma.facilityReservation.delete({ where: { id } });
+
+    await logActivity({
+      req: request,
+      userId: user.id,
+      email: user.email,
+      action: 'FRF_DRAFT_DELETED',
+      details: JSON.stringify({ reservationId: id, referenceId: reservation.referenceId })
+    });
+
+    return NextResponse.json({ success: true, message: 'Draft deleted' });
+  } catch (error) {
+    console.error('DELETE Reservation Error:', error);
+    return NextResponse.json({ success: false, message: error.message || 'Failed to delete reservation' }, { status: 500 });
+  }
 }

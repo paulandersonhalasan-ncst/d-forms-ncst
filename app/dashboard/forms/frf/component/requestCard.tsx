@@ -1,7 +1,7 @@
 // app/dashboard/forms/frf/components/RequestCard.tsx
 'use client';
 
-import { Card, Group, Text, Badge, Stack, UnstyledButton} from '@mantine/core';
+import { Card, Group, Text, Badge, Stack, UnstyledButton, Box, Button} from '@mantine/core';
 import { FacilityReservation, UserContext, FRFActionType, isActiveHeadOrOIC  } from './types';
 
 interface RequestCardProps {
@@ -30,6 +30,8 @@ export default function RequestCard({
   const canFinalize = currentUser?.departmentCode === 'OCM' && request.status === 'APPROVED';
   const isRequestor = request.requestorId === currentUser?.id;
   const canResubmit = request.status === 'REVISION_REQUESTED' && isRequestor;
+  
+
 
   const isMyTurn = myApproval?.status === 'PENDING' && request.approvals
   .filter(a => a.stepOrder < myApproval.stepOrder)
@@ -48,7 +50,17 @@ export default function RequestCard({
   };
 
   return (
-    <Card withBorder shadow="sm" radius="md" padding="sm">
+    <Card
+      withBorder
+      shadow="sm"
+      radius="md"
+      padding="sm"
+      style={
+        request.status === 'DRAFT'
+          ? { boxShadow: '0 0 0 2px rgba(190, 75, 219, 0.15), 0 0 16px rgba(190, 75, 219, 0.25)' }
+          : undefined
+      }
+    >
       <UnstyledButton onClick={onView} style={{ width: '100%' }}>
         <Stack gap={4}>
           <Group justify="space-between" align="center" wrap="nowrap">
@@ -56,6 +68,7 @@ export default function RequestCard({
             <Group gap={6} wrap="nowrap">
               <Badge
                 color={
+                  request.status === 'DRAFT' ? 'grape' :
                   request.status === 'PENDING_APPROVAL' ? 'orange' :
                   request.status === 'APPROVED' ? 'green' :
                   request.status === 'REJECTED' ? 'red' :
@@ -64,8 +77,9 @@ export default function RequestCard({
                   request.status === 'RESCHEDULE_PENDING' ? 'yellow' :
                   'gray'
                 }
+                variant={request.status === 'DRAFT' ? 'light' : 'filled'}
               >
-                {request.status.replace('_', ' ')}
+                {request.status === 'DRAFT' ? '📝 DRAFT' : request.status.replace('_', ' ')}
               </Badge>
             </Group>
           </Group>
@@ -99,40 +113,39 @@ export default function RequestCard({
         </Stack>
       </UnstyledButton>
 
-      {/* <Box mt="xs">
-        <Group justify="flex-end">
-          {canApprove && (
-            <ActionIcon color="green" onClick={() => onAction('APPROVE', { id: request.id })}>
-              <IconCheck size={16} />
-            </ActionIcon>
-          )}
-          {canReject && (
-            <ActionIcon color="red" onClick={() => onAction('REJECT', { id: request.id })}>
-              <IconX size={16} />
-            </ActionIcon>
-          )}
-          {canReturn && (
-            <ActionIcon color="orange" onClick={() => onAction('RETURN', { id: request.id })}>
-              <IconRefresh size={16} />
-            </ActionIcon>
-          )}
-          {canResubmit && (
-            <ActionIcon color="teal" onClick={() => onAction('RESUBMIT', { id: request.id })}>
-              <IconRefresh size={16} />
-            </ActionIcon>
-          )}
-          {canAssign && (
-            <ActionIcon color="indigo" onClick={onAssign}>
-              Assign
-            </ActionIcon>
-          )}
-          {canFinalize && (
-            <ActionIcon color="blue" onClick={onFinalize}>
-              Finalize
-            </ActionIcon>
-          )}
-        </Group>
-      </Box> */}
+      {request.status === 'DRAFT' && (
+        <Box mt="xs" pt="xs" style={{ borderTop: '1px solid var(--mantine-color-gray-2)' }}>
+          <Group justify="space-between" gap="xs" wrap="nowrap">
+            <Badge color="grape" variant="dot" size="xs">
+              Not yet submitted
+            </Badge>
+            <Group gap={4} wrap="nowrap">
+              <Button
+                size="xs"
+                variant="light"
+                color="grape"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onAction('SAVE_DRAFT', { id: request.id });
+                }}
+              >
+                Continue Editing
+              </Button>
+              <Button
+                size="xs"
+                variant="light"
+                color="red"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onAction('DELETE_DRAFT', { id: request.id });
+                }}
+              >
+                Delete
+              </Button>
+            </Group>
+          </Group>
+        </Box>
+      )}
     </Card>
   );
 }

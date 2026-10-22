@@ -478,6 +478,7 @@ export default function ITOAssignmentModal({
       fullScreen={isMobile}
       zIndex={1000}
       centered
+      closeOnClickOutside={false}
       styles={{
       inner: {
         // 🆕 sidebar offset + 16px breathing room sa lahat ng gilid

@@ -137,6 +137,8 @@ interface RequestStepperProps {
     },
     password: string
   ) => void;
+  isDraftMode?: boolean;   // 🆕 editing an existing DRAFT
+  onSaveDraft?: (draftId: string | null, values: FRFFormValues, attachmentsToKeep: string[]) => Promise<void>;  // 🆕
 }
 
 export default function RequestStepper({
@@ -150,11 +152,13 @@ export default function RequestStepper({
   isEditing = false,
   onResubmit,
   isRescheduleMode = false,
-  onReschedule
+  onReschedule,
+  isDraftMode = false,
+  onSaveDraft
 }: RequestStepperProps) {
   const isHeadOrOIC = isActiveHeadOrOIC(currentUser);
   const isMobile = useMediaQuery('(max-width: 768px)');
-
+  const [hasUserInteraction, setHasUserInteraction] = useState(false);
   const [activeStep, setActiveStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [password, setPassword] = useState('');
@@ -212,7 +216,7 @@ export default function RequestStepper({
 
   // --- Compute initial values based on props ---
   const getInitialFormValues = useMemo((): FRFFormValues => {
-    if ((isEditing || isRescheduleMode) && editData) {
+    if ((isEditing || isRescheduleMode || isDraftMode) && editData) {
       const dateEntries: DateEntry[] = editData.dates.map((d) => {
         const dateObj = new Date(d.date);
         const setupTime = new Date(d.setupTime);
@@ -274,8 +278,10 @@ export default function RequestStepper({
 
   // --- Initial attachments to keep ---
   const initialAttachmentsToKeep = useMemo(() => {
-    return (isEditing || isRescheduleMode) && editData ? editData.attachments || [] : [];
-  }, [isEditing, isRescheduleMode, editData]);
+    return (isEditing || isRescheduleMode || isDraftMode) && editData
+      ? editData.attachments || []
+      : [];
+  }, [isEditing, isRescheduleMode, isDraftMode, editData]);
 
   // --- State for attachments to keep (user can modify) ---
   const [attachmentsToKeep, setAttachmentsToKeep] = useState<string[]>(initialAttachmentsToKeep);
@@ -303,6 +309,7 @@ export default function RequestStepper({
     }
   }, [opened]);
 
+  
   // --- Form hook ---
   const form = useForm<FRFFormValues>({
     initialValues: getInitialFormValues,
@@ -563,10 +570,12 @@ export default function RequestStepper({
       }
       setActiveStep((prev) => prev + 1);
     } else if (activeStep === 2) {
-      const notesResult = form.validateField('requestorNotes');
-      if (notesResult.hasError) hasError = true;
-      const attachmentsResult = form.validateField('attachments');
-      if (attachmentsResult.hasError) hasError = true;
+      if (!isDraftMode) {   // 🆕 drafts can proceed without notes/attachments
+        const notesResult = form.validateField('requestorNotes');
+        if (notesResult.hasError) hasError = true;
+        const attachmentsResult = form.validateField('attachments');
+        if (attachmentsResult.hasError) hasError = true;
+      }
 
       if (hasError) return;
 
@@ -692,6 +701,66 @@ export default function RequestStepper({
       return;
     }
 
+    // ----- SUBMIT EXISTING DRAFT -----
+    if (isDraftMode && editData && editData.status === 'DRAFT') {
+      if (!password) {
+        setPasswordError('Password is required to submit the draft.');
+        return;
+      }
+      if (!values.requestorNotes || values.requestorNotes.trim() === '') {
+        setPasswordError('Requestor Notes are required before submitting.');
+        return;
+      }
+      if (attachmentsToKeep.length + values.attachments.length === 0) {
+        setPasswordError('At least one attachment is required before submitting.');
+        return;
+      }
+      setSubmitting(true);
+      setPasswordError('');
+      try {
+        const formData = new FormData();
+        formData.append('id', editData.id);
+        formData.append('action', 'submit-draft');
+        formData.append('password', password);
+        formData.append('type', values.type);
+        if (values.eventName) formData.append('eventName', values.eventName);
+        formData.append('attendeesCount', String(values.attendeesCount));
+        if (values.usageHours) formData.append('usageHours', String(values.usageHours));
+        formData.append('withCharge', String(values.withCharge));
+        formData.append('requestorNotes', values.requestorNotes || '');
+        formData.append('isVenueOnly', String(values.isVenueOnly || false));
+        formData.append('dates', JSON.stringify(values.dates.map(d => ({
+          date: d.date.toISOString(),
+          setupTime: d.setupTime.toISOString(),
+          eventStart: d.eventStart.toISOString(),
+          eventEnd: d.eventEnd.toISOString(),
+          teardownTime: d.teardownTime.toISOString(),
+          placeId: d.placeId,
+          placeOther: d.placeOther,
+        }))));
+        formData.append('equipmentItems', JSON.stringify(values.equipmentRequests));
+        formData.append('attachmentsToKeep', JSON.stringify(attachmentsToKeep));
+        for (const file of values.attachments) {
+          formData.append('newAttachments', file);
+        }
+
+        const res = await fetch('/api/frf/reservation', { method: 'PATCH', body: formData });
+        const result = await res.json();
+        if (res.ok) {
+          onSuccess();
+          onClose();
+        } else {
+          setPasswordError(result.message || 'Failed to submit draft');
+        }
+      } catch (err) {
+        console.error('Submit-draft error:', err);
+        setPasswordError('An error occurred');
+      } finally {
+        setSubmitting(false);
+      }
+      return;
+    }
+
     // ----- NORMAL SUBMIT (NEW RESERVATION) -----
     if (!password) {
       setPasswordError('Password is required to create a reservation.');
@@ -761,8 +830,33 @@ export default function RequestStepper({
     } finally {
       setSubmitting(false);
     }
-    }, [isRescheduleMode, editData, onReschedule, isEditing, onResubmit, password, rescheduleReason, hasChanges, attachmentsToKeep, onSuccess, onClose, settings.minRescheduleDays]);
+    }, [isRescheduleMode, isEditing, isDraftMode, editData, onReschedule, onResubmit, password, rescheduleReason, hasChanges, attachmentsToKeep, onSuccess, onClose, settings.minRescheduleDays]);
 
+  // 🆕 Track whether the user has entered meaningful data — used to warn on close
+  // Uses render-phase sync (no useEffect → no cascading-render warning).
+  // Same pattern as approvalTimeline.tsx, navbar.tsx, and page.tsx.
+
+  // Reset the flag when the modal closes (safe — setState during render is
+  // fine when the condition can't loop, since next render short-circuits).
+  const [prevOpened, setPrevOpened] = useState(opened);
+  if (opened !== prevOpened) {
+    setPrevOpened(opened);
+    if (!opened && hasUserInteraction) {
+      setHasUserInteraction(false);
+    }
+  }
+
+  const hasMeaningfulData =
+    (form.values.eventName?.trim() || '') !== '' ||
+    (form.values.requestorNotes?.trim() || '') !== '' ||
+    form.values.equipmentRequests.length > 0 ||
+    form.values.attachments.length > 0 ||
+    attachmentsToKeep.length > 0 ||
+    rescheduleReason.trim() !== '';
+
+  if (opened && hasMeaningfulData && !hasUserInteraction) {
+    setHasUserInteraction(true);
+  }
 
     const selectedPlaceIds = useMemo(
       () => form.values.dates.map(d => d.placeId).filter(Boolean) as string[],
@@ -869,15 +963,22 @@ export default function RequestStepper({
     ? 'Edit Reservation'
     : 'New Facility Reservation';
 
-  // --- Local close handler to reset internal state ---
+  // --- Local close handler with unsaved-data confirmation ---
   const handleLocalClose = () => {
+    if (hasUserInteraction) {
+      const confirmed = window.confirm(
+        'You have unsaved changes. Are you sure you want to close this form?'
+      );
+      if (!confirmed) return;
+    }
+
     setPassword('');
     setPasswordError('');
     setRescheduleReason('');
     setSchedulingError(null);
     setActiveStep(0);
-    // Reset original values ref but let the form keep its values until reopened
     originalValuesRef.current = null;
+    setHasUserInteraction(false);
     onClose();
   };
 
@@ -888,6 +989,33 @@ export default function RequestStepper({
       originalValuesRef.current = JSON.parse(JSON.stringify(initial));
     }
   }, [opened, isRescheduleMode, editData, getInitialFormValues]);
+
+  const handleSaveDraftClick = async () => {
+    const datesResult = form.validateField('dates');
+    if (datesResult.hasError) {
+      alert('Please complete the date and time fields before saving as draft.');
+      return;
+    }
+    const nameResult = form.validateField('eventName');
+    if (nameResult.hasError) {
+      alert('Please provide an event/activity name before saving as draft.');
+      return;
+    }
+    const attendeesResult = form.validateField('attendeesCount');
+    if (attendeesResult.hasError) {
+      alert('Please fix the attendees count before saving as draft.');
+      return;
+    }
+    if (!onSaveDraft) return;
+
+    const draftId = editData?.status === 'DRAFT' ? editData.id : null;
+    try {
+      await onSaveDraft(draftId, form.values, attachmentsToKeep);
+    } catch (err) {
+      console.error('Save-draft error:', err);
+      alert('Failed to save draft');
+    }
+  };
 
   return (
     <Modal
@@ -2054,10 +2182,15 @@ export default function RequestStepper({
                 </Button>
               )}
             </Group>
+            {!isRescheduleMode && (!isEditing || isDraftMode) && onSaveDraft && (
+              <Button variant="light" color="gray" onClick={handleSaveDraftClick} type="button" size="md" fullWidth>
+                Save as Draft
+              </Button>
+            )}
             <Button
               variant="light"
               color="red"
-              onClick={onClose}
+              onClick={handleLocalClose}
               type="button"
               size="md"
               fullWidth
@@ -2073,7 +2206,12 @@ export default function RequestStepper({
             </Button>
 
             <Group gap="sm">
-              <Button variant="filled" color="red" onClick={onClose} type="button">
+              {!isRescheduleMode && (!isEditing || isDraftMode) && onSaveDraft && (
+                <Button variant="light" color="gray" onClick={handleSaveDraftClick} type="button">
+                  Save as Draft
+                </Button>
+              )}
+              <Button variant="filled" color="red" onClick={handleLocalClose} type="button">
                 Cancel
               </Button>
               {activeStep === 3 ? (
