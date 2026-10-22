@@ -2183,7 +2183,7 @@ export default function RequestStepper({
               )}
             </Group>
             {!isRescheduleMode && (!isEditing || isDraftMode) && onSaveDraft && (
-              <Button variant="light" color="gray" onClick={handleSaveDraftClick} type="button" size="md" fullWidth>
+              <Button variant="light" color="violet" onClick={handleSaveDraftClick} type="button" size="md" fullWidth>
                 Save as Draft
               </Button>
             )}
@@ -2207,7 +2207,7 @@ export default function RequestStepper({
 
             <Group gap="sm">
               {!isRescheduleMode && (!isEditing || isDraftMode) && onSaveDraft && (
-                <Button variant="light" color="gray" onClick={handleSaveDraftClick} type="button">
+                <Button variant="light" color="violet" onClick={handleSaveDraftClick} type="button">
                   Save as Draft
                 </Button>
               )}
