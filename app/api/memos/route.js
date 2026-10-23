@@ -121,6 +121,7 @@ export async function POST(request) {
     const rootMemoId = formData.get("rootMemoId") || null;
     const password = formData.get("password");
     const targetDepts = formData.getAll("targetDepts");
+    const isDraft = formData.get("isDraft") === "true";
 
     // 🐛 DEBUG: Log incoming data
     console.log('📝 Creating memo with:', {
@@ -131,10 +132,15 @@ export async function POST(request) {
       isReply: !!parentMemoId,
     });
 
-    // 🔐 VERIFY PASSWORD (hash‑aware)
-    const passwordValid = await verifyPassword(password, authenticatedUser.password, authenticatedUser.id);
-    if (!passwordValid) {
-      return NextResponse.json({ success: false, message: "Security Verification Failed: Incorrect Signature Password" }, { status: 403 });
+    // 🔐 VERIFY PASSWORD (hash‑aware) — skipped for save-as-draft (autosave semantics)
+    if (!isDraft) {
+      if (!password) {
+        return NextResponse.json({ success: false, message: "Password required" }, { status: 400 });
+      }
+      const passwordValid = await verifyPassword(password, authenticatedUser.password, authenticatedUser.id);
+      if (!passwordValid) {
+        return NextResponse.json({ success: false, message: "Security Verification Failed: Incorrect Signature Password" }, { status: 403 });
+      }
     }
 
     // File upload logic...
@@ -188,7 +194,9 @@ export async function POST(request) {
     })();
 
     let initialMemoStatus = "APPROVED";
-    if (!isCurrentlyOIC && 
+    if (isDraft) {
+      initialMemoStatus = "DRAFT";  // 🆕
+    } else if (!isCurrentlyOIC && 
         (databaseUserRole === "STAFF" || databaseUserRole === "USER" || databaseUserRole === "FACULTY") && 
         !parentMemoId) {
       initialMemoStatus = "FOR_APPROVAL";
@@ -201,7 +209,8 @@ export async function POST(request) {
     
     const timestampSuffix = Math.floor(Math.random() * 9000) + 1000;
     // Palaging may suffix
-    const refId = initialMemoStatus === "FOR_APPROVAL" 
+    const isDraftStyleRef = initialMemoStatus === "FOR_APPROVAL" || initialMemoStatus === "DRAFT";
+    const refId = isDraftStyleRef
       ? `DRAFT-${userDept}-${currentYear}-${String(count + 1).padStart(3, '0')}-${timestampSuffix}`
       : `${userDept}-${currentYear}-${String(count + 1).padStart(3, '0')}-${timestampSuffix}`;
 
@@ -224,12 +233,15 @@ export async function POST(request) {
         ...(parentMemoId && parentMemoId !== 'null' ? { parentMemo: { connect: { id: parentMemoId } } } : {}),
         ...(rootMemoId && rootMemoId !== 'null' ? { rootMemo: { connect: { id: rootMemoId } } } : {}),
         isRevisedByHead: false,
-        recipients: {
-          create: targetDepts.map(dept => ({
-            departmentName: dept,
-            status: "PENDING"
-          }))
-        }
+        // 🆕 Drafts have NO recipients yet — added on submit-draft
+        ...(!isDraft && targetDepts.length > 0 ? {
+          recipients: {
+            create: targetDepts.map(dept => ({
+              departmentName: dept,
+              status: "PENDING"
+            }))
+          }
+        } : {})
       },
       include: { recipients: true }
     });
@@ -242,13 +254,13 @@ export async function POST(request) {
     });
 
     // ✅ Para sa original memo (walang root), i-set ang rootMemoId sa sarili
-    if (!rootMemoId || rootMemoId === 'null') {
+    // 🆕 Skip for drafts — self-reference would block deletion due to NoAction constraint.
+    // rootMemoId is set on submit-draft instead.
+    if (!isDraft && (!rootMemoId || rootMemoId === 'null')) {
       await prisma.memo.update({
         where: { id: newMemo.id },
         data: { rootMemoId: newMemo.id }
       });
-      
-      // 🐛 DEBUG: Log after update
       console.log('✅ After root update: rootMemoId set to self');
     }
 
@@ -259,7 +271,7 @@ export async function POST(request) {
     });
 
     // ✅ Update parent recipient status (reply)
-    if (parentMemoId && parentMemoId !== 'null') {
+    if (!isDraft && parentMemoId && parentMemoId !== 'null') {
       await prisma.memoRecipientStatus.updateMany({
         where: {
           memoId: parentMemoId,
@@ -277,106 +289,110 @@ export async function POST(request) {
     // =========================================================
     // NOTIFICATION ENGINE INJECTION (POST)
     // =========================================================
-    try {
-      if (initialMemoStatus === "FOR_APPROVAL") {
-        const internalHeads = await getDepartmentHeadsIds(userDept);
-        if (internalHeads.length > 0) {
-          await prisma.notification.createMany({
-            data: internalHeads.map(head => ({
-              title: "Draft Memo For Review",
-              message: `${senderFullName} submitted a new draft memo requiring your signature approval. Ref: ${refId}`,
-              isRead: false,
-              recipientId: head.id,
-              senderId: authenticatedUser.id,
-              // 🆕 Routing metadata
-              linkUrl: `/dashboard/forms/iom?tab=approval&focus=${newMemo.id}`,
-              entityType: 'IOM',
-              entityId: newMemo.id,
-            }))
-          });
-        }
-        await prisma.notification.create({
-          data: {
-            title: "Draft Submitted Successfully",
-            message: `Your draft memo "${subject}" has been queued. It is currently pending approval/signature from your Department Head. Ref: ${refId}`,
-            isRead: false,
-            recipientId: authenticatedUser.id,
-            senderId: authenticatedUser.id,
-            // 🆕 Routing metadata
-            linkUrl: `/dashboard/forms/iom?tab=authored_by_me&focus=${newMemo.id}`,
-            entityType: 'IOM',
-            entityId: newMemo.id,
-          }
-        });
-      } else {
-        for (const dept of targetDepts) {
-          const targetHeads = await getDepartmentHeadsIds(dept);
-          if (targetHeads.length > 0) {
-            await prisma.notification.createMany({
-              data: targetHeads.map(head => ({
-                title: "Inbound Inter-Office Memo",
-                message: `New official memo released from ${userDept} department. Subject: ${subject}. Ref: ${refId}`,
-                isRead: false,
-                recipientId: head.id,
-                senderId: authenticatedUser.id,
-                // 🆕 Routing metadata
-                linkUrl: `/dashboard/forms/iom?tab=inbound&focus=${finalMemo.id}`,
-                entityType: 'IOM',
-                entityId: finalMemo.id,
-              }))
-            });
-          }
-        }
-      }
-    } catch (notifErr) { console.error("❌ Notification Generation Failed (POST):", notifErr); }
-
-    // =========================================================
-    // EMAIL NOTIFICATIONS (POST) – CORRECTED
-    // =========================================================
-    try {
-      const staffUser = authenticatedUser; // sender
-
-      if (initialMemoStatus === 'FOR_APPROVAL') {
-        // Notify department heads (including active OIC) of sender's department
-        await sendMemoSubmittedForApproval(staffUser, newMemo);
-      } else {
-        // APPROVED immediately – notify recipient department heads (including OIC)
-        for (const dept of targetDepts) {
-          const heads = await getDepartmentHeads(dept); // returns [{ email, fname, lname }]
-          if (heads.length > 0) {
-            await sendMemoInbound(heads, finalMemo);
-          }
-        }
-      }
-
-      // If this is a reply (parentMemoId present), notify the original sender
-      if (parentMemoId && parentMemoId !== 'null') {
+    if (!isDraft) {   // 🆕
         try {
-          const originalMemo = await prisma.memo.findUnique({
-            where: { id: parentMemoId },
-            select: { senderId: true },
-          });
-          if (originalMemo && originalMemo.senderId !== authenticatedUser.id) {
+          if (initialMemoStatus === "FOR_APPROVAL") {
+            const internalHeads = await getDepartmentHeadsIds(userDept);
+            if (internalHeads.length > 0) {
+              await prisma.notification.createMany({
+                data: internalHeads.map(head => ({
+                  title: "Draft Memo For Review",
+                  message: `${senderFullName} submitted a new draft memo requiring your signature approval. Ref: ${refId}`,
+                  isRead: false,
+                  recipientId: head.id,
+                  senderId: authenticatedUser.id,
+                  // 🆕 Routing metadata
+                  linkUrl: `/dashboard/forms/iom?tab=approval&focus=${newMemo.id}`,
+                  entityType: 'IOM',
+                  entityId: newMemo.id,
+                }))
+              });
+            }
             await prisma.notification.create({
               data: {
-                title: "New Reply to Your Memo",
-                message: `${senderFullName} (${userDept}) replied to your memo — "${subject}". Ref: ${refId}`,
+                title: "Draft Submitted Successfully",
+                message: `Your draft memo "${subject}" has been queued. It is currently pending approval/signature from your Department Head. Ref: ${refId}`,
                 isRead: false,
-                recipientId: originalMemo.senderId,
+                recipientId: authenticatedUser.id,
                 senderId: authenticatedUser.id,
-                linkUrl: `/dashboard/forms/iom?tab=outbound&focus=${newMemo.id}`,
+                // 🆕 Routing metadata
+                linkUrl: `/dashboard/forms/iom?tab=authored_by_me&focus=${newMemo.id}`,
                 entityType: 'IOM',
                 entityId: newMemo.id,
               }
             });
+          } else {
+            for (const dept of targetDepts) {
+              const targetHeads = await getDepartmentHeadsIds(dept);
+              if (targetHeads.length > 0) {
+                await prisma.notification.createMany({
+                  data: targetHeads.map(head => ({
+                    title: "Inbound Inter-Office Memo",
+                    message: `New official memo released from ${userDept} department. Subject: ${subject}. Ref: ${refId}`,
+                    isRead: false,
+                    recipientId: head.id,
+                    senderId: authenticatedUser.id,
+                    // 🆕 Routing metadata
+                    linkUrl: `/dashboard/forms/iom?tab=inbound&focus=${finalMemo.id}`,
+                    entityType: 'IOM',
+                    entityId: finalMemo.id,
+                  }))
+                });
+              }
+            }
           }
-        } catch (notifErr) {
-          console.error('Reply in-app notification error:', notifErr);
-        }
+        } catch (notifErr) { console.error("❌ Notification Generation Failed (POST):", notifErr); }
       }
-    } catch (emailErr) {
-      console.error('❌ Email Notification Failed (POST):', emailErr);
-      // Do not break the request; just log
+
+    // =========================================================
+    // EMAIL NOTIFICATIONS (POST) – CORRECTED
+    // =========================================================
+    if (!isDraft) {
+      try {
+        const staffUser = authenticatedUser;
+
+        if (initialMemoStatus === 'FOR_APPROVAL') {
+          // Notify department heads (including active OIC) of sender's department
+          await sendMemoSubmittedForApproval(staffUser, newMemo);
+        } else {
+          // APPROVED immediately – notify recipient department heads (including OIC)
+          for (const dept of targetDepts) {
+            const heads = await getDepartmentHeads(dept); // returns [{ email, fname, lname }]
+            if (heads.length > 0) {
+              await sendMemoInbound(heads, finalMemo);
+            }
+          }
+        }
+
+        // If this is a reply (parentMemoId present), notify the original sender
+        if (parentMemoId && parentMemoId !== 'null') {
+          try {
+            const originalMemo = await prisma.memo.findUnique({
+              where: { id: parentMemoId },
+              select: { senderId: true },
+            });
+            if (originalMemo && originalMemo.senderId !== authenticatedUser.id) {
+              await prisma.notification.create({
+                data: {
+                  title: "New Reply to Your Memo",
+                  message: `${senderFullName} (${userDept}) replied to your memo — "${subject}". Ref: ${refId}`,
+                  isRead: false,
+                  recipientId: originalMemo.senderId,
+                  senderId: authenticatedUser.id,
+                  linkUrl: `/dashboard/forms/iom?tab=outbound&focus=${newMemo.id}`,
+                  entityType: 'IOM',
+                  entityId: newMemo.id,
+                }
+              });
+            }
+          } catch (notifErr) {
+            console.error('Reply in-app notification error:', notifErr);
+          }
+        }
+      } catch (emailErr) {
+        console.error('❌ Email Notification Failed (POST):', emailErr);
+        // Do not break the request; just log
+      }
     }
 
     try {
@@ -384,7 +400,7 @@ export async function POST(request) {
         req: request,
         userId: authenticatedUser.id,
         email: authenticatedUser.email,
-        action: parentMemoId ? "IOM_REPLY_SUBMISSION" : (initialMemoStatus === "FOR_APPROVAL" ? "IOM_PENDING_APPROVAL" : "IOM_CREATION_SUCCESS"),
+        action: isDraft ? "IOM_CREATE_DRAFT" : (parentMemoId ? "IOM_REPLY_SUBMISSION" : (initialMemoStatus === "FOR_APPROVAL" ? "IOM_PENDING_APPROVAL" : "IOM_CREATION_SUCCESS")),
         details: JSON.stringify({ referenceId: refId, subject })
       });
     } catch (err) { console.error(err); }
@@ -513,11 +529,13 @@ export async function PATCH(request) {
     // =================================================================================
     // 1. COMMON VALIDATIONS
     // =================================================================================
-    if (!password) {
+    // 🆕 Save-draft is low-friction (autosave-like) — no password required
+    const requiresPassword = action !== 'SAVE_DRAFT';
+
+    if (requiresPassword && !password) {
       return NextResponse.json({ success: false, message: "Password signature required" }, { status: 400 });
     }
 
-    // ✅ Feedback validation – required for certain actions, optional for ACKNOWLEDGE, CREATE, REVISE_DRAFT
     const trimmedFeedback = feedbackNote ? feedbackNote.trim() : '';
     const actionsRequiringFeedback = ['APPROVE', 'DENY', 'CLOSED', 'DISAPPROVE_DRAFT'];
     if (actionsRequiringFeedback.includes(action) && !trimmedFeedback) {
@@ -527,9 +545,11 @@ export async function PATCH(request) {
       }, { status: 400 });
     }
 
-    const passwordValid = await verifyPassword(password, authenticatedUser.password, authenticatedUser.id);
-    if (!passwordValid) {
-      return NextResponse.json({ success: false, message: "Security signature password invalid" }, { status: 403 });
+    if (requiresPassword) {
+      const passwordValid = await verifyPassword(password, authenticatedUser.password, authenticatedUser.id);
+      if (!passwordValid) {
+        return NextResponse.json({ success: false, message: "Security signature password invalid" }, { status: 403 });
+      }
     }
 
     const currentMemo = await prisma.memo.findUnique({
@@ -551,6 +571,251 @@ export async function PATCH(request) {
     let skipRecipientUpdate = false;
 
     const targetRecipient = currentMemo.recipients.find(r => r.departmentName === departmentName);
+
+    // =================================================================================
+    // 1.5. 🆕 SAVE_DRAFT / SUBMIT_DRAFT — bypass normal workflow
+    // =================================================================================
+    if (action === 'SAVE_DRAFT' || action === 'SUBMIT_DRAFT') {
+      // Verify ownership and status
+      if (currentMemo.senderId !== authenticatedUser.id) {
+        return NextResponse.json({ success: false, message: "Only the sender can modify drafts" }, { status: 403 });
+      }
+      if (currentMemo.status !== 'DRAFT') {
+        return NextResponse.json({ success: false, message: "Only draft memos can be saved or submitted this way" }, { status: 400 });
+      }
+
+      // New attachments uploaded this session
+      const newAttachmentPaths = [...attachmentPaths]; // already populated from headNewAttachments loop above
+
+      // Attachments to keep (from previous saves)
+      const attachmentsToKeep = Array.isArray(retainedAttachments) ? retainedAttachments : (currentMemo.attachmentPaths || []);
+
+      const finalAttachments = [...attachmentsToKeep, ...newAttachmentPaths];
+
+      // ──────────────── SAVE_DRAFT ────────────────
+      if (action === 'SAVE_DRAFT') {
+        const updatedMemo = await prisma.memo.update({
+          where: { id: memoId },
+          data: {
+            subject: newSubject || currentMemo.subject,
+            content: newContent !== undefined && newContent !== null ? newContent : currentMemo.content,
+            priority: newSubject !== undefined ? undefined : undefined, // unchanged unless separate fields added
+            attachmentPaths: finalAttachments,
+          },
+        });
+
+        // Cleanup removed blobs (deferred pattern)
+        const removedAttachments = (currentMemo.attachmentPaths || []).filter(
+          (url) => !finalAttachments.includes(url)
+        );
+        if (removedAttachments.length > 0) {
+          try {
+            await del(removedAttachments);
+          } catch (delErr) {
+            console.error('save-draft blob cleanup error:', delErr);
+          }
+        }
+
+        await logActivity({
+          req: request,
+          userId: authenticatedUser.id,
+          email: authenticatedUser.email,
+          action: 'IOM_DRAFT_SAVED',
+          details: JSON.stringify({
+            memoId,
+            removedAttachments: removedAttachments.length,
+            retainedAttachments: attachmentsToKeep.length,
+            newAttachments: newAttachmentPaths.length,
+          }),
+        });
+
+        return NextResponse.json({ success: true, data: updatedMemo, message: 'Draft saved' });
+      }
+
+      // ──────────────── SUBMIT_DRAFT ────────────────
+      // Full validation — require content + targetDepts before promotion
+      const finalSubject = newSubject || currentMemo.subject;
+      const finalContent = newContent || currentMemo.content;
+      const finalTargetDepts = formData.getAll("targetDepts");  // 🆕 re-read from formData (multipart)
+
+      if (!finalSubject || finalSubject.trim() === '') {
+        return NextResponse.json({ success: false, message: "Subject is required before submitting" }, { status: 400 });
+      }
+      if (!finalContent || finalContent.trim() === '') {
+        return NextResponse.json({ success: false, message: "Content is required before submitting" }, { status: 400 });
+      }
+      if (!finalTargetDepts || finalTargetDepts.length === 0) {
+        return NextResponse.json({ success: false, message: "At least one recipient department is required before submitting" }, { status: 400 });
+      }
+
+      const isReply = !!(currentMemo.parentMemoId);
+      const isCurrentlyOIC2 = (() => {
+        if (!authenticatedUser.oic_start || !authenticatedUser.oic_end) return false;
+        const n = new Date();
+        const s = new Date(authenticatedUser.oic_start);
+        const e = new Date(authenticatedUser.oic_end);
+        return n >= s && n <= e;
+      })();
+      const dbRoleUpper = authenticatedUser.role ? authenticatedUser.role.toUpperCase() : "STAFF";
+
+      // Determine new status
+      let submitStatus = 'APPROVED';
+      if (!isReply && !isCurrentlyOIC2 && (dbRoleUpper === 'STAFF' || dbRoleUpper === 'USER' || dbRoleUpper === 'FACULTY')) {
+        submitStatus = 'FOR_APPROVAL';
+      }
+
+      // Strip DRAFT- prefix if leaving draft status
+      let newRefId = currentMemo.referenceId || '';
+      if (newRefId.startsWith('DRAFT-')) {
+        newRefId = newRefId.substring(6);
+      }
+
+      // Transact: update memo, create recipients, set rootMemoId
+      try {
+        await prisma.$transaction(async (tx) => {
+          await tx.memo.update({
+            where: { id: memoId },
+            data: {
+              subject: finalSubject,
+              content: finalContent,
+              attachmentPaths: finalAttachments,
+              status: submitStatus,
+              referenceId: newRefId,
+              ...(!currentMemo.rootMemoId ? { rootMemoId: memoId } : {}),  // self-reference only on submit
+            },
+          });
+
+          // Create recipients now (they were deferred for draft)
+          if (finalTargetDepts.length > 0) {
+            // Use createMany with skipDuplicates to be idempotent
+            await tx.memoRecipientStatus.createMany({
+              data: finalTargetDepts.map(dept => ({
+                memoId: memoId,
+                departmentName: dept,
+                status: 'PENDING',
+              })),
+              skipDuplicates: true,
+            });
+          }
+
+          // Update parent recipient if this was a reply draft
+          if (currentMemo.parentMemoId) {
+            await tx.memoRecipientStatus.updateMany({
+              where: {
+                memoId: currentMemo.parentMemoId,
+                departmentName: userDept,
+                status: { in: ['PENDING', 'ACKNOWLEDGED', 'PROCESSING'] },
+              },
+              data: {
+                status: 'RESPONDED',
+                respondedAt: new Date(),
+                feedbackNote: `Replied via Memo REF: ${newRefId}`,
+              },
+            });
+          }
+        });
+      } catch (submitErr) {
+        console.error('Submit-draft transaction failed:', submitErr);
+        return NextResponse.json({ success: false, message: submitErr.message || 'Failed to submit draft' }, { status: 500 });
+      }
+
+      // Cleanup removed blobs
+      const removedAttachments = (currentMemo.attachmentPaths || []).filter(
+        (url) => !finalAttachments.includes(url)
+      );
+      if (removedAttachments.length > 0) {
+        try {
+          await del(removedAttachments);
+        } catch (delErr) {
+          console.error('submit-draft blob cleanup error:', delErr);
+        }
+      }
+
+      // Fresh memo for notifications
+      const freshMemo = await prisma.memo.findUnique({
+        where: { id: memoId },
+        include: { recipients: true },
+      });
+
+      const senderFullName2 = `${authenticatedUser.fname} ${authenticatedUser.lname}`;
+
+      // Notifications
+      if (submitStatus === 'FOR_APPROVAL') {
+        try {
+          const internalHeads = await getDepartmentHeadsIds(userDept);
+          if (internalHeads.length > 0) {
+            await prisma.notification.createMany({
+              data: internalHeads.map(head => ({
+                title: "Draft Memo For Review",
+                message: `${senderFullName2} submitted a draft memo requiring your signature approval. Ref: ${newRefId}`,
+                isRead: false,
+                recipientId: head.id,
+                senderId: authenticatedUser.id,
+                linkUrl: `/dashboard/forms/iom?tab=approval&focus=${memoId}`,
+                entityType: 'IOM',
+                entityId: memoId,
+              })),
+            });
+          }
+        } catch (notifErr) { console.error('Submit-draft head notif error:', notifErr); }
+      } else {
+        try {
+          for (const dept of finalTargetDepts) {
+            const targetHeads = await getDepartmentHeadsIds(dept);
+            if (targetHeads.length > 0) {
+              await prisma.notification.createMany({
+                data: targetHeads.map(head => ({
+                  title: "Inbound Inter-Office Memo",
+                  message: `New official memo released from ${userDept} department. Subject: ${finalSubject}. Ref: ${newRefId}`,
+                  isRead: false,
+                  recipientId: head.id,
+                  senderId: authenticatedUser.id,
+                  linkUrl: `/dashboard/forms/iom?tab=inbound`,
+                  entityType: 'IOM',
+                  entityId: memoId,
+                })),
+              });
+            }
+          }
+        } catch (notifErr) { console.error('Submit-draft inbound notif error:', notifErr); }
+      }
+
+      // Emails
+      try {
+        if (submitStatus === 'FOR_APPROVAL') {
+          await sendMemoSubmittedForApproval(authenticatedUser, freshMemo);
+        } else {
+          for (const dept of finalTargetDepts) {
+            const heads = await getDepartmentHeads(dept);
+            if (heads.length > 0) {
+              await sendMemoInbound(heads, freshMemo);
+            }
+          }
+        }
+      } catch (emailErr) {
+        console.error('Submit-draft email error:', emailErr);
+      }
+
+      await logActivity({
+        req: request,
+        userId: authenticatedUser.id,
+        email: authenticatedUser.email,
+        action: 'IOM_DRAFT_SUBMITTED',
+        details: JSON.stringify({
+          memoId,
+          referenceId: newRefId,
+          targetDepts: finalTargetDepts,
+          removedAttachments: removedAttachments.length,
+          newStatus: submitStatus,
+        }),
+      });
+
+      return NextResponse.json({
+        success: true,
+        data: freshMemo,
+        message: 'Draft submitted for approval',
+      });
+    }
 
     // =================================================================================
     // 2. PERMISSION & STATUS CHECKS PARA SA REVISE_DRAFT
@@ -1266,5 +1531,81 @@ export async function PATCH(request) {
   } catch (error) {
     console.error("Critical Matrix Failure:", error);
     return NextResponse.json({ success: false, message: "Internal server pipeline error." }, { status: 500 });
+  }
+}
+
+// ==========================================
+// DELETE /api/memos?id=xxx
+// Delete a DRAFT memo (sender or SuperUser only)
+// ==========================================
+export async function DELETE(request) {
+  try {
+    const authenticatedUser = await getAuthenticatedUser(request);
+    if (!authenticatedUser) {
+      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+    if (!id) {
+      return NextResponse.json({ success: false, message: "Memo ID is required" }, { status: 400 });
+    }
+
+    const memo = await prisma.memo.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        referenceId: true,
+        senderId: true,
+        status: true,
+        attachmentPaths: true,
+      },
+    });
+
+    if (!memo) {
+      return NextResponse.json({ success: false, message: "Memo not found" }, { status: 404 });
+    }
+
+    const isSuperOrAdmin = ['ADMIN', 'SUPERUSER'].includes(authenticatedUser.role?.toUpperCase());
+    if (memo.senderId !== authenticatedUser.id && !isSuperOrAdmin) {
+      return NextResponse.json(
+        { success: false, message: "Only the sender or SuperUser can delete this memo" },
+        { status: 403 }
+      );
+    }
+
+    if (memo.status !== 'DRAFT') {
+      return NextResponse.json(
+        { success: false, message: "Only draft memos can be deleted" },
+        { status: 400 }
+      );
+    }
+
+    // Best-effort blob cleanup
+    if (memo.attachmentPaths && memo.attachmentPaths.length > 0) {
+      try {
+        await del(memo.attachmentPaths);
+      } catch (delErr) {
+        console.error('Draft attachment blob deletion error:', delErr);
+      }
+    }
+
+    await prisma.memo.delete({ where: { id } });
+
+    await logActivity({
+      req: request,
+      userId: authenticatedUser.id,
+      email: authenticatedUser.email,
+      action: 'IOM_DRAFT_DELETED',
+      details: JSON.stringify({ memoId: id, referenceId: memo.referenceId }),
+    });
+
+    return NextResponse.json({ success: true, message: 'Draft deleted' });
+  } catch (error) {
+    console.error('DELETE Memo Error:', error);
+    return NextResponse.json(
+      { success: false, message: error.message || 'Failed to delete memo' },
+      { status: 500 }
+    );
   }
 }

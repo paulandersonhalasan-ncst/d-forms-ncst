@@ -18,7 +18,7 @@ import {
   ActionIcon,
   ThemeIcon,
   Box,
-  rem,
+  Divider,
 } from '@mantine/core';
 import { UseFormReturnType } from '@mantine/form';
 import { MemoFormValues } from './types';
@@ -29,27 +29,30 @@ import {
   IconFileTypePdf,
   IconPhoto,
   IconUpload,
+  IconDeviceFloppy,
 } from '@tabler/icons-react';
 import { useState } from 'react';
 
 interface CreateMemoModalProps {
-    opened: boolean;
-    onClose: () => void;
-    form: UseFormReturnType<MemoFormValues>;
-    departments: { value: string; label: string }[];
-    submitting: boolean;
-    onSubmit: (values: MemoFormValues) => void;
-    isReply: boolean;
+  opened: boolean;
+  onClose: () => void;
+  form: UseFormReturnType<MemoFormValues>;
+  departments: { value: string; label: string }[];
+  submitting: boolean;
+  onSubmit: (values: MemoFormValues) => void;
+  onSaveDraft?: (values: MemoFormValues) => void | Promise<void>;
+  isReply: boolean;
+  isDraftMode?: boolean;
+  existingAttachments?: string[];
+  setExistingAttachments?: (files: string[] | ((prev: string[]) => string[])) => void;
 }
 
-// Helper: format file size (B, KB, MB)
 const formatFileSize = (bytes: number): string => {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 };
 
-// Helper: icon at color based on file type
 const getFileMeta = (file: File): { icon: React.ReactNode; color: string; label: string } => {
   if (file.type.startsWith('image/')) {
     return { icon: <IconPhoto size={20} />, color: 'grape', label: 'Image' };
@@ -67,28 +70,56 @@ export default function CreateMemoModal({
   departments,
   submitting,
   onSubmit,
+  onSaveDraft,
   isReply,
+  isDraftMode = false,
+  existingAttachments = [],
+  setExistingAttachments,
 }: CreateMemoModalProps) {
-
   const [sendToAll, setSendToAll] = useState(false);
 
   const handleSendToAllChange = (checked: boolean) => {
     setSendToAll(checked);
     if (checked) {
-      // Piliin lahat ng departments
       const allValues = departments.map(d => d.value);
       form.setFieldValue('targetDepts', allValues);
     } else {
-      // I‑clear ang selection
       form.setFieldValue('targetDepts', []);
     }
   };
+
+  const handleSaveDraftClick = async () => {
+    // Only require a subject for drafts — allow partial content/targetDepts
+    const subjectResult = form.validateField('subject');
+    if (subjectResult.hasError) {
+      alert('Please provide a subject before saving as draft.');
+      return;
+    }
+    if (!onSaveDraft) return;
+
+    try {
+      await onSaveDraft({
+        ...form.values,
+        existingAttachments,
+      });
+    } catch (err) {
+      console.error('Save-draft error:', err);
+      alert('Failed to save draft');
+    }
+  };
+
+  // Title handling
+  const title = isDraftMode
+    ? '📝 Edit Draft Memorandum'
+    : isReply
+    ? '📝 Write Response Memo'
+    : '📝 Construct New Memorandum';
 
   return (
     <Modal
       opened={opened}
       onClose={onClose}
-      title={isReply ? '📝 Write Response Memo' : '📝 Construct New Memorandum'}
+      title={title}
       size="lg"
       radius="md"
       centered
@@ -108,7 +139,7 @@ export default function CreateMemoModal({
             placeholder="What will the memorandum be about..."
             required
             {...form.getInputProps('subject')}
-            disabled={isReply}
+            disabled={isReply && !isDraftMode}
           />
 
           <SimpleGrid cols={2}>
@@ -131,18 +162,23 @@ export default function CreateMemoModal({
             data={departments.filter(d => d.value && d.label)}
             placeholder="Select one or more departments"
             comboboxProps={{ zIndex: 6000 }}
-            required
+            required={!isDraftMode}
             disabled={isReply || sendToAll}
             {...form.getInputProps('targetDepts')}
             searchable
+            description={
+              isDraftMode
+                ? 'You can leave this empty for now and set recipients before submitting.'
+                : undefined
+            }
           />
 
-            {!isReply && departments.length > 0 && (
-              <Checkbox
-                label="All departments"
-                checked={sendToAll}
-                onChange={(event) => handleSendToAllChange(event.currentTarget.checked)}
-              />
+          {!isReply && departments.length > 0 && (
+            <Checkbox
+              label="All departments"
+              checked={sendToAll}
+              onChange={(event) => handleSendToAllChange(event.currentTarget.checked)}
+            />
           )}
 
           <Textarea
@@ -150,14 +186,81 @@ export default function CreateMemoModal({
             placeholder="Type the core message here..."
             minRows={6}
             autosize
-            required
+            required={!isDraftMode}
             {...form.getInputProps('content')}
+            description={
+              isDraftMode
+                ? 'You can leave this partially filled and finish before submitting.'
+                : undefined
+            }
           />
 
-          {/* ============ ATTACHMENTS SECTION ============ */}
+          {/* ============ EXISTING ATTACHMENTS (draft edit mode) ============ */}
+          {isDraftMode && existingAttachments.length > 0 && setExistingAttachments && (
+            <Box>
+              <Divider
+                label={`Currently Attached (${existingAttachments.length})`}
+                labelPosition="left"
+                mb="xs"
+              />
+              <Stack gap="xs">
+                {existingAttachments.map((url) => {
+                  const fileName = url.split('/').pop()?.replace(/^\d+-(\d+-)?/, '') || 'Attachment';
+                  const lower = fileName.toLowerCase();
+                  const isPdf = lower.endsWith('.pdf');
+                  const isImage = /\.(png|jpe?g|gif|webp)$/i.test(lower);
+                  return (
+                    <Paper
+                      key={url}
+                      withBorder
+                      p="xs"
+                      radius="md"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: 12,
+                      }}
+                    >
+                      <Group gap="sm" style={{ flex: 1, minWidth: 0 }}>
+                        <ThemeIcon
+                          color={isPdf ? 'red' : isImage ? 'grape' : 'gray'}
+                          variant="light"
+                          size="md"
+                        >
+                          {isPdf ? <IconFileTypePdf size={16} /> : isImage ? <IconPhoto size={16} /> : <IconFile size={16} />}
+                        </ThemeIcon>
+                        <Box style={{ minWidth: 0, flex: 1 }}>
+                          <Text size="sm" fw={500} lineClamp={1} title={fileName}>
+                            {fileName}
+                          </Text>
+                          <Text size="xs" c="dimmed">
+                            Already uploaded · click to preview
+                          </Text>
+                        </Box>
+                      </Group>
+                      <ActionIcon
+                        color="red"
+                        variant="light"
+                        size="md"
+                        onClick={() =>
+                          setExistingAttachments((prev) => prev.filter((p) => p !== url))
+                        }
+                        aria-label={`Remove ${fileName}`}
+                      >
+                        <IconTrash size={16} />
+                      </ActionIcon>
+                    </Paper>
+                  );
+                })}
+              </Stack>
+            </Box>
+          )}
+
+          {/* ============ NEW FILE UPLOAD ============ */}
           <Box>
             <Text fw={600} size="sm" mb={4}>
-              Optional Attachment Document
+              {isDraftMode ? 'Add New Attachments' : 'Optional Attachment Document'}
             </Text>
             <Text size="xs" c="dimmed" mb="xs">
               Upload PDF or image files. You can add multiple files.
@@ -186,12 +289,11 @@ export default function CreateMemoModal({
               })}
             />
 
-            {/* === LIST OF UPLOADED FILES === */}
             {form.values.memoAttachments && form.values.memoAttachments.length > 0 && (
               <Box mt="md">
                 <Group justify="space-between" mb="xs">
                   <Text size="xs" fw={600} c="dimmed">
-                    Uploaded Files ({form.values.memoAttachments.length})
+                    New Files ({form.values.memoAttachments.length})
                   </Text>
                   <Text
                     size="xs"
@@ -212,13 +314,7 @@ export default function CreateMemoModal({
                         withBorder
                         p="xs"
                         radius="md"
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          gap: 12,
-                          transition: 'all 150ms ease',
-                        }}
+                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}
                       >
                         <Group gap="sm" style={{ flex: 1, minWidth: 0 }}>
                           <ThemeIcon color={color} variant="light" size="lg" radius="md">
@@ -229,15 +325,9 @@ export default function CreateMemoModal({
                               {file.name}
                             </Text>
                             <Group gap={6} mt={2}>
-                              <Text size="xs" c="dimmed">
-                                {formatFileSize(file.size)}
-                              </Text>
-                              <Text size="xs" c="dimmed">
-                                ·
-                              </Text>
-                              <Text size="xs" c={color} fw={600}>
-                                {label}
-                              </Text>
+                              <Text size="xs" c="dimmed">{formatFileSize(file.size)}</Text>
+                              <Text size="xs" c="dimmed">·</Text>
+                              <Text size="xs" c={color} fw={600}>{label}</Text>
                             </Group>
                           </Box>
                         </Group>
@@ -254,7 +344,6 @@ export default function CreateMemoModal({
                             form.setFieldValue('memoAttachments', updated);
                           }}
                           aria-label={`Remove ${file.name}`}
-                          title="Remove file"
                         >
                           <IconTrash size={16} />
                         </ActionIcon>
@@ -267,9 +356,21 @@ export default function CreateMemoModal({
           </Box>
 
           <Group justify="flex-end" mt="md">
-            <Button variant="light" color="gray" onClick={onClose}>
+            <Button variant="light" color="gray" onClick={onClose} type="button">
               Cancel
             </Button>
+            {onSaveDraft && (
+              <Button
+                variant="light"
+                color="grape"
+                type="button"
+                leftSection={<IconDeviceFloppy size={16} />}
+                onClick={handleSaveDraftClick}
+                disabled={submitting}
+              >
+                Save as Draft
+              </Button>
+            )}
             <Button type="submit" loading={submitting} leftSection={<IconSend size={16} />}>
               Submit for Review
             </Button>

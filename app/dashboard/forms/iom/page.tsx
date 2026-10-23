@@ -47,7 +47,7 @@ import {
 import useSWR from 'swr';
 
 // Import shared types
-import { Priority, Purpose, Memo, UserContext, Department } from './component/types';
+import { Priority, Purpose, Memo, UserContext, Department, MemoFormValues, } from './component/types';
 
 // Import components
 import MemoCard from './component/memoCard';
@@ -153,6 +153,8 @@ function KanbanBoard({
   allMemos,
   departmentStaff,
   totalDepartments,
+  onEditDraft,
+  onDeleteDraft,
 }: {
   memos: Memo[];
   isApprovalTab: boolean;
@@ -182,6 +184,8 @@ function KanbanBoard({
   allMemos: Memo[];
   departmentStaff: { id: string; fname: string; lname: string }[];
   totalDepartments: number;
+  onEditDraft?: (memo: Memo) => void;
+  onDeleteDraft?: (memo: Memo) => void;
 }) {
   const isMobile = useMediaQuery('(max-width: 768px)');
 
@@ -259,6 +263,8 @@ function KanbanBoard({
                     triggerActionPasswordCheck={triggerActionPasswordCheck}
                     allMemos={allMemos}
                     departmentStaff={departmentStaff}
+                    onEditDraft={onEditDraft}
+                    onDeleteDraft={onDeleteDraft}
                   />
                 );
               })}
@@ -329,6 +335,8 @@ function KanbanBoard({
                         triggerActionPasswordCheck={triggerActionPasswordCheck}
                         allMemos={allMemos}
                         departmentStaff={departmentStaff}
+                        onEditDraft={onEditDraft}
+                        onDeleteDraft={onDeleteDraft}
                       />
                     );
                   })}
@@ -391,7 +399,8 @@ export default function IOMDashboardPage() {
       | 'APPROVE'
       | 'DISAPPROVE_DRAFT'
       | 'JOIN_PROCESSING'
-      | 'ASSIGN';
+      | 'ASSIGN'
+      | 'SUBMIT_DRAFT';
     data: Record<string, unknown>;
   } | null>(null);
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -421,6 +430,10 @@ export default function IOMDashboardPage() {
   const [superEditMode, setSuperEditMode] = useState<'edit' | 'approve'>('approve');
 
   const [reverting, setReverting] = useState(false);
+
+  // ---- Draft editing state ----
+  const [editingDraft, setEditingDraft] = useState<Memo | null>(null);
+  const [existingAttachments, setExistingAttachments] = useState<string[]>([]);
 
   const fetcher = (url: string) => fetch(url).then(res => res.json());
 
@@ -845,6 +858,39 @@ export default function IOMDashboardPage() {
         formData.append('assignedToId', String(pendingAction.data.assignedToId));
       }
 
+      if (pendingAction?.type === 'SUBMIT_DRAFT' && pendingAction?.data) {
+        formData.append('memoId', String(pendingAction.data.draftId || ''));
+        formData.append('action', 'SUBMIT_DRAFT');
+        formData.append('subject', String(pendingAction.data.subject || ''));
+        formData.append('content', String(pendingAction.data.content || ''));
+        formData.append('priority', String(pendingAction.data.priority || 'ROUTINE'));
+        formData.append('purpose', String(pendingAction.data.purpose || 'FYI'));
+
+        const parentId = pendingAction.data.parentMemoId as string | null;
+        const rootId = pendingAction.data.rootMemoId as string | null;
+        formData.append('parentMemoId', parentId !== null && parentId !== undefined ? parentId : '');
+        formData.append('rootMemoId', rootId !== null && rootId !== undefined ? rootId : '');
+
+        const targetDepts = pendingAction.data.targetDepts as string[];
+        if (Array.isArray(targetDepts)) {
+          targetDepts.forEach((dept) => formData.append('targetDepts', dept));
+        }
+
+        const existingAtts = pendingAction.data.existingAttachments as string[] | undefined;
+        if (existingAtts) {
+          formData.append('attachmentsToKeep', JSON.stringify(existingAtts));
+        }
+
+        const newFiles = pendingAction.data.memoAttachments as File[] | undefined;
+        if (newFiles) {
+          for (const file of newFiles) {
+            if (file instanceof File && file.size > 0) {
+              formData.append('memoAttachments', file);
+            }
+          }
+        }
+      }
+
       if (pendingAction?.type === 'CREATE' && pendingAction?.data) {
         formData.append('subject', String(pendingAction.data.subject || ''));
         formData.append('content', String(pendingAction.data.content || ''));
@@ -894,8 +940,9 @@ export default function IOMDashboardPage() {
         setFeedbackNote('');
         setActionAttachment(null);
         if (pendingAction?.type === 'CREATE') {
-          close();
-          form.reset();
+          handleModalClose();
+        } else if (pendingAction?.type === 'SUBMIT_DRAFT') {
+          handleModalClose();
         } else {
           closeExpandNoteModal();
         }
@@ -1009,6 +1056,145 @@ export default function IOMDashboardPage() {
       memoAttachments: [],
     });
     open();
+  };
+
+  // 🆕 Open modal to edit existing draft
+  const handleEditDraft = (memo: Memo) => {
+    setEditingDraft(memo);
+    setExistingAttachments(memo.attachmentPaths || []);
+    form.reset();
+    form.setValues({
+      subject: memo.subject || '',
+      content: memo.content || '',
+      priority: memo.priority,
+      purpose: memo.purpose,
+      targetDepts: memo.recipients?.map((r) => r.departmentName) || [],
+      parentMemoId: memo.parentMemoId || null,
+      rootMemoId: memo.rootMemoId || null,
+      memoAttachments: [],
+      existingAttachments: memo.attachmentPaths || [],
+    });
+    open();
+  };
+
+  // 🆕 Delete a draft
+  const handleDeleteDraft = async (memo: Memo) => {
+    if (!confirm('Delete this draft? This cannot be undone.')) return;
+    try {
+      const res = await fetch(`/api/memos?id=${memo.id}`, { method: 'DELETE' });
+      const result = await res.json();
+      if (res.ok) {
+        mutateMemos();
+        alert('Draft deleted');
+      } else {
+        alert(result.message || 'Failed to delete draft');
+      }
+    } catch (err) {
+      console.error('Delete draft error:', err);
+      alert('An error occurred');
+    }
+  };
+
+  // 🆕 Save as draft (new or existing)
+  const handleSaveDraft = async (values: MemoFormValues) => {
+    setSubmitting(true);
+    try {
+      const formData = new FormData();
+      formData.append('subject', values.subject);
+      formData.append('content', values.content || '');
+      formData.append('priority', values.priority);
+      formData.append('purpose', values.purpose);
+
+      if (values.parentMemoId) formData.append('parentMemoId', values.parentMemoId);
+      if (values.rootMemoId) formData.append('rootMemoId', values.rootMemoId);
+
+      // Attachments to keep (existing)
+      if (values.existingAttachments && values.existingAttachments.length > 0) {
+        formData.append('attachmentsToKeep', JSON.stringify(values.existingAttachments));
+      }
+
+      // New attachments
+      for (const file of values.memoAttachments || []) {
+        if (file instanceof File && file.size > 0) {
+          formData.append('memoAttachments', file);
+        }
+      }
+
+      if (editingDraft) {
+        // Update existing draft — PATCH, no password
+        formData.append('memoId', editingDraft.id);
+        formData.append('action', 'SAVE_DRAFT');
+
+        const res = await fetch('/api/memos', { method: 'PATCH', body: formData });
+        const result = await res.json();
+        if (res.ok) {
+          mutateMemos();
+          alert('Draft updated!');
+          handleModalClose();
+        } else {
+          alert(result.message || 'Failed to save draft');
+        }
+      } else {
+        // New draft — POST with isDraft=true
+        formData.append('isDraft', 'true');
+
+        const res = await fetch('/api/memos', { method: 'POST', body: formData });
+        const result = await res.json();
+        if (res.ok) {
+          mutateMemos();
+          alert('Draft saved!');
+          handleModalClose();
+        } else {
+          alert(result.message || 'Failed to save draft');
+        }
+      }
+    } catch (err) {
+      console.error('Save draft error:', err);
+      alert('An error occurred');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // 🆕 Submit draft via password gate
+  const handleSubmitDraftClick = (values: MemoFormValues) => {
+    if (!editingDraft) return;
+
+    // Require subject + content + targetDepts before opening password modal
+    if (!values.subject || values.subject.trim() === '') {
+      alert('Subject is required before submitting.');
+      return;
+    }
+    if (!values.content || values.content.trim() === '') {
+      alert('Content is required before submitting.');
+      return;
+    }
+    if (!values.targetDepts || values.targetDepts.length === 0) {
+      alert('At least one recipient department is required before submitting.');
+      return;
+    }
+
+    setConfirmPassword('');
+    setPassError('');
+    setFeedbackNote('');
+    setActionAttachment(null);
+    setPendingAction({
+      type: 'SUBMIT_DRAFT',
+      data: {
+        draftId: editingDraft.id,
+        ...values,
+        existingAttachments,
+      },
+    });
+    openPassModal();
+  };
+
+  // 🆕 Unified modal close
+  const handleModalClose = () => {
+    close();
+    setEditingDraft(null);
+    setExistingAttachments([]);
+    form.reset();
   };
 
   const handleViewThread = (selectedMemo: Memo) => {
@@ -1381,6 +1567,8 @@ export default function IOMDashboardPage() {
               allMemos={memos}
               departmentStaff={departmentStaff}
               totalDepartments={departments.length}
+              onEditDraft={handleEditDraft}
+              onDeleteDraft={handleDeleteDraft}
             />
           );
         })}
@@ -1405,7 +1593,16 @@ export default function IOMDashboardPage() {
               <Badge color="gray" variant="light" size="sm">{userRole}</Badge>
             </Group>
           </Stack>
-          <Button leftSection={<IconPlus size={16} />} onClick={() => { form.reset(); open(); }} radius="md">
+          <Button
+            leftSection={<IconPlus size={16} />}
+            onClick={() => {
+              setEditingDraft(null);
+              setExistingAttachments([]);
+              form.reset();
+              open();
+            }}
+            radius="md"
+          >
             Create New Memo
           </Button>
         </Group>
@@ -1631,6 +1828,8 @@ export default function IOMDashboardPage() {
                     allMemos={memos}
                     departmentStaff={departmentStaff}
                     totalDepartments={departments.length}
+                    onEditDraft={handleEditDraft}
+                    onDeleteDraft={handleDeleteDraft} 
                   />
                 )}
 
@@ -1663,6 +1862,8 @@ export default function IOMDashboardPage() {
                     allMemos={memos}
                     departmentStaff={departmentStaff}
                     totalDepartments={departments.length}
+                    onEditDraft={handleEditDraft}
+                    onDeleteDraft={handleDeleteDraft}
                   />
                 )}
 
@@ -1695,6 +1896,8 @@ export default function IOMDashboardPage() {
                     allMemos={memos}
                     departmentStaff={departmentStaff}
                     totalDepartments={departments.length}
+                    onEditDraft={handleEditDraft}
+                    onDeleteDraft={handleDeleteDraft} 
                   />
                 )}
 
@@ -1727,6 +1930,8 @@ export default function IOMDashboardPage() {
                     allMemos={memos}
                     departmentStaff={departmentStaff}
                     totalDepartments={departments.length}
+                    onEditDraft={handleEditDraft}
+                    onDeleteDraft={handleDeleteDraft} 
                   />
                 )}
 
@@ -1759,6 +1964,8 @@ export default function IOMDashboardPage() {
                     allMemos={memos}
                     departmentStaff={departmentStaff}
                     totalDepartments={departments.length}
+                    onEditDraft={handleEditDraft}
+                    onDeleteDraft={handleDeleteDraft} 
                   />
                 )}
 
@@ -1794,6 +2001,8 @@ export default function IOMDashboardPage() {
                     allMemos={memos}
                     departmentStaff={departmentStaff}
                     totalDepartments={departments.length}
+                    onEditDraft={handleEditDraft}
+                    onDeleteDraft={handleDeleteDraft}
                   />
                 )}
 
@@ -1826,6 +2035,8 @@ export default function IOMDashboardPage() {
                     allMemos={memos}
                     departmentStaff={departmentStaff}
                     totalDepartments={departments.length}
+                    onEditDraft={handleEditDraft}
+                    onDeleteDraft={handleDeleteDraft} 
                   />
                 )}
 
@@ -1858,6 +2069,8 @@ export default function IOMDashboardPage() {
                     allMemos={memos}
                     departmentStaff={departmentStaff}
                     totalDepartments={departments.length}
+                    onEditDraft={handleEditDraft}
+                    onDeleteDraft={handleDeleteDraft} 
                   />
                 )}
 
@@ -1889,6 +2102,8 @@ export default function IOMDashboardPage() {
                     allMemos={memos}
                     departmentStaff={departmentStaff}
                     totalDepartments={departments.length}
+                    onEditDraft={handleEditDraft}
+                    onDeleteDraft={handleDeleteDraft}
                   />
                 )}
               </Tabs.Panel>
@@ -1901,12 +2116,24 @@ export default function IOMDashboardPage() {
       {/* ---- Modals ---- */}
       <CreateMemoModal
         opened={opened}
-        onClose={close}
+        onClose={handleModalClose}
         form={form}
         departments={departments}
         submitting={submitting}
-        onSubmit={(values) => triggerActionPasswordCheck('CREATE', values)}
+        onSubmit={(values) => {
+          if (editingDraft) {
+            // Draft submission goes through password modal
+            handleSubmitDraftClick(values);
+          } else {
+            // New memo — existing password-gated CREATE flow
+            triggerActionPasswordCheck('CREATE', values);
+          }
+        }}
+        onSaveDraft={handleSaveDraft}
         isReply={!!form.values.parentMemoId}
+        isDraftMode={!!editingDraft}
+        existingAttachments={existingAttachments}
+        setExistingAttachments={setExistingAttachments}
       />
 
       <ViewMemoModal

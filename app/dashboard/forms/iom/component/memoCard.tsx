@@ -13,7 +13,9 @@ import {
   UnstyledButton,
   SimpleGrid,
   Select,
-  Alert
+  Alert,
+  Box,
+  ActionIcon
 } from '@mantine/core';
 import {
   IconGitBranch,
@@ -25,7 +27,8 @@ import {
   IconEdit,
   IconDownload,
   IconThumbUp,
-  IconInfoCircle
+  IconInfoCircle,
+  IconTrash
 } from '@tabler/icons-react';
 import { Memo, UserContext } from './types';
 
@@ -50,6 +53,8 @@ interface MemoCardProps {
   ) => void;
   allMemos: Memo[];
   departmentStaff: { id: string; fname: string; lname: string }[];
+  onEditDraft?: (memo: Memo) => void; 
+  onDeleteDraft?: (memo: Memo) => void;
 }
 
 export default function MemoCard({
@@ -70,6 +75,8 @@ export default function MemoCard({
   allMemos,
   departmentStaff,
   totalDepartments = 0,
+  onEditDraft, 
+  onDeleteDraft,
 }: MemoCardProps) {
   const amISender = memo.senderId === currentUser?.id;
   const myRecipientInfo = memo.recipients?.find(
@@ -158,7 +165,12 @@ export default function MemoCard({
         border: isBeingProcessed
           ? '2px solid var(--mantine-color-orange-filled)'
           : '1px solid light-dark(var(--mantine-color-gray-3), var(--mantine-color-dark-4))',
-        boxShadow: isBeingProcessed ? '0 0 12px rgba(255, 165, 0, 0.4)' : undefined,
+        boxShadow:
+          isBeingProcessed
+            ? '0 0 12px rgba(255, 165, 0, 0.4)'
+            : memo.status === 'DRAFT'
+              ? '0 0 0 2px rgba(190, 75, 219, 0.15), 0 0 16px rgba(190, 75, 219, 0.25)'
+              : undefined,
         display: 'flex',
         flexDirection: 'column',
         padding: 0,
@@ -209,9 +221,14 @@ export default function MemoCard({
                 CREATED BY YOU
               </Badge>
             )}
+            {memo.status === 'DRAFT' && (
+              <Badge color="grape" variant="filled" size="xs">
+                📝 DRAFT
+              </Badge>
+            )}
             {memo.status === 'FOR_APPROVAL' && (
               <Badge color="orange" variant="filled" size="xs">
-                Draft/For Review
+                For Review
               </Badge>
             )}
             {hasThread && (
@@ -299,10 +316,71 @@ export default function MemoCard({
             )}
         </Stack>
 
-        <Text fz="sm" fw={700} mt="xs" w="100%" lineClamp={1}>
+                <Text fz="sm" fw={700} mt="xs" w="100%" lineClamp={1}>
           SUBJECT: {displaySubject}
         </Text>
       </UnstyledButton>
+ 
+      {memo.status === 'DRAFT' && (onEditDraft || onDeleteDraft) && (
+        <Box
+          p="xs"
+          style={{
+            borderTop:
+              '1px solid light-dark(var(--mantine-color-grape-2), var(--mantine-color-dark-4))',
+            backgroundColor:
+              'light-dark(var(--mantine-color-grape-0), var(--mantine-color-dark-7))',
+            borderBottomLeftRadius: 8,
+            borderBottomRightRadius: 8,
+          }}
+        >
+          <Group
+            justify="space-between"
+            gap="xs"
+            wrap="wrap"
+            align="center"
+          >
+            <Badge
+              color="grape"
+              variant="dot"
+              size="sm"
+              styles={{ label: { fontSize: 11, fontWeight: 600 } }}
+            >
+              Not yet submitted
+            </Badge>
+            <Group gap={6} wrap="nowrap">
+              {onEditDraft && (
+                <Button
+                  size="xs"
+                  variant="light"
+                  color="grape"
+                  leftSection={<IconEdit size={12} />}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onEditDraft(memo);
+                  }}
+                >
+                  Continue
+                </Button>
+              )}
+              {onDeleteDraft && (
+                <ActionIcon
+                  size="md"
+                  variant="light"
+                  color="red"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDeleteDraft(memo);
+                  }}
+                  aria-label="Delete draft"
+                  title="Delete draft"
+                >
+                  <IconTrash size={14} />
+                </ActionIcon>
+              )}
+            </Group>
+          </Group>
+        </Box>
+      )}
     </Card>
   );
 }

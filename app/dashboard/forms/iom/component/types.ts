@@ -117,4 +117,5 @@ export type MemoFormValues = {
   parentMemoId: string | null;
   rootMemoId: string | null;
   memoAttachments: File[];
+  existingAttachments?: string[];
 };
