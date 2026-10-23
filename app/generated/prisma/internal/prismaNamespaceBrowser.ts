@@ -67,7 +67,8 @@ export const ModelName = {
   EquipmentPlace: 'EquipmentPlace',
   FacilityEquipmentRequest: 'FacilityEquipmentRequest',
   FacilityReservationDate: 'FacilityReservationDate',
-  FormSettings: 'FormSettings'
+  FormSettings: 'FormSettings',
+  PrivacySettings: 'PrivacySettings'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -388,6 +389,25 @@ export const FormSettingsScalarFieldEnum = {
 } as const
 
 export type FormSettingsScalarFieldEnum = (typeof FormSettingsScalarFieldEnum)[keyof typeof FormSettingsScalarFieldEnum]
+
+
+export const PrivacySettingsScalarFieldEnum = {
+  id: 'id',
+  dpoBadgeUrl: 'dpoBadgeUrl',
+  dpoRegistrationNo: 'dpoRegistrationNo',
+  dpoRegisteredDate: 'dpoRegisteredDate',
+  dpoOfficerName: 'dpoOfficerName',
+  dpoContactEmail: 'dpoContactEmail',
+  dpoContactPhone: 'dpoContactPhone',
+  dpoOfficeAddress: 'dpoOfficeAddress',
+  noticeText: 'noticeText',
+  lastUpdated: 'lastUpdated',
+  updatedAt: 'updatedAt',
+  updatedById: 'updatedById',
+  updatedByName: 'updatedByName'
+} as const
+
+export type PrivacySettingsScalarFieldEnum = (typeof PrivacySettingsScalarFieldEnum)[keyof typeof PrivacySettingsScalarFieldEnum]
 
 
 export const SortOrder = {

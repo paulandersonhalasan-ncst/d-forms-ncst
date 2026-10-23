@@ -587,3 +587,33 @@ model FormSettings {
   updatedAt              DateTime @updatedAt
   updatedBy              String?
 }
+
+// ==========================================
+// PRIVACY / DPO (NPC COMPLIANCE)
+// ==========================================
+model PrivacySettings {
+  id                String   @id @default("singleton")
+
+  // NPC DPO Registration badge (blob URL, optional)
+  dpoBadgeUrl       String?
+
+  // NPC registration details
+  dpoRegistrationNo String?
+  dpoRegisteredDate DateTime?
+
+  // DPO Officer contact (public info per NPC requirement)
+  dpoOfficerName    String?
+  dpoContactEmail   String?
+  dpoContactPhone   String?
+  dpoOfficeAddress  String?  @db.Text
+
+  // Main notice body
+  noticeText        String?  @db.Text
+
+  // Effective date
+  lastUpdated       DateTime?
+
+  updatedAt         DateTime @updatedAt
+  updatedById       String?
+  updatedByName     String?
+}

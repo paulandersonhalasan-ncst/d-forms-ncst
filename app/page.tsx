@@ -9,6 +9,7 @@ import { modals } from "@mantine/modals";
 import { IconAlertCircle } from "@tabler/icons-react";
 import '@mantine/core/styles.css';
 import { ForgotPasswordModal } from "./components/forgotpasswordmodal";
+import LandingFooter from "./components/landing-footer";
 
 export default function LoginPage() {
     const [email, setEmail] = useState("");
@@ -87,16 +88,24 @@ export default function LoginPage() {
     }
 
     return (
-        <main
+        <div
             style={{
                 minHeight: '100vh',
                 display: 'flex',
-                justifyContent: 'center',
-                alignItems: 'center',
+                flexDirection: 'column',
                 backgroundImage: "url('/image.png')",
                 backgroundSize: 'cover',
                 backgroundPosition: 'center',
-                backgroundRepeat: 'no-repeat'
+                backgroundRepeat: 'no-repeat',
+            }}
+        >
+        <main
+            style={{
+                flex: 1,
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                padding: '24px 16px',
             }}
         >
             <form
@@ -158,11 +167,13 @@ export default function LoginPage() {
                 </Stack>
             </form>
 
-            {/* ✅ Forgot Password Modal */}
             <ForgotPasswordModal
                 opened={forgotModalOpened}
                 onClose={() => setForgotModalOpened(false)}
             />
         </main>
+
+        <LandingFooter />
+        </div>
     );
 }

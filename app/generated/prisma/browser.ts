@@ -102,3 +102,8 @@ export type FacilityReservationDate = Prisma.FacilityReservationDateModel
  * 
  */
 export type FormSettings = Prisma.FormSettingsModel
+/**
+ * Model PrivacySettings
+ * 
+ */
+export type PrivacySettings = Prisma.PrivacySettingsModel

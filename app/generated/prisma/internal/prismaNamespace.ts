@@ -413,7 +413,8 @@ export const ModelName = {
   EquipmentPlace: 'EquipmentPlace',
   FacilityEquipmentRequest: 'FacilityEquipmentRequest',
   FacilityReservationDate: 'FacilityReservationDate',
-  FormSettings: 'FormSettings'
+  FormSettings: 'FormSettings',
+  PrivacySettings: 'PrivacySettings'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -429,7 +430,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "user" | "department" | "activityLog" | "notification" | "loginLog" | "memo" | "memoRecipientStatus" | "memoHistory" | "facilityReservation" | "facilityApproval" | "facilityAssignment" | "eventPlace" | "equipment" | "equipmentPlace" | "facilityEquipmentRequest" | "facilityReservationDate" | "formSettings"
+    modelProps: "user" | "department" | "activityLog" | "notification" | "loginLog" | "memo" | "memoRecipientStatus" | "memoHistory" | "facilityReservation" | "facilityApproval" | "facilityAssignment" | "eventPlace" | "equipment" | "equipmentPlace" | "facilityEquipmentRequest" | "facilityReservationDate" | "formSettings" | "privacySettings"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -1691,6 +1692,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    PrivacySettings: {
+      payload: Prisma.$PrivacySettingsPayload<ExtArgs>
+      fields: Prisma.PrivacySettingsFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.PrivacySettingsFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PrivacySettingsPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.PrivacySettingsFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PrivacySettingsPayload>
+        }
+        findFirst: {
+          args: Prisma.PrivacySettingsFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PrivacySettingsPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.PrivacySettingsFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PrivacySettingsPayload>
+        }
+        findMany: {
+          args: Prisma.PrivacySettingsFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PrivacySettingsPayload>[]
+        }
+        create: {
+          args: Prisma.PrivacySettingsCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PrivacySettingsPayload>
+        }
+        createMany: {
+          args: Prisma.PrivacySettingsCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.PrivacySettingsCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PrivacySettingsPayload>[]
+        }
+        delete: {
+          args: Prisma.PrivacySettingsDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PrivacySettingsPayload>
+        }
+        update: {
+          args: Prisma.PrivacySettingsUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PrivacySettingsPayload>
+        }
+        deleteMany: {
+          args: Prisma.PrivacySettingsDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.PrivacySettingsUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.PrivacySettingsUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PrivacySettingsPayload>[]
+        }
+        upsert: {
+          args: Prisma.PrivacySettingsUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PrivacySettingsPayload>
+        }
+        aggregate: {
+          args: Prisma.PrivacySettingsAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregatePrivacySettings>
+        }
+        groupBy: {
+          args: Prisma.PrivacySettingsGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.PrivacySettingsGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.PrivacySettingsCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.PrivacySettingsCountAggregateOutputType> | number
+        }
+      }
+    }
   }
 } & {
   other: {
@@ -2032,6 +2107,25 @@ export const FormSettingsScalarFieldEnum = {
 } as const
 
 export type FormSettingsScalarFieldEnum = (typeof FormSettingsScalarFieldEnum)[keyof typeof FormSettingsScalarFieldEnum]
+
+
+export const PrivacySettingsScalarFieldEnum = {
+  id: 'id',
+  dpoBadgeUrl: 'dpoBadgeUrl',
+  dpoRegistrationNo: 'dpoRegistrationNo',
+  dpoRegisteredDate: 'dpoRegisteredDate',
+  dpoOfficerName: 'dpoOfficerName',
+  dpoContactEmail: 'dpoContactEmail',
+  dpoContactPhone: 'dpoContactPhone',
+  dpoOfficeAddress: 'dpoOfficeAddress',
+  noticeText: 'noticeText',
+  lastUpdated: 'lastUpdated',
+  updatedAt: 'updatedAt',
+  updatedById: 'updatedById',
+  updatedByName: 'updatedByName'
+} as const
+
+export type PrivacySettingsScalarFieldEnum = (typeof PrivacySettingsScalarFieldEnum)[keyof typeof PrivacySettingsScalarFieldEnum]
 
 
 export const SortOrder = {
@@ -2535,6 +2629,7 @@ export type GlobalOmitConfig = {
   facilityEquipmentRequest?: Prisma.FacilityEquipmentRequestOmit
   facilityReservationDate?: Prisma.FacilityReservationDateOmit
   formSettings?: Prisma.FormSettingsOmit
+  privacySettings?: Prisma.PrivacySettingsOmit
 }
 
 /* Types for Logging */

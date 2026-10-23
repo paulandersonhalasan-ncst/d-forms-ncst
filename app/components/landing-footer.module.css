@@ -1,0 +1,15 @@
+/* app/components/landing-footer.module.css */
+
+/* 🆕 Solid regalNavy base — no light-dark() wrapper, so no resolution issues */
+.footer {
+  background: var(--mantine-color-regalNavy-9);
+  border-top: 3px solid var(--mantine-color-customCreamYellow-6);
+  box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.15);
+  margin-top: auto;
+}
+
+/* 🆕 Dark mode: swap to Mantine's dark surface color
+   (uses the data-mantine-color-scheme attribute Mantine already sets on <html>) */
+:global([data-mantine-color-scheme='dark']) .footer {
+  background: var(--mantine-color-dark-8);
+}
