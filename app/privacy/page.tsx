@@ -52,17 +52,6 @@ export default function PrivacyNoticePage() {
               <img src="/favicon.ico" alt="NCST" width={28} height={28} style={{ borderRadius: 6 }} />
               <Text fw={800} size="sm" c="white">NCST D-Forms</Text>
             </Group>
-            <Button
-              component={Link}
-              href="/"
-              variant="subtle"
-              color="gray"
-              size="xs"
-              leftSection={<IconArrowLeft size={14} />}
-              styles={{ root: { color: 'white' } }}
-            >
-              Back to Login
-            </Button>
           </Group>
         </Container>
       </div>
@@ -103,7 +92,7 @@ export default function PrivacyNoticePage() {
                     alt="NPC DPO Registration Badge"
                     style={{
                         display: 'block',
-                        maxWidth: '100%',
+                        maxWidth: '75%',
                         height: 'auto',
                         objectFit: 'contain',
                     }}

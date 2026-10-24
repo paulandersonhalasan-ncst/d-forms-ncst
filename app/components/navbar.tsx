@@ -13,7 +13,8 @@ import {
     IconUser,
     IconBellRinging,
     IconDatabaseExport,
-    IconShieldCheck
+    IconShieldCheck,
+    IconShieldExclamation
 } from "@tabler/icons-react";
 import {
     Code,
@@ -115,6 +116,11 @@ const schoolMenuData: MenuItem[] = [
         icon: IconDatabaseExport,
         link: "/dashboard/super/backup",
         allowedRoles: ["SuperUser"],
+    },
+    {
+        label: "Privacy Notice",
+        icon: IconShieldExclamation,
+        link: "/dashboard/privacy",
     },
     {
         label: "Privacy & DPO",
