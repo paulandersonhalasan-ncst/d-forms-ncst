@@ -100,7 +100,6 @@ export default function InAppPrivacyNoticePage() {
               p="md"
               style={{
                 borderRadius: 12,
-                background: 'light-dark(var(--mantine-color-regalNavy-0), var(--mantine-color-dark-6))',
                 border: '1px solid light-dark(var(--mantine-color-regalNavy-2), var(--mantine-color-dark-4))',
               }}
             >
@@ -119,13 +118,15 @@ export default function InAppPrivacyNoticePage() {
                   margin: '0 auto',
                 }}
               >
-                <Image
-                  src={settings.dpoBadgeUrl}
-                  alt="NPC DPO Registration Badge"
-                  w="auto"
-                  h={140}
-                  radius="md"
-                  style={{ maxWidth: '100%' }}
+                <img
+                    src={settings.dpoBadgeUrl}
+                    alt="NPC DPO Registration Badge"
+                    style={{
+                        display: 'block',
+                        maxWidth: '75%',
+                        height: 'auto',
+                        objectFit: 'contain',
+                    }}
                 />
               </Box>
             </Box>
