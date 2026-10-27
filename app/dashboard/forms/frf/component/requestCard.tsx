@@ -11,6 +11,7 @@ interface RequestCardProps {
   onAssign?: () => void;
   onFinalize?: () => void;
   onAction: (type: FRFActionType, data: Record<string, unknown>) => void;
+  isFocused?: boolean;
 }
 
 export default function RequestCard({
@@ -20,6 +21,7 @@ export default function RequestCard({
   onAssign,
   onFinalize,
   onAction,
+  isFocused = false,
 }: RequestCardProps) {
   const myApproval = request.approvals.find((a) => a.departmentCode === currentUser?.departmentCode);
   const isHeadOrOIC = isActiveHeadOrOIC(currentUser);
@@ -51,6 +53,8 @@ export default function RequestCard({
 
   return (
     <Card
+      id={`card-${request.id}`}
+      className={isFocused ? 'ncst-focus-ring' : undefined}
       withBorder
       shadow="sm"
       radius="md"

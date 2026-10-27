@@ -273,6 +273,27 @@ export default function FRFDashboardPage() {
     );
   };
 
+  // ---- Notification focus-highlight state ----
+  const focusId = searchParams.get('focus');
+  const [focusedCardId, setFocusedCardId] = useState<string | null>(null);
+  const [lastFocusId, setLastFocusId] = useState<string | null>(focusId);
+  const [handledFocusId, setHandledFocusId] = useState<string | null>(null);
+
+  // ---- Focus-highlight: scroll + clean URL (no setState — external side effects only) ----
+  useEffect(() => {
+    if (!focusId || focusedCardId !== focusId) return;
+
+    const el = document.getElementById(`card-${focusId}`);
+    el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('focus')) {
+      params.delete('focus');
+      const qs = params.toString();
+      router.replace(window.location.pathname + (qs ? `?${qs}` : ''));
+    }
+  }, [focusId, focusedCardId, router]);
+
   const handlePrintFRF = (reservation: FacilityReservation) => {
     const toDate = (val: unknown): Date => {
       if (val instanceof Date) return val;
@@ -1030,6 +1051,7 @@ export default function FRFDashboardPage() {
   };
 
   const openDetailModal = (req: FacilityReservation) => {
+    if (focusedCardId === req.id) setFocusedCardId(null);
     setSelectedRequest(req);
     openDetail();
   };
@@ -1068,6 +1090,57 @@ export default function FRFDashboardPage() {
 
   if (loading) {
     return <LoadingOverlay visible />;
+  }
+
+  // ---- Focus resolution (render-phase sync — no refs, no effect setState) ----
+
+  // Reset state only when a NEW non-null focusId arrives. Do NOT clear when
+  // focusId becomes null — that happens after URL cleanup, and the ring should persist.
+  if (focusId !== lastFocusId) {
+    setLastFocusId(focusId);
+    if (focusId) {
+      setFocusedCardId(null);
+      setHandledFocusId(null);
+    }
+  }
+
+  // Resolve once per focusId, after reservations + user are ready.
+  if (
+    focusId &&
+    handledFocusId !== focusId &&
+    reservations.length > 0 &&
+    currentUser
+  ) {
+    const target = reservations.find((r) => r.id === focusId);
+    if (target) {
+      setHandledFocusId(focusId);
+      setFocusedCardId(focusId);
+
+      const tabLists: Record<string, FacilityReservation[]> = {
+        hr_copy: hrCopyReservations,
+        my_requests: myRequests,
+        pending_approval: pendingApproval,
+        action_board: actionBoard,
+        assigned_to_me: assignedToMe,
+        completed: completed,
+      };
+
+      const currentList = tabLists[activeTab || ''] || [];
+      if (!currentList.some((x) => x.id === target.id)) {
+        const tabOrder: string[] = [
+          ...(isHRDorSuper ? ['hr_copy'] : []),
+          'my_requests',
+          'pending_approval',
+          'action_board',
+          ...(isITOMain ? ['assigned_to_me'] : []),
+          'completed',
+        ];
+        const fallback = tabOrder.find((t) =>
+          tabLists[t]?.some((x) => x.id === target.id),
+        );
+        if (fallback) setActiveTab(fallback);
+      }
+    }
   }
 
   const canManage = 
@@ -1316,6 +1389,7 @@ export default function FRFDashboardPage() {
                             key={req.id}
                             request={req}
                             currentUser={currentUser}
+                            isFocused={req.id === focusedCardId}
                             onView={() => openDetailModal(req)}
                             onAssign={() => {
                               closeDetail();

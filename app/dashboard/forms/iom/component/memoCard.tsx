@@ -55,6 +55,7 @@ interface MemoCardProps {
   departmentStaff: { id: string; fname: string; lname: string }[];
   onEditDraft?: (memo: Memo) => void; 
   onDeleteDraft?: (memo: Memo) => void;
+  isFocused?: boolean;
 }
 
 export default function MemoCard({
@@ -77,6 +78,7 @@ export default function MemoCard({
   totalDepartments = 0,
   onEditDraft, 
   onDeleteDraft,
+  isFocused = false, 
 }: MemoCardProps) {
   const amISender = memo.senderId === currentUser?.id;
   const myRecipientInfo = memo.recipients?.find(
@@ -158,6 +160,8 @@ export default function MemoCard({
 
   return (
     <Card
+      id={`card-${memo.id}`}
+      className={isFocused ? 'ncst-focus-ring' : undefined}
       withBorder={!isBeingProcessed}
       radius="md"
       shadow={isBeingProcessed ? 'md' : 'sm'}

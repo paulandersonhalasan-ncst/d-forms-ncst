@@ -1,7 +1,7 @@
 // app/page.tsx
 'use client';
 
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useForm } from '@mantine/form';
 import { useDisclosure, useToggle, useMediaQuery } from '@mantine/hooks';
 import {
@@ -56,7 +56,7 @@ import ViewMemoModal from './component/viewMemoModal';
 import PasswordGateModal from './component/passwordGateModal';
 import SuperEditModal from './component/superEditModal';
 
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 function CollapsibleAlert({
   title,
@@ -155,6 +155,7 @@ function KanbanBoard({
   totalDepartments,
   onEditDraft,
   onDeleteDraft,
+  focusedCardId,
 }: {
   memos: Memo[];
   isApprovalTab: boolean;
@@ -186,6 +187,7 @@ function KanbanBoard({
   totalDepartments: number;
   onEditDraft?: (memo: Memo) => void;
   onDeleteDraft?: (memo: Memo) => void;
+  focusedCardId?: string | null;
 }) {
   const isMobile = useMediaQuery('(max-width: 768px)');
 
@@ -247,6 +249,7 @@ function KanbanBoard({
                   <MemoCard
                     key={memo.id}
                     memo={memo}
+                    isFocused={memo.id === focusedCardId}
                     isApprovalTab={isApprovalTab}
                     currentUser={currentUser}
                     activeDepartment={activeDepartment}
@@ -319,6 +322,7 @@ function KanbanBoard({
                       <MemoCard
                         key={memo.id}
                         memo={memo}
+                        isFocused={memo.id === focusedCardId}
                         isApprovalTab={isApprovalTab}
                         currentUser={currentUser}
                         activeDepartment={activeDepartment}
@@ -426,6 +430,7 @@ export default function IOMDashboardPage() {
 
   const searchParams = useSearchParams();
   const urlTab = searchParams.get('tab');
+  const focusId = searchParams.get('focus');
 
   const [superEditMode, setSuperEditMode] = useState<'edit' | 'approve'>('approve');
 
@@ -434,6 +439,14 @@ export default function IOMDashboardPage() {
   // ---- Draft editing state ----
   const [editingDraft, setEditingDraft] = useState<Memo | null>(null);
   const [existingAttachments, setExistingAttachments] = useState<string[]>([]);
+
+  // ---- Notification focus-highlight state ----
+  const [focusedCardId, setFocusedCardId] = useState<string | null>(null);
+  const [lastFocusId, setLastFocusId] = useState<string | null>(focusId);
+  const [handledFocusId, setHandledFocusId] = useState<string | null>(null);
+
+  // Router needed for URL cleanup
+  const router = useRouter();
 
   const fetcher = (url: string) => fetch(url).then(res => res.json());
 
@@ -669,21 +682,20 @@ export default function IOMDashboardPage() {
   // ---- Active tab state (gamit ang isAdminOrSuper at isDepartmentHead) ----
   const [activeTab, setActiveTab] = useState<string | null>(() => {
     if (urlTab) return urlTab;
-    if (isAdminOrSuper) return 'all_memos';
+    if (isAdminOrSuper) return 'all_memos_global';
     if (isHeadOrOIC) return 'approval';
     return 'action_board';
   });
 
-  // ---- Ref para malaman kung nag-manual change ang user ----
-  const userChangedTab = useRef(false);
+  // ---- Flag para malaman kung nag-manual change ang user ----
+  const [userChangedTab, setUserChangedTab] = useState(false);
 
   // ---- Effect para i-auto-set ang tab (pero hindi kung nag-manual na) ----
   useEffect(() => {
-    if (urlTab) return; // ✅ Huwag i‑override kung may URL tab
-    
-    if (!userChangedTab.current) {
+    if (urlTab || focusId) return;
+    if (!userChangedTab) {
       let desired: string | null = null;
-      if (isAdminOrSuper) desired = 'all_memos';
+      if (isAdminOrSuper) desired = 'all_memos_global';
       else if (isHeadOrOIC) desired = 'approval';
       else desired = 'action_board';
       if (desired && activeTab !== desired) {
@@ -691,13 +703,11 @@ export default function IOMDashboardPage() {
         setActiveTab(desired);
       }
     }
-  }, [isAdminOrSuper, isHeadOrOIC, activeTab, urlTab]);
+  }, [isAdminOrSuper, isHeadOrOIC, activeTab, urlTab, focusId, userChangedTab]);
 
-  // ---- Handler para sa pag-click ng tab ----
   const handleTabChange = (value: string | null) => {
-    userChangedTab.current = true;
+    setUserChangedTab(true);
     setActiveTab(value);
-    // ✅ I‑clear ang search kapag nag‑switch sa archived tab
     if (value === 'archived') {
       setSearchTerm('');
     }
@@ -747,6 +757,21 @@ export default function IOMDashboardPage() {
     window.addEventListener('refresh-notifications', handleRefresh);
     return () => window.removeEventListener('refresh-notifications', handleRefresh);
   }, [mutateMemos]);
+
+  // ---- Focus-highlight: scroll + clean URL (no setState — external side effects only) ----
+  useEffect(() => {
+    if (!focusId || focusedCardId !== focusId) return;
+
+    const el = document.getElementById(`card-${focusId}`);
+    el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('focus')) {
+      params.delete('focus');
+      const qs = params.toString();
+      router.replace(window.location.pathname + (qs ? `?${qs}` : ''));
+    }
+  }, [focusId, focusedCardId, router]);
 
   // I‑fetch ang staff members (same department, exclude current user)
   useEffect(() => {
@@ -1210,6 +1235,7 @@ export default function IOMDashboardPage() {
 
   const handleExpandNoteOpen = (memo: Memo) => {
     closeThreadModal();
+    if (focusedCardId === memo.id) setFocusedCardId(null);   // 🆕
     setSelectedMemoForExpand(memo);
     openExpandNoteModal();
   };
@@ -1551,6 +1577,7 @@ export default function IOMDashboardPage() {
             <MemoCard
               key={memo.id}
               memo={memo}
+              isFocused={memo.id === focusedCardId}
               isApprovalTab={isApprovalTab}
               currentUser={currentUser}
               activeDepartment={activeDepartment}
@@ -1575,6 +1602,62 @@ export default function IOMDashboardPage() {
       </SimpleGrid>
     );
   };
+
+  // ---- Focus resolution (render-phase sync — no refs, no effect setState) ----
+
+  if (focusId !== lastFocusId) {
+    setLastFocusId(focusId);
+    if (focusId) {
+      setFocusedCardId(null);
+      setHandledFocusId(null);
+    }
+  }
+
+  if (
+    focusId &&
+    handledFocusId !== focusId &&
+    memos.length > 0 &&
+    currentUser
+  ) {
+    const target = memos.find((m) => m.id === focusId);
+    if (target) {
+      setHandledFocusId(focusId);
+      setFocusedCardId(focusId);
+      setUserChangedTab(true);      // ← state, not ref
+
+      const tabLists: Record<string, Memo[]> = {
+        approval: forApprovalMemos,
+        inbound: inboundMemos,
+        authored_by_me: authoredByMeMemos,
+        outbound: outboundMemos,
+        action_board: actionBoardMemos,
+        assigned_to_me: assignedToMeMemos,
+        archived: resolvedMemos,
+        all_memos_global: isAdminOrSuper ? allMemosGlobal : [],
+        imported: importedMemos,
+      };
+
+      const currentList = tabLists[activeTab || ''] || [];
+      if (!currentList.some((x) => x.id === target.id)) {
+        const tabOrder: string[] = [];
+        if (isHeadOrOIC) tabOrder.push('approval', 'inbound');
+        tabOrder.push(
+          'authored_by_me',
+          'outbound',
+          'action_board',
+          'assigned_to_me',
+          'archived',
+          'imported',
+        );
+        if (isAdminOrSuper) tabOrder.push('all_memos_global');
+
+        const fallback = tabOrder.find((t) =>
+          tabLists[t]?.some((x) => x.id === target.id),
+        );
+        if (fallback) setActiveTab(fallback);
+      }
+    }
+  }
 
   // ---- Main render ----
   return (
@@ -1829,7 +1912,8 @@ export default function IOMDashboardPage() {
                     departmentStaff={departmentStaff}
                     totalDepartments={departments.length}
                     onEditDraft={handleEditDraft}
-                    onDeleteDraft={handleDeleteDraft} 
+                    onDeleteDraft={handleDeleteDraft}
+                    focusedCardId={focusedCardId}
                   />
                 )}
 
@@ -1864,6 +1948,7 @@ export default function IOMDashboardPage() {
                     totalDepartments={departments.length}
                     onEditDraft={handleEditDraft}
                     onDeleteDraft={handleDeleteDraft}
+                    focusedCardId={focusedCardId}
                   />
                 )}
 
@@ -1897,7 +1982,8 @@ export default function IOMDashboardPage() {
                     departmentStaff={departmentStaff}
                     totalDepartments={departments.length}
                     onEditDraft={handleEditDraft}
-                    onDeleteDraft={handleDeleteDraft} 
+                    onDeleteDraft={handleDeleteDraft}
+                    focusedCardId={focusedCardId}
                   />
                 )}
 
@@ -1931,7 +2017,8 @@ export default function IOMDashboardPage() {
                     departmentStaff={departmentStaff}
                     totalDepartments={departments.length}
                     onEditDraft={handleEditDraft}
-                    onDeleteDraft={handleDeleteDraft} 
+                    onDeleteDraft={handleDeleteDraft}
+                    focusedCardId={focusedCardId}
                   />
                 )}
 
@@ -1965,7 +2052,8 @@ export default function IOMDashboardPage() {
                     departmentStaff={departmentStaff}
                     totalDepartments={departments.length}
                     onEditDraft={handleEditDraft}
-                    onDeleteDraft={handleDeleteDraft} 
+                    onDeleteDraft={handleDeleteDraft}
+                    focusedCardId={focusedCardId}
                   />
                 )}
 
@@ -2003,6 +2091,7 @@ export default function IOMDashboardPage() {
                     totalDepartments={departments.length}
                     onEditDraft={handleEditDraft}
                     onDeleteDraft={handleDeleteDraft}
+                    focusedCardId={focusedCardId}
                   />
                 )}
 
@@ -2037,6 +2126,7 @@ export default function IOMDashboardPage() {
                     totalDepartments={departments.length}
                     onEditDraft={handleEditDraft}
                     onDeleteDraft={handleDeleteDraft} 
+                    focusedCardId={focusedCardId}
                   />
                 )}
 
@@ -2070,7 +2160,8 @@ export default function IOMDashboardPage() {
                     departmentStaff={departmentStaff}
                     totalDepartments={departments.length}
                     onEditDraft={handleEditDraft}
-                    onDeleteDraft={handleDeleteDraft} 
+                    onDeleteDraft={handleDeleteDraft}
+                    focusedCardId={focusedCardId}
                   />
                 )}
 
@@ -2104,6 +2195,7 @@ export default function IOMDashboardPage() {
                     totalDepartments={departments.length}
                     onEditDraft={handleEditDraft}
                     onDeleteDraft={handleDeleteDraft}
+                    focusedCardId={focusedCardId}
                   />
                 )}
               </Tabs.Panel>

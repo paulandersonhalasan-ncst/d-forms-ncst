@@ -77,3 +77,27 @@ html {
     font-size: 13px;
   }
 }
+
+/* 🎯 Notification focus ring — blue outline, pulses until the card is clicked */
+@keyframes ncst-focus-pulse {
+  0%, 100% { outline-color: var(--mantine-color-blue-5); outline-offset: 4px; }
+  50%      { outline-color: var(--mantine-color-blue-3); outline-offset: 7px; }
+}
+
+/* 🎯 Notification focus ring — static blue outline, no offset (avoids parent clipping) */
+.ncst-focus-ring,
+.mantine-Card-root.ncst-focus-ring {
+  outline: 3px solid var(--mantine-color-blue-5) !important;
+  outline-offset: 0;
+  scroll-margin-top: 20px;
+}
+
+/* Bump specificity past Mantine Card's own outline reset, if any */
+.mantine-Card-root.ncst-focus-ring {
+  outline: 3px solid var(--mantine-color-blue-5) !important;
+  outline-offset: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ncst-focus-ring { animation: none; }
+}

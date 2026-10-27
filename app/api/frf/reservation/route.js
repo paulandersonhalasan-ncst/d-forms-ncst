@@ -501,10 +501,12 @@ export async function POST(request) {
     // After creating the reservation (inside POST)
     if (!isDraft) {  // 🆕 no notifications for draft saves
         try {
-          const firstApproval = reservation.approvals.find(a => a.stepOrder === 2);
+          const firstApproval = reservation.approvals
+            .filter(a => a.status === 'PENDING')
+            .sort((a, b) => a.stepOrder - b.stepOrder)[0];
           if (firstApproval) {
-          const nextDeptHeads = await getDepartmentHeads(firstApproval.departmentCode);
-          if (nextDeptHeads.length > 0) {
+            const nextDeptHeads = await getDepartmentHeads(firstApproval.departmentCode);
+            if (nextDeptHeads.length > 0) {
             await sendFRFApprovalToNextDepartments(nextDeptHeads, reservation, user.departmentCode);
             const nextUsers = await prisma.user.findMany({
               where: {
@@ -528,7 +530,7 @@ export async function POST(request) {
                   recipientId: u.id,
                   senderId: user.id,
                   // 🆕 Routing metadata
-                  linkUrl: `/dashboard/forms/frf?tab=pending_approval`,
+                  linkUrl: `/dashboard/forms/frf?tab=pending_approval&focus=${reservation.id}`,
                   entityType: 'FRF',
                   entityId: reservation.id,
                 }
@@ -774,7 +776,7 @@ export async function PATCH(request) {
               recipientId: reservation.requestorId,
               senderId: user.id,
               // 🆕 Routing metadata
-              linkUrl: `/dashboard/forms/frf?tab=completed`,
+              linkUrl: `/dashboard/forms/frf?tab=completed&focus=${reservation.id}`,
               entityType: 'FRF',
               entityId: reservation.id,
             },
@@ -1082,7 +1084,9 @@ export async function PATCH(request) {
             }
           });
 
-          const firstApproval = freshReservation.approvals.find(a => a.stepOrder === 2);
+          const firstApproval = freshReservation.approvals
+            .filter(a => a.status === 'PENDING')
+            .sort((a, b) => a.stepOrder - b.stepOrder)[0];
           if (firstApproval) {
             const nextDeptHeads = await getDepartmentHeads(firstApproval.departmentCode);
             if (nextDeptHeads.length > 0) {
@@ -1640,7 +1644,7 @@ export async function PATCH(request) {
                     isRead: false,
                     recipientId: staff.id,
                     senderId: user.id,
-                    linkUrl: `/dashboard/forms/frf?tab=assigned_to_me`,
+                    linkUrl: `/dashboard/forms/frf?tab=assigned_to_me&focus=${reservation.id}`,
                     entityType: 'FRF',
                     entityId: reservation.id,
                   }
@@ -1728,7 +1732,7 @@ export async function PATCH(request) {
                     isRead: false,
                     recipientId: staff.id,
                     senderId: user.id,
-                    linkUrl: `/dashboard/forms/frf?tab=assigned_to_me`,
+                    linkUrl: `/dashboard/forms/frf?tab=assigned_to_me&focus=${reservation.id}`,
                     entityType: 'FRF',
                     entityId: reservation.id,
                   }
@@ -1787,7 +1791,7 @@ export async function PATCH(request) {
                   recipientId: u.id,
                   senderId: user.id,
                   // 🆕 Routing metadata
-                  linkUrl: `/dashboard/forms/frf?tab=pending_approval`,
+                  linkUrl: `/dashboard/forms/frf?tab=pending_approval&focus=${reservation.id}`,
                   entityType: 'FRF',
                   entityId: reservation.id,
                 }
@@ -1850,7 +1854,7 @@ export async function PATCH(request) {
                 recipientId: requestor.id,
                 senderId: user.id,
                 // 🆕 Routing metadata
-                linkUrl: `/dashboard/forms/frf?tab=completed`,
+                linkUrl: `/dashboard/forms/frf?tab=completed&focus=${reservation.id}`,
                 entityType: 'FRF',
                 entityId: reservation.id,
               }
@@ -1967,7 +1971,7 @@ export async function PATCH(request) {
             recipientId: reservation.requestorId,
             senderId: user.id,
             // 🆕 Routing metadata
-            linkUrl: `/dashboard/forms/frf?tab=my_requests`,
+            linkUrl: `/dashboard/forms/frf?tab=my_requests&focus=${reservation.id}`,
             entityType: 'FRF',
             entityId: reservation.id,
           }
@@ -2070,7 +2074,7 @@ export async function PATCH(request) {
             recipientId: reservation.requestorId,
             senderId: user.id,
             // 🆕 Routing metadata
-            linkUrl: `/dashboard/forms/frf?tab=my_requests`,
+            linkUrl: `/dashboard/forms/frf?tab=my_requests&focus=${reservation.id}`,
             entityType: 'FRF',
             entityId: reservation.id
           }
@@ -2198,7 +2202,7 @@ export async function PATCH(request) {
               isRead: false,
               recipientId: staff.id,
               senderId: user.id,
-              linkUrl: `/dashboard/forms/frf?tab=assigned_to_me`,
+              linkUrl: `/dashboard/forms/frf?tab=assigned_to_me&focus=${reservation.id}`,
               entityType: 'FRF',
               entityId: reservation.id,
             }
@@ -2305,7 +2309,7 @@ export async function PATCH(request) {
             recipientId: reservation.requestorId,
             senderId: user.id,
             // 🆕 Routing metadata
-            linkUrl: `/dashboard/forms/frf?tab=completed`,
+            linkUrl: `/dashboard/forms/frf?tab=completed&focus=${reservation.id}`,
             entityType: 'FRF',
             entityId: reservation.id
           }
@@ -2677,11 +2681,13 @@ export async function PATCH(request) {
 
       // 17. Notify the first department
       try {
-        const firstApproval = rescheduleApprovals.find(a => a.stepOrder === 2);
-        if (firstApproval) {
-          const deptHeads = await getDepartmentHeads(firstApproval.departmentCode);
-          if (deptHeads.length > 0) {
-            await sendFRFRescheduleNotification(deptHeads, reservation, firstApproval.departmentCode);
+            const firstApproval = rescheduleApprovals
+              .filter(a => a.status === 'PENDING')
+              .sort((a, b) => a.stepOrder - b.stepOrder)[0];
+            if (firstApproval) {
+              const deptHeads = await getDepartmentHeads(firstApproval.departmentCode);
+              if (deptHeads.length > 0) {
+                await sendFRFRescheduleNotification(deptHeads, reservation, firstApproval.departmentCode);
 
             const users = await prisma.user.findMany({
               where: {
@@ -2702,7 +2708,7 @@ export async function PATCH(request) {
                   recipientId: u.id,
                   senderId: user.id,
                   // 🆕 Routing metadata
-                  linkUrl: `/dashboard/forms/frf?tab=pending_approval`,
+                  linkUrl: `/dashboard/forms/frf?tab=pending_approval&focus=${reservation.id}`,
                   entityType: 'FRF',
                   entityId: reservation.id,
                 }
