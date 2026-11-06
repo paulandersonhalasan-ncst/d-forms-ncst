@@ -1,3 +1,4 @@
+// app/api/super/import/upload/route.js
 import { NextResponse } from 'next/server';
 import { handleUpload } from '@vercel/blob/client';
 import { jwtVerify } from 'jose';
@@ -24,9 +25,6 @@ async function requireSuperUser(request) {
 export async function POST(request) {
   const body = await request.json();
 
-  // 🆕 Auth ONLY on the token-generation path.
-  // Webhook callbacks from Vercel Blob don't carry cookies —
-  // handleUpload verifies Vercel's signature internally for those.
   if (body.type === 'blob.generate-client-token') {
     const user = await requireSuperUser(request);
     if (!user) {
@@ -38,19 +36,16 @@ export async function POST(request) {
     const jsonResponse = await handleUpload({
       body,
       request,
-      // No explicit token/storeId — let SDK read from standard env vars
-      // (BLOB_READ_WRITE_TOKEN + BLOB_STORE_ID). Cleaner and works across
-      // SDK versions.
       token: process.env.BLOB_READ_WRITE_TOKEN,
-      storeId: process.env.DMSBLOB_STORE_ID,
       onBeforeGenerateToken: async () => ({
         allowedContentTypes: ['application/json'],
         maximumSizeInBytes: 500 * 1024 * 1024,
         addRandomSuffix: true,
+        // 🆕 Pass storeId through the token options — this is the only
+        // field handleUpload spreads into generateClientTokenFromReadWriteToken.
+        // @ts-expect-error -- storeId is supported at runtime but missing from the type
+        storeId: process.env.DMSBLOB_STORE_ID ?? process.env.BLOB_STORE_ID,
       }),
-      // onUploadCompleted REMOVED — not needed. The client `upload()` promise
-      // returns the blob URL directly, which is what /api/super/import consumes.
-      // Without onUploadCompleted, there is no webhook, no auth-gate race.
     });
     return NextResponse.json(jsonResponse);
   } catch (error) {
