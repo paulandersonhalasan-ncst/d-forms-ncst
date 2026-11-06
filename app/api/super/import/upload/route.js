@@ -31,16 +31,18 @@ export async function POST(request) {
 
   try {
     const jsonResponse = await handleUpload({
-      body,
-      request,
-      onBeforeGenerateToken: async () => ({
+    body,
+    request,
+    token: process.env.DMSBLOB_READ_WRITE_TOKEN,   // 🆕
+    storeId: process.env.DMSBLOB_STORE_ID,         // 🆕
+    onBeforeGenerateToken: async () => ({
         allowedContentTypes: ['application/json'],
-        maximumSizeInBytes: 500 * 1024 * 1024, // 500 MB
+        maximumSizeInBytes: 500 * 1024 * 1024,
         addRandomSuffix: true,
-      }),
-      onUploadCompleted: async ({ blob }) => {
+    }),
+    onUploadCompleted: async ({ blob }) => {
         console.log('[import-upload] blob ready:', blob.url, blob.size);
-      },
+    },
     });
     return NextResponse.json(jsonResponse);
   } catch (error) {
