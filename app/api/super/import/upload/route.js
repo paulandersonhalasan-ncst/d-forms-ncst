@@ -41,6 +41,8 @@ export async function POST(request) {
       // No explicit token/storeId — let SDK read from standard env vars
       // (BLOB_READ_WRITE_TOKEN + BLOB_STORE_ID). Cleaner and works across
       // SDK versions.
+      token: process.env.BLOB_READ_WRITE_TOKEN,
+      storeId: process.env.DMSBLOB_STORE_ID,
       onBeforeGenerateToken: async () => ({
         allowedContentTypes: ['application/json'],
         maximumSizeInBytes: 500 * 1024 * 1024,
