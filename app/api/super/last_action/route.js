@@ -42,15 +42,16 @@ export async function GET(request) {
 
   try {
     const lastLog = await prisma.activityLog.findFirst({
-      where: { action },
+      where: {
+        action,
+        // Seed-generated rows store plain text ("[SEED] …") in `details`,
+        // not JSON. Skip them so the badge reflects real user actions only.
+        NOT: { details: { startsWith: '[SEED]' } },
+      },
       orderBy: { createdAt: 'desc' },
       include: {
         user: {
-          select: {
-            fname: true,
-            lname: true,
-            email: true,
-          },
+          select: { fname: true, lname: true, email: true },
         },
       },
     });
@@ -59,13 +60,25 @@ export async function GET(request) {
       return NextResponse.json({ success: true, data: null });
     }
 
+    let details = {};
+    if (lastLog.details) {
+      try {
+        details = JSON.parse(lastLog.details);
+      } catch (parseErr) {
+        // Any non-JSON detail string (legacy, manually-injected, or seed) falls
+        // back to the raw text so the route never 500s on it.
+        details = lastLog.details;
+        console.warn('[last_action] details is not valid JSON:', parseErr);
+      }
+    }
+
     return NextResponse.json({
       success: true,
       data: {
         createdAt: lastLog.createdAt,
         user: lastLog.user,
         email: lastLog.email,
-        details: lastLog.details ? JSON.parse(lastLog.details) : {},
+        details,
       },
     });
   } catch (error) {

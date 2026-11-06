@@ -458,7 +458,9 @@ export async function POST(request) {
             include: {
         approvals: true,
         equipmentRequests: {
-          include: { equipment: true }
+          dates: {
+            include: { place: true },
+          },
         },
         dates: true
       }

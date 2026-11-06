@@ -46,7 +46,7 @@ export default function LandingFooter() {
               size="xs"
               variant="filled"
               color="customCreamYellow"
-              styles={{ root: { color: '#ffffff', flexShrink: 0 } }}
+              styles={{ root: { color: 'rgba(255, 255, 255, 0.75)', flexShrink: 0 } }}
             >
               NPC Registration Number: {data.data.dpoRegistrationNo}
             </Text>

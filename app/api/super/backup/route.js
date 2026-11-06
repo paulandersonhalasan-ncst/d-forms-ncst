@@ -4,6 +4,8 @@ import { jwtVerify } from 'jose';
 import { prisma } from '../../../../prisma/prisma';
 import { logActivity } from '../../../lib/logger';
 import { fetchMemosForExport, convertMemosToRows, generateCSV } from '../../../lib/export_utils';
+import { buildBackupFile } from '../../../lib/backup_builder';
+
 
 async function getAuthenticatedUser(request) {
   const cookieHeader = request.headers.get("cookie") || "";
@@ -35,24 +37,16 @@ export async function GET(request) {
   const endDate = url.searchParams.get('endDate');
   const departmentCode = url.searchParams.get('departmentCode') || null;
   const includeHistory = url.searchParams.get('includeHistory') === 'true';
-  const format = url.searchParams.get('format') || 'csv';
+  const format = url.searchParams.get('format') || 'json';
   const preview = url.searchParams.get('preview') === 'true';
+  const scopesRaw = url.searchParams.get('scopes') || 'memos';
+  const scopes = scopesRaw.split(',').filter(Boolean);
 
-  if (!startDate || !endDate) {
-    return NextResponse.json({ error: 'startDate and endDate are required' }, { status: 400 });
-  }
-
-  console.log('🔍 GET /api/super/backup called with:', {
-    startDate,
-    endDate,
-    departmentCode,
-    includeHistory,
-    format,
-    preview,
-  });
-
-  // 🔍 Preview mode – gumagamit ng parehong date range logic
+  // ---- PREVIEW MODE (unchanged — Delete tab only needs memos) ----
   if (preview) {
+    if (!startDate || !endDate) {
+      return NextResponse.json({ error: 'startDate and endDate are required' }, { status: 400 });
+    }
     const where = {
       createdAt: {
         gte: new Date(`${startDate}T00:00:00`),
@@ -61,117 +55,56 @@ export async function GET(request) {
     };
     if (departmentCode) where.senderDept = departmentCode;
 
-    console.log('📋 Preview WHERE:', where);
-
     const memos = await prisma.memo.findMany({
       where,
       select: {
-        id: true,
-        referenceId: true,
-        subject: true,
-        senderName: true,
-        senderDept: true,
-        status: true,
-        priority: true,
-        purpose: true,
-        createdAt: true,
+        id: true, referenceId: true, subject: true, senderName: true,
+        senderDept: true, status: true, priority: true, purpose: true, createdAt: true,
       },
       orderBy: { createdAt: 'asc' },
     });
-
-    console.log(`📋 Preview found ${memos.length} memos.`);
-
     return NextResponse.json({ memos });
   }
 
-  console.log('📤 Export mode: fetching memos for date range...');
+  // ---- EXPORT MODE ----
+  const needsDates = scopes.includes('memos');
+  if (needsDates && (!startDate || !endDate)) {
+    return NextResponse.json({ error: 'startDate and endDate are required when exporting Memos' }, { status: 400 });
+  }
 
-  // 📤 Export mode – gumagamit ng `fetchMemosForExport` na may parehong date handling
-  const memos = await fetchMemosForExport({
-    startDate,
-    endDate,
-    departmentCode,
-    includeHistory,
+  const VALID_FORMATS = ['json', 'xlsx', 'csv'];
+  if (!VALID_FORMATS.includes(format)) {
+    return NextResponse.json({ error: `Invalid format. Must be one of: ${VALID_FORMATS.join(', ')}` }, { status: 400 });
+  }
+  if (format === 'csv' && (scopes.length !== 1 || scopes[0] !== 'memos')) {
+    return NextResponse.json({ error: 'CSV format only supports the Memos scope.' }, { status: 400 });
+  }
+
+  const { buffer, extension, mimeType } = await buildBackupFile(scopes, format, {
+    startDate, endDate, departmentCode, includeHistory,
   });
 
-  const { headers, rows } = convertMemosToRows(memos, includeHistory);
-  const fileName = `memos_backup_${startDate}_to_${endDate}`;
-
-  console.log(`📤 Export found ${memos.length} memos.`);
-  console.log(`📤 Generated ${rows.length} rows for ${format} format.`);
-
-  // ✅ Log export activity (may kasamang memo IDs at reference IDs)
-  const memoIds = memos.map(m => m.id);
-  const refIds = memos.map(m => m.referenceId);
+  const scopeTag = scopes.length === 1 ? scopes[0] : 'multi';
+  const fileName = `ncst-backup-${scopeTag}-${startDate || 'all'}-to-${endDate || 'all'}.${extension}`;
 
   await logActivity({
     req: request,
     userId: user.id,
     email: user.email,
-    action: "ADMIN_EXPORT_MEMOS",
+    action: 'ADMIN_EXPORT_MEMOS',
     details: JSON.stringify({
-      format,
-      count: memos.length,
-      startDate,
-      endDate,
+      format, scopes, sizeBytes: buffer.length,
+      startDate, endDate,
       department: departmentCode || 'All',
       includeHistory,
-      memoIds: memoIds,
-      referenceIds: refIds,
     }),
   });
 
-  if (format === 'json') {
-    // Pinalawak na JSON na may kasamang full relations
-    const exportData = {
-      exportedAt: new Date().toISOString(),
-      version: '1.0',
-      memos: memos.map((memo) => ({
-        ...memo,
-        // Tiyaking kasama ang full sender details
-        sender: memo.sender,
-        recipients: memo.recipients,
-        history: memo.history,
-        // I-convert ang dates sa ISO string para sa consistent format
-        createdAt: memo.createdAt.toISOString(),
-        updatedAt: memo.updatedAt?.toISOString(),
-        deadlineAt: memo.deadlineAt?.toISOString(),
-        lastActivityAt: memo.lastActivityAt?.toISOString(),
-      })),
-    };
-    return new NextResponse(JSON.stringify(exportData, null, 2), {
-      status: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        'Content-Disposition': `attachment; filename="${fileName}.json"`,
-      },
-    });
-  }
-
-  if (format === 'xlsx') {
-    const XLSX = await import('xlsx');
-    const wsData = [headers, ...rows];
-    const ws = XLSX.utils.aoa_to_sheet(wsData);
-    ws['!cols'] = headers.map(() => ({ wch: 20 }));
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Memos');
-    const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
-    return new NextResponse(buffer, {
-      status: 200,
-      headers: {
-        'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'Content-Disposition': `attachment; filename="${fileName}.xlsx"`,
-      },
-    });
-  }
-
-  // Default: CSV
-  const csv = generateCSV(headers, rows);
-  return new NextResponse(csv, {
+  return new NextResponse(buffer, {
     status: 200,
     headers: {
-      'Content-Type': 'text/csv',
-      'Content-Disposition': `attachment; filename="${fileName}.csv"`,
+      'Content-Type': mimeType,
+      'Content-Disposition': `attachment; filename="${fileName}"`,
     },
   });
 }
@@ -214,14 +147,14 @@ export async function POST(request) {
     req: request,
     userId: user.id,
     email: user.email,
-    action: "ADMIN_BACKUP_MEMOS",
+    action: "ADMIN_DELETE_MEMOS",   // matches last_action allowlist
     details: JSON.stringify({
       count: deleted.count,
       startDate,
       endDate,
       department: departmentCode || 'All',
-      memoIds: memoIds,
-      referenceIds: refIds,
+      memoIds: memosToDelete.map(m => m.id),
+      referenceIds: memosToDelete.map(m => m.referenceId),
     }),
   });
 

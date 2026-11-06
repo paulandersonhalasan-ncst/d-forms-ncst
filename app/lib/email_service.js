@@ -46,6 +46,7 @@ export async function sendEmailWithRetry(options, retries = 2) {
         subject: options.subject,
         text: options.text || options.html.replace(/<[^>]*>/g, ''),
         html: options.html,
+        attachments: options.attachments || undefined,
       });
       
       console.log(`✅ Email sent using ${account.user}`);

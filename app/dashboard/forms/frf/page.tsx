@@ -24,7 +24,7 @@ import {
   Collapse,
   Select
 } from '@mantine/core';
-import { IconPlus, IconInbox, IconSend, IconCircleCheck, IconUserCheck, IconInfoCircle, IconSettings, IconChevronDown, IconCopy } from '@tabler/icons-react';
+import { IconPlus, IconInbox, IconSend, IconCircleCheck, IconUserCheck, IconInfoCircle, IconSettings, IconChevronDown, IconCopy, IconFileImport } from '@tabler/icons-react';
 import useSWR from 'swr';
 
 import {
@@ -200,11 +200,27 @@ export default function FRFDashboardPage() {
 
   const isMobile = useMediaQuery('(max-width: 768px)');
 
+  // ---- Helpers (MUST be declared before the filter block below) ----
+  const isImportedFRF = (r: FacilityReservation): boolean =>
+    r.referenceId?.startsWith('IMPORT-') ?? false;
+
+  const isUserInvolved = (r: FacilityReservation): boolean => {
+    if (!currentUser) return false;
+    if (r.requestorId === currentUser.id) return true;
+    if (r.assignments.some(a => a.userId === currentUser.id)) return true;
+    if (r.approvals.some(a => a.departmentCode === currentUser.departmentCode)) return true;
+    if (r.approvals.some(a => a.performedById === currentUser.id)) return true;
+    return false;
+  };
+
   // ---- Filtered lists ----
-  const myRequests = reservations.filter((r) => r.requestorId === currentUser?.id);
+  const myRequests = reservations.filter(
+    (r) => r.requestorId === currentUser?.id && !isImportedFRF(r)  // 🆕
+  );
 
   // Pending Approval: only for non-HRD users
   const pendingApproval = reservations.filter((r) => {
+    if (isImportedFRF(r)) return false;
     const status = r.status as string;
     if (status === 'COMPLETED' || status === 'REJECTED') return false;
     const myApproval = r.approvals.find((a) => a.departmentCode === currentUser?.departmentCode);
@@ -218,6 +234,7 @@ export default function FRFDashboardPage() {
   // - For non-HRD: show reservations where they already approved, waiting for others
   // - Also show RESCHEDULE_PENDING for all users (no action if not next approver)
   const actionBoard = reservations.filter((r) => {
+    if (isImportedFRF(r)) return false; 
     const status = r.status as string;
     if (status === 'REJECTED') return false;
 
@@ -233,25 +250,27 @@ export default function FRFDashboardPage() {
   // Kasi kapag COMPLETED na, ibig sabihin approved na ang event at sure na ang assignment
   // Assigned to Me: show COMPLETED reservations where current user is assigned
   // 🆕 Pero EXCLUDE kapag Pack Up Done na (lilipat na kasi siya sa completed tab)
-  const assignedToMe = reservations.filter((r) =>
-    r.assignments.some((a) => a.userId === currentUser?.id) &&
+
+  const assignedToMe = reservations.filter(
+    (r) =>
+      !isImportedFRF(r) &&  // 🆕
+      r.assignments.some((a) => a.userId === currentUser?.id) &&
       r.status === 'COMPLETED' &&
       !r.packUpDoneAt
-    );
+  );
 
-    const hrCopyReservations = isHRDorSuper ? reservations : [];
+  const hrCopyReservations = isHRDorSuper
+    ? reservations.filter((r) => !isImportedFRF(r))  // 🆕
+    : [];
 
-  // Helper: check if current user is involved in the reservation
-  const isUserInvolved = (r: FacilityReservation): boolean => {
-    if (!currentUser) return false;
-    if (r.requestorId === currentUser.id) return true;
-    if (r.assignments.some(a => a.userId === currentUser.id)) return true;
-    if (r.approvals.some(a => a.departmentCode === currentUser.departmentCode)) return true;
-    if (r.approvals.some(a => a.performedById === currentUser.id)) return true;
-    return false;
-  };
+  const importedFRFs = reservations.filter((r) => {
+    if (!isImportedFRF(r)) return false;
+    if (currentUser?.role === 'SuperUser' || currentUser?.role === 'Admin') return true;
+    return isUserInvolved(r);
+  });
 
   const completed = reservations.filter((r) => {
+    if (isImportedFRF(r)) return false;
     const status = r.status as string;
 
     if (status === 'REJECTED') {
@@ -661,6 +680,16 @@ export default function FRFDashboardPage() {
 
   // ---- Password gate handlers ----
   const handleAction = (type: FRFActionType, data: Record<string, unknown>) => {
+
+    const targetId = data.id as string | undefined;
+    if (targetId) {
+      const target = reservations.find((r) => r.id === targetId);
+      if (target && target.referenceId?.startsWith('IMPORT-')) {
+        alert('Imported records are read-only and cannot be modified.');
+        return;
+      }
+    }
+
     if (type === 'SAVE_DRAFT') {
       const id = data.id as string;
       const reservation = reservations.find(r => r.id === id);
@@ -726,8 +755,20 @@ export default function FRFDashboardPage() {
   };
 
   const handleOpenItoModal = () => {
-    setItoModalKey((k) => k + 1);   // force remount with fresh state
+    if (selectedRequest?.referenceId?.startsWith('IMPORT-')) {
+      alert('Imported records are read-only.');
+      return;
+    }
+    setItoModalKey((k) => k + 1);
     openItoModal();
+  };
+
+  const guardedOpenOcmModal = () => {
+    if (selectedRequest?.referenceId?.startsWith('IMPORT-')) {
+      alert('Imported records are read-only.');
+      return;
+    }
+    openOcmModal();
   };
 
   const handleResubmit = async (
@@ -1075,6 +1116,7 @@ export default function FRFDashboardPage() {
         opts.push({ value: 'assigned_to_me', label: `Assigned to Me (${assignedToMe.length})` });
       }
       opts.push({ value: 'completed', label: `Fully Approved / Rejected (${completed.length})` });
+      opts.push({ value: 'imported', label: `Imported FRF (${importedFRFs.length})` });
       return opts;
     }, [
       isHRDorSuper,
@@ -1086,6 +1128,7 @@ export default function FRFDashboardPage() {
       assignedToMe.length,
       completed.length,
       isITOMain,
+      importedFRFs.length
     ]);
 
   if (loading) {
@@ -1158,6 +1201,7 @@ export default function FRFDashboardPage() {
     'action_board',
     ...(isITOMain ? ['assigned_to_me'] : []),
     'completed',
+    'imported',
   ];
 
   return (
@@ -1254,6 +1298,11 @@ export default function FRFDashboardPage() {
                     {completed.length}
                   </Badge>
                 </Tabs.Tab>
+                <Tabs.Tab value="imported" leftSection={<IconFileImport size={15} />}>
+                  Imported FRF <Badge size="xs" variant="light" ml={6} styles={{ label: { fontSize: 10 } }}>
+                    {importedFRFs.length}
+                  </Badge>
+                </Tabs.Tab>
               </Tabs.List>
               )}
 
@@ -1265,6 +1314,7 @@ export default function FRFDashboardPage() {
                 else if (tab === 'action_board') list = actionBoard;
                 else if (tab === 'assigned_to_me') list = assignedToMe;
                 else if (tab === 'completed') list = completed;
+                else if (tab === 'imported') list = importedFRFs;
 
                 const filtered = getFiltered(list);
 
@@ -1361,7 +1411,24 @@ export default function FRFDashboardPage() {
                         tinanggihan (Rejected). Mga request na may kinalaman ka lamang ang ipinapakita rito. (Para sa HRD Department, kasama rito ang mga request na na-noted na.)
                       </>
                     ),
-                  }
+                  },
+                  imported: {
+                    title: 'Imported FRF Records',
+                    color: 'violet',
+                    body: (
+                      <>
+                        These are facility reservations restored from a JSON backup file. They have an
+                        <b> IMPORT-</b> prefix in their reference ID. Imported records are read-only —
+                        they cannot be approved, rejected, reassigned, or rescheduled. For archival
+                        viewing and printing only.
+                        <br /><br />
+                        Ang mga ito ay mga facility reservation na naibalik mula sa isang JSON backup file.
+                        Mayroon silang <b>IMPORT-</b> na prefix sa kanilang reference ID. Ang mga imported
+                        na record ay read-only — hindi sila maaaring aprubahan, tanggihan, i-reassign, o
+                        i-reschedule. Para lamang sa archival viewing at pag-print.
+                      </>
+                    ),
+                  },
                 };
 
                 const info = tabInfo[tab];
@@ -1390,6 +1457,7 @@ export default function FRFDashboardPage() {
                             request={req}
                             currentUser={currentUser}
                             isFocused={req.id === focusedCardId}
+                            isReadOnly={isImportedFRF(req)} 
                             onView={() => openDetailModal(req)}
                             onAssign={() => {
                               closeDetail();
@@ -1439,6 +1507,9 @@ export default function FRFDashboardPage() {
         onClose={closeDetail}
         request={selectedRequest}
         currentUser={currentUser}
+        isReadOnly={
+          selectedRequest?.referenceId?.startsWith('IMPORT-') ?? false
+        }  
         onAction={handleAction}
         onApproveWithAssign={handleApproveWithAssign}
         onAssign={() => {

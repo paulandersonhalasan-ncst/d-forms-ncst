@@ -61,6 +61,8 @@ model User {
   facilityAssignments  FacilityAssignment[]     @relation("FacilityAssignee")
 
   packUpDoneReservations FacilityReservation[] @relation("PackUpDoneBy")
+
+  backupExports  BackupExport[] @relation("BackupExports")
 }
 
 model Department {
@@ -616,4 +618,28 @@ model PrivacySettings {
   updatedAt         DateTime @updatedAt
   updatedById       String?
   updatedByName     String?
+}
+
+model BackupExport {
+  id                String    @id @default(uuid())
+  filename          String
+  sizeBytes         Int
+  deliveryMode      String
+  blobUrl           String?
+  recipientEmails   String[]
+  scope             String
+
+  createdById       String
+  createdBy         User      @relation("BackupExports", fields: [createdById], references: [id], onDelete: Restrict)
+
+  createdAt         DateTime  @default(now())
+  downloadCount     Int       @default(0)
+  lastDownloadedAt  DateTime?
+
+  deletedAt         DateTime?
+  deletedById       String?
+
+  @@index([createdById])
+  @@index([deletedAt])
+  @@index([createdAt])
 }

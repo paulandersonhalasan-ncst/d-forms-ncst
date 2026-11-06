@@ -68,7 +68,8 @@ export const ModelName = {
   FacilityEquipmentRequest: 'FacilityEquipmentRequest',
   FacilityReservationDate: 'FacilityReservationDate',
   FormSettings: 'FormSettings',
-  PrivacySettings: 'PrivacySettings'
+  PrivacySettings: 'PrivacySettings',
+  BackupExport: 'BackupExport'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -408,6 +409,25 @@ export const PrivacySettingsScalarFieldEnum = {
 } as const
 
 export type PrivacySettingsScalarFieldEnum = (typeof PrivacySettingsScalarFieldEnum)[keyof typeof PrivacySettingsScalarFieldEnum]
+
+
+export const BackupExportScalarFieldEnum = {
+  id: 'id',
+  filename: 'filename',
+  sizeBytes: 'sizeBytes',
+  deliveryMode: 'deliveryMode',
+  blobUrl: 'blobUrl',
+  recipientEmails: 'recipientEmails',
+  scope: 'scope',
+  createdById: 'createdById',
+  createdAt: 'createdAt',
+  downloadCount: 'downloadCount',
+  lastDownloadedAt: 'lastDownloadedAt',
+  deletedAt: 'deletedAt',
+  deletedById: 'deletedById'
+} as const
+
+export type BackupExportScalarFieldEnum = (typeof BackupExportScalarFieldEnum)[keyof typeof BackupExportScalarFieldEnum]
 
 
 export const SortOrder = {

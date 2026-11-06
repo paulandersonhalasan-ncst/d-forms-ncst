@@ -123,7 +123,7 @@ const schoolMenuData: MenuItem[] = [
         link: "/dashboard/privacy",
     },
     {
-        label: "Privacy & DPO",
+        label: "Privacy & DPO Settings",
         icon: IconShieldCheck,
         link: "/dashboard/super/privacy",
         allowedRoles: ["SuperUser"],

@@ -414,7 +414,8 @@ export const ModelName = {
   FacilityEquipmentRequest: 'FacilityEquipmentRequest',
   FacilityReservationDate: 'FacilityReservationDate',
   FormSettings: 'FormSettings',
-  PrivacySettings: 'PrivacySettings'
+  PrivacySettings: 'PrivacySettings',
+  BackupExport: 'BackupExport'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -430,7 +431,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "user" | "department" | "activityLog" | "notification" | "loginLog" | "memo" | "memoRecipientStatus" | "memoHistory" | "facilityReservation" | "facilityApproval" | "facilityAssignment" | "eventPlace" | "equipment" | "equipmentPlace" | "facilityEquipmentRequest" | "facilityReservationDate" | "formSettings" | "privacySettings"
+    modelProps: "user" | "department" | "activityLog" | "notification" | "loginLog" | "memo" | "memoRecipientStatus" | "memoHistory" | "facilityReservation" | "facilityApproval" | "facilityAssignment" | "eventPlace" | "equipment" | "equipmentPlace" | "facilityEquipmentRequest" | "facilityReservationDate" | "formSettings" | "privacySettings" | "backupExport"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -1766,6 +1767,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    BackupExport: {
+      payload: Prisma.$BackupExportPayload<ExtArgs>
+      fields: Prisma.BackupExportFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.BackupExportFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BackupExportPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.BackupExportFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BackupExportPayload>
+        }
+        findFirst: {
+          args: Prisma.BackupExportFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BackupExportPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.BackupExportFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BackupExportPayload>
+        }
+        findMany: {
+          args: Prisma.BackupExportFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BackupExportPayload>[]
+        }
+        create: {
+          args: Prisma.BackupExportCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BackupExportPayload>
+        }
+        createMany: {
+          args: Prisma.BackupExportCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.BackupExportCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BackupExportPayload>[]
+        }
+        delete: {
+          args: Prisma.BackupExportDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BackupExportPayload>
+        }
+        update: {
+          args: Prisma.BackupExportUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BackupExportPayload>
+        }
+        deleteMany: {
+          args: Prisma.BackupExportDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.BackupExportUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.BackupExportUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BackupExportPayload>[]
+        }
+        upsert: {
+          args: Prisma.BackupExportUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BackupExportPayload>
+        }
+        aggregate: {
+          args: Prisma.BackupExportAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateBackupExport>
+        }
+        groupBy: {
+          args: Prisma.BackupExportGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.BackupExportGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.BackupExportCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.BackupExportCountAggregateOutputType> | number
+        }
+      }
+    }
   }
 } & {
   other: {
@@ -2126,6 +2201,25 @@ export const PrivacySettingsScalarFieldEnum = {
 } as const
 
 export type PrivacySettingsScalarFieldEnum = (typeof PrivacySettingsScalarFieldEnum)[keyof typeof PrivacySettingsScalarFieldEnum]
+
+
+export const BackupExportScalarFieldEnum = {
+  id: 'id',
+  filename: 'filename',
+  sizeBytes: 'sizeBytes',
+  deliveryMode: 'deliveryMode',
+  blobUrl: 'blobUrl',
+  recipientEmails: 'recipientEmails',
+  scope: 'scope',
+  createdById: 'createdById',
+  createdAt: 'createdAt',
+  downloadCount: 'downloadCount',
+  lastDownloadedAt: 'lastDownloadedAt',
+  deletedAt: 'deletedAt',
+  deletedById: 'deletedById'
+} as const
+
+export type BackupExportScalarFieldEnum = (typeof BackupExportScalarFieldEnum)[keyof typeof BackupExportScalarFieldEnum]
 
 
 export const SortOrder = {
@@ -2630,6 +2724,7 @@ export type GlobalOmitConfig = {
   facilityReservationDate?: Prisma.FacilityReservationDateOmit
   formSettings?: Prisma.FormSettingsOmit
   privacySettings?: Prisma.PrivacySettingsOmit
+  backupExport?: Prisma.BackupExportOmit
 }
 
 /* Types for Logging */

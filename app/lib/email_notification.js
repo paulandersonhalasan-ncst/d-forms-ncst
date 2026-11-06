@@ -1387,3 +1387,105 @@ export async function sendFRFRescheduleNotification(deptHeads, reservation, curr
     await sendEmailWithRetry({ to: head.email, subject, html });
   }
 }
+
+// ============================================
+// BACKUP READY EMAIL (Sprint 6)
+// ============================================
+export async function sendBackupReadyEmail({
+  recipient,
+  filename,
+  sizeBytes,
+  scopes,
+  format = 'json',            // 🆕
+  deliveryMode,
+  downloadUrl,
+  attachedBuffer,
+}) {
+  const sizeMB = (sizeBytes / (1024 * 1024)).toFixed(2);
+  const formatLabel = format.toUpperCase();
+
+  const scopeNormalized = Array.isArray(scopes) ? scopes : [scopes].filter(Boolean);
+  const scopeMap = {
+    full:   'Full Database',
+    memos:  'Memos',
+    frf:    'Facility Reservations',
+    users:  'Users & Departments',
+    system: 'System Settings',
+  };
+  const scopeParts = scopeNormalized
+    .flatMap((s) => (s === 'full' ? ['memos', 'frf', 'users', 'system'] : [s]))
+    .map((s) => scopeMap[s] || s);
+  const scopeLabel = Array.from(new Set(scopeParts)).join(' · ') || 'Backup';
+
+  const isAttached = deliveryMode === 'attached';
+
+  const subject = isAttached
+    ? `📦 Your NCST D-Forms ${formatLabel} Backup (${sizeMB} MB) — ${scopeLabel}`
+    : `📦 Your NCST D-Forms ${formatLabel} Backup Link (${sizeMB} MB) — ${scopeLabel}`;
+
+  const noteText = isAttached
+    ? 'The backup file is attached to this email. Please save it to a safe location immediately — the attachment will not be re-sent automatically.'
+    : 'The download link above does <b>not require a login</b>. It remains valid until a SuperUser deletes the backup from the server. Treat this link as confidential.';
+
+  const bodyContent = `
+    ${greetingBlock(recipient.split('@')[0])}
+    ${bodyText(`Your <b>${esc(scopeLabel)}</b> backup has been generated successfully.`)}
+
+    <table cellpadding="0" cellspacing="0" border="0" style="width: 100%; border-collapse: collapse; background: #f8f9fa; border-radius: 6px; margin: 16px 0;">
+      <tr>
+        <td style="padding: 10px 12px; border-bottom: 1px solid #e9ecef;">
+          <div style="color: ${BRAND.gray}; font-size: 11px; font-weight: 600; text-transform: uppercase;">Filename</div>
+          <div style="font-size: 13px; color: ${BRAND.navy}; margin-top: 2px; word-break: break-all;">${esc(filename)}</div>
+        </td>
+        <td style="padding: 10px 12px; border-bottom: 1px solid #e9ecef;">
+          <div style="color: ${BRAND.gray}; font-size: 11px; font-weight: 600; text-transform: uppercase;">Size</div>
+          <div style="font-size: 13px; color: ${BRAND.navy}; margin-top: 2px;">${sizeMB} MB</div>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding: 10px 12px;">
+          <div style="color: ${BRAND.gray}; font-size: 11px; font-weight: 600; text-transform: uppercase;">Scope</div>
+          <div style="font-size: 13px; color: ${BRAND.navy}; margin-top: 2px;">${esc(scopeLabel)}</div>
+        </td>
+        <td style="padding: 10px 12px;">
+          <div style="color: ${BRAND.gray}; font-size: 11px; font-weight: 600; text-transform: uppercase;">Delivery</div>
+          <div style="font-size: 13px; color: ${BRAND.navy}; margin-top: 2px;">
+            ${isAttached ? `${formatLabel} attached` : `${formatLabel} — download link`}
+          </div>
+        </td>
+      </tr>
+    </table>
+
+    <p style="font-size: 13px; color: ${BRAND.gray}; line-height: 1.6; margin: 16px 0;">${noteText}</p>
+  `;
+
+  const html = renderEmailWrapper({
+    title: isAttached ? 'Backup Ready — Attached' : 'Backup Ready — Download Link',
+    icon: '📦',
+    accentColor: BRAND.navy,
+    subtitle: esc(new Date().toLocaleString('en-US', { timeZone: 'Asia/Manila' })),
+    bodyContent,
+    actionUrl: isAttached ? '' : downloadUrl,
+    actionLabel: 'Download Backup (no login required)',
+    footerNote: isAttached
+      ? 'If the attachment is missing, contact your SuperUser to regenerate the backup.'
+      : 'The download link expires only when the backup is deleted from the server.',
+  });
+
+  const mailOptions = { to: recipient, subject, html };
+  if (isAttached && attachedBuffer) {
+    const contentType =
+      format === 'xlsx'
+        ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        : format === 'csv'
+        ? 'text/csv'
+        : 'application/json';
+    mailOptions.attachments = [{
+      filename,
+      content: attachedBuffer,
+      contentType,
+    }];
+  }
+
+  return sendEmailWithRetry(mailOptions);
+}

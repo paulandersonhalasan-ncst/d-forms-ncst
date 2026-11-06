@@ -548,7 +548,7 @@ export default function IOMDashboardPage() {
 
   const allMemosLedgerList = isAdminOrSuper ? memos : [];
 
-  const allMemosGlobal = memos;
+  const allMemosGlobal = memos.filter((m) => !m.referenceId?.startsWith('IMPORT-'));
   
   // ---- Memo lists ----
 
@@ -577,6 +577,7 @@ export default function IOMDashboardPage() {
 
   // Inbound - Incoming pending memos (Head only)
   const inboundMemos = memos.filter((memo) => {
+    if (memo.referenceId?.startsWith('IMPORT-')) return false;
     if (memo.status === 'FOR_APPROVAL' || memo.status === 'CLOSED' || memo.status === 'DENIED') return false;
     return memo.recipients?.some(
       (r) => r.departmentName === activeDepartment && r.status === 'PENDING'
@@ -585,6 +586,7 @@ export default function IOMDashboardPage() {
 
   // Outbound - Memos sent by your department (active, not fully resolved)
   const outboundMemos = memos.filter((memo) => {
+    if (memo.referenceId?.startsWith('IMPORT-')) return false; 
     if (memo.senderDept !== activeDepartment) return false;
     if (memo.status !== 'APPROVED') return false;
     
@@ -600,6 +602,7 @@ export default function IOMDashboardPage() {
 
   // Action Board - Acknowledged/Processing memos (FREE FOR ALL)
   const actionBoardMemos = memos.filter((memo) => {
+    if (memo.referenceId?.startsWith('IMPORT-')) return false;
     if (memo.status === 'FOR_APPROVAL' || memo.status === 'CLOSED' || memo.status === 'DENIED') return false;
     return memo.recipients?.some(
       (r) =>
@@ -610,6 +613,7 @@ export default function IOMDashboardPage() {
 
   // Assigned to Me - Memos na assigned sa current user
   const assignedToMeMemos = memos.filter((memo) => {
+    if (memo.referenceId?.startsWith('IMPORT-')) return false;
     if (memo.status === 'FOR_APPROVAL' || memo.status === 'CLOSED' || memo.status === 'DENIED') return false;
     return memo.recipients?.some(
       (r) =>
@@ -620,11 +624,14 @@ export default function IOMDashboardPage() {
   });
 
   const authoredByMeMemos = memos.filter(
-    (memo) => memo.senderId === currentUser?.id
+    (memo) =>
+      memo.senderId === currentUser?.id &&
+      !memo.referenceId?.startsWith('IMPORT-')
   );
 
   // Archived/Resolved
   const resolvedMemos = memos.filter((memo) => {
+    if (memo.referenceId?.startsWith('IMPORT-')) return false;
     // Skip kung walang recipients
     if (!memo.recipients || memo.recipients.length === 0) return false;
 

@@ -107,3 +107,8 @@ export type FormSettings = Prisma.FormSettingsModel
  * 
  */
 export type PrivacySettings = Prisma.PrivacySettingsModel
+/**
+ * Model BackupExport
+ * 
+ */
+export type BackupExport = Prisma.BackupExportModel
