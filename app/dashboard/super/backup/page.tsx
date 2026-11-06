@@ -33,6 +33,7 @@ import { IconDownload, IconCalendar, IconFileExport, IconTrash, IconInfoCircle, 
 import useSWR from 'swr';
 import { DatePicker } from '@mantine/dates';
 import dayjs from 'dayjs';
+import { upload } from '@vercel/blob/client';
 
 interface LastActionData {
   data: {
@@ -245,29 +246,31 @@ export default function BackupPage() {
   const isDark = colorScheme === 'dark';
 
   const handleImport = async () => {
-    if (!importFile) {
-      setError('Please select a file first.');
-      return;
-    }
-    if (selectedImportScopes.length === 0) {
-      setError('Select at least one category to restore.');
-      return;
-    }
+    if (!importFile) { setError('Please select a file first.'); return; }
+    if (selectedImportScopes.length === 0) { setError('Select at least one category.'); return; }
 
     setImporting(true);
     setError('');
     setImportResult(null);
 
     try {
-      const formData = new FormData();
-      formData.append('file', importFile);
-      formData.append('scopes', JSON.stringify(selectedImportScopes));
-      formData.append('settingsMode', settingsMode);
+      // 1. Browser → Blob directly. Never touches the function body limit.
+      const blob = await upload(importFile.name, importFile, {
+        access: 'private',                       // or 'public' if your SDK predates private blobs
+        handleUploadUrl: '/api/super/import/upload',
+      });
 
+      // 2. Small JSON payload → import route reads the blob server-side
       const res = await fetch('/api/super/import', {
         method: 'POST',
-        body: formData,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          blobUrl: blob.url,
+          scopes: selectedImportScopes,
+          settingsMode,
+        }),
       });
+
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Import failed');
 

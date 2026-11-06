@@ -88,9 +88,11 @@ export async function GET(request) {
     );
   }
 
-  const arrayBuffer = await blobRes.arrayBuffer();
+  if (!blobRes.body) {
+    return NextResponse.json({ error: 'Empty blob response' }, { status: 502 });
+  }
 
-  // Increment counter AFTER successful fetch, BEFORE the response goes out.
+  // Increment counter BEFORE streaming (same reasoning as before).
   await prisma.backupExport.update({
     where: { id: record.id },
     data: {
@@ -99,12 +101,15 @@ export async function GET(request) {
     },
   });
 
-  return new NextResponse(arrayBuffer, {
+  // 🆕 Stream the blob body directly. blobRes.body is a ReadableStream —
+  // Vercel pipes it through without buffering, so the 4.5 MB response cap
+  // does NOT apply. Content-Length comes from the DB record, not the buffer.
+  return new NextResponse(blobRes.body, {
     status: 200,
     headers: {
       'Content-Type': 'application/json',
       'Content-Disposition': `attachment; filename="${record.filename}"`,
-      'Content-Length': String(arrayBuffer.byteLength),
+      'Content-Length': String(record.sizeBytes),
       'Cache-Control': 'no-store',
     },
   });

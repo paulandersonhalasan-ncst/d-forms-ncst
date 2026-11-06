@@ -29,26 +29,40 @@ export async function POST(request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
   }
 
-  const formData = await request.formData();
-  const file = formData.get('file');
-  if (!file) {
-    return NextResponse.json({ error: 'No file provided' }, { status: 400 });
-  }
+  const contentType = request.headers.get('content-type') || '';
 
-  let scopes = [];
-  try {
-    scopes = JSON.parse(formData.get('scopes') || '[]');
-  } catch {
-    return NextResponse.json({ error: 'Invalid scopes payload' }, { status: 400 });
-  }
-  const settingsMode = formData.get('settingsMode') === 'overwrite' ? 'overwrite' : 'skip';
+  let data, scopes, settingsMode;
 
-  const content = await file.text();
-  let data;
-  try {
-    data = JSON.parse(content);
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON format' }, { status: 400 });
+  if (contentType.includes('application/json')) {
+    // New path — client-side direct-to-blob upload
+    const body = await request.json();
+    scopes = Array.isArray(body.scopes) ? body.scopes : [];
+    settingsMode = body.settingsMode === 'overwrite' ? 'overwrite' : 'skip';
+
+    if (!body.blobUrl) {
+      return NextResponse.json({ error: 'blobUrl required' }, { status: 400 });
+    }
+    const blobRes = await fetch(body.blobUrl);
+    if (!blobRes.ok) {
+      return NextResponse.json({ error: 'Failed to fetch backup blob' }, { status: 502 });
+    }
+    data = await blobRes.json();
+  } else {
+    // Legacy multipart path — local dev, small files, Postman
+    const formData = await request.formData();
+    const file = formData.get('file');
+    if (!file) return NextResponse.json({ error: 'No file provided' }, { status: 400 });
+    try {
+      scopes = JSON.parse(formData.get('scopes') || '[]');
+    } catch {
+      return NextResponse.json({ error: 'Invalid scopes payload' }, { status: 400 });
+    }
+    settingsMode = formData.get('settingsMode') === 'overwrite' ? 'overwrite' : 'skip';
+    try {
+      data = JSON.parse(await file.text());
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON format' }, { status: 400 });
+    }
   }
 
   const results = {

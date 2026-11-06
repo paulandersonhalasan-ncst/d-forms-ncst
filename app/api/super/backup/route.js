@@ -100,11 +100,14 @@ export async function GET(request) {
     }),
   });
 
-  return new NextResponse(buffer, {
+  const responseBlob = new Blob([buffer], { type: mimeType });
+
+  return new NextResponse(responseBlob.stream(), {
     status: 200,
     headers: {
       'Content-Type': mimeType,
       'Content-Disposition': `attachment; filename="${fileName}"`,
+      'Content-Length': String(buffer.length),
     },
   });
 }
