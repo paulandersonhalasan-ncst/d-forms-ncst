@@ -44,6 +44,7 @@ interface RequestDetailModalProps {
   onClose: () => void;
   request: FacilityReservation | null;
   currentUser: UserContext | null;
+  isReadOnly?: boolean;    
   onAction: (type: FRFActionType, data: Record<string, unknown>) => void;
   onAssign: () => void;
   onFinalize: () => void;
@@ -73,6 +74,7 @@ export default function RequestDetailModal({
   onClose,
   request,
   currentUser,
+  isReadOnly = false,
   onAction,
   onAssign,
   onFinalize,
@@ -672,7 +674,22 @@ export default function RequestDetailModal({
               </Alert>
             )}
 
-                        {isPackUpDone && (
+            {isReadOnly && (
+              <Alert
+                icon={<IconAlertCircle size={16} />}
+                color="violet"
+                title="Imported Record — Read-Only"
+              >
+                This reservation was restored from a backup file. It can be viewed and
+                printed, but not approved, rejected, reassigned, rescheduled, or packed up.
+                <br /><br />
+                Ang reservation na ito ay naibalik mula sa isang backup file. Maaaring
+                tingnan at i-print, ngunit hindi maaaring aprubahan, tanggihan, i-reassign,
+                i-reschedule, o i-pack up.
+              </Alert>
+            )}
+
+            {isPackUpDone && (
               <Alert
                 icon={<IconCheck size={16} />}
                 color="teal"
@@ -710,7 +727,7 @@ export default function RequestDetailModal({
             )}
 
             <Group justify="flex-end" gap="xs" wrap="wrap">
-              {showActions  && (
+              {!isReadOnly && showActions  && (
                 <>
                   {!isTerminal && canApprove && (
                     <>
@@ -782,12 +799,8 @@ export default function RequestDetailModal({
                 </>
               )}
 
-              {canPackUpDone && (
-                <Button
-                  color="teal"
-                  leftSection={<IconCheck size={16} />}
-                  onClick={() => onPackUpDone?.(request.id)}
-                >
+              {!isReadOnly && canPackUpDone && (
+                <Button color="teal" leftSection={<IconCheck size={16} />} onClick={() => onPackUpDone?.(request.id)}>
                   Pack Up Done
                 </Button>
               )}

@@ -12,6 +12,7 @@ interface RequestCardProps {
   onFinalize?: () => void;
   onAction: (type: FRFActionType, data: Record<string, unknown>) => void;
   isFocused?: boolean;
+  isReadOnly?: boolean; 
 }
 
 export default function RequestCard({
@@ -22,6 +23,7 @@ export default function RequestCard({
   onFinalize,
   onAction,
   isFocused = false,
+  isReadOnly = false
 }: RequestCardProps) {
   const myApproval = request.approvals.find((a) => a.departmentCode === currentUser?.departmentCode);
   const isHeadOrOIC = isActiveHeadOrOIC(currentUser);
@@ -117,7 +119,7 @@ export default function RequestCard({
         </Stack>
       </UnstyledButton>
 
-      {request.status === 'DRAFT' && (
+      {request.status === 'DRAFT' && !isReadOnly && (
         <Box mt="xs" pt="xs" style={{ borderTop: '1px solid var(--mantine-color-gray-2)' }}>
           <Group justify="space-between" gap="xs" wrap="nowrap">
             <Badge color="grape" variant="dot" size="xs">
