@@ -1,3 +1,4 @@
+// app/api/super/import/route.js
 import { NextResponse } from 'next/server';
 import { jwtVerify } from 'jose';
 import bcrypt from 'bcrypt';
@@ -23,6 +24,110 @@ async function getAuthenticatedUser(request) {
   }
 }
 
+/**
+ * Resolve a user by ID → email → ghost user → RESTORED dept fallback.
+ *
+ * Behavior:
+ *   - By ID: preserves the original identity exactly
+ *   - By email: for cases where IDs were reassigned
+ *   - Ghost user (original dept exists): creates with original dept
+ *   - Ghost user (original dept MISSING): creates in "RESTORED" placeholder dept
+ *   - No email → return null (caller logs + skips)
+ *
+ * 🆕 We do NOT fall back to the importing SuperUser. Substituting accounts
+ * destroys attribution — "who filed this?" becomes unanswerable, and the
+ * SuperUser gets ghost-attached to hundreds of unrelated records.
+ * Instead we preserve the original identity (name + email) even if we
+ * have to invent a placeholder department.
+ *
+ * @param candidate  { id?, email?, fname?, lname?, departmentCode?, ... }
+ * @param errors     shared errors[] array — warnings appended here
+ * @param contextLabel e.g. "FRF FRF-SEED-ACAD-9001 requestor"
+ * @param options    { allowGhostCreation?: boolean }  default true
+ */
+async function resolveUser(candidate, errors, contextLabel, options = {}) {
+  const { allowGhostCreation = true } = options;
+
+  if (!candidate) return null;
+
+  // 1. By ID
+  if (candidate.id) {
+    const byId = await prisma.user.findUnique({ where: { id: candidate.id } });
+    if (byId) return byId;
+  }
+
+  // 2. By email
+  if (candidate.email) {
+    const byEmail = await prisma.user.findUnique({ where: { email: candidate.email } });
+    if (byEmail) return byEmail;
+  }
+
+  // 3. Ghost user — only if allowed
+  if (!allowGhostCreation || !candidate.email) {
+    return null;
+  }
+
+  // 3a. Determine dept — use RESTORED if original is missing
+  let deptCode = candidate.departmentCode;
+  let originalDeptMissing = false;
+
+  if (deptCode) {
+    const dept = await prisma.department.findUnique({ where: { code: deptCode } });
+    if (!dept) {
+      originalDeptMissing = true;
+      deptCode = 'RESTORED';
+    }
+  } else {
+    originalDeptMissing = true;
+    deptCode = 'RESTORED';
+  }
+
+  // 3b. Ensure RESTORED dept exists (create lazily on first use)
+  if (deptCode === 'RESTORED') {
+    const exists = await prisma.department.findUnique({ where: { code: 'RESTORED' } });
+    if (!exists) {
+      await prisma.department.create({ data: { code: 'RESTORED' } });
+      console.log('[import] Created placeholder department: RESTORED');
+    }
+  }
+
+  // 3c. Create ghost user
+  try {
+    const randomPassword = await bcrypt.hash(crypto.randomUUID(), 10);
+    const ghost = await prisma.user.create({
+      data: {
+        employee_id:
+          candidate.employee_id ||
+          `RESTORED-${Date.now()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`,
+        email: candidate.email,
+        password: randomPassword,
+        fname: candidate.fname || 'Unknown',
+        lname: candidate.lname || 'User',
+        role: candidate.role || 'Staff',
+        branch: candidate.branch || 'MAIN',
+        departmentCode: deptCode,
+        disabled: candidate.disabled === true,
+        forgot_password: true,
+      },
+    });
+
+    if (originalDeptMissing) {
+      errors.push(
+        `${contextLabel}: ghost user created for ${candidate.email} in 'RESTORED' dept — original department '${candidate.departmentCode || '(none)'}' not found`,
+      );
+    } else {
+      console.log(`[import] Ghost user created — ${contextLabel}: ${candidate.email}`);
+    }
+
+    return ghost;
+  } catch (createErr) {
+    errors.push(
+      `${contextLabel}: ghost user creation failed (${candidate.email}): ${createErr.message}`,
+    );
+    return null;
+  }
+}
+
 export async function POST(request) {
   const user = await getAuthenticatedUser(request);
   if (!user || user.role !== 'SuperUser') {
@@ -34,7 +139,6 @@ export async function POST(request) {
   let data, scopes, settingsMode;
 
   if (contentType.includes('application/json')) {
-    // New path — client-side direct-to-blob upload
     const body = await request.json();
     scopes = Array.isArray(body.scopes) ? body.scopes : [];
     settingsMode = body.settingsMode === 'overwrite' ? 'overwrite' : 'skip';
@@ -48,7 +152,6 @@ export async function POST(request) {
     }
     data = await blobRes.json();
   } else {
-    // Legacy multipart path — local dev, small files, Postman
     const formData = await request.formData();
     const file = formData.get('file');
     if (!file) return NextResponse.json({ error: 'No file provided' }, { status: 400 });
@@ -76,10 +179,10 @@ export async function POST(request) {
     system: { action: 'skipped' },
   };
   const errors = [];
-  const oldIdMap = new Map(); // legacy old->new memo id map, used below for parent/root
+  const oldIdMap = new Map();
 
   // ==========================================
-  // 1. DEPARTMENTS (prerequisite for users & equipment)
+  // 1. DEPARTMENTS
   // ==========================================
   if (scopes.includes('users') && Array.isArray(data.departments)) {
     for (const d of data.departments) {
@@ -93,7 +196,7 @@ export async function POST(request) {
   }
 
   // ==========================================
-  // 2. USERS (needs departments)
+  // 2. USERS
   // ==========================================
   if (scopes.includes('users') && Array.isArray(data.users)) {
     for (const u of data.users) {
@@ -101,9 +204,11 @@ export async function POST(request) {
         const existing = await prisma.user.findUnique({ where: { email: u.email } });
         if (existing) { results.users.skipped++; continue; }
         const dept = await prisma.department.findUnique({ where: { code: u.departmentCode } });
-        if (!dept) { results.users.skipped++; errors.push(`User ${u.email}: dept ${u.departmentCode} missing`); continue; }
-
-        // Random password + force reset — the backup never contains passwords
+        if (!dept) {
+          results.users.skipped++;
+          errors.push(`User ${u.email}: dept ${u.departmentCode} missing — user not created`);
+          continue;
+        }
         const randomPassword = await bcrypt.hash(crypto.randomUUID(), 10);
         await prisma.user.create({
           data: {
@@ -118,7 +223,7 @@ export async function POST(request) {
             oic_start: u.oic_start || null,
             oic_end: u.oic_end || null,
             disabled: !!u.disabled,
-            forgot_password: true,   // force password reset on next login
+            forgot_password: true,
           },
         });
         results.users.imported++;
@@ -127,9 +232,9 @@ export async function POST(request) {
   }
 
   // ==========================================
-  // 3. EVENT PLACES (needed for FRF dates)
+  // 3. EVENT PLACES
   // ==========================================
-  const placeMap = new Map(); // oldId -> newId
+  const placeMap = new Map();
   if (scopes.includes('frf') && Array.isArray(data.eventPlaces)) {
     for (const p of data.eventPlaces) {
       try {
@@ -155,9 +260,9 @@ export async function POST(request) {
   }
 
   // ==========================================
-  // 4. EQUIPMENT (needed for FRF equipment requests)
+  // 4. EQUIPMENT
   // ==========================================
-  const equipMap = new Map(); // oldId -> newId
+  const equipMap = new Map();
   if (scopes.includes('frf') && Array.isArray(data.equipment)) {
     for (const e of data.equipment) {
       try {
@@ -166,7 +271,10 @@ export async function POST(request) {
         });
         if (!target) {
           const dept = await prisma.department.findUnique({ where: { code: e.departmentCode } });
-          if (!dept) { errors.push(`Equipment ${e.name}: dept ${e.departmentCode} missing`); continue; }
+          if (!dept) {
+            errors.push(`Equipment ${e.name}: dept ${e.departmentCode} missing — equipment not created`);
+            continue;
+          }
           target = await prisma.equipment.create({
             data: {
               name: e.name,
@@ -194,36 +302,60 @@ export async function POST(request) {
       try {
         const eqId = equipMap.get(ep.equipmentId);
         const placeId = placeMap.get(ep.placeId);
-        if (!eqId || !placeId) { results.equipmentPlaces.skipped++; continue; }
+        if (!eqId || !placeId) {
+          results.equipmentPlaces.skipped++;
+          errors.push(
+            `EquipmentPlace link skipped: ${!eqId ? `equipment ${ep.equipmentId}` : `place ${ep.placeId}`} not found in mapping`,
+          );
+          continue;
+        }
         await prisma.equipmentPlace.upsert({
           where: { equipmentId_placeId: { equipmentId: eqId, placeId } },
           create: { equipmentId: eqId, placeId, isBundled: !!ep.isBundled },
           update: {},
         });
         results.equipmentPlaces.imported++;
-      } catch { results.equipmentPlaces.skipped++; }
+      } catch (epErr) {
+        results.equipmentPlaces.skipped++;
+        errors.push(`EquipmentPlace link: ${epErr.message}`);
+      }
     }
   }
 
   // ==========================================
-  // 6. MEMOS (existing logic, preserved)
+  // 6. MEMOS — with sender fallback
   // ==========================================
   if (scopes.includes('memos') && Array.isArray(data.memos)) {
-    const importedMemoIds = [];
-    const importedRefIds = [];
-
     for (const memoData of data.memos) {
       try {
-        let senderId = null;
-        if (memoData.senderId) {
-          const byId = await prisma.user.findUnique({ where: { id: memoData.senderId } });
-          if (byId) senderId = byId.id;
+        const senderCandidate = {
+          id: memoData.senderId || memoData.sender?.id,
+          email: memoData.sender?.email,
+          fname:
+            memoData.sender?.fname ||
+            (memoData.senderName ? String(memoData.senderName).split(' ')[0] : undefined),
+          lname:
+            memoData.sender?.lname ||
+            (memoData.senderName ? String(memoData.senderName).split(' ').slice(1).join(' ') : undefined),
+          departmentCode: memoData.sender?.departmentCode || memoData.senderDept,
+          role: memoData.sender?.role,
+          branch: memoData.sender?.branch,
+          employee_id: memoData.sender?.employee_id,
+        };
+
+        const sender = await resolveUser(
+          senderCandidate,
+          errors,
+          `Memo ${memoData.referenceId || '?'} sender`,
+        );
+        if (!sender) {
+          results.memos.skipped++;
+          errors.push(
+            `Memo ${memoData.referenceId || '?'}: sender could not be created (email='${senderCandidate.email || '(none)'}') — memo skipped`,
+          );
+          continue;
         }
-        if (!senderId && memoData.sender?.email) {
-          const byEmail = await prisma.user.findUnique({ where: { email: memoData.sender.email } });
-          if (byEmail) senderId = byEmail.id;
-        }
-        if (!senderId) { results.memos.skipped++; continue; }
+        const senderId = sender.id;
 
         const baseRefId = memoData.referenceId
           ? `IMPORT-${memoData.referenceId}`
@@ -242,8 +374,8 @@ export async function POST(request) {
             priority: memoData.priority || 'ROUTINE',
             purpose: memoData.purpose || 'FYI',
             senderId,
-            senderName: memoData.senderName || 'Unknown',
-            senderDept: memoData.senderDept || 'GEN',
+            senderName: memoData.senderName || `${sender.fname} ${sender.lname}`,
+            senderDept: memoData.senderDept || sender.departmentCode || 'GEN',
             status: memoData.status || 'APPROVED',
             deadlineAt: memoData.deadlineAt ? new Date(memoData.deadlineAt) : null,
             attachmentPaths: memoData.attachmentPaths || [],
@@ -256,8 +388,6 @@ export async function POST(request) {
           },
         });
 
-        importedMemoIds.push(newMemo.id);
-        importedRefIds.push(newMemo.referenceId);
         oldIdMap.set(memoData.id, newMemo.id);
 
         for (const rec of memoData.recipients || []) {
@@ -295,7 +425,9 @@ export async function POST(request) {
                 assignedAt: rec.assignedAt ? new Date(rec.assignedAt) : null,
               },
             });
-          } catch (recErr) { errors.push(`Recipient error on ${memoData.referenceId}: ${recErr.message}`); }
+          } catch (recErr) {
+            errors.push(`Memo ${memoData.referenceId || '?'} recipient: ${recErr.message}`);
+          }
         }
 
         for (const hist of memoData.history || []) {
@@ -336,32 +468,54 @@ export async function POST(request) {
   }
 
   // ==========================================
-  // 7. FACILITY RESERVATIONS
+  // 7. FACILITY RESERVATIONS — with requestor fallback
   // ==========================================
-      if (scopes.includes('frf') && Array.isArray(data.facilityReservations)) {
-          for (const r of data.facilityReservations) {
-            try {
-              // 🆕 Prefix with IMPORT- so restored FRFs are read-only markers
-              const baseRefId = r.referenceId
-                ? `IMPORT-${r.referenceId}`
-                : `IMPORT-RESTORE-${Date.now()}-${results.frf.imported}`;
-              const importedRefId = baseRefId;
+  if (scopes.includes('frf') && Array.isArray(data.facilityReservations)) {
+    for (const r of data.facilityReservations) {
+      try {
+        const baseRefId = r.referenceId
+          ? `IMPORT-${r.referenceId}`
+          : `IMPORT-RESTORE-${Date.now()}-${results.frf.imported}`;
+        const importedRefId = baseRefId;
 
-              // Idempotency: if already imported once, skip (no -1, -2 clones)
-              const exists = await prisma.facilityReservation.findUnique({ where: { referenceId: importedRefId } });
-              if (exists) { results.frf.skipped++; continue; }
+        const exists = await prisma.facilityReservation.findUnique({ where: { referenceId: importedRefId } });
+        if (exists) {
+          results.frf.skipped++;
+          errors.push(`FRF ${r.referenceId}: already imported (idempotent skip)`);
+          continue;
+        }
 
-        // Resolve requestor (by id, then email)
-        let requestor = null;
-        if (r.requestor?.id) requestor = await prisma.user.findUnique({ where: { id: r.requestor.id } });
-        if (!requestor && r.requestor?.email) requestor = await prisma.user.findUnique({ where: { email: r.requestor.email } });
-        if (!requestor) { results.frf.skipped++; errors.push(`FRF ${r.referenceId}: requestor missing`); continue; }
+        // 🆕 Requestor fallback: id → email → ghost user → SuperUser
+        const requestorCandidate = {
+          id: r.requestorId || r.requestor?.id,
+          email: r.requestor?.email,
+          fname: r.requestor?.fname,
+          lname: r.requestor?.lname,
+          departmentCode: r.requestor?.departmentCode || r.requestorDept,
+          role: r.requestor?.role,
+          branch: r.requestor?.branch,
+          employee_id: r.requestor?.employee_id,
+          disabled: r.requestor?.disabled,
+        };
+
+        const requestor = await resolveUser(
+          requestorCandidate,
+          errors,
+          `FRF ${r.referenceId} requestor`,
+        );
+        if (!requestor) {
+          results.frf.skipped++;
+          errors.push(
+            `FRF ${r.referenceId}: requestor could not be created (email='${requestorCandidate.email || '(none)'}') — FRF skipped`,
+          );
+          continue;
+        }
 
         const newRes = await prisma.facilityReservation.create({
           data: {
             referenceId: importedRefId,
             requestorId: requestor.id,
-            requestorDept: r.requestorDept,
+            requestorDept: r.requestorDept || requestor.departmentCode || 'GEN',
             type: r.type || 'EMPLOYEE_ONLY',
             eventName: r.eventName || null,
             attendeesCount: r.attendeesCount || 0,
@@ -385,6 +539,9 @@ export async function POST(request) {
             const place = d.place?.name
               ? await prisma.eventPlace.findUnique({ where: { name: d.place.name } })
               : null;
+            if (d.place?.name && !place) {
+              errors.push(`FRF ${r.referenceId} date: place '${d.place.name}' not found — saved without placeId`);
+            }
             await prisma.facilityReservationDate.create({
               data: {
                 reservationId: newRes.id,
@@ -406,7 +563,20 @@ export async function POST(request) {
             let performedById = a.performedById || null;
             if (performedById) {
               const perf = await prisma.user.findUnique({ where: { id: performedById } });
-              if (!perf) performedById = null;
+              if (!perf) {
+                if (a.performedBy?.email) {
+                  const byEmail = await prisma.user.findUnique({ where: { email: a.performedBy.email } });
+                  if (byEmail) performedById = byEmail.id;
+                  else {
+                    performedById = null;
+                    console.warn(
+                      `[import] FRF ${r.referenceId} approval by ${a.performedBy.email} — user missing, recorded without performer`,
+                    );
+                  }
+                } else {
+                  performedById = null;
+                }
+              }
             }
             await prisma.facilityApproval.create({
               data: {
@@ -422,7 +592,7 @@ export async function POST(request) {
                 acknowledgedAt: a.acknowledgedAt ? new Date(a.acknowledgedAt) : null,
               },
             });
-          } catch (e) { errors.push(`FRF ${r.referenceId} approval: ${e.message}`); }
+          } catch (aErr) { errors.push(`FRF ${r.referenceId} approval: ${aErr.message}`); }
         }
 
         // Equipment requests
@@ -433,7 +603,12 @@ export async function POST(request) {
                   where: { name: er.equipment.name, departmentCode: er.equipment.departmentCode },
                 })
               : null;
-            if (!eq) continue;
+            if (!eq) {
+              errors.push(
+                `FRF ${r.referenceId} equipment: '${er.equipment?.name || er.equipmentId || 'unknown'}' not found — equipment request skipped`,
+              );
+              continue;
+            }
             await prisma.facilityEquipmentRequest.create({
               data: {
                 reservationId: newRes.id,
@@ -441,16 +616,37 @@ export async function POST(request) {
                 quantityRequested: er.quantityRequested || 1,
               },
             });
-          } catch {}
+          } catch (erErr) {
+            errors.push(`FRF ${r.referenceId} equipment request: ${erErr.message}`);
+          }
         }
 
-        // Assignments (userId is required — skip if user not found)
+        // Assignments — do NOT fallback to SuperUser, just log missing staff
         for (const ass of r.assignments || []) {
           try {
-            let staff = null;
-            if (ass.userId) staff = await prisma.user.findUnique({ where: { id: ass.userId } });
-            if (!staff && ass.user?.email) staff = await prisma.user.findUnique({ where: { email: ass.user.email } });
-            if (!staff) continue;
+            const staffCandidate = {
+              id: ass.userId || ass.user?.id,
+              email: ass.user?.email,
+              fname: ass.user?.fname,
+              lname: ass.user?.lname,
+              departmentCode: ass.user?.departmentCode || 'ITO-MAIN',
+              role: ass.user?.role,
+              branch: ass.user?.branch,
+              employee_id: ass.user?.employee_id,
+            };
+
+            const staff = await resolveUser(
+              staffCandidate,
+              errors,
+              `FRF ${r.referenceId} assignment`,
+              { allowGhostCreation: false }, // assignments are staff-specific, no ghost
+            );
+            if (!staff) {
+              errors.push(
+                `FRF ${r.referenceId}: assignment for ${ass.user?.fname || ass.userId || 'unknown'} skipped — staff unresolvable`,
+              );
+              continue;
+            }
             await prisma.facilityAssignment.create({
               data: {
                 reservationId: newRes.id,
@@ -462,7 +658,9 @@ export async function POST(request) {
                 isOvertime: !!ass.isOvertime,
               },
             });
-          } catch {}
+          } catch (assErr) {
+            errors.push(`FRF ${r.referenceId} assignment: ${assErr.message}`);
+          }
         }
 
         // Pack up done by
@@ -478,6 +676,10 @@ export async function POST(request) {
                 packUpDonePhotos: r.packUpDonePhotos || [],
               },
             });
+          } else {
+            errors.push(
+              `FRF ${r.referenceId}: pack-up by ${r.packUpDoneBy.email} — user not found, pack-up metadata skipped`,
+            );
           }
         }
 
@@ -490,7 +692,7 @@ export async function POST(request) {
   }
 
   // ==========================================
-  // 8. SYSTEM SETTINGS (opt-in overwrite)
+  // 8. SYSTEM SETTINGS
   // ==========================================
   if (scopes.includes('system') && settingsMode === 'overwrite') {
     try {
@@ -517,7 +719,6 @@ export async function POST(request) {
           },
         });
       }
-
       if (Array.isArray(data.privacySettings) && data.privacySettings.length > 0) {
         const p = data.privacySettings[0];
         await prisma.privacySettings.upsert({
@@ -551,7 +752,6 @@ export async function POST(request) {
           },
         });
       }
-
       results.system.action = 'overwritten';
     } catch (e) {
       errors.push(`System settings: ${e.message}`);
@@ -570,7 +770,7 @@ export async function POST(request) {
     req: request,
     userId: user.id,
     email: user.email,
-    action: 'ADMIN_IMPORT_MEMOS',   // matches last_action allowlist & UI badge
+    action: 'ADMIN_IMPORT_MEMOS',
     details: JSON.stringify({
       scopes,
       settingsMode,
@@ -582,8 +782,13 @@ export async function POST(request) {
 
   return NextResponse.json({
     success: true,
-    message: `Restored ${totalImported} record(s). Check the results below for details.`,
+    message:
+      `Restored ${totalImported} record(s). ` +
+      (errors.length > 0
+        ? `${errors.length} issue(s) encountered — see errors below.`
+        : 'No issues.'),
     results,
-    errors: errors.slice(0, 20),
+    errors: errors.slice(0, 100),   // 🆕 from 20 → 100
+    totalErrors: errors.length,      // 🆕 so UI can show "showing X of Y"
   });
 }
