@@ -805,6 +805,19 @@ export default function FRFDashboardPage() {
       formData.append('equipmentRequests', JSON.stringify(values.equipmentRequests));
       formData.append('attachmentsToKeep', JSON.stringify(attachmentsToKeep));
 
+      if (values.assignments && values.assignments.length > 0) {
+        formData.append('assignments', JSON.stringify(
+          values.assignments.map(a => ({
+            userId: a.userId,
+            dutyStart: a.dutyStart instanceof Date ? a.dutyStart.toISOString() : a.dutyStart,
+            dutyEnd: a.dutyEnd instanceof Date ? a.dutyEnd.toISOString() : a.dutyEnd,
+            dutyType: a.dutyType,
+            notes: a.notes,
+            isOvertime: a.isOvertime,
+          }))
+        ));
+      }
+
       // Ilagay ang mga bagong file
       for (const file of values.attachments) {
         formData.append('newAttachments', file);
@@ -866,6 +879,19 @@ export default function FRFDashboardPage() {
       for (const file of values.attachments) {
         formData.append('attachments', file);      // POST uses 'attachments'
         formData.append('newAttachments', file);   // PATCH uses 'newAttachments'
+      }
+
+      if (values.assignments && values.assignments.length > 0) {
+        formData.append('assignments', JSON.stringify(
+          values.assignments.map(a => ({
+            userId: a.userId,
+            dutyStart: a.dutyStart instanceof Date ? a.dutyStart.toISOString() : a.dutyStart,
+            dutyEnd: a.dutyEnd instanceof Date ? a.dutyEnd.toISOString() : a.dutyEnd,
+            dutyType: a.dutyType,
+            notes: a.notes,
+            isOvertime: a.isOvertime,
+          }))
+        ));
       }
 
       const method = draftId ? 'PATCH' : 'POST';
@@ -1034,6 +1060,7 @@ export default function FRFDashboardPage() {
       equipmentRequests?: { equipmentId: string; quantity: number }[];
       withCharge?: boolean;
       requestorNotes?: string;
+      assignments?: ITOAssignment[];
     },
     password: string
   ) => {
@@ -1061,6 +1088,16 @@ export default function FRFDashboardPage() {
         ...(data.equipmentRequests && { equipmentRequests: data.equipmentRequests }),
         ...(data.withCharge !== undefined && { withCharge: data.withCharge }),
         ...(data.requestorNotes && { requestorNotes: data.requestorNotes }),
+        ...(data.assignments && data.assignments.length > 0 && {
+          assignments: data.assignments.map(a => ({
+            userId: a.userId,
+            dutyStart: a.dutyStart instanceof Date ? a.dutyStart.toISOString() : a.dutyStart,
+            dutyEnd: a.dutyEnd instanceof Date ? a.dutyEnd.toISOString() : a.dutyEnd,
+            dutyType: a.dutyType,
+            notes: a.notes,
+            isOvertime: a.isOvertime,
+          })),
+        }),
       };
 
       const res = await fetch('/api/frf/reservation', {

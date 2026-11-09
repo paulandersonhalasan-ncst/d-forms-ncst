@@ -52,7 +52,7 @@ interface ITOAssignmentModalProps {
   onConfirm: (assignments: ITOAssignment[]) => void;
   loading?: boolean;
   mode?: 'assign' | 'approve';
-
+  prefillAssignments?: ITOAssignment[];
 }
 
 type AssignmentRow = {
@@ -82,6 +82,47 @@ type DateValidation = {
   isValid: boolean;
 };
 
+function buildPrefillRows(
+  request: FacilityReservation | null,
+  mode: 'assign' | 'approve',
+  prefillAssignments: ITOAssignment[] | undefined,
+  formatTimeStr: (d: Date) => string,
+): AssignmentRow[] {
+  if (!request) return [];
+
+  const approveSource =
+    request.isReschedule && mode === 'approve' ? request.assignments : [];
+  const assignSource = mode === 'assign' ? prefillAssignments ?? [] : [];
+  const source = approveSource.length > 0 ? approveSource : assignSource;
+  if (source.length === 0) return [];
+
+  return source.map(ass => {
+    const dutyDate = new Date(ass.dutyStart);
+    let dateIndex = 0;
+    for (let i = 0; i < request.dates.length; i++) {
+      const eventDate = new Date(request.dates[i].eventStart);
+      if (
+        dutyDate.getFullYear() === eventDate.getFullYear() &&
+        dutyDate.getMonth() === eventDate.getMonth() &&
+        dutyDate.getDate() === eventDate.getDate()
+      ) {
+        dateIndex = i;
+        break;
+      }
+    }
+    return {
+      id: crypto.randomUUID(),
+      userId: ass.userId,
+      dateIndex,
+      type: ass.dutyType.toLowerCase() as 'setup' | 'teardown' | 'operator' | 'assistant',
+      startTime: formatTimeStr(new Date(ass.dutyStart)),
+      endTime: formatTimeStr(new Date(ass.dutyEnd)),
+      notes: ass.notes || '',
+      isOvertime: ass.isOvertime ?? false,
+    };
+  });
+}
+
 export default function ITOAssignmentModal({
   opened,
   onClose,
@@ -90,15 +131,14 @@ export default function ITOAssignmentModal({
   onConfirm,
   loading = false,
   mode = 'assign',
+  prefillAssignments,
 }: ITOAssignmentModalProps) {
   const [staffList, setStaffList] = useState<{ value: string; label: string }[]>([]);
-  const [rows, setRows] = useState<AssignmentRow[]>([]);
+
   const [error, setError] = useState('');
   const [rulesExpanded, setRulesExpanded] = useState(false); // 📱 for collapsible alert
 
   const isMobile = useMediaQuery('(max-width: 768px)');
-  
-  const hasPrefilledRef = useRef(false);
 
   // Helper: format time as HH:mm
   const formatTimeString = (date: Date): string => {
@@ -106,56 +146,6 @@ export default function ITOAssignmentModal({
     const minutes = String(date.getMinutes()).padStart(2, '0');
     return `${hours}:${minutes}`;
   };
-
-  // Pre‑fill rows for reschedule approval when modal opens
-  useEffect(() => {
-    // Reset prefilled flag when request or mode changes (and modal is open)
-    if (opened && request) {
-      hasPrefilledRef.current = false;
-    }
-  }, [opened, request?.id, mode]);
-
-  useEffect(() => {
-  const shouldPrefill =
-    request?.isReschedule && mode === 'approve';
-
-  if (
-    opened &&
-    request &&
-    shouldPrefill &&
-    request.assignments &&
-    request.assignments.length > 0 &&
-    !hasPrefilledRef.current
-  ) {
-      const newRows: AssignmentRow[] = request.assignments.map(ass => {
-        const dutyDate = new Date(ass.dutyStart);
-        let dateIndex = 0;
-        for (let i = 0; i < request.dates.length; i++) {
-          const eventDate = new Date(request.dates[i].eventStart);
-          if (
-            dutyDate.getFullYear() === eventDate.getFullYear() &&
-            dutyDate.getMonth() === eventDate.getMonth() &&
-            dutyDate.getDate() === eventDate.getDate()
-          ) {
-            dateIndex = i;
-            break;
-          }
-        }
-        return {
-          id: crypto.randomUUID(),
-          userId: ass.userId,
-          dateIndex: dateIndex,
-          type: ass.dutyType.toLowerCase() as 'setup' | 'teardown' | 'operator' | 'assistant',
-          startTime: formatTimeString(new Date(ass.dutyStart)),
-          endTime: formatTimeString(new Date(ass.dutyEnd)),
-          notes: ass.notes || '',
-          isOvertime: ass.isOvertime ?? false,
-        };
-      });
-      setRows(newRows);
-      hasPrefilledRef.current = true;
-    }
-  }, [opened, request, mode]);
 
   // Fetch ITO-MAIN staff
   useEffect(() => {
@@ -223,6 +213,22 @@ export default function ITOAssignmentModal({
       }) || []
     );
   }, [request]);
+
+  const [rows, setRows] = useState<AssignmentRow[]>(() =>
+    buildPrefillRows(request, mode, prefillAssignments, formatTimeString),
+  );
+
+  // 🆕 Reset rows when the modal opens fresh. Render-phase sync — same
+  // pattern used in page.tsx and approvalTimeline.tsx. Avoids the React 19
+  // "setState in useEffect" warning while still getting a fresh prefill on
+  // every open.
+  const [prevOpened, setPrevOpened] = useState(opened);
+  if (opened !== prevOpened) {
+    setPrevOpened(opened);
+    if (opened) {
+      setRows(buildPrefillRows(request, mode, prefillAssignments, formatTimeString));
+    }
+  }
 
   // ----- LIVE VALIDATION -----
   const validationResults = useMemo(() => {

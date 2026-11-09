@@ -190,6 +190,7 @@ export interface FRFFormValues {
   editingId?: string;
   eventName?: string;
   isVenueOnly?: boolean;
+  assignments?: ITOAssignment[];
 }
 
 // ==========================================

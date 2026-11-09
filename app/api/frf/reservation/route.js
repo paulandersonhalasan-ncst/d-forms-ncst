@@ -117,6 +117,40 @@ function isStaff(user) {
   return role === 'STAFF' || role === 'FACULTY';
 }
 
+function validateItoHeadAssignments(user, isVenueOnly, isDraft, assignments) {
+  const isItoHeadRequestor =
+    user.departmentCode === 'ITO-MAIN' && isHeadOrOIC(user);
+  if (!isItoHeadRequestor) return null;
+  if (isVenueOnly) return null;
+  if (isDraft) return null; // drafts can be empty
+  if (Array.isArray(assignments) && assignments.length > 0) return null;
+  return 'ITO-MAIN head/OIC must assign at least one ITO staff member before submitting';
+}
+
+async function persistAssignments(tx, reservationId, assignments) {
+  if (!assignments || assignments.length === 0) return;
+  for (const a of assignments) {
+    if (!a.userId || !a.dutyStart || !a.dutyEnd || !a.dutyType) {
+      throw new Error('Invalid assignment payload — userId, dutyStart, dutyEnd, dutyType required');
+    }
+    const staff = await tx.user.findUnique({ where: { id: a.userId } });
+    if (!staff || (staff.departmentCode !== 'ITO-MAIN' && staff.departmentCode !== 'ITO')) {
+      throw new Error(`Staff ${a.userId} not found or not in ITO department`);
+    }
+    await tx.facilityAssignment.create({
+      data: {
+        reservationId,
+        userId: a.userId,
+        dutyStart: new Date(a.dutyStart),
+        dutyEnd: new Date(a.dutyEnd),
+        dutyType: a.dutyType,
+        notes: a.notes || null,
+        isOvertime: !!a.isOvertime,
+      },
+    });
+  }
+}
+
 function getApprovalSequence(type, hasLedWall, hasCDOEquipment = false, hasITOEquipment = true) {
 
   const sequence = ['PSMO/FMO'];
@@ -266,6 +300,14 @@ export async function POST(request) {
     const equipmentItems = JSON.parse(formData.get('equipmentItems') || '[]');
     const datesArray = JSON.parse(formData.get('dates') || '[]');
 
+    const assignmentsRaw = formData.get('assignments');
+    let submittedAssignments = [];
+    try {
+      submittedAssignments = assignmentsRaw ? JSON.parse(assignmentsRaw) : [];
+    } catch {
+      return NextResponse.json({ success: false, message: 'Invalid assignments payload' }, { status: 400 });
+    }
+
     const capacityError = await validateMultiPurposeHallLimit(datesArray, attendeesCount);
     if (capacityError) {
       return NextResponse.json({ success: false, message: capacityError }, { status: 400 });
@@ -384,6 +426,11 @@ export async function POST(request) {
     const isVenueOnly = formData.get('isVenueOnly') === 'true';
     const isRequestorHead = isHeadOrOIC(user);
 
+    const assignmentError = validateItoHeadAssignments(user, isVenueOnly, isDraft, submittedAssignments);
+    if (assignmentError) {
+      return NextResponse.json({ success: false, message: assignmentError }, { status: 400 });
+    }
+
     // 🆕 Drafts skip approval creation entirely — approvals added on submit-draft
     const approvals = [];
     if (!isDraft) {
@@ -455,46 +502,52 @@ export async function POST(request) {
         },
         isVenueOnly: isVenueOnly
       },
-            include: {
+      include: {
         approvals: true,
+        requestor: true,
         equipmentRequests: {
-          dates: {
-            include: { place: true },
-          },
+          include: { equipment: true },
         },
-        dates: true
-      }
+        dates: {
+          include: { place: true },
+        },
+      },
     });
 
-    if (!isDraft && equipmentIds.length > 0) {
+    const needsEquipmentReservation = !isDraft && equipmentItems.length > 0;
+    const needsAssignmentCreation = submittedAssignments.length > 0;
+
+    if (needsEquipmentReservation || needsAssignmentCreation) {
       try {
         await prisma.$transaction(async (tx) => {
-          for (const item of equipmentItems) {
-            const equipmentId = item.equipmentId || item.id;
-            const eq = await tx.equipment.findUnique({
-              where: { id: equipmentId },
-              select: { isSingleItem: true, quantityAvailable: true, quantityReserved: true, name: true }
-            });
-            if (!eq) continue;
-
-            const qty = eq.isSingleItem ? 1 : (item.quantity || 1);
-            const trulyAvailable = eq.quantityAvailable - eq.quantityReserved;
-            if (trulyAvailable < qty) {
-              throw new Error(`Not enough stock for ${eq.name}. Available: ${trulyAvailable}, requested: ${qty}.`);
+          if (needsEquipmentReservation) {
+            for (const item of equipmentItems) {
+              const equipmentId = item.equipmentId || item.id;
+              const eq = await tx.equipment.findUnique({
+                where: { id: equipmentId },
+                select: { isSingleItem: true, quantityAvailable: true, quantityReserved: true, name: true }
+              });
+              if (!eq) continue;
+              const qty = eq.isSingleItem ? 1 : (item.quantity || 1);
+              const trulyAvailable = eq.quantityAvailable - eq.quantityReserved;
+              if (trulyAvailable < qty) {
+                throw new Error(`Not enough stock for ${eq.name}. Available: ${trulyAvailable}, requested: ${qty}.`);
+              }
+              await tx.equipment.update({
+                where: { id: equipmentId },
+                data: { quantityReserved: { increment: qty } }
+              });
             }
-
-            await tx.equipment.update({
-              where: { id: equipmentId },
-              data: { quantityReserved: { increment: qty } }
-            });
+          }
+          if (needsAssignmentCreation) {
+            await persistAssignments(tx, reservation.id, submittedAssignments);
           }
         });
       } catch (reserveErr) {
-        // Rollback: remove the just-created reservation
         await prisma.facilityReservation.delete({ where: { id: reservation.id } });
-        console.error('Equipment reservation failed:', reserveErr);
+        console.error('Reservation side-effects failed:', reserveErr);
         return NextResponse.json(
-          { success: false, message: reserveErr.message || 'Failed to reserve equipment' },
+          { success: false, message: reserveErr.message || 'Failed to create reservation' },
           { status: 409 }
         );
       }
@@ -856,6 +909,14 @@ export async function PATCH(request) {
         const newFiles = formData.getAll('newAttachments');
         const isVenueOnly = formData.get('isVenueOnly') === 'true';
 
+        const assignmentsRaw = formData.get('assignments');
+        let submittedAssignments = [];
+        try {
+          submittedAssignments = assignmentsRaw ? JSON.parse(assignmentsRaw) : [];
+        } catch {
+          return NextResponse.json({ success: false, message: 'Invalid assignments payload' }, { status: 400 });
+        }
+
         // Basic validation (both actions)
         if (!datesArray || datesArray.length === 0) {
           return NextResponse.json({ success: false, message: 'At least one date is required' }, { status: 400 });
@@ -997,6 +1058,17 @@ export async function PATCH(request) {
           approvals.push({ departmentCode: dept, stepOrder: 2 + index, status: 'PENDING' });
         });
 
+        // 🆕 Server-side guard — ITO-head/OIC submitting a draft must have assignments
+        const draftAssignmentError = validateItoHeadAssignments(
+          user,
+          isVenueOnly,
+          false,
+          submittedAssignments,
+        );
+        if (draftAssignmentError) {
+          return NextResponse.json({ success: false, message: draftAssignmentError }, { status: 400 });
+        }
+
         // Transact: update fields + recreate dates/equipment + create approvals + reserve stock
         try {
           await prisma.$transaction(async (tx) => {
@@ -1052,6 +1124,12 @@ export async function PATCH(request) {
                 where: { id: item.equipmentId },
                 data: { quantityReserved: { increment: qty } }
               });
+            }
+
+            // 🆕 Persist assignments (optional for drafts)
+            if (submittedAssignments.length > 0) {
+              await tx.facilityAssignment.deleteMany({ where: { reservationId: id } });
+              await persistAssignments(tx, id, submittedAssignments);
             }
           });
         } catch (submitErr) {
@@ -1234,6 +1312,14 @@ export async function PATCH(request) {
       const equipmentRequests = JSON.parse(formData.get('equipmentRequests') || '[]');
       const attachmentsToKeep = JSON.parse(formData.get('attachmentsToKeep') || '[]');
       const newFiles = formData.getAll('newAttachments');
+      const assignmentsRaw = formData.get('assignments');
+
+      let submittedAssignments = [];
+      try {
+        submittedAssignments = assignmentsRaw ? JSON.parse(assignmentsRaw) : [];
+      } catch {
+        return NextResponse.json({ success: false, message: 'Invalid assignments payload' }, { status: 400 });
+      }
 
       // --- Validate dates ---
       if (!datesArray || datesArray.length === 0) {
@@ -1299,6 +1385,23 @@ export async function PATCH(request) {
 
       const finalAttachments = [...attachmentsToKeep, ...newAttachmentPaths];
 
+      // 🆕 ITO-head resubmit guard — BEFORE the transaction
+      const existingAssignmentCount = await prisma.facilityAssignment.count({
+        where: { reservationId: id },
+      });
+      const hasAssignmentsAfterResubmit =
+        submittedAssignments.length > 0 || existingAssignmentCount > 0;
+      const isItoHeadResubmitting =
+        user.departmentCode === 'ITO-MAIN' && isHeadOrOIC(user) && !reservation.isVenueOnly;
+
+      if (isItoHeadResubmitting && !hasAssignmentsAfterResubmit) {
+        return NextResponse.json({
+          success: false,
+          message:
+            'ITO-MAIN head/OIC must have at least one ITO staff assignment for this reservation. Please assign staff before resubmitting.',
+        }, { status: 400 });
+      }
+
       // --- Update reservation ---
       await prisma.$transaction(async (tx) => {
         await tx.facilityReservationDate.deleteMany({
@@ -1307,6 +1410,11 @@ export async function PATCH(request) {
         await tx.facilityEquipmentRequest.deleteMany({
           where: { reservationId: id }
         });
+
+        if (submittedAssignments.length > 0) {
+          await tx.facilityAssignment.deleteMany({ where: { reservationId: id } });
+          await persistAssignments(tx, id, submittedAssignments);
+        }
 
         await tx.facilityReservation.update({
           where: { id },
@@ -1563,6 +1671,14 @@ export async function PATCH(request) {
               oldStart: new Date(a.dutyStart),
               oldEnd: new Date(a.dutyEnd),
             }));
+          }
+
+          // after the existing if/else that sets assignmentData
+          if (assignmentData.length === 0) {
+            return NextResponse.json({
+              success: false,
+              message: 'At least one ITO staff assignment is required for reschedule approval. Please provide new assignments or ensure the original reservation has existing assignments.'
+            }, { status: 400 });
           }
 
           // 4. Re-create assignments with new dates

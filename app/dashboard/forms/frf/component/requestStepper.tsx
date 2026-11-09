@@ -47,6 +47,10 @@ import {
 } from '@tabler/icons-react';
 import { DatePicker, TimeInput } from '@mantine/dates';
 import { useMediaQuery } from '@mantine/hooks';
+import { useDisclosure } from '@mantine/hooks';
+import ITOAssignmentModal from './itoAssignmentModal';
+import { ITOAssignment } from './types';
+import { IconUserCheck } from '@tabler/icons-react';
 
 // Helper to generate temporary ID
 const generateId = (): string => Math.random().toString(36).substring(2, 9);
@@ -134,6 +138,7 @@ interface RequestStepperProps {
       equipmentRequests?: { equipmentId: string; quantity: number }[];
       withCharge?: boolean;
       requestorNotes?: string;
+      assignments?: ITOAssignment[];
     },
     password: string
   ) => void;
@@ -179,6 +184,22 @@ export default function RequestStepper({
 
   const [allowVipVenues, setAllowVipVenues] = useState(false); // separate state
   const [minDatePreset, setMinDatePreset] = useState<'tomorrow' | 'sevenDays'>('sevenDays');
+
+  const [itoAssignOpened, { open: openItoAssign, close: closeItoAssign }] = useDisclosure(false);
+
+  const [assignments, setAssignments] = useState<ITOAssignment[]>(() => {
+    if (editData?.assignments?.length) {
+      return editData.assignments.map(a => ({
+        userId: a.userId,
+        dutyStart: new Date(a.dutyStart),
+        dutyEnd: new Date(a.dutyEnd),
+        dutyType: a.dutyType,
+        notes: a.notes,
+        isOvertime: a.isOvertime,
+      }));
+    }
+    return [];
+  });
 
   // 🆕 Filter places by VIP mode
   // VIP places only appear when the VIP radio ("tomorrow") is selected.
@@ -365,6 +386,10 @@ export default function RequestStepper({
       },
     }
   });
+
+  const isItoHeadFlow = currentUser?.departmentCode === 'ITO-MAIN' && isHeadOrOIC;
+  const requiresAssignments =
+    isItoHeadFlow && !form.values.isVenueOnly && !isRescheduleMode;
 
   // --- Helper to detect changes ---
   const hasChanges = useCallback((): boolean => {
@@ -615,6 +640,12 @@ export default function RequestStepper({
   };
 
   const handleSubmit = useCallback(async (values: FRFFormValues) => {
+
+    if (requiresAssignments && assignments.length === 0) {
+      alert('❌ You are ITO-MAIN head/OIC creating this reservation. Please assign at least one ITO staff member before submitting.');
+      return;
+    }
+
     // ----- RESCHEDULE MODE -----
     if (isRescheduleMode && editData && onReschedule) {
       if (!password) {
@@ -669,7 +700,8 @@ export default function RequestStepper({
           attendeesCount: values.attendeesCount,
           equipmentRequests: values.equipmentRequests,
           withCharge: values.withCharge,
-          requestorNotes: values.requestorNotes
+          requestorNotes: values.requestorNotes,
+          assignments,
         }, password);
         onClose();
       } catch (err) {
@@ -690,7 +722,7 @@ export default function RequestStepper({
       }
       setSubmitting(true);
       try {
-        await onResubmit(editData.id, values, password, attachmentsToKeep);
+        await onResubmit(editData.id, { ...values, assignments }, password, attachmentsToKeep);
         onClose();
       } catch (err) {
         console.error('Resubmit error:', err);
@@ -738,6 +770,20 @@ export default function RequestStepper({
           placeId: d.placeId,
           placeOther: d.placeOther,
         }))));
+
+        if (assignments.length > 0) {
+          formData.append('assignments', JSON.stringify(
+            assignments.map(a => ({
+              userId: a.userId,
+              dutyStart: a.dutyStart instanceof Date ? a.dutyStart.toISOString() : a.dutyStart,
+              dutyEnd: a.dutyEnd instanceof Date ? a.dutyEnd.toISOString() : a.dutyEnd,
+              dutyType: a.dutyType,
+              notes: a.notes,
+              isOvertime: a.isOvertime,
+            }))
+          ));
+        }
+
         formData.append('equipmentItems', JSON.stringify(values.equipmentRequests));
         formData.append('attachmentsToKeep', JSON.stringify(attachmentsToKeep));
         for (const file of values.attachments) {
@@ -830,7 +876,7 @@ export default function RequestStepper({
     } finally {
       setSubmitting(false);
     }
-    }, [isRescheduleMode, isEditing, isDraftMode, editData, onReschedule, onResubmit, password, rescheduleReason, hasChanges, attachmentsToKeep, onSuccess, onClose, settings.minRescheduleDays]);
+    }, [isRescheduleMode, isEditing, isDraftMode, editData, onReschedule, onResubmit, password, rescheduleReason, hasChanges, attachmentsToKeep, onSuccess, onClose, settings.minRescheduleDays, assignments, requiresAssignments]);
 
   // 🆕 Track whether the user has entered meaningful data — used to warn on close
   // Uses render-phase sync (no useEffect → no cascading-render warning).
@@ -852,7 +898,8 @@ export default function RequestStepper({
     form.values.equipmentRequests.length > 0 ||
     form.values.attachments.length > 0 ||
     attachmentsToKeep.length > 0 ||
-    rescheduleReason.trim() !== '';
+    rescheduleReason.trim() !== '' ||
+    assignments.length > 0; 
 
   if (opened && hasMeaningfulData && !hasUserInteraction) {
     setHasUserInteraction(true);
@@ -1010,11 +1057,40 @@ export default function RequestStepper({
 
     const draftId = editData?.status === 'DRAFT' ? editData.id : null;
     try {
-      await onSaveDraft(draftId, form.values, attachmentsToKeep);
+      await onSaveDraft(draftId, { ...form.values, assignments }, attachmentsToKeep);
     } catch (err) {
       console.error('Save-draft error:', err);
       alert('Failed to save draft');
     }
+  };
+
+  const pseudoRequestForAssignment: FacilityReservation = {
+    id: 'DRAFT',
+    referenceId: 'DRAFT',
+    requestorId: currentUser?.id || '',
+    requestor: {
+      id: currentUser?.id || '',
+      fname: currentUser?.fname || '',
+      lname: currentUser?.lname || '',
+      email: currentUser?.email || '',
+      departmentCode: currentUser?.departmentCode || '',
+    },
+    requestorDept: currentUser?.departmentCode || '',
+    type: form.values.type,
+    eventName: form.values.eventName,
+    attendeesCount: form.values.attendeesCount,
+    usageHours: form.values.usageHours,
+    withCharge: form.values.withCharge,
+    equipmentRequests: [],
+    attachments: [],
+    requestorNotes: form.values.requestorNotes,
+    status: 'DRAFT',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    approvals: [],
+    assignments: [],
+    dates: form.values.dates,
+    isVenueOnly: form.values.isVenueOnly,
   };
 
   return (
@@ -1056,7 +1132,7 @@ export default function RequestStepper({
           return;
         }
 
-        handleSubmit(form.values);
+        handleSubmit({ ...form.values, assignments });
       }}>
         <Stepper
           active={activeStep}
@@ -2126,6 +2202,77 @@ export default function RequestStepper({
                   </>
                 )}
 
+                {requiresAssignments && (
+                  <>
+                    <Divider />
+                    <Paper
+                      withBorder
+                      p="md"
+                      radius="md"
+                      style={{
+                        borderColor: assignments.length === 0
+                          ? 'var(--mantine-color-orange-5)'
+                          : 'var(--mantine-color-blue-5)',
+                        borderWidth: 2,
+                      }}
+                    >
+                      <Group justify="space-between" wrap="wrap" gap="sm">
+                        <div>
+                          <Group gap="xs">
+                            <ThemeIcon color={assignments.length === 0 ? 'orange' : 'blue'} variant="light" radius="xl">
+                              <IconUserCheck size={18} />
+                            </ThemeIcon>
+                            <Text fw={600} size="sm">
+                              ITO Staff Assignments {assignments.length === 0 && <Text component="span" c="red">*</Text>}
+                            </Text>
+                          </Group>
+                          <Text size="xs" c="dimmed" mt={4}>
+                            {assignments.length === 0
+                              ? 'Required — assign at least one ITO staff member before submitting.'
+                              : `${assignments.length} assignment${assignments.length === 1 ? '' : 's'} will be saved with this reservation.`}
+                          </Text>
+                        </div>
+                        <Button
+                          onClick={openItoAssign}
+                          leftSection={<IconUserCheck size={16} />}
+                          color={assignments.length === 0 ? 'orange' : 'blue'}
+                          variant={assignments.length === 0 ? 'filled' : 'light'}
+                        >
+                          {assignments.length === 0 ? 'Assign Staff' : 'Edit Assignments'}
+                        </Button>
+                      </Group>
+
+                      {assignments.length > 0 && (
+                        <Stack gap="xs" mt="sm">
+                          {assignments.map((a, i) => (
+                            <Paper key={i} withBorder p="xs" radius="sm" bg="light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-7))">
+                              <Group gap="xs" wrap="nowrap">
+                                <Badge
+                                  size="xs"
+                                  color={a.dutyType === 'SETUP' ? 'blue' : a.dutyType === 'TEARDOWN' ? 'orange' : 'grape'}
+                                >
+                                  {a.dutyType === 'TEARDOWN' ? 'PACK-UP' : a.dutyType}
+                                </Badge>
+                                {a.isOvertime && <Badge size="xs" color="green">OT</Badge>}
+                                <Text size="xs" fw={500}>
+                                  {new Date(a.dutyStart).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                                  {' → '}
+                                  {new Date(a.dutyEnd).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                                </Text>
+                              </Group>
+                              {a.notes && (
+                                <Text size="10px" c="dimmed" mt={2} pl={4} style={{ fontStyle: 'italic' }}>
+                                  {a.notes}
+                                </Text>
+                              )}
+                            </Paper>
+                          ))}
+                        </Stack>
+                      )}
+                    </Paper>
+                  </>
+                )}
+
                 <Divider label="Security Verification" labelPosition="center" />
 
                 <PasswordInput
@@ -2227,6 +2374,20 @@ export default function RequestStepper({
           </Group>
         )}
       </form>
+
+      <ITOAssignmentModal
+        opened={itoAssignOpened}
+        onClose={closeItoAssign}
+        request={pseudoRequestForAssignment}
+        currentUser={currentUser}
+        mode="assign"
+        prefillAssignments={assignments}
+        onConfirm={(newAssignments) => {
+          setAssignments(newAssignments);
+          closeItoAssign();
+        }}
+      />
+
     </Modal>
   );
 }
