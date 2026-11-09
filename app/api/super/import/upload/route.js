@@ -1,4 +1,3 @@
-// app/api/super/import/upload/route.js
 import { NextResponse } from 'next/server';
 import { handleUpload } from '@vercel/blob/client';
 import { jwtVerify } from 'jose';
@@ -33,6 +32,17 @@ export async function POST(request) {
   }
 
   try {
+    // 🆕 Strip "store_" prefix — DMSBLOB_STORE_ID = "store_XXX" but
+    // the client token payload + header must use the raw "XXX" form.
+    // Vercel Blob's api v12 endpoint validates that:
+    //   payload.storeId === header['x-vercel-blob-store-id']
+    // The PUT client SDK derives the header from splitting the client
+    // token string (parts[3] = raw storeId, no prefix), so if we pass
+    // the prefixed version here the two disagree and the server rejects.
+    const rawStoreId =
+      process.env.DMSBLOB_STORE_ID ?? process.env.BLOB_STORE_ID ?? '';
+    const cleanStoreId = rawStoreId.replace(/^store_/, '');
+
     const jsonResponse = await handleUpload({
       body,
       request,
@@ -41,10 +51,7 @@ export async function POST(request) {
         allowedContentTypes: ['application/json'],
         maximumSizeInBytes: 500 * 1024 * 1024,
         addRandomSuffix: true,
-        // 🆕 Pass storeId through the token options — this is the only
-        // field handleUpload spreads into generateClientTokenFromReadWriteToken.
-        // @ts-expect-error -- storeId is supported at runtime but missing from the type
-        storeId: process.env.DMSBLOB_STORE_ID ?? process.env.BLOB_STORE_ID,
+        storeId: cleanStoreId,
       }),
     });
     return NextResponse.json(jsonResponse);
