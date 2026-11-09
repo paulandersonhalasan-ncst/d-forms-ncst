@@ -639,11 +639,16 @@ export async function POST(request) {
               staffCandidate,
               errors,
               `FRF ${r.referenceId} assignment`,
-              { allowGhostCreation: false }, // assignments are staff-specific, no ghost
+              // 🆕 Schema requires userId — skipping loses the entire duty row
+              // (dutyStart/dutyEnd/dutyType/notes + staff name).
+              // Ghost creation preserves all of it. The ghost will land in
+              // the candidate's original dept (ITO-MAIN) if it exists, or in
+              // RESTORED if not.
+              // (no more allowGhostCreation: false)
             );
             if (!staff) {
               errors.push(
-                `FRF ${r.referenceId}: assignment for ${ass.user?.fname || ass.userId || 'unknown'} skipped — staff unresolvable`,
+                `FRF ${r.referenceId}: assignment for ${ass.user?.fname || ass.userId || 'unknown'} — staff could not be created (email='${staffCandidate.email || '(none)'}')`,
               );
               continue;
             }
