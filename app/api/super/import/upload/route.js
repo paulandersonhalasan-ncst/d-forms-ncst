@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { handleUpload } from '@vercel/blob/client';
+import { issueSignedToken, presignUrl } from '@vercel/blob';
 import { jwtVerify } from 'jose';
 import { prisma } from '../../../../../prisma/prisma';
 
@@ -22,40 +22,42 @@ async function requireSuperUser(request) {
 }
 
 export async function POST(request) {
-  const body = await request.json();
+  const user = await requireSuperUser(request);
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+  }
 
-  if (body.type === 'blob.generate-client-token') {
-    const user = await requireSuperUser(request);
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
-    }
+  const body = await request.json();
+  const { filename } = body;
+
+  if (!filename) {
+    return NextResponse.json({ error: 'filename required' }, { status: 400 });
   }
 
   try {
-    // 🆕 Strip "store_" prefix — DMSBLOB_STORE_ID = "store_XXX" but
-    // the client token payload + header must use the raw "XXX" form.
-    // Vercel Blob's api v12 endpoint validates that:
-    //   payload.storeId === header['x-vercel-blob-store-id']
-    // The PUT client SDK derives the header from splitting the client
-    // token string (parts[3] = raw storeId, no prefix), so if we pass
-    // the prefixed version here the two disagree and the server rejects.
-    const rawStoreId =
-      process.env.DMSBLOB_STORE_ID ?? process.env.BLOB_STORE_ID ?? '';
-    const cleanStoreId = rawStoreId.replace(/^store_/, '');
+    const pathname = `backups/${Date.now()}-${filename}`;
 
-    const jsonResponse = await handleUpload({
-      body,
-      request,
-      token: process.env.BLOB_READ_WRITE_TOKEN,
-      onBeforeGenerateToken: async () => ({
-        allowedContentTypes: ['application/json'],
-        maximumSizeInBytes: 500 * 1024 * 1024,
-        addRandomSuffix: true,
-        storeId: cleanStoreId,
-      }),
+    // issueSignedToken — gumagana with RW token or OIDC, no store ID headaches
+    const token = await issueSignedToken({
+      operations: ['put'],
+      pathname,
+      allowedContentTypes: ['application/json'],
+      maximumSizeInBytes: 500 * 1024 * 1024,
     });
-    return NextResponse.json(jsonResponse);
+
+    const { presignedUrl } = await presignUrl(token, {
+      pathname,
+      operation: 'put',
+      access: 'public',
+    });
+
+    return NextResponse.json({
+      presignedUrl,
+      pathname,
+      blobUrl: `https://${process.env.DMSBLOB_STORE_ID?.replace(/^store_/, '')}.public.blob.vercel-storage.com/${pathname}`,
+    });
   } catch (error) {
+    console.error('presignUrl error:', error);
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
 }

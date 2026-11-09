@@ -254,18 +254,35 @@ export default function BackupPage() {
     setImportResult(null);
 
     try {
-      // 1. Browser → Blob directly. Never touches the function body limit.
-      const blob = await upload(importFile.name, importFile, {
-        access: 'private',                       // or 'public' if your SDK predates private blobs
-        handleUploadUrl: '/api/super/import/upload',
+      // 1. Server generates presigned URL — no client token dance
+      const tokenRes = await fetch('/api/super/import/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filename: importFile.name }),
       });
+      if (!tokenRes.ok) {
+        const err = await tokenRes.json();
+        throw new Error(err.error || 'Failed to get upload URL');
+      }
+      const { presignedUrl, blobUrl } = await tokenRes.json();
 
-      // 2. Small JSON payload → import route reads the blob server-side
+      // 2. Browser PUTs directly to Blob — no size cap, no token issue
+      const uploadRes = await fetch(presignedUrl, {
+        method: 'PUT',
+        body: importFile,
+        headers: { 'Content-Type': 'application/json' },
+      });
+      if (!uploadRes.ok) {
+        const errText = await uploadRes.text();
+        throw new Error(`Upload failed: ${uploadRes.status} ${errText}`);
+      }
+
+      // 3. Trigger import with the resulting blob URL
       const res = await fetch('/api/super/import', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          blobUrl: blob.url,
+          blobUrl,
           scopes: selectedImportScopes,
           settingsMode,
         }),
