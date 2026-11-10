@@ -11,6 +11,7 @@ import {
   getDepartmentHeads,
   sendFRFRescheduleNotification,
   sendFRFAssignmentToStaff,
+  sendFRFCompletionNotification
 } from '../../../lib/email_notification';
 import bcrypt from 'bcrypt';
 
@@ -1961,6 +1962,34 @@ export async function PATCH(request) {
           });
         }
 
+        // 🆕 Send the completion email BEFORE the notification
+        // (idempotent — safe to call even if OCM later finalizes)
+        try {
+          const completionRes = await prisma.facilityReservation.findUnique({
+            where: { id },
+            include: {
+              requestor: true,
+              dates: { include: { place: true } },
+              approvals: {
+                orderBy: { stepOrder: 'asc' },
+                include: { performedBy: { select: { fname: true, lname: true } } },
+              },
+              equipmentRequests: { include: { equipment: true } },
+              assignments: {
+                include: { user: { select: { id: true, fname: true, lname: true, email: true } } },
+              },
+              packUpDoneBy: {
+                select: { fname: true, lname: true, email: true, departmentCode: true },
+              },
+            },
+          });
+          if (completionRes) {
+            await sendFRFCompletionNotification(completionRes);
+          }
+        } catch (emailErr) {
+          console.error('[FRF_COMPLETION] email send error (non-fatal):', emailErr);
+        }
+
         try {
           if (requestor) {
             await sendFRFApprovalToRequestor(requestor, reservation);
@@ -2406,6 +2435,32 @@ export async function PATCH(request) {
           });
         }
       });
+
+      try {
+        const completionRes = await prisma.facilityReservation.findUnique({
+          where: { id },
+          include: {
+            requestor: true,
+            dates: { include: { place: true } },
+            approvals: {
+              orderBy: { stepOrder: 'asc' },
+              include: { performedBy: { select: { fname: true, lname: true } } },
+            },
+            equipmentRequests: { include: { equipment: true } },
+            assignments: {
+              include: { user: { select: { id: true, fname: true, lname: true, email: true } } },
+            },
+            packUpDoneBy: {
+              select: { fname: true, lname: true, email: true, departmentCode: true },
+            },
+          },
+        });
+        if (completionRes) {
+          await sendFRFCompletionNotification(completionRes);
+        }
+      } catch (emailErr) {
+        console.error('[FRF_COMPLETION] email send error on OCM finalize (non-fatal):', emailErr);
+      }
 
       await logActivity({
         req: request,

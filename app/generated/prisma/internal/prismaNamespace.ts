@@ -2065,7 +2065,8 @@ export const FacilityReservationScalarFieldEnum = {
   packUpDoneById: 'packUpDoneById',
   packUpDoneNotes: 'packUpDoneNotes',
   packUpDonePhotos: 'packUpDonePhotos',
-  packUpDoneLocation: 'packUpDoneLocation'
+  packUpDoneLocation: 'packUpDoneLocation',
+  completionEmailSentAt: 'completionEmailSentAt'
 } as const
 
 export type FacilityReservationScalarFieldEnum = (typeof FacilityReservationScalarFieldEnum)[keyof typeof FacilityReservationScalarFieldEnum]

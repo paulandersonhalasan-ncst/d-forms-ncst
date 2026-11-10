@@ -1489,3 +1489,202 @@ export async function sendBackupReadyEmail({
 
   return sendEmailWithRetry(mailOptions);
 }
+
+// ============================================
+// 🆕 FRF COMPLETION — Soft-Copy Email (Tier 2)
+// ============================================
+import { generateFRFPdfBuffer } from './frf_pdf';
+
+/**
+ * Send the "soft-copy" completion email to the requestor and every
+ * department head/OIC that participated in the approval flow.
+ *
+ * Design decisions (locked in with the team):
+ *   A — Triggered once the FRF hits COMPLETED (all approvals done)
+ *   Q2 — Recipients: requestor + all approver dept heads/OIC
+ *   A2 — Idempotent via `completionEmailSentAt`
+ *   B2 — Best-effort: log errors but never fail the caller's request
+ *   C1 — Single template; reschedule banner added conditionally
+ *   E1 — Sender is D-Forms (handled by sendEmailWithRetry)
+ *   F1 — PDF attached directly to the same email
+ *
+ * @param {object} reservation  Fully-hydrated FacilityReservation with
+ *                              requestor, dates.place, equipmentRequests.equipment,
+ *                              assignments.user, approvals.performedBy, packUpDoneBy
+ * @returns {Promise<{sent: boolean, reason?: string, recipientCount?: number}>}
+ */
+export async function sendFRFCompletionNotification(reservation) {
+  if (!reservation?.id) {
+    return { sent: false, reason: 'no-reservation' };
+  }
+
+  // ── Idempotency (fetch fresh, ignore stale caller state) ───
+  try {
+    const fresh = await prisma.facilityReservation.findUnique({
+      where: { id: reservation.id },
+      select: { completionEmailSentAt: true },
+    });
+    if (fresh?.completionEmailSentAt) {
+      console.log(`[FRF_COMPLETION] ${reservation.referenceId} — already sent at ${fresh.completionEmailSentAt}`);
+      return { sent: false, reason: 'already-sent' };
+    }
+  } catch (err) {
+    console.error('[FRF_COMPLETION] idempotency check failed:', err);
+    return { sent: false, reason: 'idempotency-check-failed' };
+  }
+
+  // ── Resolve recipients (requestor + approver heads/OIC) ────
+  const recipients = [];
+  const seen = new Set();
+
+  const push = (email, name, role) => {
+    if (!email || seen.has(email.toLowerCase())) return;
+    seen.add(email.toLowerCase());
+    recipients.push({ email, name: name || email, role });
+  };
+
+  // Requestor
+  if (reservation.requestor?.email) {
+    push(
+      reservation.requestor.email,
+      `${reservation.requestor.fname || ''} ${reservation.requestor.lname || ''}`.trim(),
+      'Requestor'
+    );
+  }
+
+  // Every dept head/OIC that participated in the approval flow
+  const deptCodes = Array.from(
+    new Set((reservation.approvals || []).map((a) => a.departmentCode).filter(Boolean))
+  );
+  for (const code of deptCodes) {
+    try {
+      const heads = await getDepartmentHeads(code);
+      for (const h of heads) {
+        push(h.email, `${h.fname} ${h.lname}`.trim(), `Head/OIC — ${code}`);
+      }
+    } catch (err) {
+      console.error(`[FRF_COMPLETION] failed to resolve heads for ${code}:`, err);
+    }
+  }
+
+  if (recipients.length === 0) {
+    console.warn(`[FRF_COMPLETION] ${reservation.referenceId} — no recipients resolved`);
+    return { sent: false, reason: 'no-recipients' };
+  }
+
+  // ── Generate PDF (once, reused for every recipient) ────────
+  let pdfBuffer = null;
+  try {
+    pdfBuffer = await generateFRFPdfBuffer(reservation);
+    console.log(`[FRF_COMPLETION] PDF generated (${pdfBuffer.length} bytes) for ${reservation.referenceId}`);
+  } catch (err) {
+    console.error('[FRF_COMPLETION] PDF generation failed — will send email WITHOUT PDF:', err);
+    pdfBuffer = null;
+  }
+
+  // ── Email content ──────────────────────────────────────────
+  const isReschedule = !!reservation.isReschedule;
+
+  const subject = isReschedule
+    ? `📅 FRF Reschedule Completed — ${reservation.referenceId}`
+    : `✅ FRF Completed — ${reservation.referenceId}`;
+
+  const rescheduleBanner = isReschedule
+    ? `
+      <div style="margin: 12px 0 20px 0; padding: 10px 14px; border-left: 3px solid ${BRAND.cream}; background: ${BRAND.creamBg}; border-radius: 4px;">
+        <div style="font-weight: 700; font-size: 12px; color: ${BRAND.creamDark};">📅 RESCHEDULED EVENT</div>
+        <div style="font-size: 12px; color: #333; margin-top: 3px;">
+          This is the final schedule after a reschedule request. Original dates are preserved in the attached PDF's
+          approval history.
+        </div>
+      </div>`
+    : '';
+
+  const detailsHtml = renderFRFDetailsHTML(reservation, {
+    showApprovals: true,
+    showAssignments: true,
+    showPackUp: !!reservation.packUpDoneAt,
+    accentColor: isReschedule ? BRAND.cream : BRAND.navy,
+  });
+
+  const pdfNotice = pdfBuffer
+    ? `<p style="font-size: 13px; color: ${BRAND.gray}; line-height: 1.6; margin: 16px 0; padding: 10px 14px; background: #f8f9fa; border-radius: 4px;">
+         📎 <b>Soft copy attached.</b> The full FRF document (${(pdfBuffer.length / 1024).toFixed(1)} KB) is attached to this email as a PDF. Save it for your records.
+       </p>`
+    : `<p style="font-size: 13px; color: ${BRAND.danger}; margin: 16px 0;">
+         ⚠️ The PDF could not be generated at this time. Please view the reservation on NCST D-Forms for the full document.
+       </p>`;
+
+  const html = renderEmailWrapper({
+    title: isReschedule ? 'FRF Reschedule Completed' : 'FRF Completed — Soft Copy',
+    icon: isReschedule ? '📅' : '✅',
+    accentColor: isReschedule ? BRAND.cream : BRAND.success,
+    subtitle: `${esc(reservation.referenceId)} &nbsp;·&nbsp; ${esc(
+      new Date().toLocaleString('en-US', {
+        timeZone: 'Asia/Manila',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+      })
+    )}`,
+    bodyContent: `
+      ${greetingBlock('Colleague')}
+      ${rescheduleBanner}
+      ${bodyText(
+        isReschedule
+          ? `A rescheduled facility reservation has been <b style="color:${BRAND.success};">fully approved</b>. The final schedule is confirmed below.`
+          : `A facility reservation has been <b style="color:${BRAND.success};">fully approved</b>. The confirmed event details are below.`
+      )}
+      ${pdfNotice}
+      ${detailsHtml}
+    `,
+    actionUrl: `${baseUrl}/dashboard/forms/frf`,
+    actionLabel: 'View on NCST D-Forms',
+    footerNote: 'Attached PDF is the official soft copy of this FRF.',
+  });
+
+  // ── Send to each recipient (isolated failures) ─────────────
+  const attachments = pdfBuffer
+    ? [{ filename: `${reservation.referenceId || 'FRF'}.pdf`, content: pdfBuffer, contentType: 'application/pdf' }]
+    : undefined;
+
+  let okCount = 0;
+  let failCount = 0;
+
+  for (const r of recipients) {
+    try {
+      const success = await sendEmailWithRetry({
+        to: r.email,
+        subject,
+        html,
+        attachments,
+      });
+      if (success) {
+        okCount++;
+      } else {
+        failCount++;
+        console.warn(`[FRF_COMPLETION] ${reservation.referenceId} — send to ${r.email} returned false`);
+      }
+    } catch (err) {
+      failCount++;
+      console.error(`[FRF_COMPLETION] send to ${r.email} threw:`, err);
+    }
+  }
+
+  // ── Mark as sent (even if some failed — see B2 best-effort) ─
+  try {
+    await prisma.facilityReservation.update({
+      where: { id: reservation.id },
+      data: { completionEmailSentAt: new Date() },
+    });
+  } catch (err) {
+    console.error('[FRF_COMPLETION] failed to mark completionEmailSentAt:', err);
+  }
+
+  console.log(`[FRF_COMPLETION] ${reservation.referenceId} — ${okCount}/${recipients.length} sent (${failCount} failed)`);
+
+  return { sent: true, recipientCount: recipients.length, okCount, failCount };
+}

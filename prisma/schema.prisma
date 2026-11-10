@@ -420,6 +420,8 @@ model FacilityReservation {
   packUpDonePhotos   String[]  @default([])
   packUpDoneLocation String?
 
+  completionEmailSentAt DateTime?
+
   @@index([status])
   @@index([requestorDept])
   @@index([createdAt])
