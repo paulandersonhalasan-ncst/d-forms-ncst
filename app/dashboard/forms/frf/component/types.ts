@@ -51,6 +51,8 @@ export interface FacilityApproval {
   id: string;
   departmentCode: string;
   stepOrder: number;
+  stepType?: 'APPROVAL' | 'ACKNOWLEDGEMENT';
+  sequenceStepId?: string | null;
   status: ApprovalStatus;
   performedById?: string;
   performedByName?: string;
@@ -118,6 +120,8 @@ export interface FacilityReservation {
 
   isVenueOnly?: boolean;
 
+  hasPhysicalActivity?: boolean;
+
   packUpDoneAt?: string;
   packUpDoneById?: string;
   packUpDoneNotes?: string;
@@ -167,6 +171,7 @@ export type FRFActionType =
   | 'PACKUP_DONE'
   | 'SAVE_DRAFT'
   | 'SUBMIT_DRAFT'
+  | 'ACKNOWLEDGE'
   | 'DELETE_DRAFT';
 
 export interface PendingAction {
@@ -190,6 +195,7 @@ export interface FRFFormValues {
   editingId?: string;
   eventName?: string;
   isVenueOnly?: boolean;
+  hasPhysicalActivity: boolean;
   assignments?: ITOAssignment[];
 }
 

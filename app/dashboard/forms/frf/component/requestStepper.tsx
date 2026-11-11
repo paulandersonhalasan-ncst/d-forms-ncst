@@ -138,6 +138,7 @@ interface RequestStepperProps {
       equipmentRequests?: { equipmentId: string; quantity: number }[];
       withCharge?: boolean;
       requestorNotes?: string;
+      hasPhysicalActivity?: boolean;
       assignments?: ITOAssignment[];
     },
     password: string
@@ -275,7 +276,8 @@ export default function RequestStepper({
         })),
         requestorNotes: editData.requestorNotes || '',
         attachments: [],
-        isVenueOnly: editData.isVenueOnly || false
+        isVenueOnly: editData.isVenueOnly || false,
+        hasPhysicalActivity: editData.hasPhysicalActivity || false,
       };
     }
 
@@ -293,7 +295,8 @@ export default function RequestStepper({
       equipmentRequests: [],
       attachments: [],
       requestorNotes: '',
-      isVenueOnly: false
+      isVenueOnly: false,
+      hasPhysicalActivity: false,
     };
   }, [isEditing, isRescheduleMode, editData, getMinDate]);
 
@@ -405,6 +408,7 @@ export default function RequestStepper({
     if (current.withCharge !== original.withCharge) return true;
     if (current.requestorNotes !== original.requestorNotes) return true;
     if (current.isVenueOnly !== original.isVenueOnly) return true;
+    if (!!current.hasPhysicalActivity !== !!original.hasPhysicalActivity) return true;
 
     // Compare equipment requests
     if (current.equipmentRequests.length !== original.equipmentRequests.length) return true;
@@ -701,6 +705,7 @@ export default function RequestStepper({
           equipmentRequests: values.equipmentRequests,
           withCharge: values.withCharge,
           requestorNotes: values.requestorNotes,
+          hasPhysicalActivity: values.hasPhysicalActivity,
           assignments,
         }, password);
         onClose();
@@ -761,6 +766,7 @@ export default function RequestStepper({
         formData.append('withCharge', String(values.withCharge));
         formData.append('requestorNotes', values.requestorNotes || '');
         formData.append('isVenueOnly', String(values.isVenueOnly || false));
+        formData.append('hasPhysicalActivity', String(values.hasPhysicalActivity || false));
         formData.append('dates', JSON.stringify(values.dates.map(d => ({
           date: d.date.toISOString(),
           setupTime: d.setupTime.toISOString(),
@@ -831,6 +837,7 @@ export default function RequestStepper({
       // Basic fields
       formData.append('type', values.type);
       formData.append('isVenueOnly', String(values.isVenueOnly || false));
+      formData.append('hasPhysicalActivity', String(values.hasPhysicalActivity || false));
       if (values.eventName) formData.append('eventName', values.eventName);
       formData.append('attendeesCount', String(values.attendeesCount));
       if (values.usageHours) formData.append('usageHours', String(values.usageHours));
@@ -1187,6 +1194,14 @@ export default function RequestStepper({
                   label="Venue Only (No ITO Staff Needed)"
                   description="Check this if the event only requires the venue and no ITO technical support."
                   {...form.getInputProps('isVenueOnly')}
+                  size="sm"
+                />
+              </Grid.Col>
+              <Grid.Col span={12}>
+                <Checkbox
+                  label="Includes Physical Activity"
+                  description="Check if this event involves physical activities (sports, PE classes, etc.). This adds the Health Services Office as an informational recipient."
+                  {...form.getInputProps('hasPhysicalActivity', { type: 'checkbox' })}
                   size="sm"
                 />
               </Grid.Col>

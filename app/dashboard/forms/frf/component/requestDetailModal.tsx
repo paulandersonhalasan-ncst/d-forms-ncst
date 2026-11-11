@@ -98,11 +98,13 @@ export default function RequestDetailModal({
   
   const isHeadOrOIC = isActiveHeadOrOIC(currentUser);
 
-  // Determine if this user is the next pending approver
+  // ACKs are independent — available immediately, never gated by earlier steps
+  const isMyAck = myApproval?.stepType === 'ACKNOWLEDGEMENT';
   const hasEarlierPending = myApproval
     ? request.approvals.some(a => a.stepOrder < myApproval.stepOrder && a.status === 'PENDING')
     : false;
-  const isNextPending = myApproval?.status === 'PENDING' && !hasEarlierPending;
+  const isNextPending =
+    myApproval?.status === 'PENDING' && (isMyAck || !hasEarlierPending);
 
   const canNoteOCM = isNextPending && (ocmApproval?.status === 'PENDING' || ocmApproval?.status === 'ACKNOWLEDGED');
 
@@ -731,7 +733,15 @@ export default function RequestDetailModal({
                 <>
                   {!isTerminal && canApprove && (
                     <>
-                      {isITO ? (
+                      {myApproval?.stepType === 'ACKNOWLEDGEMENT' ? (
+                        <Button
+                          color="teal"
+                          leftSection={<IconCheck size={16} />}
+                          onClick={() => onAction('ACKNOWLEDGE', { id: request.id })}
+                        >
+                          Acknowledge
+                        </Button>
+                      ) : isITO ? (
                         <Button
                           color="green"
                           leftSection={<IconCheck size={16} />}
@@ -751,7 +761,7 @@ export default function RequestDetailModal({
                     </>
                   )}
 
-                  {!isTerminal && canReject && (
+                  {!isTerminal && canReject && myApproval?.stepType !== 'ACKNOWLEDGEMENT' && (
                     <Button
                       color="red"
                       leftSection={<IconX size={16} />}
@@ -761,7 +771,7 @@ export default function RequestDetailModal({
                     </Button>
                   )}
 
-                  {!isTerminal && canReturn && (
+                  {!isTerminal && canReturn && myApproval?.stepType !== 'ACKNOWLEDGEMENT' && (
                     <Button
                       color="orange"
                       leftSection={<IconRefresh size={16} />}

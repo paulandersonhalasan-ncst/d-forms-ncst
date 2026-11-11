@@ -470,11 +470,28 @@ export type JsonNullableWithAggregatesFilterBase<$PrismaModel = never> = {
   _max?: Prisma.NestedJsonNullableFilter<$PrismaModel>
 }
 
+export type EnumStepTypeFilter<$PrismaModel = never> = {
+  equals?: $Enums.StepType | Prisma.EnumStepTypeFieldRefInput<$PrismaModel>
+  in?: $Enums.StepType[] | Prisma.ListEnumStepTypeFieldRefInput<$PrismaModel>
+  notIn?: $Enums.StepType[] | Prisma.ListEnumStepTypeFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumStepTypeFilter<$PrismaModel> | $Enums.StepType
+}
+
 export type EnumApprovalStatusFilter<$PrismaModel = never> = {
   equals?: $Enums.ApprovalStatus | Prisma.EnumApprovalStatusFieldRefInput<$PrismaModel>
   in?: $Enums.ApprovalStatus[] | Prisma.ListEnumApprovalStatusFieldRefInput<$PrismaModel>
   notIn?: $Enums.ApprovalStatus[] | Prisma.ListEnumApprovalStatusFieldRefInput<$PrismaModel>
   not?: Prisma.NestedEnumApprovalStatusFilter<$PrismaModel> | $Enums.ApprovalStatus
+}
+
+export type EnumStepTypeWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.StepType | Prisma.EnumStepTypeFieldRefInput<$PrismaModel>
+  in?: $Enums.StepType[] | Prisma.ListEnumStepTypeFieldRefInput<$PrismaModel>
+  notIn?: $Enums.StepType[] | Prisma.ListEnumStepTypeFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumStepTypeWithAggregatesFilter<$PrismaModel> | $Enums.StepType
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumStepTypeFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumStepTypeFilter<$PrismaModel>
 }
 
 export type EnumApprovalStatusWithAggregatesFilter<$PrismaModel = never> = {
@@ -980,11 +997,28 @@ export type NestedJsonNullableFilterBase<$PrismaModel = never> = {
   not?: runtime.InputJsonValue | Prisma.JsonFieldRefInput<$PrismaModel> | Prisma.JsonNullValueFilter
 }
 
+export type NestedEnumStepTypeFilter<$PrismaModel = never> = {
+  equals?: $Enums.StepType | Prisma.EnumStepTypeFieldRefInput<$PrismaModel>
+  in?: $Enums.StepType[] | Prisma.ListEnumStepTypeFieldRefInput<$PrismaModel>
+  notIn?: $Enums.StepType[] | Prisma.ListEnumStepTypeFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumStepTypeFilter<$PrismaModel> | $Enums.StepType
+}
+
 export type NestedEnumApprovalStatusFilter<$PrismaModel = never> = {
   equals?: $Enums.ApprovalStatus | Prisma.EnumApprovalStatusFieldRefInput<$PrismaModel>
   in?: $Enums.ApprovalStatus[] | Prisma.ListEnumApprovalStatusFieldRefInput<$PrismaModel>
   notIn?: $Enums.ApprovalStatus[] | Prisma.ListEnumApprovalStatusFieldRefInput<$PrismaModel>
   not?: Prisma.NestedEnumApprovalStatusFilter<$PrismaModel> | $Enums.ApprovalStatus
+}
+
+export type NestedEnumStepTypeWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.StepType | Prisma.EnumStepTypeFieldRefInput<$PrismaModel>
+  in?: $Enums.StepType[] | Prisma.ListEnumStepTypeFieldRefInput<$PrismaModel>
+  notIn?: $Enums.StepType[] | Prisma.ListEnumStepTypeFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumStepTypeWithAggregatesFilter<$PrismaModel> | $Enums.StepType
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumStepTypeFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumStepTypeFilter<$PrismaModel>
 }
 
 export type NestedEnumApprovalStatusWithAggregatesFilter<$PrismaModel = never> = {

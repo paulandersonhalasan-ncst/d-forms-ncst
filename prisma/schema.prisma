@@ -373,6 +373,11 @@ enum ApprovalStatus {
   ACKNOWLEDGED
 }
 
+enum StepType {
+  APPROVAL
+  ACKNOWLEDGEMENT
+}
+
 model FacilityReservation {
   id                 String                       @id @default(uuid())
   referenceId        String                       @unique
@@ -412,6 +417,8 @@ model FacilityReservation {
 
   isVenueOnly          Boolean?               @default(false)
 
+  hasPhysicalActivity Boolean @default(false)
+
   packUpDoneAt       DateTime?
   packUpDoneById     String?
   packUpDoneBy       User?      @relation("PackUpDoneBy", fields: [packUpDoneById], references: [id], onDelete: SetNull)
@@ -432,7 +439,11 @@ model FacilityApproval {
   reservationId        String
   reservation          FacilityReservation  @relation(fields: [reservationId], references: [id], onDelete: Cascade)
   departmentCode       String
+
   stepOrder            Int
+
+  stepType       StepType @default(APPROVAL)
+  sequenceStepId String?
 
   status               ApprovalStatus       @default(PENDING)
 
@@ -569,6 +580,30 @@ model FacilityReservationDate {
   
   @@unique([reservationId, date])
   @@index([reservationId])
+}
+
+model ApprovalSequence {
+  id        String                 @id @default(cuid())
+  formType  String                 @unique
+  label     String
+  isActive  Boolean                @default(true)
+  createdAt DateTime               @default(now())
+  updatedAt DateTime               @updatedAt
+  steps     ApprovalSequenceStep[]
+}
+
+model ApprovalSequenceStep {
+  id             String           @id @default(cuid())
+  sequenceId     String
+  sequence       ApprovalSequence @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
+  sequenceIndex  Int
+  departmentCode String
+  stepType       StepType         @default(APPROVAL)
+  triggerKey     String           @default("always")
+  createdAt      DateTime         @default(now())
+
+  @@unique([sequenceId, sequenceIndex])
+  @@index([sequenceId])
 }
 
 enum DutyType {

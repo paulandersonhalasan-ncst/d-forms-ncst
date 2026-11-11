@@ -31,8 +31,10 @@ import {
   Divider
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
-import { IconPlus, IconBuilding, IconBox, IconArrowLeft, IconSettings, IconInfoCircle, IconChevronDown, } from '@tabler/icons-react';
+import { IconPlus, IconBuilding, IconBox, IconArrowLeft, IconSettings, IconInfoCircle, IconChevronDown, IconGitBranch } from '@tabler/icons-react';
 import useSWR from 'swr';
+
+import SequenceBuilder from '../component/sequenceBuilder';
 
 // === Types ===
 type SystemBranch = 'MAIN' | 'IMUS' | 'NASTECH' | 'SHS';
@@ -226,6 +228,8 @@ function PlacesTab({ currentUser }: TabProps) {
   };
 
   const isSuperUser = currentUser?.role === 'SuperUser';
+  const canManagePlacesAndSettings =
+    currentUser?.departmentCode === 'PSMO/FMO' || currentUser?.departmentCode === 'ITO-MAIN';
 
   const handleSave = async () => {
     setLoading(true);
@@ -978,6 +982,7 @@ export default function ManagePage() {
     fetchUser();
   }, []);
 
+  const isSuperUser = currentUser?.role === 'SuperUser';
   const canManagePlacesAndSettings =
     currentUser?.departmentCode === 'PSMO/FMO' || currentUser?.departmentCode === 'ITO-MAIN';
 
@@ -1027,6 +1032,11 @@ export default function ManagePage() {
             {currentUser?.departmentCode === 'ITO-MAIN' && (
               <Tabs.Tab value="settings" leftSection={<IconSettings size={16} />}>
                 Settings
+              </Tabs.Tab>
+            )}
+            {isSuperUser && (
+              <Tabs.Tab value="approval-flow" leftSection={<IconGitBranch size={16} />}>
+                Approval Flow
               </Tabs.Tab>
             )}
           </Tabs.List>
@@ -1082,6 +1092,25 @@ export default function ManagePage() {
                 sa lahat ng facility requests.
               </CollapsibleAlert>
               <SettingsTab currentUser={currentUser} />
+            </Tabs.Panel>
+          )}
+
+          {isSuperUser && (
+            <Tabs.Panel value="approval-flow" pt="md">
+              <CollapsibleAlert
+                title="Approval Flow Configuration"
+                color="blue"
+                icon={<IconInfoCircle size={16} />}
+              >
+                Define the FRF approval chain. Drag to reorder. Each step has a <b>type</b> (approval
+                or acknowledgment) and a <b>trigger</b> (when it appears in the chain). Changes apply
+                only to new submissions — in-flight reservations keep their original chain.
+                <br /><br />
+                I‑configure ang approval chain para sa FRF. I‑drag para baguhin ang order. Ang bawat
+                step ay may <b>uri</b> (approval o acknowledgment) at <b>trigger</b> (kung kailan
+                kasama sa chain). Naaapply ang mga pagbabago sa mga bagong submission lamang.
+              </CollapsibleAlert>
+              <SequenceBuilder />
             </Tabs.Panel>
           )}
         </Tabs>

@@ -15,6 +15,8 @@ import {
 } from '../../../lib/email_notification';
 import bcrypt from 'bcrypt';
 
+import { materializeApprovalChain, getFRFSequence } from '../../../lib/approval_sequence';
+
 import { put, del } from '@vercel/blob';
 
 
@@ -150,31 +152,6 @@ async function persistAssignments(tx, reservationId, assignments) {
       },
     });
   }
-}
-
-function getApprovalSequence(type, hasLedWall, hasCDOEquipment = false, hasITOEquipment = true) {
-
-  const sequence = ['PSMO/FMO'];
-
-  if (hasLedWall) {
-    sequence.push('OP');
-  }
-
-  if (type === 'WITH_STUDENTS') {
-    sequence.push('OSA');
-  }
-
-  if (hasCDOEquipment) {
-    sequence.push('CDO');
-  }
-
-  sequence.push('OCM', 'SAFETY-SECURITY');
-
-  if (hasITOEquipment || hasLedWall) {
-    sequence.push('ITO-MAIN');
-  }
-
-  return [...new Set(sequence)];
 }
 
 // ==========================================
@@ -357,7 +334,6 @@ export async function POST(request) {
     // ✅ DETECT LED WALL AND CDO EQUIPMENT
     // ==========================================
     const equipmentIds = equipmentItems.map(item => item.equipmentId || item.id);
-    let hasLedWall = false;
     let hasCDOEquipment = false;
     let hasITOEquipment = false;
 
@@ -366,15 +342,11 @@ export async function POST(request) {
         where: { id: { in: equipmentIds } },
         select: { id: true, name: true, departmentCode: true }
       });
-      hasLedWall = equipmentList.some(eq =>
-        eq.name === 'LED Wall' || eq.name === 'LED_WALL' || eq.name === 'LED_Wall'
-      );
       hasCDOEquipment = equipmentList.some(eq => eq.departmentCode === 'CDO');
       hasITOEquipment = equipmentList.some(eq => eq.departmentCode === 'ITO-MAIN');
-
-      console.log('Equipment list:', equipmentList);
-      console.log('hasCDOEquipment:', hasCDOEquipment);
     }
+
+    const hasPhysicalActivity = formData.get('hasPhysicalActivity') === 'true';
 
 
     // Generate reference ID
@@ -435,30 +407,41 @@ export async function POST(request) {
     // 🆕 Drafts skip approval creation entirely — approvals added on submit-draft
     const approvals = [];
     if (!isDraft) {
-      const approvalSequence = getApprovalSequence(type, hasLedWall, hasCDOEquipment, hasITOEquipment)
-        .filter(dept => dept !== user.departmentCode);
+      const sequence = await getFRFSequence(prisma);
+      if (!sequence || sequence.steps.length === 0) {
+        return NextResponse.json({
+          success: false,
+          message: 'No active FRF approval sequence is configured. Please contact the administrator.',
+        }, { status: 500 });
+      }
 
-      const finalApprovalSequence = isVenueOnly
-        ? approvalSequence.filter(dept => dept !== 'ITO-MAIN')
-        : approvalSequence;
+      const chain = materializeApprovalChain(
+        {
+          type,
+          hasITOEquipment,
+          hasCDOEquipment,
+          hasPhysicalActivity,
+          isVenueOnly,
+          requestorDept: user.departmentCode,
+        },
+        sequence.steps,
+      );
 
-      approvals.push({
-        departmentCode: user.departmentCode,
-        stepOrder: 1,
-        status: isRequestorHead ? 'APPROVED' : 'PENDING',
-        ...(isRequestorHead && {
-          performedById: user.id,
-          performedAt: new Date(),
-        }),
-      });
-
-      finalApprovalSequence.forEach((dept, index) => {
+      for (const step of chain) {
+        const isRequestorStep = step.isRequestorStep;
+        const autoApprove = isRequestorStep && isRequestorHead;
         approvals.push({
-          departmentCode: dept,
-          stepOrder: 2 + index,
-          status: 'PENDING'
+          departmentCode: step.departmentCode,
+          stepOrder: step.stepOrder,
+          stepType: step.stepType,
+          sequenceStepId: step.sequenceStepId || undefined,
+          status: autoApprove ? 'APPROVED' : 'PENDING',
+          ...(autoApprove && {
+            performedById: user.id,
+            performedAt: new Date(),
+          }),
         });
-      });
+      }
     }
 
     // finalApprovalSequence.forEach((dept, index) => {
@@ -501,7 +484,8 @@ export async function POST(request) {
             placeOther: entry.placeOther || undefined,
           }))
         },
-        isVenueOnly: isVenueOnly
+        isVenueOnly: isVenueOnly,
+        hasPhysicalActivity: hasPhysicalActivity
       },
       include: {
         approvals: true,
@@ -558,7 +542,7 @@ export async function POST(request) {
     if (!isDraft) {  // 🆕 no notifications for draft saves
         try {
           const firstApproval = reservation.approvals
-            .filter(a => a.status === 'PENDING')
+            .filter(a => a.status === 'PENDING' && a.stepType === 'APPROVAL')
             .sort((a, b) => a.stepOrder - b.stepOrder)[0];
           if (firstApproval) {
             const nextDeptHeads = await getDepartmentHeads(firstApproval.departmentCode);
@@ -592,6 +576,37 @@ export async function POST(request) {
                 }
               });
             }
+          }
+        }
+
+        // 🆕 Notify all PENDING ACK departments immediately at submission
+        const ackSteps = reservation.approvals.filter(
+          (a) => a.stepType === 'ACKNOWLEDGEMENT' && a.status === 'PENDING',
+        );
+        for (const ack of ackSteps) {
+          const ackUsers = await prisma.user.findMany({
+            where: {
+              departmentCode: ack.departmentCode,
+              OR: [
+                { role: 'DepartmentHead' },
+                { oic_start: { lte: new Date().toISOString() }, oic_end: { gte: new Date().toISOString() } },
+              ],
+            },
+            select: { id: true },
+          });
+          for (const u of ackUsers) {
+            await prisma.notification.create({
+              data: {
+                title: 'FRF Requires Your Acknowledgement',
+                message: `FRF ${reservation.referenceId} is available for your department to acknowledge.`,
+                isRead: false,
+                recipientId: u.id,
+                senderId: user.id,
+                linkUrl: `/dashboard/forms/frf?tab=for_acknowledgement&focus=${reservation.id}`,
+                entityType: 'FRF',
+                entityId: reservation.id,
+              },
+            });
           }
         }
       } catch (notifErr) {
@@ -1029,34 +1044,51 @@ export async function PATCH(request) {
           return NextResponse.json({ success: false, message: 'At least one attachment is required before submitting' }, { status: 400 });
         }
 
-        // Detect equipment for approval sequence
+        // Detect equipment + physical activity for approval sequence
         const equipmentIds = equipmentRequests.map(item => item.equipmentId);
-        let hasLedWall = false, hasCDOEquipment = false, hasITOEquipment = false;
+        let hasCDOEquipment = false, hasITOEquipment = false;
         if (equipmentIds.length > 0) {
           const equipmentList = await prisma.equipment.findMany({
             where: { id: { in: equipmentIds } },
             select: { id: true, name: true, departmentCode: true }
           });
-          hasLedWall = equipmentList.some(eq => eq.name === 'LED Wall' || eq.name === 'LED_WALL' || eq.name === 'LED_Wall');
           hasCDOEquipment = equipmentList.some(eq => eq.departmentCode === 'CDO');
           hasITOEquipment = equipmentList.some(eq => eq.departmentCode === 'ITO-MAIN');
         }
 
+        const hasPhysicalActivity = formData.get('hasPhysicalActivity') === 'true';
         const isRequestorHead = isHeadOrOIC(user);
-        const approvalSequence = getApprovalSequence(type, hasLedWall, hasCDOEquipment, hasITOEquipment)
-          .filter(dept => dept !== user.departmentCode);
-        const finalApprovalSequence = isVenueOnly
-          ? approvalSequence.filter(dept => dept !== 'ITO-MAIN')
-          : approvalSequence;
 
-        const approvals = [{
-          departmentCode: user.departmentCode,
-          stepOrder: 1,
-          status: isRequestorHead ? 'APPROVED' : 'PENDING',
-          ...(isRequestorHead && { performedById: user.id, performedAt: new Date() }),
-        }];
-        finalApprovalSequence.forEach((dept, index) => {
-          approvals.push({ departmentCode: dept, stepOrder: 2 + index, status: 'PENDING' });
+        const sequence = await getFRFSequence(prisma);
+        if (!sequence || sequence.steps.length === 0) {
+          return NextResponse.json({
+            success: false,
+            message: 'No active FRF approval sequence is configured. Please contact the administrator.',
+          }, { status: 500 });
+        }
+
+        const chain = materializeApprovalChain(
+          {
+            type,
+            hasITOEquipment,
+            hasCDOEquipment,
+            hasPhysicalActivity,
+            isVenueOnly,
+            requestorDept: user.departmentCode,
+          },
+          sequence.steps,
+        );
+
+        const approvals = chain.map((step) => {
+          const autoApprove = step.isRequestorStep && isRequestorHead;
+          return {
+            departmentCode: step.departmentCode,
+            stepOrder: step.stepOrder,
+            stepType: step.stepType,
+            sequenceStepId: step.sequenceStepId || undefined,
+            status: autoApprove ? 'APPROVED' : 'PENDING',
+            ...(autoApprove && { performedById: user.id, performedAt: new Date() }),
+          };
         });
 
         // 🆕 Server-side guard — ITO-head/OIC submitting a draft must have assignments
@@ -1086,6 +1118,7 @@ export async function PATCH(request) {
                 withCharge,
                 requestorNotes: requestorNotes || undefined,
                 attachments: finalAttachments,
+                hasPhysicalActivity,
                 isVenueOnly,
                 status: 'PENDING_APPROVAL',
                 dates: {
@@ -1166,7 +1199,7 @@ export async function PATCH(request) {
           });
 
           const firstApproval = freshReservation.approvals
-            .filter(a => a.status === 'PENDING')
+            .filter(a => a.status === 'PENDING' && a.stepType === 'APPROVAL')
             .sort((a, b) => a.stepOrder - b.stepOrder)[0];
           if (firstApproval) {
             const nextDeptHeads = await getDepartmentHeads(firstApproval.departmentCode);
@@ -1196,6 +1229,37 @@ export async function PATCH(request) {
                   }
                 });
               }
+            }
+          }
+
+          // 🆕 Notify all PENDING ACK departments immediately
+          const ackSteps = freshReservation.approvals.filter(
+            (a) => a.stepType === 'ACKNOWLEDGEMENT' && a.status === 'PENDING',
+          );
+          for (const ack of ackSteps) {
+            const ackUsers = await prisma.user.findMany({
+              where: {
+                departmentCode: ack.departmentCode,
+                OR: [
+                  { role: 'DepartmentHead' },
+                  { oic_start: { lte: new Date().toISOString() }, oic_end: { gte: new Date().toISOString() } },
+                ],
+              },
+              select: { id: true },
+            });
+            for (const u of ackUsers) {
+              await prisma.notification.create({
+                data: {
+                  title: 'FRF Requires Your Acknowledgement',
+                  message: `FRF ${freshReservation.referenceId} is available for your department to acknowledge.`,
+                  isRead: false,
+                  recipientId: u.id,
+                  senderId: user.id,
+                  linkUrl: `/dashboard/forms/frf?tab=for_acknowledgement&focus=${freshReservation.id}`,
+                  entityType: 'FRF',
+                  entityId: freshReservation.id,
+                },
+              });
             }
           }
         } catch (notifErr) {
@@ -1883,7 +1947,7 @@ export async function PATCH(request) {
       });
 
       let nextPending = allApprovals
-        .filter(a => a.status === 'PENDING')
+        .filter(a => a.status === 'PENDING' && a.stepType === 'APPROVAL')
         .sort((a, b) => a.stepOrder - b.stepOrder)[0];
 
       if (nextPending) {
@@ -1922,9 +1986,8 @@ export async function PATCH(request) {
         }
       }
 
-      const allNonHrdDone = allApprovals.every(a =>
-        a.status === 'APPROVED' || a.status === 'ACKNOWLEDGED'
-      );
+      const approvalSteps = allApprovals.filter(a => a.stepType === 'APPROVAL');
+      const allNonHrdDone = approvalSteps.every(a => a.status === 'APPROVED');
 
       const requestor = await prisma.user.findUnique({
         where: { id: reservation.requestorId }
@@ -2029,6 +2092,69 @@ export async function PATCH(request) {
         success: true,
         message: `Approved by ${user.departmentCode}`,
         data: { status: allNonHrdDone ? 'APPROVED' : 'PENDING_APPROVAL' }
+      });
+    }
+
+    // ==========================================
+    // ACKNOWLEDGE ACTION (informational, non-gating)
+    // ==========================================
+    if (action === 'acknowledge') {
+      const pendingAck = reservation.approvals.find(
+        (a) =>
+          a.stepType === 'ACKNOWLEDGEMENT' &&
+          a.departmentCode === user.departmentCode &&
+          a.status === 'PENDING',
+      );
+
+      if (!pendingAck) {
+        return NextResponse.json(
+          { success: false, message: 'No pending acknowledgement for your department' },
+          { status: 403 },
+        );
+      }
+
+      if (!isHeadOrOIC(user) && !isSuperUser(user)) {
+        return NextResponse.json(
+          { success: false, message: 'Only Department Head or OIC can acknowledge' },
+          { status: 403 },
+        );
+      }
+
+      if (!remarks || remarks.trim() === '') {
+        return NextResponse.json(
+          { success: false, message: 'Remarks are required for acknowledgement' },
+          { status: 400 },
+        );
+      }
+      const ackRemarks = remarks.trim();
+
+      await prisma.facilityApproval.update({
+        where: { id: pendingAck.id },
+        data: {
+          status: 'ACKNOWLEDGED',
+          performedById: user.id,
+          performedAt: new Date(),
+          acknowledgedAt: new Date(),
+          remarks: ackRemarks,
+        },
+      });
+
+      await logActivity({
+        req: request,
+        userId: user.id,
+        email: user.email,
+        action: 'FRF_ACKNOWLEDGE',
+        details: JSON.stringify({
+          reservationId: id,
+          department: user.departmentCode,
+          remarks: ackRemarks,
+        }),
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: `Acknowledged by ${user.departmentCode}`,
+        data: { status: 'ACKNOWLEDGED' },
       });
     }
 
@@ -2526,7 +2652,8 @@ export async function PATCH(request) {
         equipmentRequests: newEquipmentRequests,
         withCharge: newWithCharge,
         requestorNotes: newRequestorNotes,
-        eventName: newEventName
+        eventName: newEventName,
+        hasPhysicalActivity: newHasPhysicalActivity,
       } = body;
 
       if (!newDatesArray || newDatesArray.length === 0) {
@@ -2632,94 +2759,43 @@ export async function PATCH(request) {
       // 7. Determine type (new if provided, otherwise existing)
       const finalType = newType || reservation.type;
 
-      // ---------- DYNAMIC APPROVAL LOGIC ----------
-      // 8. Detect original equipment status (from the existing reservation)
-      const originalEquipmentIds = reservation.equipmentRequests.map(eq => eq.equipmentId);
-      let originalHasLedWall = false;
-      let originalHasCDOEquipment = false;
-      let originalHasITOEquipment = false;
-      if (originalEquipmentIds.length > 0) {
-        const originalEquipmentList = await prisma.equipment.findMany({
-          where: { id: { in: originalEquipmentIds } },
-          select: { id: true, name: true, departmentCode: true }
-        });
-        originalHasLedWall = originalEquipmentList.some(eq =>
-          eq.name === 'LED Wall' || eq.name === 'LED_WALL' || eq.name === 'LED_Wall'
-        );
-        originalHasCDOEquipment = originalEquipmentList.some(eq => eq.departmentCode === 'CDO');
-        originalHasITOEquipment = originalEquipmentList.some(eq => eq.departmentCode === 'ITO-MAIN');
+      // All non-requestor steps reset to PENDING. Acks get fresh PENDING too.
+      const hasPhysicalActivity =
+        newHasPhysicalActivity !== undefined
+          ? newHasPhysicalActivity
+          : (reservation.hasPhysicalActivity ?? false);
+
+      const sequence = await getFRFSequence(prisma);
+      if (!sequence || sequence.steps.length === 0) {
+        return NextResponse.json({
+          success: false,
+          message: 'No active FRF approval sequence is configured. Please contact the administrator.',
+        }, { status: 500 });
       }
 
-      // 9. Get already approved (non‑HRD) departments from the original approval flow
-      const originalApprovedDepts = new Set(
-        reservation.approvals
-          .filter(a => a.status === 'APPROVED' || a.status === 'ACKNOWLEDGED')
-          .map(a => a.departmentCode)
+      const chain = materializeApprovalChain(
+        {
+          type: finalType,
+          hasITOEquipment,
+          hasCDOEquipment,
+          hasPhysicalActivity,
+          isVenueOnly,
+          requestorDept: user.departmentCode,
+        },
+        sequence.steps,
       );
 
-      // 10. Compute full new sequence based on new type and equipment
-      const fullNewSequence = getApprovalSequence(finalType, hasLedWall, hasCDOEquipment, hasITOEquipment)
-        .filter(dept => dept !== user.departmentCode);
-
-      // 11. Core departments that always need re‑approval on reschedule
-      const coreDepartments = new Set(['PSMO/FMO', 'SAFETY-SECURITY', 'ITO-MAIN', 'HRD']);
-
-      // 12. Determine which departments to include
-      const rescheduleDepartments = fullNewSequence.filter(dept => {
-        // Always keep core
-        if (coreDepartments.has(dept)) return true;
-
-        // OP only if LED Wall is newly added
-        if (dept === 'OP') {
-          return hasLedWall && !originalHasLedWall;
-        }
-
-        // CDO only if CDO equipment is newly added
-        if (dept === 'CDO') {
-          return hasCDOEquipment && !originalHasCDOEquipment;
-        }
-
-        // OSA only if type changed to WITH_STUDENTS
-        // and either the type changed or OSA wasn't already approved
-        if (dept === 'OSA') {
-          if (finalType !== 'WITH_STUDENTS') return false;
-          // If it was already approved and type didn't change, skip
-          if (reservation.type === 'WITH_STUDENTS' && originalApprovedDepts.has('OSA')) return false;
-          // Otherwise include (type changed or not yet approved)
-          return true;
-        }
-
-        // For any other department not in core, keep only if it wasn't already approved
-        return !originalApprovedDepts.has(dept);
-      });
-
-      // Remove duplicates and preserve order
-      const finalApprovalSequence = [...new Set(rescheduleDepartments)];
-
-      // 13. Apply venue‑only filter (remove ITO-MAIN if venue-only)
-      const finalSequence = isVenueOnly
-        ? finalApprovalSequence.filter(dept => dept !== 'ITO-MAIN')
-        : finalApprovalSequence;
-      
       const isRequestorHead = isHeadOrOIC(user);
-
-      const rescheduleApprovals = [];
-      rescheduleApprovals.push({
-        departmentCode: user.departmentCode,
-        stepOrder: 1,
-        status: isRequestorHead ? 'APPROVED' : 'PENDING',
-        ...(isRequestorHead && {
-          performedById: user.id,
-          performedAt: new Date(),
-        }),
-      });
-
-      finalSequence.forEach((dept, index) => {
-        rescheduleApprovals.push({
-          departmentCode: dept,
-          stepOrder: 2 + index,
-          status: 'PENDING'
-        });
+      const rescheduleApprovals = chain.map((step) => {
+        const autoApprove = step.isRequestorStep && isRequestorHead;
+        return {
+          departmentCode: step.departmentCode,
+          stepOrder: step.stepOrder,
+          stepType: step.stepType,
+          sequenceStepId: step.sequenceStepId || undefined,
+          status: autoApprove ? 'APPROVED' : 'PENDING',
+          ...(autoApprove && { performedById: user.id, performedAt: new Date() }),
+        };
       });
 
       // 15. Store original dates for reference
@@ -2805,6 +2881,7 @@ export async function PATCH(request) {
             originalApprovals: originalApprovals,
             requestorNotes: newRequestorNotes || reason || `Reschedule requested: ${new Date().toLocaleString()}`,
             type: finalType,
+            hasPhysicalActivity,
             eventName: newEventName || reservation.eventName,
             attendeesCount: newAttendeesCount || reservation.attendeesCount,
             withCharge: newWithCharge !== undefined ? newWithCharge : reservation.withCharge,
@@ -2855,7 +2932,7 @@ export async function PATCH(request) {
       // 17. Notify the first department
       try {
             const firstApproval = rescheduleApprovals
-              .filter(a => a.status === 'PENDING')
+              .filter(a => a.status === 'PENDING' && a.stepType === 'APPROVAL')
               .sort((a, b) => a.stepOrder - b.stepOrder)[0];
             if (firstApproval) {
               const deptHeads = await getDepartmentHeads(firstApproval.departmentCode);
@@ -2889,6 +2966,36 @@ export async function PATCH(request) {
             }
           }
         }
+          // 🆕 Notify all PENDING ACK departments immediately (reschedule recreates them)
+          const ackSteps = rescheduleApprovals.filter(
+            (a) => a.stepType === 'ACKNOWLEDGEMENT' && a.status === 'PENDING',
+          );
+          for (const ack of ackSteps) {
+            const ackUsers = await prisma.user.findMany({
+              where: {
+                departmentCode: ack.departmentCode,
+                OR: [
+                  { role: 'DepartmentHead' },
+                  { oic_start: { lte: new Date().toISOString() }, oic_end: { gte: new Date().toISOString() } },
+                ],
+              },
+              select: { id: true },
+            });
+            for (const u of ackUsers) {
+              await prisma.notification.create({
+                data: {
+                  title: 'FRF Reschedule — Acknowledgement Needed',
+                  message: `Reschedule request for ${reservation.referenceId} is available for your department to acknowledge.`,
+                  isRead: false,
+                  recipientId: u.id,
+                  senderId: user.id,
+                  linkUrl: `/dashboard/forms/frf?tab=for_acknowledgement&focus=${reservation.id}`,
+                  entityType: 'FRF',
+                  entityId: reservation.id,
+                },
+              });
+            }
+          }
       } catch (notifErr) {
         console.error('Reschedule notification error:', notifErr);
       }

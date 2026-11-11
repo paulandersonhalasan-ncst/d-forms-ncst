@@ -67,6 +67,8 @@ export const ModelName = {
   EquipmentPlace: 'EquipmentPlace',
   FacilityEquipmentRequest: 'FacilityEquipmentRequest',
   FacilityReservationDate: 'FacilityReservationDate',
+  ApprovalSequence: 'ApprovalSequence',
+  ApprovalSequenceStep: 'ApprovalSequenceStep',
   FormSettings: 'FormSettings',
   PrivacySettings: 'PrivacySettings',
   BackupExport: 'BackupExport'
@@ -269,6 +271,7 @@ export const FacilityReservationScalarFieldEnum = {
   originalDates: 'originalDates',
   originalApprovals: 'originalApprovals',
   isVenueOnly: 'isVenueOnly',
+  hasPhysicalActivity: 'hasPhysicalActivity',
   packUpDoneAt: 'packUpDoneAt',
   packUpDoneById: 'packUpDoneById',
   packUpDoneNotes: 'packUpDoneNotes',
@@ -285,6 +288,8 @@ export const FacilityApprovalScalarFieldEnum = {
   reservationId: 'reservationId',
   departmentCode: 'departmentCode',
   stepOrder: 'stepOrder',
+  stepType: 'stepType',
+  sequenceStepId: 'sequenceStepId',
   status: 'status',
   performedById: 'performedById',
   performedAt: 'performedAt',
@@ -377,6 +382,31 @@ export const FacilityReservationDateScalarFieldEnum = {
 } as const
 
 export type FacilityReservationDateScalarFieldEnum = (typeof FacilityReservationDateScalarFieldEnum)[keyof typeof FacilityReservationDateScalarFieldEnum]
+
+
+export const ApprovalSequenceScalarFieldEnum = {
+  id: 'id',
+  formType: 'formType',
+  label: 'label',
+  isActive: 'isActive',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type ApprovalSequenceScalarFieldEnum = (typeof ApprovalSequenceScalarFieldEnum)[keyof typeof ApprovalSequenceScalarFieldEnum]
+
+
+export const ApprovalSequenceStepScalarFieldEnum = {
+  id: 'id',
+  sequenceId: 'sequenceId',
+  sequenceIndex: 'sequenceIndex',
+  departmentCode: 'departmentCode',
+  stepType: 'stepType',
+  triggerKey: 'triggerKey',
+  createdAt: 'createdAt'
+} as const
+
+export type ApprovalSequenceStepScalarFieldEnum = (typeof ApprovalSequenceStepScalarFieldEnum)[keyof typeof ApprovalSequenceStepScalarFieldEnum]
 
 
 export const FormSettingsScalarFieldEnum = {

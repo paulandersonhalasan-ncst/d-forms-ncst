@@ -90,6 +90,7 @@ export default function PasswordGateModal({
       case 'assign': return 'Assign ITO Staff';
       case 'ocm-finalize': return 'OCM Final Edit';
       case 'PACKUP_DONE': return 'Mark Pack Up Done';
+      case 'ACKNOWLEDGE': return 'Acknowledge Reservation';
       default: return 'Confirm Action';
     }
   };
@@ -255,7 +256,7 @@ export default function PasswordGateModal({
               Cancel
             </Button>
             <Button
-              color={action === 'reject' ? 'red' : action === 'PACKUP_DONE' ? 'teal' : 'blue'}
+              color={action === 'reject' ? 'red' : (action === 'PACKUP_DONE' || action === 'ACKNOWLEDGE') ? 'teal' : 'blue'}
               type="submit"
               loading={loading}
               disabled={

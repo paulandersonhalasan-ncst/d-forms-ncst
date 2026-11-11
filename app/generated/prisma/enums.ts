@@ -156,6 +156,14 @@ export const ApprovalStatus = {
 export type ApprovalStatus = (typeof ApprovalStatus)[keyof typeof ApprovalStatus]
 
 
+export const StepType = {
+  APPROVAL: 'APPROVAL',
+  ACKNOWLEDGEMENT: 'ACKNOWLEDGEMENT'
+} as const
+
+export type StepType = (typeof StepType)[keyof typeof StepType]
+
+
 export const EventPlaceCategory = {
   REGULAR: 'REGULAR',
   CATEGORY_1: 'CATEGORY_1',

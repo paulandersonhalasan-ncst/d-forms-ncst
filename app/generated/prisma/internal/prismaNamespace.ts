@@ -413,6 +413,8 @@ export const ModelName = {
   EquipmentPlace: 'EquipmentPlace',
   FacilityEquipmentRequest: 'FacilityEquipmentRequest',
   FacilityReservationDate: 'FacilityReservationDate',
+  ApprovalSequence: 'ApprovalSequence',
+  ApprovalSequenceStep: 'ApprovalSequenceStep',
   FormSettings: 'FormSettings',
   PrivacySettings: 'PrivacySettings',
   BackupExport: 'BackupExport'
@@ -431,7 +433,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "user" | "department" | "activityLog" | "notification" | "loginLog" | "memo" | "memoRecipientStatus" | "memoHistory" | "facilityReservation" | "facilityApproval" | "facilityAssignment" | "eventPlace" | "equipment" | "equipmentPlace" | "facilityEquipmentRequest" | "facilityReservationDate" | "formSettings" | "privacySettings" | "backupExport"
+    modelProps: "user" | "department" | "activityLog" | "notification" | "loginLog" | "memo" | "memoRecipientStatus" | "memoHistory" | "facilityReservation" | "facilityApproval" | "facilityAssignment" | "eventPlace" | "equipment" | "equipmentPlace" | "facilityEquipmentRequest" | "facilityReservationDate" | "approvalSequence" | "approvalSequenceStep" | "formSettings" | "privacySettings" | "backupExport"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -1619,6 +1621,154 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    ApprovalSequence: {
+      payload: Prisma.$ApprovalSequencePayload<ExtArgs>
+      fields: Prisma.ApprovalSequenceFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.ApprovalSequenceFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ApprovalSequencePayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.ApprovalSequenceFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ApprovalSequencePayload>
+        }
+        findFirst: {
+          args: Prisma.ApprovalSequenceFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ApprovalSequencePayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.ApprovalSequenceFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ApprovalSequencePayload>
+        }
+        findMany: {
+          args: Prisma.ApprovalSequenceFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ApprovalSequencePayload>[]
+        }
+        create: {
+          args: Prisma.ApprovalSequenceCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ApprovalSequencePayload>
+        }
+        createMany: {
+          args: Prisma.ApprovalSequenceCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.ApprovalSequenceCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ApprovalSequencePayload>[]
+        }
+        delete: {
+          args: Prisma.ApprovalSequenceDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ApprovalSequencePayload>
+        }
+        update: {
+          args: Prisma.ApprovalSequenceUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ApprovalSequencePayload>
+        }
+        deleteMany: {
+          args: Prisma.ApprovalSequenceDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.ApprovalSequenceUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.ApprovalSequenceUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ApprovalSequencePayload>[]
+        }
+        upsert: {
+          args: Prisma.ApprovalSequenceUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ApprovalSequencePayload>
+        }
+        aggregate: {
+          args: Prisma.ApprovalSequenceAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateApprovalSequence>
+        }
+        groupBy: {
+          args: Prisma.ApprovalSequenceGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ApprovalSequenceGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.ApprovalSequenceCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ApprovalSequenceCountAggregateOutputType> | number
+        }
+      }
+    }
+    ApprovalSequenceStep: {
+      payload: Prisma.$ApprovalSequenceStepPayload<ExtArgs>
+      fields: Prisma.ApprovalSequenceStepFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.ApprovalSequenceStepFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ApprovalSequenceStepPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.ApprovalSequenceStepFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ApprovalSequenceStepPayload>
+        }
+        findFirst: {
+          args: Prisma.ApprovalSequenceStepFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ApprovalSequenceStepPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.ApprovalSequenceStepFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ApprovalSequenceStepPayload>
+        }
+        findMany: {
+          args: Prisma.ApprovalSequenceStepFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ApprovalSequenceStepPayload>[]
+        }
+        create: {
+          args: Prisma.ApprovalSequenceStepCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ApprovalSequenceStepPayload>
+        }
+        createMany: {
+          args: Prisma.ApprovalSequenceStepCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.ApprovalSequenceStepCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ApprovalSequenceStepPayload>[]
+        }
+        delete: {
+          args: Prisma.ApprovalSequenceStepDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ApprovalSequenceStepPayload>
+        }
+        update: {
+          args: Prisma.ApprovalSequenceStepUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ApprovalSequenceStepPayload>
+        }
+        deleteMany: {
+          args: Prisma.ApprovalSequenceStepDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.ApprovalSequenceStepUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.ApprovalSequenceStepUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ApprovalSequenceStepPayload>[]
+        }
+        upsert: {
+          args: Prisma.ApprovalSequenceStepUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ApprovalSequenceStepPayload>
+        }
+        aggregate: {
+          args: Prisma.ApprovalSequenceStepAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateApprovalSequenceStep>
+        }
+        groupBy: {
+          args: Prisma.ApprovalSequenceStepGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ApprovalSequenceStepGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.ApprovalSequenceStepCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ApprovalSequenceStepCountAggregateOutputType> | number
+        }
+      }
+    }
     FormSettings: {
       payload: Prisma.$FormSettingsPayload<ExtArgs>
       fields: Prisma.FormSettingsFieldRefs
@@ -2061,6 +2211,7 @@ export const FacilityReservationScalarFieldEnum = {
   originalDates: 'originalDates',
   originalApprovals: 'originalApprovals',
   isVenueOnly: 'isVenueOnly',
+  hasPhysicalActivity: 'hasPhysicalActivity',
   packUpDoneAt: 'packUpDoneAt',
   packUpDoneById: 'packUpDoneById',
   packUpDoneNotes: 'packUpDoneNotes',
@@ -2077,6 +2228,8 @@ export const FacilityApprovalScalarFieldEnum = {
   reservationId: 'reservationId',
   departmentCode: 'departmentCode',
   stepOrder: 'stepOrder',
+  stepType: 'stepType',
+  sequenceStepId: 'sequenceStepId',
   status: 'status',
   performedById: 'performedById',
   performedAt: 'performedAt',
@@ -2169,6 +2322,31 @@ export const FacilityReservationDateScalarFieldEnum = {
 } as const
 
 export type FacilityReservationDateScalarFieldEnum = (typeof FacilityReservationDateScalarFieldEnum)[keyof typeof FacilityReservationDateScalarFieldEnum]
+
+
+export const ApprovalSequenceScalarFieldEnum = {
+  id: 'id',
+  formType: 'formType',
+  label: 'label',
+  isActive: 'isActive',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type ApprovalSequenceScalarFieldEnum = (typeof ApprovalSequenceScalarFieldEnum)[keyof typeof ApprovalSequenceScalarFieldEnum]
+
+
+export const ApprovalSequenceStepScalarFieldEnum = {
+  id: 'id',
+  sequenceId: 'sequenceId',
+  sequenceIndex: 'sequenceIndex',
+  departmentCode: 'departmentCode',
+  stepType: 'stepType',
+  triggerKey: 'triggerKey',
+  createdAt: 'createdAt'
+} as const
+
+export type ApprovalSequenceStepScalarFieldEnum = (typeof ApprovalSequenceStepScalarFieldEnum)[keyof typeof ApprovalSequenceStepScalarFieldEnum]
 
 
 export const FormSettingsScalarFieldEnum = {
@@ -2516,6 +2694,20 @@ export type EnumQueryModeFieldRefInput<$PrismaModel> = FieldRefInputType<$Prisma
 
 
 /**
+ * Reference to a field of type 'StepType'
+ */
+export type EnumStepTypeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'StepType'>
+    
+
+
+/**
+ * Reference to a field of type 'StepType[]'
+ */
+export type ListEnumStepTypeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'StepType[]'>
+    
+
+
+/**
  * Reference to a field of type 'ApprovalStatus'
  */
 export type EnumApprovalStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ApprovalStatus'>
@@ -2723,6 +2915,8 @@ export type GlobalOmitConfig = {
   equipmentPlace?: Prisma.EquipmentPlaceOmit
   facilityEquipmentRequest?: Prisma.FacilityEquipmentRequestOmit
   facilityReservationDate?: Prisma.FacilityReservationDateOmit
+  approvalSequence?: Prisma.ApprovalSequenceOmit
+  approvalSequenceStep?: Prisma.ApprovalSequenceStepOmit
   formSettings?: Prisma.FormSettingsOmit
   privacySettings?: Prisma.PrivacySettingsOmit
   backupExport?: Prisma.BackupExportOmit

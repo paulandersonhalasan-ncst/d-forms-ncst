@@ -218,15 +218,30 @@ export default function FRFDashboardPage() {
     (r) => r.requestorId === currentUser?.id && !isImportedFRF(r)  // 🆕
   );
 
-  // Pending Approval: only for non-HRD users
+  // Pending Approval — APPROVAL steps only (ACKs live in their own tab)
   const pendingApproval = reservations.filter((r) => {
     if (isImportedFRF(r)) return false;
     const status = r.status as string;
     if (status === 'COMPLETED' || status === 'REJECTED') return false;
-    const myApproval = r.approvals.find((a) => a.departmentCode === currentUser?.departmentCode);
+    const myApproval = r.approvals.find(
+      (a) => a.departmentCode === currentUser?.departmentCode && a.stepType !== 'ACKNOWLEDGEMENT'
+    );
     if (!myApproval) return false;
-    
+
     return myApproval.status === 'PENDING';
+  });
+
+  // 🆕 For Acknowledgement — PENDING ACK steps for the user's dept (any status except REJECTED)
+  const acknowledgementQueue = reservations.filter((r) => {
+    if (isImportedFRF(r)) return false;
+    if (r.status === 'REJECTED') return false;
+    const myAck = r.approvals.find(
+      (a) =>
+        a.departmentCode === currentUser?.departmentCode &&
+        a.stepType === 'ACKNOWLEDGEMENT' &&
+        a.status === 'PENDING'
+    );
+    return !!myAck;
   });
 
   // Action Board:
@@ -243,7 +258,11 @@ export default function FRFDashboardPage() {
     if (status === 'REVISION_REQUESTED') return true;
 
     if (status === 'COMPLETED' || status === 'REJECTED') return false;
-    return r.approvals.some((a) => a.departmentCode === currentUser?.departmentCode && a.status === 'APPROVED');
+    return r.approvals.some(
+      (a) =>
+        a.departmentCode === currentUser?.departmentCode &&
+        (a.status === 'APPROVED' || a.status === 'ACKNOWLEDGED')
+    );
   });
 
   // Assigned to Me: show COMPLETED reservations where current user is assigned
@@ -273,15 +292,18 @@ export default function FRFDashboardPage() {
     if (isImportedFRF(r)) return false;
     const status = r.status as string;
 
-    if (status === 'REJECTED') {
-      return isUserInvolved(r);
-    }
+    if (status !== 'REJECTED' && status !== 'COMPLETED') return false;
 
-    if (status === 'COMPLETED') {
-      return isUserInvolved(r);
-    }
+    // 🆕 If user has a PENDING ACK here, it belongs in For Acknowledgement, not Completed
+    const myPendingAck = r.approvals.find(
+      (a) =>
+        a.departmentCode === currentUser?.departmentCode &&
+        a.stepType === 'ACKNOWLEDGEMENT' &&
+        a.status === 'PENDING'
+    );
+    if (myPendingAck) return false;
 
-    return false;
+    return isUserInvolved(r);
   });
 
   const getFiltered = (list: FacilityReservation[]) => {
@@ -784,6 +806,7 @@ export default function FRFDashboardPage() {
       formData.append('id', id);
       formData.append('action', 'resubmit');
       formData.append('isVenueOnly', String(values.isVenueOnly || false));
+      formData.append('hasPhysicalActivity', String(values.hasPhysicalActivity || false));
       formData.append('password', password);
       formData.append('type', values.type);
       if (values.eventName) formData.append('eventName', values.eventName);
@@ -865,6 +888,7 @@ export default function FRFDashboardPage() {
       formData.append('withCharge', String(values.withCharge));
       if (values.requestorNotes) formData.append('requestorNotes', values.requestorNotes);
       formData.append('isVenueOnly', String(values.isVenueOnly || false));
+      formData.append('hasPhysicalActivity', String(values.hasPhysicalActivity || false));
       formData.append('dates', JSON.stringify(values.dates.map(d => ({
         date: d.date.toISOString(),
         setupTime: d.setupTime.toISOString(),
@@ -949,7 +973,8 @@ export default function FRFDashboardPage() {
     try {
       const actionMap: Record<string, string> = {
         'PACKUP_DONE': 'packup-done',
-        'OCM_FINALIZE': 'ocm-finalize'
+        'OCM_FINALIZE': 'ocm-finalize',
+        'ACKNOWLEDGE': 'acknowledge',
       };
 
       const actionName = actionMap[pendingAction.type] || pendingAction.type.toLowerCase();
@@ -1060,6 +1085,7 @@ export default function FRFDashboardPage() {
       equipmentRequests?: { equipmentId: string; quantity: number }[];
       withCharge?: boolean;
       requestorNotes?: string;
+      hasPhysicalActivity?: boolean;
       assignments?: ITOAssignment[];
     },
     password: string
@@ -1088,6 +1114,7 @@ export default function FRFDashboardPage() {
         ...(data.equipmentRequests && { equipmentRequests: data.equipmentRequests }),
         ...(data.withCharge !== undefined && { withCharge: data.withCharge }),
         ...(data.requestorNotes && { requestorNotes: data.requestorNotes }),
+        ...(data.hasPhysicalActivity !== undefined && { hasPhysicalActivity: data.hasPhysicalActivity }),
         ...(data.assignments && data.assignments.length > 0 && {
           assignments: data.assignments.map(a => ({
             userId: a.userId,
@@ -1148,6 +1175,7 @@ export default function FRFDashboardPage() {
 
       opts.push({ value: 'my_requests', label: `My Requests (${myRequests.length})` });
       opts.push({ value: 'pending_approval', label: `Pending Approval (${pendingApproval.length})` });
+      opts.push({ value: 'for_acknowledgement', label: `For Acknowledgement (${acknowledgementQueue.length})` });
       opts.push({ value: 'action_board', label: `Action Board (${actionBoard.length})` });
       if (isITOMain) {
         opts.push({ value: 'assigned_to_me', label: `Assigned to Me (${assignedToMe.length})` });
@@ -1161,6 +1189,7 @@ export default function FRFDashboardPage() {
       hrCopyReservations.length,
       myRequests.length,
       pendingApproval.length,
+      acknowledgementQueue.length,
       actionBoard.length,
       assignedToMe.length,
       completed.length,
@@ -1200,6 +1229,7 @@ export default function FRFDashboardPage() {
         hr_copy: hrCopyReservations,
         my_requests: myRequests,
         pending_approval: pendingApproval,
+        for_acknowledgement: acknowledgementQueue,
         action_board: actionBoard,
         assigned_to_me: assignedToMe,
         completed: completed,
@@ -1211,6 +1241,7 @@ export default function FRFDashboardPage() {
           ...(isHRDorSuper ? ['hr_copy'] : []),
           'my_requests',
           'pending_approval',
+          ...(acknowledgementQueue.length > 0 ? ['for_acknowledgement'] : []),
           'action_board',
           ...(isITOMain ? ['assigned_to_me'] : []),
           'completed',
@@ -1235,6 +1266,7 @@ export default function FRFDashboardPage() {
     ...(isHRDorSuper ? ['hr_copy'] : []),
     'my_requests',
     'pending_approval',
+    'for_acknowledgement',
     'action_board',
     ...(isITOMain ? ['assigned_to_me'] : []),
     'completed',
@@ -1318,6 +1350,12 @@ export default function FRFDashboardPage() {
                     {pendingApproval.length}
                   </Badge>
                 </Tabs.Tab>
+                <Tabs.Tab value="for_acknowledgement" leftSection={<IconCircleCheck size={15} />}>
+                  For Acknowledgement{' '}
+                  <Badge size="xs" variant="light" ml={6} styles={{ label: { fontSize: 10 } }}>
+                    {acknowledgementQueue.length}
+                  </Badge>
+                </Tabs.Tab>
                 <Tabs.Tab value="action_board" leftSection={<IconInfoCircle size={15} />}>
                   Action Board <Badge size="xs" variant="light" ml={6} styles={{ label: { fontSize: 10 } }}>
                     {actionBoard.length}
@@ -1348,6 +1386,7 @@ export default function FRFDashboardPage() {
                 if (tab === 'hr_copy') list = hrCopyReservations;
                 else if (tab === 'my_requests') list = myRequests;
                 else if (tab === 'pending_approval') list = pendingApproval;
+                else if (tab === 'for_acknowledgement') list = acknowledgementQueue;
                 else if (tab === 'action_board') list = actionBoard;
                 else if (tab === 'assigned_to_me') list = assignedToMe;
                 else if (tab === 'completed') list = completed;
@@ -1401,10 +1440,12 @@ export default function FRFDashboardPage() {
                     body: (
                       <>
                         Requests currently waiting for your department&apos;s approval. Review details, then choose
-                        <b> Approve</b>, <b> Reject</b>, or <b> Return for Revision</b>.
+                        <b> Approve</b>, <b> Reject</b>, or <b> Return for Revision</b>. Informational-only
+                        acknowledgements live in the <b>For Acknowledgement</b> tab.
                         <br /><br />
                         Mga request na naghihintay ng approval ng iyong departamento. Suriin ang detalye, at piliin ang
-                        <b> Approve</b>, <b> Reject</b>, o <b> Return for Revision</b>.
+                        <b> Approve</b>, <b> Reject</b>, o <b> Return for Revision</b>. Ang informational-only
+                        acknowledgements ay nasa <b>For Acknowledgement</b> tab.
                       </>
                     ),
                   },
@@ -1418,6 +1459,21 @@ export default function FRFDashboardPage() {
                         <br /><br />
                         Mga request na may aksyon ka na pero hindi pa tapos (hal. naghihintay sa ibang departamento,
                         o ibinalik para sa rebisyon). Ito ang iyong monitoring queue.
+                      </>
+                    ),
+                  },
+                  for_acknowledgement: {
+                    title: 'For Acknowledgement',
+                    color: 'teal',
+                    body: (
+                      <>
+                        Reservations where your department has been tagged as an <b>informational recipient</b>.
+                        You can acknowledge at any time — this is independent of the approval chain and does not
+                        gate the reservation&apos;s completion.
+                        <br /><br />
+                        Mga reservation kung saan ang iyong departamento ay <b>informational recipient</b>.
+                        Maaari kang mag-acknowledge anumang oras — ito ay hiwalay sa approval chain at hindi
+                        naghihintay sa mga approval steps.
                       </>
                     ),
                   },
@@ -1485,7 +1541,13 @@ export default function FRFDashboardPage() {
                     )}
 
                     {filtered.length === 0 ? (
-                      <Text c="dimmed" ta="center" py="xl">No reservations found.</Text>
+                      <Text c="dimmed" ta="center" py="xl">
+                        {tab === 'for_acknowledgement'
+                          ? acknowledgementQueue.length === 0
+                            ? "You're all caught up. No pending acknowledgements."
+                            : 'No reservations match your search.'
+                          : 'No reservations found.'}
+                      </Text>
                     ) : (
                       <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="lg">
                         {filtered.map((req) => (
@@ -1573,7 +1635,7 @@ export default function FRFDashboardPage() {
         onSubmit={handlePasswordSubmit}
         loading={passLoading}
         error={passError}
-        requireRemarks={pendingAction?.type === 'REJECT' || pendingAction?.type === 'RETURN' || pendingAction?.type === 'APPROVE' || pendingAction?.type === 'PACKUP_DONE'}
+        requireRemarks={['REJECT', 'RETURN', 'APPROVE', 'PACKUP_DONE', 'ACKNOWLEDGE'].includes(pendingAction?.type || '')}
         enablePhotoUpload={pendingAction?.type === 'PACKUP_DONE'}
       />
 

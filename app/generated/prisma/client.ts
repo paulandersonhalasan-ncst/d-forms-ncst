@@ -122,6 +122,16 @@ export type FacilityEquipmentRequest = Prisma.FacilityEquipmentRequestModel
  */
 export type FacilityReservationDate = Prisma.FacilityReservationDateModel
 /**
+ * Model ApprovalSequence
+ * 
+ */
+export type ApprovalSequence = Prisma.ApprovalSequenceModel
+/**
+ * Model ApprovalSequenceStep
+ * 
+ */
+export type ApprovalSequenceStep = Prisma.ApprovalSequenceStepModel
+/**
  * Model FormSettings
  * 
  */
