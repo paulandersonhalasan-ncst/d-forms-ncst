@@ -39,18 +39,18 @@ export async function proxy(request) {
     return null;
   };
 
+  // ================================================
+  // NOTE: Middleware runs on Edge Runtime — no DB access.
+  // We do a COARSE check here (any Head/OIC/SuperUser), then the
+  // /manage PAGE does the fine-grained per-dept check against
+  // FormSettings.equipmentLendingDepartments ∪ manageAccessDepartments.
+  // ================================================
   const canAccessFRFManage = () => {
-      if (!user) return false;
-      
-      const isITOFMOCDO = user.departmentCode === 'ITO-MAIN' || user.departmentCode === 'ITO' || user.departmentCode === 'CDO' || user.departmentCode === 'PSMO/FMO';
-      if (!isITOFMOCDO) return false;
-      
-      const isSuperUser = user.role === 'SuperUser';
-      const isDepartmentHead = user.role === 'DepartmentHead';
-      // ✅ Use isCurrentlyOIC (computed above) instead of role === 'OIC'
-      // Because OIC status is temporary (via oic_start / oic_end), not a role
-      
-      return isSuperUser || isDepartmentHead || isCurrentlyOIC;
+    if (!user) return false;
+    const isSuperUser = user.role === 'SuperUser';
+    const isDepartmentHead = user.role === 'DepartmentHead';
+    // isCurrentlyOIC already computed above (oic_start / oic_end check)
+    return isSuperUser || isDepartmentHead || isCurrentlyOIC;
   };
 
   // ================================================

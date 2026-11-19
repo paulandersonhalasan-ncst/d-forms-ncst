@@ -1688,3 +1688,352 @@ export async function sendFRFCompletionNotification(reservation) {
 
   return { sent: true, recipientCount: recipients.length, okCount, failCount };
 }
+
+// ==========================================
+// 🆕 BOT PREEMPTION EMAILS
+// ==========================================
+
+/**
+ * Email to the requestor of a preempted FRF (the focal person).
+ * @param {object} requestor            — { id, fname, lname, email, departmentCode }
+ * @param {object} preemptedReservation — full FRF (with requestor, dates[].place)
+ * @param {object} preemptingReservation — the BOT FRF that caused the bump
+ */
+export async function sendFRFBotPreemptedToRequestor(
+  requestor,
+  preemptedReservation,
+  preemptingReservation,
+) {
+  if (!requestor?.email) return;
+
+  const formatDate = (d) =>
+    new Date(d).toLocaleDateString('en-US', {
+      timeZone: 'Asia/Manila',
+      weekday: 'long',
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric',
+    });
+
+  const formatTime = (d) =>
+    new Date(d).toLocaleTimeString('en-US', {
+      timeZone: 'Asia/Manila',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    });
+
+  const dateLines = (preemptedReservation.dates || [])
+    .map(
+      (d) =>
+        `• <b>${formatDate(d.eventStart)}</b> — ` +
+        `${formatTime(d.eventStart)} to ${formatTime(d.eventEnd)} ` +
+        `@ ${d.place?.name || d.placeOther || 'TBA'}`,
+    )
+    .join('<br>');
+
+  const body = `
+    <p>Hi <b>${requestor.fname} ${requestor.lname}</b>,</p>
+
+    <p>We regret to inform you that your facility reservation request
+    <b>${preemptedReservation.referenceId}</b>
+    (${preemptedReservation.eventName || 'Facility Event'})
+    has been <b>preempted by a Board of Trustees priority event</b>
+    (<b>${preemptingReservation.referenceId}</b>).</p>
+
+    <p><b>Original Event Dates:</b><br>${dateLines || '—'}</p>
+
+    <p><b>What this means:</b></p>
+    <ul>
+      <li>Your event will <b>not push through</b> on the original schedule.</li>
+      <li>You will need to <b>reschedule</b> the event to a later date.</li>
+    </ul>
+
+    <p><b>Action Required:</b><br>
+    Please log in to <b>NCST D-Forms</b> and file a <b>Reschedule Request</b>
+    from your FRF dashboard. You will need to select a new date
+    (at least the configured number of days <i>after your original event date</i>)
+    and provide a reason.</p>
+
+    <p>If you have questions, please reach out to your Department Head/OIC.</p>
+
+    <p>Thank you for your understanding,<br>
+    <b>NCST D-Forms</b></p>
+  `;
+
+  const title = 'Facility Reservation Preempted by BOT Priority Booking';
+  const marker = preemptedReservation.referenceId;
+
+  const html = renderEmailWrapper({
+    title: 'Facility Reservation Preempted by BOT Priority Event',
+    icon: '⚠️',
+    accentColor: BRAND.danger,
+    subtitle: `${esc(preemptedReservation.referenceId)} &nbsp;·&nbsp; ${esc(
+      new Date().toLocaleString('en-US', {
+        timeZone: 'Asia/Manila',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+      }),
+    )}`,
+    bodyContent: body,
+    actionUrl: `${baseUrl}/dashboard/forms/frf?tab=my_requests&focus=${preemptedReservation.id}`,
+    actionLabel: 'Open FRF Dashboard',
+    footerNote:
+      'You are receiving this because your facility reservation was preempted by a BOT priority event.',
+  });
+
+  await sendEmailWithRetry({
+    to: requestor.email,
+    subject: `⚠️ Your FRF ${preemptedReservation.referenceId} was preempted by BOT Priority Event`,
+    html,
+  });
+}
+
+export async function sendFRFBotPreemptedToDepartment(
+  deptHeads,
+  preemptedReservation,
+  preemptingReservation,
+) {
+  if (!Array.isArray(deptHeads) || deptHeads.length === 0) return;
+
+  const requestorName =
+    `${preemptedReservation.requestor?.fname || ''} ${preemptedReservation.requestor?.lname || ''}`.trim() ||
+    'the requestor';
+
+  const formatDate = (d) =>
+    new Date(d).toLocaleDateString('en-US', {
+      timeZone: 'Asia/Manila',
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric',
+    });
+
+  const firstDate = preemptedReservation.dates?.[0]?.eventStart;
+  const dateText = firstDate ? formatDate(firstDate) : '—';
+
+  const body = `
+    <p>Hi,</p>
+
+    <p>This is to inform you that an FRF submitted by a member of your department,
+    <b>${requestorName}</b>, has been <b>preempted by a Board of Trustees priority event</b>.</p>
+
+    <p><b>FRF Reference:</b> ${preemptedReservation.referenceId}<br>
+    <b>Event:</b> ${preemptedReservation.eventName || 'Facility Event'}<br>
+    <b>Original Date:</b> ${dateText}<br>
+    <b>Preempted by:</b> ${preemptingReservation.referenceId}</p>
+
+    <p><b>Action Required:</b><br>
+    Kindly coordinate with <b>${requestorName}</b> so they can file a
+    <b>Reschedule Request</b> via their NCST D-Forms dashboard. Your support
+    in helping them find a suitable alternative date would be appreciated.</p>
+
+    <p>Thank you,<br>
+    <b>NCST D-Forms</b></p>
+  `;
+
+  const title = 'FRF Preemption Notice — BOT Priority Event';
+  const marker = preemptedReservation.referenceId;
+  const html = renderEmailWrapper({
+    title: 'FRF Preemption Notice — BOT Priority Event',
+    icon: '⚠️',
+    accentColor: BRAND.danger,
+    subtitle: `${esc(preemptedReservation.referenceId)} &nbsp;·&nbsp; ${esc(
+      new Date().toLocaleString('en-US', {
+        timeZone: 'Asia/Manila',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+      }),
+    )}`,
+    bodyContent: body,
+    actionUrl: `${baseUrl}/dashboard/forms/frf?tab=my_requests&focus=${preemptedReservation.id}`,
+    actionLabel: 'View FRF on NCST D-Forms',
+    footerNote:
+      'You are receiving this because an FRF from your department was preempted by a BOT priority event.',
+  });
+
+  // Fire in parallel; failures on one recipient don't block the others
+  await Promise.allSettled(
+    deptHeads.map((head) =>
+      head.email
+        ? sendEmailWithRetry({
+            to: head.email,
+            subject: `⚠️ FRF ${preemptedReservation.referenceId} from your department was preempted`,
+            html,
+          })
+        : Promise.resolve(),
+    ),
+  );
+}
+
+// ==========================================
+// 🆕 FRF ACKNOWLEDGEMENT EMAILS
+// ==========================================
+
+/**
+ * Email to the ACK department heads/OICs when an FRF that requires their
+ * acknowledgement is submitted (or resubmitted/rescheduled). Informational
+ * only — does NOT gate the reservation's completion.
+ *
+ * @param {Array<{email:string, fname:string, lname:string}>} ackRecipients
+ * @param {object} reservation     — full FRF with requestor + dates[].place
+ * @param {string} requestorDept   — dept code of the requestor (for context)
+ */
+export async function sendFRFAcknowledgementRequest(
+  ackRecipients,
+  reservation,
+  requestorDept,
+) {
+  if (!Array.isArray(ackRecipients) || ackRecipients.length === 0) return;
+
+  const subject = `📬 FRF Requires Your Acknowledgement — ${reservation.referenceId}`;
+  const actionUrl = `${baseUrl}/dashboard/forms/frf?tab=for_acknowledgement&focus=${reservation.id}`;
+
+  const detailsHtml = renderFRFDetailsHTML(reservation, {
+    showApprovals: false,
+    showAssignments: false,
+    showPackUp: false,
+    accentColor: BRAND.navyMid,
+  });
+
+  const body = `
+    ${greetingBlock('Department Head / OIC')}
+    ${bodyText(
+      `An FRF has been submitted by <b>${esc(requestorDept || 'a requestor')}</b> and
+       your department has been tagged as an <b>informational recipient</b>.`,
+    )}
+
+    <div style="margin: 12px 0 20px 0; padding: 12px 16px; border-left: 3px solid ${BRAND.navyMid}; background: ${BRAND.navyLight}; border-radius: 4px;">
+      <div style="font-weight: 700; font-size: 12px; color: ${BRAND.navy}; margin-bottom: 4px;">
+        ℹ️ INFORMATIONAL — NON-BLOCKING
+      </div>
+      <div style="font-size: 12px; color: #333; line-height: 1.5;">
+        Your acknowledgement is <b>informational only</b>. It does <b>not gate</b> the
+        reservation's completion. You can acknowledge at any time via the portal.
+      </div>
+    </div>
+
+    ${detailsHtml}
+  `;
+
+  const html = renderEmailWrapper({
+    title: 'FRF Requires Your Acknowledgement',
+    icon: '📬',
+    accentColor: BRAND.navyMid,
+    subtitle: `${esc(reservation.referenceId)} &nbsp;·&nbsp; ${esc(
+      new Date().toLocaleString('en-US', {
+        timeZone: 'Asia/Manila',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+      }),
+    )}`,
+    bodyContent: body,
+    actionUrl,
+    actionLabel: 'Open Acknowledgement Queue',
+    footerNote:
+      'Acknowledgement is non-blocking — the reservation can proceed without it.',
+  });
+
+  for (const r of ackRecipients) {
+    if (!r?.email) continue;
+    try {
+      await sendEmailWithRetry({ to: r.email, subject, html });
+    } catch (err) {
+      console.error(`[ACK_REQUEST] failed to send to ${r.email}:`, err);
+    }
+  }
+}
+
+/**
+ * Email to the requestor when one of the ACK departments acknowledges
+ * their FRF. Bonus — closes the loop so requestors know when ack events
+ * happen (previously only visible by checking the timeline manually).
+ *
+ * @param {object} requestor  — { id, fname, lname, email }
+ * @param {object} reservation
+ * @param {object} ackInfo    — { departmentCode, performedBy, remarks }
+ */
+export async function sendFRFAcknowledgedConfirmation(
+  requestor,
+  reservation,
+  ackInfo,
+) {
+  if (!requestor?.email) return;
+
+  const subject = `✅ Your FRF Was Acknowledged — ${reservation.referenceId}`;
+  const actionUrl = `${baseUrl}/dashboard/forms/frf?tab=my_requests&focus=${reservation.id}`;
+
+  const body = `
+    ${greetingBlock(`${requestor.fname} ${requestor.lname}`)}
+    ${bodyText(
+      `<b>${esc(ackInfo.departmentCode)}</b> has acknowledged your facility reservation request.`,
+    )}
+
+    <table cellpadding="0" cellspacing="0" border="0" style="width: 100%; border-collapse: collapse; background: #f8f9fa; border-radius: 6px; margin: 16px 0;">
+      <tr>
+        <td style="padding: 10px 12px; border-bottom: 1px solid #e9ecef;">
+          <div style="color: ${BRAND.gray}; font-size: 11px; font-weight: 600; text-transform: uppercase;">Acknowledged By</div>
+          <div style="font-size: 13px; color: ${BRAND.navy}; margin-top: 2px;">
+            ${esc(ackInfo.performedBy || '—')}
+          </div>
+        </td>
+        <td style="padding: 10px 12px; border-bottom: 1px solid #e9ecef;">
+          <div style="color: ${BRAND.gray}; font-size: 11px; font-weight: 600; text-transform: uppercase;">Department</div>
+          <div style="font-size: 13px; color: ${BRAND.navy}; margin-top: 2px;">
+            ${esc(ackInfo.departmentCode || '—')}
+          </div>
+        </td>
+      </tr>
+      <tr>
+        <td colspan="2" style="padding: 10px 12px;">
+          <div style="color: ${BRAND.gray}; font-size: 11px; font-weight: 600; text-transform: uppercase;">Remarks</div>
+          <div style="font-size: 13px; color: ${BRAND.navy}; margin-top: 2px; white-space: pre-wrap;">
+            ${esc(ackInfo.remarks || '—')}
+          </div>
+        </td>
+      </tr>
+    </table>
+
+    <p style="font-size: 13px; color: ${BRAND.gray}; line-height: 1.6; margin: 16px 0;">
+      This is an informational acknowledgement and does not affect the approval flow.
+    </p>
+  `;
+
+  const html = renderEmailWrapper({
+    title: 'FRF Acknowledged',
+    icon: '✅',
+    accentColor: BRAND.success,
+    subtitle: `${esc(reservation.referenceId)} &nbsp;·&nbsp; ${esc(
+      new Date().toLocaleString('en-US', {
+        timeZone: 'Asia/Manila',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+      }),
+    )}`,
+    bodyContent: body,
+    actionUrl,
+    actionLabel: 'View FRF on NCST D-Forms',
+    footerNote: 'You are receiving this because you are the requestor of this FRF.',
+  });
+
+  await sendEmailWithRetry({
+    to: requestor.email,
+    subject,
+    html,
+  });
+}

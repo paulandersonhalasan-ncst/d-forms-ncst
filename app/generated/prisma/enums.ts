@@ -139,7 +139,8 @@ export const ReservationStatus = {
   REJECTED: 'REJECTED',
   COMPLETED: 'COMPLETED',
   CANCELLED: 'CANCELLED',
-  RESCHEDULE_PENDING: 'RESCHEDULE_PENDING'
+  RESCHEDULE_PENDING: 'RESCHEDULE_PENDING',
+  BOT_PREEMPTED: 'BOT_PREEMPTED'
 } as const
 
 export type ReservationStatus = (typeof ReservationStatus)[keyof typeof ReservationStatus]

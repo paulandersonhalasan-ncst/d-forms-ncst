@@ -26,6 +26,24 @@ async function getAuthenticatedUser(request) {
   }
 }
 
+// 🆕 Local helper — mirrors the pattern from reservation/route.js
+function isHeadOrOIC(user) {
+  if (!user) return false;
+  const role = user.role?.toUpperCase();
+  if (role === 'DEPARTMENTHEAD' || role === 'DEPARTMENT_HEAD') return true;
+  if (user.oic_start && user.oic_end) {
+    try {
+      const now = new Date();
+      const start = new Date(user.oic_start);
+      const end = new Date(user.oic_end);
+      if (!isNaN(start.getTime()) && !isNaN(end.getTime()) && now >= start && now <= end) {
+        return true;
+      }
+    } catch {}
+  }
+  return false;
+}
+
 // ==========================================
 // GET /api/frf/settings
 // ==========================================
@@ -46,7 +64,10 @@ export async function GET(request) {
           minAdvanceDaysVIP: 1,
           maxEventsPerDay: 2,
           minRescheduleDays: 3,
-          enableVipMode: true
+          enableVipMode: true,
+          vipVisibleDepartments: ['PSMO', 'FMO', 'ITO-MAIN'],
+          equipmentLendingDepartments: ['ITO-MAIN', 'PSMO','FMO', 'OP', 'CDO'],
+          manageAccessDepartments: [],
         }
       });
     }
@@ -61,7 +82,10 @@ export async function GET(request) {
         minAdvanceDaysVIP: 1,
         maxEventsPerDay: 2,
         minRescheduleDays: 3,
-        enableVipMode: true
+        enableVipMode: true,
+        vipVisibleDepartments: ['PSMO', 'FMO', 'ITO-MAIN'],
+        equipmentLendingDepartments: ['ITO-MAIN', 'PSMO','FMO', 'OP', 'CDO'],
+        manageAccessDepartments: [],
       }
     });
   }
@@ -76,25 +100,60 @@ export async function PUT(request) {
     return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
   }
 
-  const allowedDepartments = ['PSMO/FMO', 'ITO-MAIN'];
+  // Only SuperUser and ITO-MAIN Head/OIC can edit settings.
+  // Matches the UI (Settings tab is shown only for those roles).
   const isSuperUser = user.role === 'SuperUser';
-  const isAllowedDept = allowedDepartments.includes(user.departmentCode);
+  const isItoMainHeadOrOic =
+    user.departmentCode === 'ITO-MAIN' && isHeadOrOIC(user);
 
-  if (!isSuperUser && !isAllowedDept) {
+  if (!isSuperUser && !isItoMainHeadOrOic) {
     return NextResponse.json(
-      { success: false, message: 'Only SuperUser, PSMO/FMO, or ITO-MAIN can update settings' },
+      { success: false, message: 'Only SuperUser or ITO-MAIN Head/OIC can update settings' },
       { status: 403 }
     );
   }
 
-    const body = await request.json();
-    const { 
-      minAdvanceDaysRegular, 
-      minAdvanceDaysVIP, 
-      maxEventsPerDay,
-      minRescheduleDays,
-      enableVipMode,   // 🆕
-    } = body;
+  const body = await request.json();
+  const { 
+    minAdvanceDaysRegular, 
+    minAdvanceDaysVIP, 
+    maxEventsPerDay,
+    minRescheduleDays,
+    enableVipMode,
+    vipVisibleDepartments,
+    equipmentLendingDepartments,
+    manageAccessDepartments,
+  } = body;
+
+  // 🆕 Validate array-of-string fields
+  const arrayFields = {
+    vipVisibleDepartments,
+    equipmentLendingDepartments,
+    manageAccessDepartments,
+  };
+  for (const [name, val] of Object.entries(arrayFields)) {
+    if (val !== undefined) {
+      if (!Array.isArray(val) || val.some(d => typeof d !== 'string' || !d.trim())) {
+        return NextResponse.json({
+          success: false,
+          message: `${name} must be an array of non-empty strings`,
+        }, { status: 400 });
+      }
+    }
+  }
+
+  // 🆕 Validate vipVisibleDepartments
+  if (vipVisibleDepartments !== undefined) {
+    if (
+      !Array.isArray(vipVisibleDepartments) ||
+      vipVisibleDepartments.some(d => typeof d !== 'string' || !d.trim())
+    ) {
+      return NextResponse.json({
+        success: false,
+        message: 'vipVisibleDepartments must be an array of non-empty strings',
+      }, { status: 400 });
+    }
+  }
 
     if (
       minAdvanceDaysRegular < 0 || 
@@ -117,6 +176,9 @@ export async function PUT(request) {
         maxEventsPerDay,
         minRescheduleDays,
         enableVipMode,
+        ...(vipVisibleDepartments !== undefined && { vipVisibleDepartments }),
+        ...(equipmentLendingDepartments !== undefined && { equipmentLendingDepartments }),
+        ...(manageAccessDepartments !== undefined && { manageAccessDepartments }),
         updatedBy: user.id,
         updatedAt: new Date(),
       },
@@ -127,6 +189,10 @@ export async function PUT(request) {
         maxEventsPerDay,
         minRescheduleDays,
         enableVipMode: enableVipMode ?? true,
+        vipVisibleDepartments: vipVisibleDepartments ?? ['PSMO', 'FMO', 'ITO-MAIN'],
+        equipmentLendingDepartments:
+          equipmentLendingDepartments ?? ['ITO-MAIN', 'PSMO', 'FMO', 'OP', 'CDO'],
+        manageAccessDepartments: manageAccessDepartments ?? [],
         updatedBy: user.id,
         updatedAt: new Date(),
       },

@@ -32,7 +32,10 @@ import {
   IconUserCheck,
   IconPrinter,
   IconReportMoney,
-  IconBuildingPavilion
+  IconBuildingPavilion,
+  IconPhysiotherapist,
+  IconAlertTriangle,
+  IconUserStar
 } from '@tabler/icons-react';
 import Image from 'next/image';
 import { useState } from 'react';
@@ -51,12 +54,13 @@ interface RequestDetailModalProps {
   onApproveWithAssign?: () => void;
   onPrint?: (request: FacilityReservation) => void;
   onPackUpDone?: (id: string) => void;
+  preemptedByRefId?: string | null;
 }
 
 // Helper to get color per department
 const getDepartmentColor = (deptCode: string): string => {
   const colors: Record<string, string> = {
-    'PSMO/FMO': 'blue',
+    'FMO': 'blue',
     'ITO-MAIN': 'grape',
     'ITO': 'grape',
     'OP': 'green',
@@ -81,6 +85,7 @@ export default function RequestDetailModal({
   onApproveWithAssign,
   onPrint,
   onPackUpDone,
+  preemptedByRefId,
 }: RequestDetailModalProps) {
 
   const [packUpGalleryOpened, { open: openPackUpGallery, close: closePackUpGallery }] = useDisclosure(false);
@@ -97,6 +102,11 @@ export default function RequestDetailModal({
   const ocmApproval = request.approvals.find(a => a.departmentCode === 'OCM');
   
   const isHeadOrOIC = isActiveHeadOrOIC(currentUser);
+
+  // 🆕 Extract revision reason for prominent display
+  const revisionApproval = request.approvals.find(
+    a => a.status === 'REVISION_REQUESTED'
+  );
 
   // ACKs are independent — available immediately, never gated by earlier steps
   const isMyAck = myApproval?.stepType === 'ACKNOWLEDGEMENT';
@@ -146,7 +156,8 @@ export default function RequestDetailModal({
   const showActions =
     (isNextPending && !isTerminal) ||
     (isRequestor && request.status === 'REVISION_REQUESTED') ||
-    (isRequestor && (request.status === 'APPROVED' || request.status === 'COMPLETED') && !request.isReschedule);
+    (isRequestor && (request.status === 'APPROVED' || request.status === 'COMPLETED') && !request.isReschedule) ||
+    (isRequestor && request.status === 'BOT_PREEMPTED');
 
   // Formatting helpers
   const formatDate = (dateVal: string | Date): string => {
@@ -203,7 +214,7 @@ export default function RequestDetailModal({
   }
 
   const canReschedule =
-    (request.status === 'APPROVED' || request.status === 'COMPLETED') &&
+    (request.status === 'APPROVED' || request.status === 'COMPLETED' || request.status === 'BOT_PREEMPTED') &&
     isRequestor &&
     !request.isReschedule;
   
@@ -283,6 +294,76 @@ export default function RequestDetailModal({
           </Text>
         </Group>
 
+        {/* 🆕 Revision reason — prominent alert when status = REVISION_REQUESTED */}
+        {request.status === 'REVISION_REQUESTED' && revisionApproval && (
+          <Alert
+            icon={<IconRefresh size={16} />}
+            color="orange"
+            radius="md"
+            title={`Revision Requested by ${revisionApproval.departmentCode}`}
+          >
+            <Text size="sm" fw={500} style={{ whiteSpace: 'pre-wrap' }}>
+              {revisionApproval.revisionReason || revisionApproval.remarks || '(No reason provided)'}
+            </Text>
+            {(revisionApproval.performedBy || revisionApproval.performedAt) && (
+              <Text size="xs" c="dimmed" mt={4}>
+                {revisionApproval.performedAt && (
+                  <>Requested on {formatDate(revisionApproval.performedAt)}</>
+                )}
+                {revisionApproval.performedBy && (
+                  <> by <b>{revisionApproval.performedBy.fname} {revisionApproval.performedBy.lname}</b></>
+                )}
+              </Text>
+            )}
+          </Alert>
+        )}
+
+        {/* 🆕 Active BOT Preemption Alert */}
+        {request.status === 'BOT_PREEMPTED' && (
+          <Alert
+            icon={<IconAlertTriangle size={20} />}
+            color="red"
+            radius="md"
+            title="Preempted by BOT Event"
+          >
+            <Text size="sm" fw={500}>
+              This request will not push through as the reservation was preempted by a Board of Trustees Event Request
+              {preemptedByRefId ? <> (<b>{preemptedByRefId}</b>)</> : null}.
+              Kindly reschedule this request to another date.
+            </Text>
+            {request.botPreemptedAt && (
+              <Text size="xs" c="dimmed" mt={4}>
+                Preempted on {formatDate(request.botPreemptedAt)}.
+              </Text>
+            )}
+          </Alert>
+        )}
+
+        {/* 🆕 Historical Preemption Context (resolved or in-progress) */}
+        {request.botPreemptedAt && request.status !== 'BOT_PREEMPTED' && (
+          <Alert
+            icon={<IconAlertTriangle size={16} />}
+            color="gray"
+            radius="md"
+            title="Preemption History"
+          >
+            <Text size="sm">
+              This event was previously preempted by a Board of Trustees priority event
+              {preemptedByRefId ? <> (<b>{preemptedByRefId}</b>)</> : null}
+              {request.botPreemptedAt ? (
+                <> on <b>{formatDateOnly(request.botPreemptedAt)}</b></>
+              ) : null}.
+            </Text>
+            <Text size="xs" c="dimmed" mt={4} fs="italic">
+              {request.status === 'RESCHEDULE_PENDING'
+                ? 'A reschedule request has been submitted and is awaiting approval.'
+                : request.status === 'REVISION_REQUESTED'
+                ? 'Reschedule is currently being revised.'
+                : 'Reschedule has been resolved.'}
+            </Text>
+          </Alert>
+        )}
+
         {/* Basic Details */}
         <Paper withBorder p="md" radius="md">
           <Text fw={600} size="sm" mb="sm">
@@ -337,6 +418,36 @@ export default function RequestDetailModal({
                 <b>Venue Only:</b> {request.isVenueOnly ? 'Yes' : 'No'}
               </Text>
             </Group>
+            <Group gap="xs">
+              <ThemeIcon variant="light" color="blue" size="sm">
+                <IconPhysiotherapist size={14} />
+              </ThemeIcon>
+              <Text size="sm">
+                <b>With Physical Activity:</b> {request.hasPhysicalActivity ? 'Yes' : 'No'}
+              </Text>
+            </Group>
+            <Group gap="xs">
+              <ThemeIcon variant="light" color="blue" size="sm">
+                <IconUserStar size={14} />
+              </ThemeIcon>
+              <Text size="sm">
+                <b>Board of Trustee/s Event?</b> {request.isBotEvent ? 'Yes' : 'No'}
+              </Text>
+            </Group>
+            {request.botPreemptedAt && (
+              <Group gap="xs" style={{ gridColumn: '1 / -1' }}>
+                <ThemeIcon variant="light" color="gray" size="sm">
+                  <IconAlertTriangle size={14} />
+                </ThemeIcon>
+                <Text size="sm">
+                  <b>Preempted by BOT:</b>{' '}
+                  {preemptedByRefId ? <b>{preemptedByRefId}</b> : 'BOT Priority Event'}{' '}
+                  <Text component="span" size="xs" c="dimmed">
+                    on {formatDateOnly(request.botPreemptedAt)}
+                  </Text>
+                </Text>
+              </Group>
+            )}
           </SimpleGrid>
           {request.requestorNotes && (
             <Text

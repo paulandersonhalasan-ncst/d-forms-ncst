@@ -2210,6 +2210,7 @@ export const FacilityReservationScalarFieldEnum = {
   isReschedule: 'isReschedule',
   originalDates: 'originalDates',
   originalApprovals: 'originalApprovals',
+  originalEquipment: 'originalEquipment',
   isVenueOnly: 'isVenueOnly',
   hasPhysicalActivity: 'hasPhysicalActivity',
   packUpDoneAt: 'packUpDoneAt',
@@ -2217,7 +2218,10 @@ export const FacilityReservationScalarFieldEnum = {
   packUpDoneNotes: 'packUpDoneNotes',
   packUpDonePhotos: 'packUpDonePhotos',
   packUpDoneLocation: 'packUpDoneLocation',
-  completionEmailSentAt: 'completionEmailSentAt'
+  completionEmailSentAt: 'completionEmailSentAt',
+  isBotEvent: 'isBotEvent',
+  botPreemptedAt: 'botPreemptedAt',
+  botPreemptedById: 'botPreemptedById'
 } as const
 
 export type FacilityReservationScalarFieldEnum = (typeof FacilityReservationScalarFieldEnum)[keyof typeof FacilityReservationScalarFieldEnum]
@@ -2356,6 +2360,9 @@ export const FormSettingsScalarFieldEnum = {
   maxEventsPerDay: 'maxEventsPerDay',
   minRescheduleDays: 'minRescheduleDays',
   enableVipMode: 'enableVipMode',
+  vipVisibleDepartments: 'vipVisibleDepartments',
+  equipmentLendingDepartments: 'equipmentLendingDepartments',
+  manageAccessDepartments: 'manageAccessDepartments',
   updatedAt: 'updatedAt',
   updatedBy: 'updatedBy'
 } as const

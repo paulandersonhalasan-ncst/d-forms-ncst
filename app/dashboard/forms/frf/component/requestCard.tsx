@@ -81,12 +81,21 @@ export default function RequestCard({
                   request.status === 'COMPLETED' ? 'blue' :
                   request.status === 'REVISION_REQUESTED' ? 'orange' :
                   request.status === 'RESCHEDULE_PENDING' ? 'yellow' :
+                  request.status === 'BOT_PREEMPTED' ? 'red' :
                   'gray'
                 }
                 variant={request.status === 'DRAFT' ? 'light' : 'filled'}
+                size="sm"
               >
-                {request.status === 'DRAFT' ? '📝 DRAFT' : request.status.replace('_', ' ')}
+                {request.status === 'DRAFT' ? '📝 DRAFT' : 
+                 request.status === 'BOT_PREEMPTED' ? '⚠️ BOT PREEMPTED' :
+                 request.status.replace('_', ' ')}
               </Badge>
+              {request.isBotEvent && request.status !== 'BOT_PREEMPTED' && (
+                <Badge color="violet" variant="filled" size="sm">
+                  Board of Trustees
+                </Badge>
+              )}
             </Group>
           </Group>
           <Text size="sm">{request.eventName}</Text>
@@ -119,7 +128,7 @@ export default function RequestCard({
         </Stack>
       </UnstyledButton>
 
-      {request.status === 'DRAFT' && !isReadOnly && (
+      {request.status === 'DRAFT' && !isReadOnly && isRequestor && (
         <Box mt="xs" pt="xs" style={{ borderTop: '1px solid var(--mantine-color-gray-2)' }}>
           <Group justify="space-between" gap="xs" wrap="nowrap">
             <Badge color="grape" variant="dot" size="xs">

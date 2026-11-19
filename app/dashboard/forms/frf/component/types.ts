@@ -7,7 +7,8 @@ export type ReservationStatus =
   | 'REJECTED'
   | 'COMPLETED'
   | 'CANCELLED'
-  | 'RESCHEDULE_PENDING';
+  | 'RESCHEDULE_PENDING'
+  | 'BOT_PREEMPTED';
 export type ApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'REVISION_REQUESTED' | 'ACKNOWLEDGED';
 
 // ==========================================
@@ -59,6 +60,7 @@ export interface FacilityApproval {
   performedAt?: string;
   remarks?: string;
   revisionReason?: string;
+  revisionRequestedAt?: string;
   acknowledgedAt?: string;
   performedBy?: {
     fname: string;
@@ -116,6 +118,8 @@ export interface FacilityReservation {
   isReschedule?: boolean;
   originalDates?: OriginalDateEntry[];
 
+  originalEquipment?: OriginalEquipmentEntry[];
+
   originalApprovals?: FacilityApproval[];
 
   isVenueOnly?: boolean;
@@ -127,6 +131,18 @@ export interface FacilityReservation {
   packUpDoneNotes?: string;
   packUpDoneBy?: { id: string; fname: string; lname: string; email: string; departmentCode: string };
   packUpDonePhotos?: string[];
+
+  // 🆕 BOT fields
+  isBotEvent?: boolean;
+  botPreemptedAt?: string;
+  botPreemptedById?: string;
+}
+
+export interface OriginalEquipmentEntry {
+  equipmentId: string;
+  quantityRequested: number;
+  equipmentName?: string;
+  departmentCode?: string;
 }
 
 export interface EventPlace {
@@ -270,4 +286,33 @@ export interface OriginalDateEntry {
   placeId?: string;
   placeOther?: string;
   place?: { name: string } | null;
+}
+
+// ==========================================
+// FRF FORM SETTINGS (mirrors FormSettings API shape)
+// ==========================================
+export interface FRFSettings {
+  minAdvanceDaysRegular: number;
+  minAdvanceDaysVIP: number;
+  maxEventsPerDay: number;
+  minRescheduleDays: number;
+  enableVipMode: boolean;
+  vipVisibleDepartments: string[];
+  equipmentLendingDepartments: string[];
+  manageAccessDepartments: string[];
+}
+
+// 🆕 BOT preemption types
+export interface BotConflictEntry {
+  reservationId: string;
+  referenceId: string;
+  eventName?: string;
+  requestor: { id: string; fname: string; lname: string; email: string };
+  dates: { eventStart: string; eventEnd: string }[];
+}
+
+export interface BotPreemptPreview {
+  autoBump: BotConflictEntry[];
+  pickCandidates: BotConflictEntry[];
+  picksNeeded: number;
 }

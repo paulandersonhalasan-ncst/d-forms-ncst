@@ -26,10 +26,26 @@ function isSuperUser(user) {
   return user?.role === 'SuperUser';
 }
 
-function isDepartmentHead(user, deptCode) {
+// 🆕 Fixed: OIC status is temporary via oic_start/oic_end, not a role.
+function isHeadOrOIC(user) {
   if (!user) return false;
-  const isHead = user.role === 'DepartmentHead' || user.role === 'OIC';
-  return isHead && user.departmentCode === deptCode;
+  const role = user.role?.toUpperCase();
+  if (role === 'DEPARTMENTHEAD' || role === 'DEPARTMENT_HEAD') return true;
+  if (user.oic_start && user.oic_end) {
+    try {
+      const now = new Date();
+      const start = new Date(user.oic_start);
+      const end = new Date(user.oic_end);
+      if (!isNaN(start.getTime()) && !isNaN(end.getTime()) && now >= start && now <= end) {
+        return true;
+      }
+    } catch {}
+  }
+  return false;
+}
+
+function isDepartmentHead(user, deptCode) {
+  return isHeadOrOIC(user) && user?.departmentCode === deptCode;
 }
 
 // ==========================================
@@ -143,9 +159,9 @@ export async function POST(request) {
       return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
     }
 
-    if (!isSuperUser(user) && !isDepartmentHead(user, user.departmentCode)) {
+    if (!isSuperUser(user) && !isHeadOrOIC(user)) {
       return NextResponse.json(
-        { success: false, message: 'Only SuperUser or Department Head can add equipment' },
+        { success: false, message: 'Only SuperUser or Department Head/OIC can add equipment' },
         { status: 403 }
       );
     }
@@ -157,6 +173,14 @@ export async function POST(request) {
       return NextResponse.json(
         { success: false, message: 'Name and departmentCode are required' },
         { status: 400 }
+      );
+    }
+
+    // 🆕 Non-SuperUser can only create equipment for their OWN department
+    if (!isSuperUser(user) && departmentCode !== user.departmentCode) {
+      return NextResponse.json(
+        { success: false, message: 'You can only create equipment for your own department' },
+        { status: 403 }
       );
     }
 
@@ -243,9 +267,6 @@ export async function POST(request) {
   }
 }
 
-// ==========================================
-// PUT /api/frf/equipment?id=xxx
-// ==========================================
 export async function PUT(request) {
   try {
     const user = await getAuthenticatedUser(request);
@@ -263,7 +284,8 @@ export async function PUT(request) {
     }
 
     const body = await request.json();
-    const { name, isSingleItem, quantityAvailable, branch, placeIds, bundledPlaceIds } = body;
+    // 🆕 departmentCode added to destructure
+    const { name, departmentCode, isSingleItem, quantityAvailable, branch, placeIds, bundledPlaceIds } = body;
 
     const existing = await prisma.equipment.findUnique({ where: { id } });
     if (!existing) {
@@ -275,7 +297,21 @@ export async function PUT(request) {
 
     if (!isSuperUser(user) && !isDepartmentHead(user, existing.departmentCode)) {
       return NextResponse.json(
-        { success: false, message: 'Only SuperUser or the department head can update this equipment' },
+        { success: false, message: 'Only SuperUser or this department\'s Head/OIC can update this equipment' },
+        { status: 403 }
+      );
+    }
+
+    // 🆕 Ownership transfer (dept change) is SuperUser-only.
+    const isChangingDept =
+      departmentCode !== undefined && departmentCode !== existing.departmentCode;
+
+    if (isChangingDept && !isSuperUser(user)) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Only SuperUser can change the owning department of an equipment',
+        },
         { status: 403 }
       );
     }
@@ -284,6 +320,29 @@ export async function PUT(request) {
     if (name !== undefined) updateData.name = name.trim();
     if (isSingleItem !== undefined) updateData.isSingleItem = isSingleItem;
     if (quantityAvailable !== undefined) updateData.quantityAvailable = quantityAvailable;
+
+    // 🆕 Apply dept change (with existence check)
+    let newDeptCode = existing.departmentCode;
+    if (isChangingDept) {
+      if (!departmentCode || typeof departmentCode !== 'string' || departmentCode.trim() === '') {
+        return NextResponse.json(
+          { success: false, message: 'departmentCode must be a non-empty string' },
+          { status: 400 }
+        );
+      }
+      const dept = await prisma.department.findUnique({
+        where: { code: departmentCode.trim() },
+        select: { code: true },
+      });
+      if (!dept) {
+        return NextResponse.json(
+          { success: false, message: `Department "${departmentCode}" not found` },
+          { status: 400 }
+        );
+      }
+      updateData.departmentCode = dept.code;
+      newDeptCode = dept.code;
+    }
 
     let normalizedBranch;
     if (branch !== undefined) {
@@ -306,20 +365,28 @@ export async function PUT(request) {
       );
     }
 
-    // Uniqueness check if name/branch changing
+    // Uniqueness check — 🆕 now uses newDeptCode and also triggers on dept change
     const newName = updateData.name ?? existing.name;
-    if (newName !== existing.name || (normalizedBranch !== undefined && normalizedBranch !== existing.branch)) {
+    const uniquenessNeedsCheck =
+      newName !== existing.name ||
+      isChangingDept ||
+      (normalizedBranch !== undefined && normalizedBranch !== existing.branch);
+
+    if (uniquenessNeedsCheck) {
       const duplicate = await prisma.equipment.findFirst({
         where: {
           id: { not: id },
           name: newName,
-          departmentCode: existing.departmentCode,
+          departmentCode: newDeptCode,   // 🆕 NEW dept
           branch: finalBranch,
         },
       });
       if (duplicate) {
         return NextResponse.json(
-          { success: false, message: 'Another equipment with this name already exists in this branch' },
+          {
+            success: false,
+            message: `Another equipment with this name already exists in ${newDeptCode}${finalBranch ? ` (${finalBranch})` : ''}`,
+          },
           { status: 409 }
         );
       }
@@ -364,6 +431,13 @@ export async function PUT(request) {
         name: equipment.name,
         branch: equipment.branch,
         placeIds: normalizedPlaceIds,
+        // 🆕 Audit trail for ownership transfer
+        ...(isChangingDept && {
+          departmentChanged: {
+            from: existing.departmentCode,
+            to: newDeptCode,
+          },
+        }),
       }),
     });
 
@@ -406,7 +480,7 @@ export async function DELETE(request) {
 
     if (!isSuperUser(user) && !isDepartmentHead(user, existing.departmentCode)) {
       return NextResponse.json(
-        { success: false, message: 'Only SuperUser or the department head can delete this equipment' },
+        { success: false, message: 'Only SuperUser or this department\'s Head/OIC can delete this equipment' },
         { status: 403 }
       );
     }

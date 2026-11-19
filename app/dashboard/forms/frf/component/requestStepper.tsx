@@ -27,10 +27,11 @@ import {
   ActionIcon,
   ScrollArea,
   PasswordInput,
-  ThemeIcon
+  ThemeIcon,
+  UnstyledButton
 } from '@mantine/core';
 import { useForm } from '@mantine/form';
-import { FRFFormValues, Equipment, EventPlace, ReservationType, UserContext, DateEntry, FacilityReservation, isActiveHeadOrOIC } from './types';
+import { FRFFormValues, Equipment, EventPlace, ReservationType, UserContext, DateEntry, FacilityReservation, isActiveHeadOrOIC, BotPreemptPreview, BotConflictEntry } from './types';
 import {
   IconInfoCircle,
   IconCheck,
@@ -43,14 +44,15 @@ import {
   IconPhoto,
   IconFileTypePdf,
   IconFile,
-  IconAlertCircle
+  IconAlertCircle,
+  IconRefresh,
 } from '@tabler/icons-react';
 import { DatePicker, TimeInput } from '@mantine/dates';
 import { useMediaQuery } from '@mantine/hooks';
 import { useDisclosure } from '@mantine/hooks';
 import ITOAssignmentModal from './itoAssignmentModal';
 import { ITOAssignment } from './types';
-import { IconUserCheck } from '@tabler/icons-react';
+import { IconUserCheck, IconAlertTriangle } from '@tabler/icons-react';
 
 // Helper to generate temporary ID
 const generateId = (): string => Math.random().toString(36).substring(2, 9);
@@ -120,6 +122,7 @@ interface RequestStepperProps {
   onSuccess: () => void;
   editData?: FacilityReservation | null;
   isEditing?: boolean;
+  preemptedByRefId?: string | null;
   onResubmit?: (
     id: string,
     values: FRFFormValues,
@@ -160,10 +163,27 @@ export default function RequestStepper({
   isRescheduleMode = false,
   onReschedule,
   isDraftMode = false,
-  onSaveDraft
+  onSaveDraft,
+  preemptedByRefId
 }: RequestStepperProps) {
   const isHeadOrOIC = isActiveHeadOrOIC(currentUser);
   const isMobile = useMediaQuery('(max-width: 768px)');
+
+  // 🆕 Extract revision reason for prominent banner during resubmit
+  const revisionInfo = useMemo(() => {
+    if (!isEditing || !editData) return null;
+    const rev = editData.approvals?.find(a => a.status === 'REVISION_REQUESTED');
+    if (!rev) return null;
+    return {
+      reason: rev.revisionReason || rev.remarks || '(No reason provided)',
+      dept: rev.departmentCode,
+      performedBy: rev.performedBy
+        ? `${rev.performedBy.fname} ${rev.performedBy.lname}`.trim()
+        : null,
+      performedAt: rev.performedAt || null,
+    };
+  }, [isEditing, editData]);
+
   const [hasUserInteraction, setHasUserInteraction] = useState(false);
   const [activeStep, setActiveStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
@@ -176,17 +196,27 @@ export default function RequestStepper({
     minAdvanceDaysVIP: number;
     minRescheduleDays: number;
     enableVipMode?: boolean;
+    vipVisibleDepartments?: string[];
+    equipmentLendingDepartments?: string[];
   }>({
     minAdvanceDaysRegular: 7,
     minAdvanceDaysVIP: 1,
     minRescheduleDays: 3,
-    enableVipMode: true, 
+    enableVipMode: true,
+    vipVisibleDepartments: ['PSMO/FMO', 'ITO', 'ITO-MAIN'],
+    equipmentLendingDepartments: ['ITO-MAIN', 'PSMO/FMO', 'OP', 'CDO'],
   });
 
   const [allowVipVenues, setAllowVipVenues] = useState(false); // separate state
   const [minDatePreset, setMinDatePreset] = useState<'tomorrow' | 'sevenDays'>('sevenDays');
 
   const [itoAssignOpened, { open: openItoAssign, close: closeItoAssign }] = useDisclosure(false);
+
+  // 🆕 BOT preemption preview state
+  const [botPreviewOpened, { open: openBotPreview, close: closeBotPreview }] = useDisclosure(false);
+  const [botPreview, setBotPreview] = useState<BotPreemptPreview | null>(null);
+  const [selectedPickIds, setSelectedPickIds] = useState<string[]>([]);
+  const [pendingSubmitValues, setPendingSubmitValues] = useState<FRFFormValues | null>(null);
 
   const [assignments, setAssignments] = useState<ITOAssignment[]>(() => {
     if (editData?.assignments?.length) {
@@ -220,11 +250,20 @@ export default function RequestStepper({
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
-    // 🆕 Reschedule mode: earliest allowed = today + minRescheduleDays
-    if (isRescheduleMode) {
-      const minDate = new Date(today);
-      minDate.setDate(today.getDate() + settings.minRescheduleDays);
-      return minDate;
+    // 🆕 Reschedule mode: anchor on ORIGINAL event date + minRescheduleDays,
+    //    with `today` as a sanity floor (Option 2).
+    if (isRescheduleMode && editData?.dates?.length) {
+      const originalEarliest = editData.dates.reduce((earliest, d) => {
+        const dt = new Date(d.date);
+        dt.setHours(0, 0, 0, 0);
+        return dt < earliest ? dt : earliest;
+      }, new Date(8640000000000000));
+
+      const anchored = new Date(originalEarliest);
+      anchored.setDate(originalEarliest.getDate() + settings.minRescheduleDays);
+
+      // Option 2: whichever is LATER — the anchored date or today
+      return anchored > today ? anchored : today;
     }
 
     const daysToAdd = minDatePreset === 'tomorrow'
@@ -234,7 +273,7 @@ export default function RequestStepper({
     const minDate = new Date(today);
     minDate.setDate(today.getDate() + daysToAdd);
     return minDate;
-  }, [settings, minDatePreset, isRescheduleMode]);
+  }, [settings, minDatePreset, isRescheduleMode, editData]);
 
   // --- Compute initial values based on props ---
   const getInitialFormValues = useMemo((): FRFFormValues => {
@@ -643,7 +682,7 @@ export default function RequestStepper({
     );
   };
 
-  const handleSubmit = useCallback(async (values: FRFFormValues) => {
+  const handleSubmit = useCallback(async (values: FRFFormValues, bumpedIds?: string[]) => {
 
     if (requiresAssignments && assignments.length === 0) {
       alert('❌ You are ITO-MAIN head/OIC creating this reservation. Please assign at least one ITO staff member before submitting.');
@@ -672,11 +711,21 @@ export default function RequestStepper({
         return;
       }
 
-      // 🆕 Enforce minimum reschedule days
+      // 🆕 Enforce minimum reschedule days — anchor on ORIGINAL event date,
+      //    with `today` as a sanity floor (Option 2).
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-      const minAllowedDate = new Date(today);
-      minAllowedDate.setDate(today.getDate() + settings.minRescheduleDays);
+
+      const originalEarliest = editData.dates.reduce((earliest, d) => {
+        const dt = new Date(d.date);
+        dt.setHours(0, 0, 0, 0);
+        return dt < earliest ? dt : earliest;
+      }, new Date(8640000000000000));
+
+      const anchored = new Date(originalEarliest);
+      anchored.setDate(originalEarliest.getDate() + settings.minRescheduleDays);
+
+      const minAllowedDate = anchored > today ? anchored : today;
 
       const earliestNewDate = values.dates.reduce((earliest, entry) => {
         const d = new Date(entry.date);
@@ -686,10 +735,10 @@ export default function RequestStepper({
 
       if (earliestNewDate < minAllowedDate) {
         setPasswordError(
-          `Reschedule date must be at least ${settings.minRescheduleDays} day(s) from today.`
+          `Reschedule date must be at least ${settings.minRescheduleDays} day(s) after the original event date.`
         );
         alert(
-          `❌ Reschedule date must be at least ${settings.minRescheduleDays} day(s) from today (earliest allowed: ${minAllowedDate.toLocaleDateString()}).`
+          `❌ Reschedule date must be at least ${settings.minRescheduleDays} day(s) after the original event date (earliest allowed: ${minAllowedDate.toLocaleDateString()}).`
         );
         return;
       }
@@ -819,6 +868,48 @@ export default function RequestStepper({
       return;
     }
 
+    // 🆕 BOT preemption check
+    // Skip this if `bumpedIds` is already provided — user has confirmed via the modal
+    // and we don't want to re-detect conflicts after their confirmation.
+    const selectedPlaces = values.dates
+      .map(d => d.placeId ? places.find(p => p.id === d.placeId) : null)
+      .filter(Boolean);
+    const isBotBooking = selectedPlaces.some(p => p?.category === 'VIP');
+
+    if (isBotBooking && !bumpedIds) {
+      try {
+        const previewRes = await fetch('/api/frf/bot_preempt_preview', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            dates: values.dates.map(d => ({
+              date: d.date.toISOString(),
+              eventStart: d.eventStart.toISOString(),
+              eventEnd: d.eventEnd.toISOString(),
+              placeId: d.placeId,
+              placeOther: d.placeOther,
+            })),
+          }),
+        });
+        const previewResult = await previewRes.json();
+        if (previewResult.success && previewResult.data) {
+          const { autoBump, pickCandidates, picksNeeded } = previewResult.data;
+          if (autoBump.length > 0 || picksNeeded > 0) {
+            // Show modal
+            setBotPreview({ autoBump, pickCandidates, picksNeeded });
+            setSelectedPickIds([]);
+            setPendingSubmitValues({ ...values, assignments });
+            openBotPreview();
+            setSubmitting(false);
+            return;
+          }
+        }
+      } catch (err) {
+        console.error('BOT preview error:', err);
+        // Continue without blocking — server will still validate
+      }
+    }
+
     setSubmitting(true);
     setPasswordError('');
     try {
@@ -860,6 +951,11 @@ export default function RequestStepper({
       }
       formData.append('dates', JSON.stringify(datesForSubmission));
 
+      // 🆕 Include BOT bump picks if present
+      if (bumpedIds && bumpedIds.length > 0) {
+        formData.append('bumpedReservationIds', JSON.stringify(bumpedIds));
+      }
+
       const res = await fetch('/api/frf/reservation', {
         method: 'POST',
         body: formData,
@@ -883,8 +979,8 @@ export default function RequestStepper({
     } finally {
       setSubmitting(false);
     }
-    }, [isRescheduleMode, isEditing, isDraftMode, editData, onReschedule, onResubmit, password, rescheduleReason, hasChanges, attachmentsToKeep, onSuccess, onClose, settings.minRescheduleDays, assignments, requiresAssignments]);
-
+    }, [isRescheduleMode, isEditing, isDraftMode, editData, onReschedule, onResubmit, password, rescheduleReason, hasChanges, attachmentsToKeep, onSuccess, onClose, settings.minRescheduleDays, assignments, requiresAssignments, places]);
+    
   // 🆕 Track whether the user has entered meaningful data — used to warn on close
   // Uses render-phase sync (no useEffect → no cascading-render warning).
   // Same pattern as approvalTimeline.tsx, navbar.tsx, and page.tsx.
@@ -915,6 +1011,12 @@ export default function RequestStepper({
     const selectedPlaceIds = useMemo(
       () => form.values.dates.map(d => d.placeId).filter(Boolean) as string[],
       [form.values.dates]
+    );
+
+    // 🆕 Check if this booking uses any VIP venue (BOT priority)
+    const isBotBooking = useMemo(
+      () => selectedPlaceIds.some(id => places.find(p => p.id === id)?.category === 'VIP'),
+      [selectedPlaceIds, places]
     );
 
     const relevantEquipment = useMemo(() => {
@@ -948,6 +1050,33 @@ export default function RequestStepper({
       () => relevantEquipment.filter(e => isEquipmentBundled(e)),
       [relevantEquipment, isEquipmentBundled]
     );
+
+    // 🆕 Dynamic equipment cards — strictly limited to departments listed
+    //    in Settings → Equipment-Lending Departments. If a dept isn't on
+    //    that list, their equipment is hidden even if records exist in the
+    //    DB — keeps the FRF form consistent with the approval flow (no
+    //    orphaned equipment that can't trigger an approval step).
+    const equipmentByDept = useMemo(() => {
+      const grouped: Record<string, Equipment[]> = {};
+      for (const eq of relevantEquipment) {
+        const dept = eq.departmentCode || 'UNASSIGNED';
+        if (!grouped[dept]) grouped[dept] = [];
+        grouped[dept].push(eq);
+      }
+
+      const order = settings.equipmentLendingDepartments ?? [];
+
+      // Strict filter: only show depts that are (a) in the lending list AND
+      // (b) actually have equipment. Non-lending depts with stray DB rows
+      // are silently dropped.
+      const finalOrder = order.filter(d => grouped[d]?.length > 0);
+
+      return finalOrder.map((deptCode, index) => ({
+        deptCode,
+        color: getDepartmentColor(deptCode, index),
+        items: grouped[deptCode],
+      }));
+    }, [relevantEquipment, settings.equipmentLendingDepartments]);
 
     if (settings.enableVipMode === false && minDatePreset === 'tomorrow') {
       setMinDatePreset('sevenDays');
@@ -1010,9 +1139,10 @@ export default function RequestStepper({
       }
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [opened, selectedPlaceIds, equipment]);
+
   // Determine modal title
   const modalTitle = isRescheduleMode
-    ? 'Request Reschedule'
+    ? (editData?.status === 'BOT_PREEMPTED' ? 'Request Reschedule (BOT Preempted)' : 'Request Reschedule')
     : isEditing
     ? 'Edit Reservation'
     : 'New Facility Reservation';
@@ -1101,6 +1231,7 @@ export default function RequestStepper({
   };
 
   return (
+    <>
     <Modal
       opened={opened}
       onClose={handleLocalClose}
@@ -1141,6 +1272,60 @@ export default function RequestStepper({
 
         handleSubmit({ ...form.values, assignments });
       }}>
+        {/* 🆕 BOT Preemption banner — shows during reschedule mode only */}
+        {isRescheduleMode && editData?.status === 'BOT_PREEMPTED' && (
+          <Alert
+            icon={<IconAlertTriangle size={isMobile ? 16 : 20} />}
+            color="red"
+            radius="md"
+            mb="md"
+            title="⚠️ Preempted by BOT Priority Booking"
+          >
+            <Text size="sm" fw={500} style={{ whiteSpace: 'pre-wrap' }}>
+              Your reservation <b>{editData.referenceId}</b> was preempted by a{' '}
+              <b>Board of Trustees Event</b>
+              {preemptedByRefId ? <> (<b>{preemptedByRefId}</b>)</> : null}
+              {editData.botPreemptedAt ? (
+                <> on <b>{new Date(editData.botPreemptedAt).toLocaleDateString('en-US', {
+                  month: 'long', day: 'numeric', year: 'numeric',
+                })}</b></>
+              ) : null}.
+            </Text>
+            <Text size="xs" c="dimmed" mt={6}>
+              This reschedule is required to resolve the venue + staffing conflict. Please select a new date below.
+            </Text>
+          </Alert>
+        )}
+
+        {/* 🆕 Persistent revision reason banner — visible on every step */}
+        {revisionInfo && (
+          <Alert
+            icon={<IconRefresh size={isMobile ? 16 : 18} />}
+            color="orange"
+            radius="md"
+            mb="md"
+            title={`Revision Requested by ${revisionInfo.dept}`}
+          >
+            <Text size="sm" fw={500} style={{ whiteSpace: 'pre-wrap' }}>
+              {revisionInfo.reason}
+            </Text>
+            {(revisionInfo.performedBy || revisionInfo.performedAt) && (
+              <Text size="xs" c="dimmed" mt={4}>
+                {revisionInfo.performedAt && (
+                  <>Requested on {new Date(revisionInfo.performedAt).toLocaleString()}</>
+                )}
+                {revisionInfo.performedBy && (
+                  <> by <b>{revisionInfo.performedBy}</b></>
+                )}
+              </Text>
+            )}
+            <Text size="xs" c="dimmed" mt={6} fs="italic">
+              Please address the above before resubmitting. Earlier approvals will be preserved —
+              the flow will resume from <b>{revisionInfo.dept}</b>.
+            </Text>
+          </Alert>
+        )}
+
         <Stepper
           active={activeStep}
           onStepClick={setActiveStep}
@@ -1230,31 +1415,40 @@ export default function RequestStepper({
                   size="sm"
                 />
               </Grid.Col>
-              {isHeadOrOIC && (currentUser?.departmentCode === 'ITO-MAIN' || currentUser?.departmentCode === 'PSMO/FMO') && (
-                <Grid.Col span={12}>
-                  <Radio.Group
-                    label="Event Priority Level"
-                    value={minDatePreset}
-                    onChange={(val) => setMinDatePreset(val as typeof minDatePreset)}
-                    size="sm"
-                  >
-                    <Group mt="xs" gap="sm">
-                      {/* 🆕 Show VIP option only when enableVipMode is ON */}
-                      {settings.enableVipMode !== false && (
-                        <Radio value="tomorrow" label="(VIP - ITO/PSMO/FMO ONLY) Tomorrow (1 day)"/>
-                      )}
-                      <Radio value="sevenDays" label="REGULAR" />
-                    </Group>
-                  </Radio.Group>
-                  {settings.enableVipMode !== false && minDatePreset === 'tomorrow' && (
-                    <Alert icon={<IconInfoCircle size={14} />} color="violet" mt="xs" p="xs">
-                      <Text size="xs">
-                        <b>VIP Mode active.</b> VIP venues (⭐) are now selectable. VIP events bypass the 2-events-per-day limit.
-                      </Text>
-                    </Alert>
-                  )}
-                </Grid.Col>
-              )}
+              {/* 🆕 VIP visibility: SuperUser always sees; others via settings.vipVisibleDepartments */}
+              {(() => {
+                const canSeeVip =
+                  currentUser?.role === 'SuperUser' ||
+                  (isHeadOrOIC &&
+                    settings.vipVisibleDepartments?.includes(currentUser?.departmentCode ?? ''));
+                const showVipPanel = canSeeVip && settings.enableVipMode !== false;
+                if (!showVipPanel) return null;
+                return (
+                  <Grid.Col span={12}>
+                    <Radio.Group
+                      label="Event Priority Level"
+                      value={minDatePreset}
+                      onChange={(val) => setMinDatePreset(val as typeof minDatePreset)}
+                      size="sm"
+                    >
+                      <Group mt="xs" gap="sm">
+                        <Radio
+                          value="tomorrow"
+                          label={`(VIP/BOT) Tomorrow (${settings.minAdvanceDaysVIP} day${settings.minAdvanceDaysVIP === 1 ? '' : 's'})`}
+                        />
+                        <Radio value="sevenDays" label="REGULAR" />
+                      </Group>
+                    </Radio.Group>
+                    {minDatePreset === 'tomorrow' && (
+                      <Alert icon={<IconInfoCircle size={14} />} color="violet" mt="xs" p="xs">
+                        <Text size="xs">
+                          <b>VIP/BOT Mode active.</b> VIP/BOT venues (⭐) are now selectable. VIP/BOT events bypass specific restrictions.
+                        </Text>
+                      </Alert>
+                    )}
+                  </Grid.Col>
+                );
+              })()}
               <Grid.Col span={12}>
                 <Text fw={600} size="sm" mb="xs">
                   Event Dates & Times
@@ -1275,8 +1469,8 @@ export default function RequestStepper({
                     <Divider label="New Dates" labelPosition="center" />
                     {isRescheduleMode && (
                       <Alert icon={<IconInfoCircle size={16} />} color="yellow" mb="md">
-                        New dates must be at least <b>{settings.minRescheduleDays} day(s)</b> from today. The
-                        earliest date you can pick is{' '}
+                        New dates must be at least <b>{settings.minRescheduleDays} day(s)</b> after the
+                        original event date. The earliest date you can pick is{' '}
                         <b>{getMinDate().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</b>.
                       </Alert>
                     )}
@@ -1604,331 +1798,100 @@ export default function RequestStepper({
               </Alert>
             )}
 
-            <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing={isMobile ? 'sm' : 'lg'}>
-              {/* PSMO/FMO Equipment */}
-              <Card withBorder p={isMobile ? 'sm' : 'md'} radius="md">
-                <Text fw={700} size="sm" mb="md" color="blue">
-                  PSMO/FMO Equipment
-                </Text>
-                <Stack gap="sm">
-                  {relevantEquipment
-                    .filter((e) => e.departmentCode === 'PSMO/FMO')
-                    .map((e) => (
-                      <Paper key={e.id} withBorder p="xs" radius="sm">
-                        <Group grow align="center">
-                          <Checkbox
-                                                        label={
-                              <Text size={isMobile ? 'xs' : 'sm'}>
-                                {isEquipmentBundled(e) && (
-                                  <Badge
-                                    component="span"
-                                    size="xs"
-                                    color="orange"
-                                    variant="filled"
-                                    mr={4}
-                                    style={{ verticalAlign: 'middle' }}
-                                  >
-                                    ⭐SET
-                                  </Badge>
-                                )}
-                                {e.name}{' '}
-                                {e.isSingleItem ? (
-                                  <Text component="span" size="xs" c="dimmed">
-                                    (Single Item)
-                                  </Text>
-                                ) : (
-                                  <Text component="span" size="xs" c="dimmed">
-                                    (Available: {e.quantityAvailable - (e.quantityReserved || 0)})
-                                    {e.quantityReserved ? ` · ${e.quantityReserved} reserved` : ''})
-                                  </Text>
-                                )}
-                              </Text>
-                            }
-                            checked={form.values.equipmentRequests.some(
-                              (req) => req.equipmentId === e.id
-                            )}
-                            onChange={(ev) => {
-                              if (ev.currentTarget.checked) {
-                                form.setFieldValue('equipmentRequests', [
-                                  ...form.values.equipmentRequests,
-                                  { equipmentId: e.id, quantity: 1 },
-                                ]);
-                              } else {
-                                form.setFieldValue(
-                                  'equipmentRequests',
-                                  form.values.equipmentRequests.filter(
-                                    (req) => req.equipmentId !== e.id
-                                  )
-                                );
+            {equipmentByDept.length === 0 ? (
+              <Alert icon={<IconInfoCircle size={16} />} color="gray" radius="md">
+                No equipment available for the selected venue/branch combination.
+              </Alert>
+            ) : (
+              <SimpleGrid
+                cols={{
+                  base: 1,
+                  sm: Math.min(2, equipmentByDept.length),
+                  lg: Math.min(4, equipmentByDept.length),
+                }}
+                spacing={isMobile ? 'sm' : 'lg'}
+              >
+                {equipmentByDept.map(({ deptCode, color, items }) => (
+                  <Card key={deptCode} withBorder p={isMobile ? 'sm' : 'md'} radius="md">
+                    <Text fw={700} size="sm" mb="md" color={color}>
+                      {deptCode === 'ITO-MAIN' ? 'ITO' : deptCode} Equipment
+                    </Text>
+                    <Stack gap="sm">
+                      {items.map((e) => (
+                        <Paper key={e.id} withBorder p="xs" radius="sm">
+                          <Group grow align="center">
+                            <Checkbox
+                              label={
+                                <Text size={isMobile ? 'xs' : 'sm'}>
+                                  {isEquipmentBundled(e) && (
+                                    <Badge
+                                      component="span"
+                                      size="xs"
+                                      color="orange"
+                                      variant="filled"
+                                      mr={4}
+                                      style={{ verticalAlign: 'middle' }}
+                                    >
+                                      ⭐SET
+                                    </Badge>
+                                  )}
+                                  {e.name}{' '}
+                                  {e.isSingleItem ? (
+                                    <Text component="span" size="xs" c="dimmed">
+                                      (Single Item)
+                                    </Text>
+                                  ) : (
+                                    <Text component="span" size="xs" c="dimmed">
+                                      (Available: {e.quantityAvailable - (e.quantityReserved || 0)})
+                                      {e.quantityReserved ? ` · ${e.quantityReserved} reserved` : ''})
+                                    </Text>
+                                  )}
+                                </Text>
                               }
-                            }}
-                          />
-                          {!e.isSingleItem &&
-                            form.values.equipmentRequests.some(
-                              (req) => req.equipmentId === e.id
-                            ) && (
-                              <NumberInput
-                                size="xs"
-                                min={1}
-                                max={e.quantityAvailable - (e.quantityReserved || 0)}
-                                value={
-                                  form.values.equipmentRequests.find(
-                                    (req) => req.equipmentId === e.id
-                                  )?.quantity || 1
+                              checked={form.values.equipmentRequests.some(
+                                (req) => req.equipmentId === e.id
+                              )}
+                              onChange={(ev) => {
+                                if (ev.currentTarget.checked) {
+                                  form.setFieldValue('equipmentRequests', [
+                                    ...form.values.equipmentRequests,
+                                    { equipmentId: e.id, quantity: 1 },
+                                  ]);
+                                } else {
+                                  form.setFieldValue(
+                                    'equipmentRequests',
+                                    form.values.equipmentRequests.filter(
+                                      (req) => req.equipmentId !== e.id
+                                    )
+                                  );
                                 }
-                                onChange={(val) => handleQuantityChange(e.id, val)}
-                                style={{ width: 80 }}
-                              />
-                            )}
-                        </Group>
-                      </Paper>
-                    ))}
-                </Stack>
-              </Card>
-
-              {/* ITO Equipment */}
-              <Card withBorder p={isMobile ? 'sm' : 'md'} radius="md">
-                <Text fw={700} size="sm" mb="md" color="grape">
-                  ITO Equipment
-                </Text>
-                <Stack gap="sm">
-                  {relevantEquipment
-                    .filter((e) => e.departmentCode === 'ITO-MAIN')
-                    .map((e) => (
-                      <Paper key={e.id} withBorder p="xs" radius="sm">
-                        <Group grow align="center">
-                          <Checkbox
-                                                        label={
-                              <Text size={isMobile ? 'xs' : 'sm'}>
-                                {isEquipmentBundled(e) && (
-                                  <Badge
-                                    component="span"
-                                    size="xs"
-                                    color="orange"
-                                    variant="filled"
-                                    mr={4}
-                                    style={{ verticalAlign: 'middle' }}
-                                  >
-                                    ⭐SET
-                                  </Badge>
-                                )}
-                                {e.name}{' '}
-                                {e.isSingleItem ? (
-                                  <Text component="span" size="xs" c="dimmed">
-                                    (Single Item)
-                                  </Text>
-                                ) : (
-                                  <Text component="span" size="xs" c="dimmed">
-                                    (Available: {e.quantityAvailable - (e.quantityReserved || 0)})
-                                    {e.quantityReserved ? ` · ${e.quantityReserved} reserved` : ''})
-                                  </Text>
-                                )}
-                              </Text>
-                            }
-                            checked={form.values.equipmentRequests.some(
-                              (req) => req.equipmentId === e.id
-                            )}
-                            onChange={(ev) => {
-                              if (ev.currentTarget.checked) {
-                                form.setFieldValue('equipmentRequests', [
-                                  ...form.values.equipmentRequests,
-                                  { equipmentId: e.id, quantity: 1 },
-                                ]);
-                              } else {
-                                form.setFieldValue(
-                                  'equipmentRequests',
-                                  form.values.equipmentRequests.filter(
-                                    (req) => req.equipmentId !== e.id
-                                  )
-                                );
-                              }
-                            }}
-                          />
-                          {!e.isSingleItem &&
-                            form.values.equipmentRequests.some(
-                              (req) => req.equipmentId === e.id
-                            ) && (
-                              <NumberInput
-                                size="xs"
-                                min={1}
-                                max={e.quantityAvailable - (e.quantityReserved || 0)}
-                                value={
-                                  form.values.equipmentRequests.find(
-                                    (req) => req.equipmentId === e.id
-                                  )?.quantity || 1
-                                }
-                                onChange={(val) => handleQuantityChange(e.id, val)}
-                                style={{ width: 80 }}
-                              />
-                            )}
-                        </Group>
-                      </Paper>
-                    ))}
-                </Stack>
-              </Card>
-
-              {/* OP Equipment */}
-              <Card withBorder p={isMobile ? 'sm' : 'md'} radius="md">
-                <Text fw={700} size="sm" mb="md" color="grape">
-                  OP Equipment
-                </Text>
-                <Stack gap="sm">
-                  {relevantEquipment
-                    .filter((e) => e.departmentCode === 'OP')
-                    .map((e) => (
-                      <Paper key={e.id} withBorder p="xs" radius="sm">
-                        <Group grow align="center">
-                          <Checkbox
-                                                        label={
-                              <Text size={isMobile ? 'xs' : 'sm'}>
-                                {isEquipmentBundled(e) && (
-                                  <Badge
-                                    component="span"
-                                    size="xs"
-                                    color="orange"
-                                    variant="filled"
-                                    mr={4}
-                                    style={{ verticalAlign: 'middle' }}
-                                  >
-                                    ⭐SET
-                                  </Badge>
-                                )}
-                                {e.name}{' '}
-                                {e.isSingleItem ? (
-                                  <Text component="span" size="xs" c="dimmed">
-                                    (Single Item)
-                                  </Text>
-                                ) : (
-                                  <Text component="span" size="xs" c="dimmed">
-                                    (Available: {e.quantityAvailable - (e.quantityReserved || 0)})
-                                    {e.quantityReserved ? ` · ${e.quantityReserved} reserved` : ''})
-                                  </Text>
-                                )}
-                              </Text>
-                            }
-                            checked={form.values.equipmentRequests.some(
-                              (req) => req.equipmentId === e.id
-                            )}
-                            onChange={(ev) => {
-                              if (ev.currentTarget.checked) {
-                                form.setFieldValue('equipmentRequests', [
-                                  ...form.values.equipmentRequests,
-                                  { equipmentId: e.id, quantity: 1 },
-                                ]);
-                              } else {
-                                form.setFieldValue(
-                                  'equipmentRequests',
-                                  form.values.equipmentRequests.filter(
-                                    (req) => req.equipmentId !== e.id
-                                  )
-                                );
-                              }
-                            }}
-                          />
-                          {!e.isSingleItem &&
-                            form.values.equipmentRequests.some(
-                              (req) => req.equipmentId === e.id
-                            ) && (
-                              <NumberInput
-                                size="xs"
-                                min={1}
-                                max={e.quantityAvailable - (e.quantityReserved || 0)}
-                                value={
-                                  form.values.equipmentRequests.find(
-                                    (req) => req.equipmentId === e.id
-                                  )?.quantity || 1
-                                }
-                                onChange={(val) => handleQuantityChange(e.id, val)}
-                                style={{ width: 80 }}
-                              />
-                            )}
-                        </Group>
-                      </Paper>
-                    ))}
-                </Stack>
-              </Card>
-
-              {/* CDO Equipment */}
-              <Card withBorder p={isMobile ? 'sm' : 'md'} radius="md">
-                <Text fw={700} size="sm" mb="md" color="teal">
-                  CDO Equipment
-                </Text>
-                <Stack gap="sm">
-                  {relevantEquipment
-                    .filter((e) => e.departmentCode === 'CDO')
-                    .map((e) => (
-                      <Paper key={e.id} withBorder p="xs" radius="sm">
-                        <Group grow align="center">
-                          <Checkbox
-                                                        label={
-                              <Text size={isMobile ? 'xs' : 'sm'}>
-                                {isEquipmentBundled(e) && (
-                                  <Badge
-                                    component="span"
-                                    size="xs"
-                                    color="orange"
-                                    variant="filled"
-                                    mr={4}
-                                    style={{ verticalAlign: 'middle' }}
-                                  >
-                                    ⭐SET
-                                  </Badge>
-                                )}
-                                {e.name}{' '}
-                                {e.isSingleItem ? (
-                                  <Text component="span" size="xs" c="dimmed">
-                                    (Single Item)
-                                  </Text>
-                                ) : (
-                                  <Text component="span" size="xs" c="dimmed">
-                                    (Available: {e.quantityAvailable - (e.quantityReserved || 0)})
-                                    {e.quantityReserved ? ` · ${e.quantityReserved} reserved` : ''})
-                                  </Text>
-                                )}
-                              </Text>
-                            }
-                            checked={form.values.equipmentRequests.some(
-                              (req) => req.equipmentId === e.id
-                            )}
-                            onChange={(ev) => {
-                              if (ev.currentTarget.checked) {
-                                form.setFieldValue('equipmentRequests', [
-                                  ...form.values.equipmentRequests,
-                                  { equipmentId: e.id, quantity: 1 },
-                                ]);
-                              } else {
-                                form.setFieldValue(
-                                  'equipmentRequests',
-                                  form.values.equipmentRequests.filter(
-                                    (req) => req.equipmentId !== e.id
-                                  )
-                                );
-                              }
-                            }}
-                          />
-                          {!e.isSingleItem &&
-                            form.values.equipmentRequests.some(
-                              (req) => req.equipmentId === e.id
-                            ) && (
-                              <NumberInput
-                                size="xs"
-                                min={1}
-                                max={e.quantityAvailable - (e.quantityReserved || 0)}
-                                value={
-                                  form.values.equipmentRequests.find(
-                                    (req) => req.equipmentId === e.id
-                                  )?.quantity || 1
-                                }
-                                onChange={(val) => handleQuantityChange(e.id, val)}
-                                style={{ width: 80 }}
-                              />
-                            )}
-                        </Group>
-                      </Paper>
-                    ))}
-                </Stack>
-              </Card>
-            </SimpleGrid>
+                              }}
+                            />
+                            {!e.isSingleItem &&
+                              form.values.equipmentRequests.some(
+                                (req) => req.equipmentId === e.id
+                              ) && (
+                                <NumberInput
+                                  size="xs"
+                                  min={1}
+                                  max={e.quantityAvailable - (e.quantityReserved || 0)}
+                                  value={
+                                    form.values.equipmentRequests.find(
+                                      (req) => req.equipmentId === e.id
+                                    )?.quantity || 1
+                                  }
+                                  onChange={(val) => handleQuantityChange(e.id, val)}
+                                  style={{ width: 80 }}
+                                />
+                              )}
+                          </Group>
+                        </Paper>
+                      ))}
+                    </Stack>
+                  </Card>
+                ))}
+              </SimpleGrid>
+            )}
           </Box>
         )}
 
@@ -2099,6 +2062,26 @@ export default function RequestStepper({
         {/* Step 4: Review */}
         {activeStep === 3 && (
           <Box p="md">
+            {/* 🆕 BOT/VIP Priority Booking Banner */}
+            {isBotBooking && (
+              <Alert
+                color="violet"
+                icon={<IconAlertTriangle size={18} />}
+                mb="lg"
+                title="BOT / VIP Priority Booking"
+                radius="md"
+              >
+                <Text size="sm" fw={500}>
+                  This reservation uses one or more <b>VIP venues</b>. On submission:
+                </Text>
+                <ul style={{ margin: '6px 0 0', paddingLeft: 20, fontSize: 13, lineHeight: 1.7 }}>
+                  <li>Daily limits (<b>max events per day</b>) will be bypassed</li>
+                  <li>Overlapping regular events on the same day may be flagged for <b>preemption</b></li>
+                  <li>You will be prompted to confirm before submission if any conflicts exist</li>
+                </ul>
+              </Alert>
+            )}
+
             <Alert color="blue" mb="lg" icon={<IconInfoCircle size={16} />}>
               Review your reservation details before submitting.
               <br />
@@ -2107,8 +2090,30 @@ export default function RequestStepper({
 
             <Paper withBorder p="md" radius="md">
               <Stack gap="md">
-                {/* Two‑column summary */}
                 <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
+                  {/* 🆕 Event Priority — VIP/BOT vs Regular */}
+                  <div>
+                    <Text size="xs" c="dimmed" fw={600}>Event Priority</Text>
+                    <Text
+                      color={isBotBooking ? 'violet' : 'gray'}
+                      variant={isBotBooking ? 'filled' : 'light'}
+                      size="sm"
+                      mt={2}
+                      fw={600}
+                    >
+                      {isBotBooking ? '🎯 VIP / BOT Priority' : 'Regular'}
+                    </Text>
+                  </div>
+                  {/* 🆕 Reschedule context — only if rescheduling a BOT_PREEMPTED event */}
+                  {isRescheduleMode && editData?.status === 'BOT_PREEMPTED' && (
+                    <div>
+                      <Text size="xs" c="dimmed" fw={600}>Reason</Text>
+                      <Text color="red" size="sm" mt={2} fw={600}>
+                        BOT Preemption
+                        {preemptedByRefId ? ` (${preemptedByRefId})` : ''}
+                      </Text>
+                    </div>
+                  )}
                   <div>
                     <Text size="xs" c="dimmed" fw={600}>Type</Text>
                     <Text size="sm" fw={500}>{form.values.type.replace('_', ' ')}</Text>
@@ -2118,7 +2123,7 @@ export default function RequestStepper({
                     <Text size="sm" fw={500}>{form.values.eventName || '—'}</Text>
                   </div>
                   <div>
-                    <Text size="xs" c="dimmed" fw={600}>Venue Only</Text>
+                    <Text size="xs" c="dimmed" fw={600}>Venue Only?</Text>
                     <Text size="sm" fw={500}>{form.values.isVenueOnly ? 'Yes' : 'No'}</Text>
                   </div>
                   <div>
@@ -2130,8 +2135,12 @@ export default function RequestStepper({
                     <Text size="sm" fw={500}>{form.values.usageHours || 0}</Text>
                   </div>
                   <div>
-                    <Text size="xs" c="dimmed" fw={600}>With Charge</Text>
+                    <Text size="xs" c="dimmed" fw={600}>With Charge?</Text>
                     <Text size="sm" fw={500}>{form.values.withCharge ? 'Yes' : 'No'}</Text>
+                  </div>
+                  <div>
+                    <Text size="xs" c="dimmed" fw={600}>With Physical Activity?</Text>
+                    <Text size="sm" fw={500}>{form.values.hasPhysicalActivity ? 'Yes' : 'No'}</Text>
                   </div>
                 </SimpleGrid>
 
@@ -2404,11 +2413,146 @@ export default function RequestStepper({
       />
 
     </Modal>
+
+    {/* 🆕 BOT Preemption Preview Modal */}
+    <Modal
+      opened={botPreviewOpened}
+      onClose={() => {
+        closeBotPreview();
+        setPendingSubmitValues(null);
+      }}
+      title={
+        <Group gap="xs">
+          <IconAlertTriangle size={20} color="var(--mantine-color-orange-6)" />
+          <Text fw={700} size="lg">BOT Request Conflict/s</Text>
+        </Group>
+      }
+      size="lg"
+      centered
+    >
+      <Stack gap="md">
+        <Alert color="orange" icon={<IconAlertTriangle size={16} />}>
+          <Text size="sm" mt={4}>
+            To maintain the daily staffing capacity at 2 staffed events per day, the following
+            events will be preempted. They will be notified via in-app + email.
+          </Text>
+        </Alert>
+
+        {botPreview && botPreview.autoBump.length > 0 && (
+          <Paper withBorder p="md" radius="md">
+            <Text fw={600} size="sm" mb={8} c="red">
+              This request overlaps with:
+            </Text>
+            <Stack gap="xs">
+              {botPreview.autoBump.map(r => (
+                <Paper key={r.reservationId} withBorder p="xs" radius="sm">
+                  <Text size="sm" fw={600}>{r.referenceId}</Text>
+                  <Text size="xs" c="dimmed">{r.eventName || '—'}</Text>
+                  <Text size="xs" c="dimmed">
+                    {new Date(r.dates[0]?.eventStart ?? '').toLocaleString()} –{' '}
+                    {new Date(r.dates[0]?.eventEnd ?? '').toLocaleTimeString()}
+                  </Text>
+                  <Text size="xs" c="dimmed">
+                    Requestor: {r.requestor.fname} {r.requestor.lname}
+                  </Text>
+                </Paper>
+              ))}
+            </Stack>
+          </Paper>
+        )}
+
+        {botPreview && botPreview.picksNeeded > 0 && (
+          <Paper withBorder p="md" radius="md">
+            <Text fw={600} size="sm" mb={8} c="orange">
+              Pick {botPreview.picksNeeded} to bump (staffing cap exceeded):
+            </Text>
+            <Stack gap="xs">
+              {botPreview.pickCandidates.map(r => {
+                const isSelected = selectedPickIds.includes(r.reservationId);
+                return (
+                  <UnstyledButton
+                    key={r.reservationId}
+                    onClick={() => {
+                      setSelectedPickIds(prev => {
+                        if (prev.includes(r.reservationId)) {
+                          return prev.filter(id => id !== r.reservationId);
+                        }
+                        if (prev.length >= botPreview.picksNeeded) {
+                          return prev;
+                        }
+                        return [...prev, r.reservationId];
+                      });
+                    }}
+                    style={{ width: '100%' }}
+                  >
+                    <Paper
+                      withBorder
+                      p="xs"
+                      radius="sm"
+                      style={{
+                        borderColor: isSelected ? 'var(--mantine-color-orange-5)' : undefined,
+                        borderWidth: isSelected ? 2 : 1,
+                        backgroundColor: isSelected ? 'var(--mantine-color-orange-0)' : undefined,
+                      }}
+                    >
+                      <Group justify="space-between" wrap="nowrap">
+                        <div style={{ flex: 1 }}>
+                          <Text size="sm" fw={600}>{r.referenceId}</Text>
+                          <Text size="xs" c="dimmed">{r.eventName || '—'}</Text>
+                          <Text size="xs" c="dimmed">
+                            {new Date(r.dates[0]?.eventStart ?? '').toLocaleString()} –{' '}
+                            {new Date(r.dates[0]?.eventEnd ?? '').toLocaleTimeString()}
+                          </Text>
+                          <Text size="xs" c="dimmed">
+                            Requestor: {r.requestor.fname} {r.requestor.lname}
+                          </Text>
+                        </div>
+                        <Checkbox checked={isSelected} readOnly size="lg" />
+                      </Group>
+                    </Paper>
+                  </UnstyledButton>
+                );
+              })}
+            </Stack>
+          </Paper>
+        )}
+
+        <Group justify="space-between" mt="md">
+          <Button
+            variant="light"
+            color="gray"
+            onClick={() => {
+              closeBotPreview();
+              setPendingSubmitValues(null);
+            }}
+          >
+            Pick Different Date
+          </Button>
+          <Button
+            color="violet"
+            disabled={!!botPreview && botPreview.picksNeeded > selectedPickIds.length}
+            loading={submitting}
+            onClick={() => {
+              if (!pendingSubmitValues) return;
+              const allBumps = [
+                ...(botPreview?.autoBump.map(r => r.reservationId) ?? []),
+                ...selectedPickIds,
+              ];
+              setSubmitting(true);
+              handleSubmit(pendingSubmitValues, allBumps);
+              closeBotPreview();
+            }}
+          >
+            Confirm BOT Request
+          </Button>
+        </Group>
+      </Stack>
+    </Modal>
+  </>
   );
 }
 
-// Helper for department colors (used inside component)
-function getDepartmentColor(deptCode: string): string {
+function getDepartmentColor(deptCode: string, index = 0): string {
   const colors: Record<string, string> = {
     'PSMO/FMO': 'blue',
     'ITO-MAIN': 'grape',
@@ -2420,5 +2564,9 @@ function getDepartmentColor(deptCode: string): string {
     'HRD': 'pink',
     'ACAD': 'indigo',
   };
-  return colors[deptCode] || 'gray';
+  if (colors[deptCode]) return colors[deptCode];
+
+  // 🆕 Rotate through palette for unknown depts so each gets a distinct color
+  const palette = ['blue', 'grape', 'green', 'teal', 'orange', 'cyan', 'violet', 'lime', 'pink', 'indigo'];
+  return palette[index % palette.length];
 }

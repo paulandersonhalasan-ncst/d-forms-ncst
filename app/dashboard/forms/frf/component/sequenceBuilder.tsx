@@ -1,7 +1,7 @@
 // app/dashboard/forms/frf/manage/component/sequenceBuilder.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import {
   DndContext,
   closestCenter,
@@ -44,9 +44,9 @@ import {
   IconRefresh,
 } from '@tabler/icons-react';
 import {
-  TRIGGER_OPTIONS,
   STEP_TYPE_OPTIONS,
   DEFAULT_FRF_SEQUENCE,
+  getTriggerOptions,   // 🆕 replaces direct TRIGGER_OPTIONS use
 } from '../../../../lib/approval_sequence_defaults';
 
 type StepDraft = {
@@ -91,8 +91,6 @@ interface ApiSequencesResponse {
   };
 }
 
-// Pure fetcher — no setState. Safe to call from useEffect without
-// triggering the React 19 "setState synchronously in effect" rule.
 async function fetchSequence(): Promise<{
   departments: Dept[];
   inFlightCount: number;
@@ -115,16 +113,32 @@ async function fetchSequence(): Promise<{
   };
 }
 
+// 🆕 Fetch equipment-lending departments — drives dynamic trigger options
+//    + the "missing step" warning in this builder.
+async function fetchLendingDepts(): Promise<string[]> {
+  try {
+    const res = await fetch('/api/frf/settings');
+    const data = await res.json();
+    return data?.success && Array.isArray(data.data?.equipmentLendingDepartments)
+      ? data.data.equipmentLendingDepartments
+      : [];
+  } catch {
+    return [];
+  }
+}
+
 function SortableStepRow({
   step,
   index,
   departments,
+  triggerOptions,
   onChange,
   onRemove,
 }: {
   step: StepDraft;
   index: number;
   departments: Dept[];
+  triggerOptions: { value: string; label: string }[];   // 🆕
   onChange: (id: string, patch: Partial<StepDraft>) => void;
   onRemove: (id: string) => void;
 }) {
@@ -183,12 +197,13 @@ function SortableStepRow({
         />
 
         <Select
-          data={TRIGGER_OPTIONS}
+          data={triggerOptions}
           value={step.triggerKey}
           onChange={(val) => val && onChange(step.id, { triggerKey: val })}
           allowDeselect={false}
           style={{ flex: 1.2, minWidth: 220 }}
           comboboxProps={{ zIndex: 5000 }}
+          searchable
         />
 
         <ActionIcon color="red" variant="light" onClick={() => onRemove(step.id)} aria-label="Remove step">
@@ -208,6 +223,7 @@ export default function SequenceBuilder() {
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [isConfigured, setIsConfigured] = useState(false);
+  const [lendingDepts, setLendingDepts] = useState<string[]>([]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -221,11 +237,15 @@ export default function SequenceBuilder() {
     setLoading(true);
     setError('');
     try {
-      const result = await fetchSequence();
+      const [result, lending] = await Promise.all([
+        fetchSequence(),
+        fetchLendingDepts(),
+      ]);
       setDepartments(result.departments);
       setInFlightCount(result.inFlightCount);
       setIsConfigured(result.isConfigured);
       setSteps(result.steps);
+      setLendingDepts(lending);   // 🆕
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Load failed');
     } finally {
@@ -234,18 +254,22 @@ export default function SequenceBuilder() {
   };
 
   useEffect(() => {
-    // Async IIFE: the first statement is `await fetchSequence()`, so no
+    // Async IIFE: the first statement is `await Promise.all(...)`, so no
     // setState runs synchronously in the effect body. React 19 lint rule
     // satisfied; `cancelled` guard handles strict-mode double-invoke.
     let cancelled = false;
     (async () => {
       try {
-        const result = await fetchSequence();
+        const [result, lending] = await Promise.all([
+          fetchSequence(),
+          fetchLendingDepts(),
+        ]);
         if (cancelled) return;
         setDepartments(result.departments);
         setInFlightCount(result.inFlightCount);
         setIsConfigured(result.isConfigured);
         setSteps(result.steps);
+        setLendingDepts(lending);   // 🆕
       } catch (err: unknown) {
         if (cancelled) return;
         setError(err instanceof Error ? err.message : 'Load failed');
@@ -257,6 +281,22 @@ export default function SequenceBuilder() {
       cancelled = true;
     };
   }, []);
+
+  // 🆕 Dynamic trigger options — merges legacy + one per lending dept
+  const triggerOptions = useMemo(
+    () => getTriggerOptions(lendingDepts),
+    [lendingDepts]
+  );
+
+  // 🆕 Lending depts with NO step in the current draft chain.
+  //    Requesting their equipment would not add an approver → warn admin.
+  const lendingDeptsWithoutStep = useMemo(
+    () =>
+      lendingDepts.filter(
+        (d) => d && !steps.some((s) => s.departmentCode === d)
+      ),
+    [lendingDepts, steps]
+  );
 
   const handleDragEnd = (e: DragEndEvent) => {
     const { active, over } = e;
@@ -376,6 +416,27 @@ export default function SequenceBuilder() {
         </Text>
       </Alert>
 
+      {/* 🆕 Warn admin if a lending dept has no approval step in this flow */}
+      {lendingDeptsWithoutStep.length > 0 && (
+        <Alert
+          icon={<IconAlertTriangle size={16} />}
+          color="yellow"
+          title={`${lendingDeptsWithoutStep.length} lending department${lendingDeptsWithoutStep.length === 1 ? '' : 's'} without a step`}
+        >
+          <Text size="sm">
+            Equipment can be requested from these departments, but they have{' '}
+            <b>no approval/acknowledgement step</b> in the current flow:
+          </Text>
+          <Text size="sm" fw={600} mt={4}>
+            {lendingDeptsWithoutStep.join(', ')}
+          </Text>
+          <Text size="xs" c="dimmed" mt={6}>
+            Their equipment requests will not trigger any review. Add a step for each using the
+            <b> &quot;Only if {'{DEPT}'} equipment requested&quot; </b> trigger to fix this.
+          </Text>
+        </Alert>
+      )}
+
       {inFlightCount > 0 && (
         <Alert icon={<IconAlertTriangle size={16} />} color="yellow">
           <b>{inFlightCount} reservation{inFlightCount === 1 ? '' : 's'} in-flight.</b> Changes below apply to
@@ -415,6 +476,7 @@ export default function SequenceBuilder() {
                     step={step}
                     index={i}
                     departments={departments}
+                    triggerOptions={triggerOptions}
                     onChange={updateStep}
                     onRemove={removeStep}
                   />

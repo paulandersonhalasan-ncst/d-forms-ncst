@@ -363,6 +363,7 @@ enum ReservationStatus {
   COMPLETED
   CANCELLED
   RESCHEDULE_PENDING
+  BOT_PREEMPTED
 }
 
 enum ApprovalStatus {
@@ -415,6 +416,8 @@ model FacilityReservation {
   originalDates        Json?
   originalApprovals    Json?
 
+  originalEquipment    Json?
+
   isVenueOnly          Boolean?               @default(false)
 
   hasPhysicalActivity Boolean @default(false)
@@ -428,6 +431,10 @@ model FacilityReservation {
   packUpDoneLocation String?
 
   completionEmailSentAt DateTime?
+
+  isBotEvent           Boolean             @default(false)
+  botPreemptedAt       DateTime?
+  botPreemptedById     String?
 
   @@index([status])
   @@index([requestorDept])
@@ -622,6 +629,15 @@ model FormSettings {
   minRescheduleDays      Int      @default(3)
 
   enableVipMode            Boolean @default(true)
+
+  // 🆕 Configurable VIP visibility. SuperUser always sees VIP regardless.
+  vipVisibleDepartments  String[] @default(["PSMO/FMO", "ITO-MAIN"])
+
+  // 🆕 Depts that own/lend equipment. Each dept Head/OIC can CRUD ONLY their own dept's equipment. Also grants /manage page access.
+  equipmentLendingDepartments String[] @default(["ITO-MAIN", "PSMO/FMO", "OP", "CDO"])
+
+  // 🆕 Extra depts that can access /manage without owning equipment. Union with the lending list.
+  manageAccessDepartments     String[] @default([])
   
   updatedAt              DateTime @updatedAt
   updatedBy              String?

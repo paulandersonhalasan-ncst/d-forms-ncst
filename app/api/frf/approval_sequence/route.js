@@ -102,8 +102,16 @@ export async function PUT(request) {
       if (!STEP_TYPES.includes(step.stepType)) {
         return NextResponse.json({ success: false, message: `Step ${i + 1}: invalid stepType "${step.stepType}"` }, { status: 400 });
       }
-      if (!TRIGGER_KEYS.includes(step.triggerKey)) {
-        return NextResponse.json({ success: false, message: `Step ${i + 1}: invalid triggerKey "${step.triggerKey}"` }, { status: 400 });
+      // 🆕 Accept legacy triggers + generic `has_equipment_from_{DEPT}` prefix
+      const isValidTrigger = (key) =>
+        typeof key === 'string' &&
+        (TRIGGER_KEYS.includes(key) || key.startsWith('has_equipment_from_'));
+
+      if (!isValidTrigger(step.triggerKey)) {
+        return NextResponse.json(
+          { success: false, message: `Step ${i + 1}: invalid triggerKey "${step.triggerKey}"` },
+          { status: 400 }
+        );
       }
       if (seenDepts.has(step.departmentCode)) {
         return NextResponse.json({ success: false, message: `Duplicate department: ${step.departmentCode}` }, { status: 400 });

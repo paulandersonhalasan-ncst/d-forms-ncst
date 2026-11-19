@@ -11,13 +11,18 @@ import {
   getDepartmentHeads,
   sendFRFRescheduleNotification,
   sendFRFAssignmentToStaff,
-  sendFRFCompletionNotification
+  sendFRFCompletionNotification,
+  sendFRFBotPreemptedToRequestor,
+  sendFRFBotPreemptedToDepartment,
+  sendFRFAcknowledgementRequest,
+  sendFRFAcknowledgedConfirmation,
 } from '../../../lib/email_notification';
 import bcrypt from 'bcrypt';
 
 import { materializeApprovalChain, getFRFSequence } from '../../../lib/approval_sequence';
 
 import { put, del } from '@vercel/blob';
+import { detectBotConflictsForDates } from '../../../lib/bot_preempt';
 
 
 // ==========================================
@@ -322,7 +327,7 @@ export async function POST(request) {
     // EVENT LIMIT VALIDATION
     // ==========================================
     const venueIds = datesArray.map(entry => entry.placeId).filter(Boolean);
-    const limitErrors = await validateEventLimit(datesArray, venueIds);
+    const { errors: limitErrors, hasVip: isBotEvent } = await validateEventLimit(datesArray, venueIds);
     if (limitErrors.length > 0) {
       return NextResponse.json({
         success: false,
@@ -331,20 +336,24 @@ export async function POST(request) {
     }
 
     // ==========================================
-    // ✅ DETECT LED WALL AND CDO EQUIPMENT
+    // ✅ DETECT EQUIPMENT PER DEPARTMENT (dynamic)
     // ==========================================
     const equipmentIds = equipmentItems.map(item => item.equipmentId || item.id);
-    let hasCDOEquipment = false;
-    let hasITOEquipment = false;
+    const equipmentByDept = {};   // 🆕 { [deptCode]: true }
 
     if (equipmentIds.length > 0) {
       const equipmentList = await prisma.equipment.findMany({
         where: { id: { in: equipmentIds } },
-        select: { id: true, name: true, departmentCode: true }
+        select: { id: true, name: true, departmentCode: true },
       });
-      hasCDOEquipment = equipmentList.some(eq => eq.departmentCode === 'CDO');
-      hasITOEquipment = equipmentList.some(eq => eq.departmentCode === 'ITO-MAIN');
+      for (const eq of equipmentList) {
+        if (eq.departmentCode) equipmentByDept[eq.departmentCode] = true;
+      }
     }
+
+    // Backward-compat aliases
+    const hasCDOEquipment = !!equipmentByDept['CDO'];
+    const hasITOEquipment = !!equipmentByDept['ITO-MAIN'];
 
     const hasPhysicalActivity = formData.get('hasPhysicalActivity') === 'true';
 
@@ -405,6 +414,7 @@ export async function POST(request) {
     }
 
     // 🆕 Drafts skip approval creation entirely — approvals added on submit-draft
+    // 🆕 Drafts skip approval creation entirely — approvals added on submit-draft
     const approvals = [];
     if (!isDraft) {
       const sequence = await getFRFSequence(prisma);
@@ -420,6 +430,7 @@ export async function POST(request) {
           type,
           hasITOEquipment,
           hasCDOEquipment,
+          equipmentByDept,
           hasPhysicalActivity,
           isVenueOnly,
           requestorDept: user.departmentCode,
@@ -444,15 +455,41 @@ export async function POST(request) {
       }
     }
 
-    // finalApprovalSequence.forEach((dept, index) => {
-    //   approvals.push({
-    //     departmentCode: dept,
-    //     stepOrder: 2 + index,
-    //     status: 'PENDING'
-    //   });
-    // });
+    // 🆕 BOT pre-creation detection + validation
+    let detectedAutoBumps = [];
+    let detectedPickCandidates = [];
+    let picksToBump = [];
 
-    // Create reservation with multiple dates
+    if (isBotEvent && !isDraft) {
+      const detected = await detectBotConflictsForDates(datesArray);
+      detectedAutoBumps = detected.autoBump;
+      detectedPickCandidates = detected.pickCandidates;
+
+      const submittedPicksRaw = formData.get('bumpedReservationIds');
+      const submittedPicks = submittedPicksRaw ? JSON.parse(submittedPicksRaw) : [];
+
+      if (detected.picksNeeded > 0) {
+        if (submittedPicks.length < detected.picksNeeded) {
+          return NextResponse.json({
+            success: false,
+            message: `You must select ${detected.picksNeeded} event(s) to bump to fit the staffing cap.`,
+          }, { status: 400 });
+        }
+        for (const pickedId of submittedPicks) {
+          if (!detected.pickCandidates.find(c => c.id === pickedId)) {
+            return NextResponse.json({
+              success: false,
+              message: 'The schedule changed. Please review the conflict again.',
+            }, { status: 409 });
+          }
+        }
+      }
+      picksToBump = submittedPicks;
+    }
+
+    // ==========================================
+    // CREATE RESERVATION
+    // ==========================================
     const reservation = await prisma.facilityReservation.create({
       data: {
         referenceId,
@@ -466,6 +503,7 @@ export async function POST(request) {
         requestorNotes: requestorNotes || undefined,
         attachments: attachmentPaths,
         status: isDraft ? 'DRAFT' : 'PENDING_APPROVAL',
+        isBotEvent,
         ...(approvals.length > 0 ? { approvals: { create: approvals } } : {}),
         equipmentRequests: {
           create: equipmentItems.map(item => ({
@@ -538,6 +576,97 @@ export async function POST(request) {
       }
     }
 
+    // 🆕 Apply BOT preemption bumps (post-creation)
+    if (isBotEvent && !isDraft) {
+      const allBumps = [
+        ...detectedAutoBumps.map(r => ({ id: r.id, requestorId: r.requestorId, referenceId: r.referenceId })),
+        ...picksToBump.map(pickedId => {
+          const c = detectedPickCandidates.find(p => p.id === pickedId);
+          return c ? { id: c.id, requestorId: c.requestorId, referenceId: c.referenceId } : null;
+        }).filter(Boolean),
+      ];
+
+      for (const b of allBumps) {
+        try {
+          await prisma.facilityReservation.update({
+            where: { id: b.id },
+            data: {
+              status: 'BOT_PREEMPTED',
+              botPreemptedAt: new Date(),
+              botPreemptedById: reservation.id,
+            },
+          });
+
+          await prisma.notification.create({
+            data: {
+              title: 'Venue Conflict — BOT Priority Booking',
+              message: `Your ${b.referenceId} has been preempted by a BOT priority booking (${reservation.referenceId}). Please reschedule your event as soon as possible.`,
+              isRead: false,
+              recipientId: b.requestorId,
+              senderId: user.id,
+              linkUrl: `/dashboard/forms/frf?tab=my_requests&focus=${b.id}`,
+              entityType: 'FRF',
+              entityId: b.id,
+            },
+          });
+
+          // 🆕 Email notifications — requestor (focal person) + dept head / active OIC
+          try {
+            const preemptedFull = await prisma.facilityReservation.findUnique({
+              where: { id: b.id },
+              include: {
+                requestor: {
+                  select: { id: true, fname: true, lname: true, email: true, departmentCode: true },
+                },
+                dates: {
+                  orderBy: { date: 'asc' },
+                  include: { place: true },
+                },
+              },
+            });
+
+            if (preemptedFull?.requestor?.email) {
+              // 1️⃣ Notify the requestor (focal person)
+              await sendFRFBotPreemptedToRequestor(
+                preemptedFull.requestor,
+                preemptedFull,
+                reservation,
+              );
+
+              // 2️⃣ Notify active dept heads + OICs of the requestor's dept
+              //    (explicit query — covers BOTH role-based heads and OICs-in-window)
+              const headAndOics = await prisma.user.findMany({
+                where: {
+                  departmentCode: preemptedFull.requestorDept,
+                  OR: [
+                    { role: 'DepartmentHead' },
+                    {
+                      oic_start: { lte: new Date().toISOString() },
+                      oic_end: { gte: new Date().toISOString() },
+                    },
+                  ],
+                },
+                select: { id: true, email: true, fname: true, lname: true },
+              });
+
+              if (headAndOics.length > 0) {
+                await sendFRFBotPreemptedToDepartment(
+                  headAndOics,
+                  preemptedFull,
+                  reservation,
+                );
+              }
+            }
+          } catch (emailErr) {
+            // Non-fatal — in-app notification + DB bump already succeeded
+            console.error('BOT preemption email error for', b.id, emailErr);
+          }
+        } catch (bumpErr) {
+          console.error('BOT bump error for', b.id, bumpErr);
+        }
+      }
+    }
+
     // After creating the reservation (inside POST)
     if (!isDraft) {  // 🆕 no notifications for draft saves
         try {
@@ -583,6 +712,42 @@ export async function POST(request) {
         const ackSteps = reservation.approvals.filter(
           (a) => a.stepType === 'ACKNOWLEDGEMENT' && a.status === 'PENDING',
         );
+        for (const ack of ackSteps) {
+          const ackUsers = await prisma.user.findMany({
+            where: {
+              departmentCode: ack.departmentCode,
+              OR: [
+                { role: 'DepartmentHead' },
+                { oic_start: { lte: new Date().toISOString() }, oic_end: { gte: new Date().toISOString() } },
+              ],
+            },
+            select: { id: true, email: true, fname: true, lname: true },  // 🆕 expanded
+          });
+          for (const u of ackUsers) {
+            await prisma.notification.create({
+              data: {
+                title: 'FRF Requires Your Acknowledgement',
+                message: `FRF ${reservation.referenceId} is available for your department to acknowledge.`,
+                isRead: false,
+                recipientId: u.id,
+                senderId: user.id,
+                linkUrl: `/dashboard/forms/frf?tab=for_acknowledgement&focus=${reservation.id}`,
+                entityType: 'FRF',
+                entityId: reservation.id,
+              },
+            });
+          }
+          // 🆕 Email ACK recipients
+          try {
+            await sendFRFAcknowledgementRequest(
+              ackUsers.filter(u => u.email),
+              reservation,
+              user.departmentCode,
+            );
+          } catch (ackEmailErr) {
+            console.error('ACK request email error (POST):', ackEmailErr);
+          }
+        }
         for (const ack of ackSteps) {
           const ackUsers = await prisma.user.findMany({
             where: {
@@ -1044,20 +1209,31 @@ export async function PATCH(request) {
           return NextResponse.json({ success: false, message: 'At least one attachment is required before submitting' }, { status: 400 });
         }
 
-        // Detect equipment + physical activity for approval sequence
+        // Detect equipment per dept for approval sequence
         const equipmentIds = equipmentRequests.map(item => item.equipmentId);
-        let hasCDOEquipment = false, hasITOEquipment = false;
+        const draftEquipmentByDept = {};   // 🆕
         if (equipmentIds.length > 0) {
           const equipmentList = await prisma.equipment.findMany({
             where: { id: { in: equipmentIds } },
-            select: { id: true, name: true, departmentCode: true }
+            select: { id: true, name: true, departmentCode: true },
           });
-          hasCDOEquipment = equipmentList.some(eq => eq.departmentCode === 'CDO');
-          hasITOEquipment = equipmentList.some(eq => eq.departmentCode === 'ITO-MAIN');
+          for (const eq of equipmentList) {
+            if (eq.departmentCode) draftEquipmentByDept[eq.departmentCode] = true;
+          }
         }
+        const hasCDOEquipment = !!draftEquipmentByDept['CDO'];
+        const hasITOEquipment = !!draftEquipmentByDept['ITO-MAIN'];
 
         const hasPhysicalActivity = formData.get('hasPhysicalActivity') === 'true';
         const isRequestorHead = isHeadOrOIC(user);
+
+        // 🆕 Recompute BOT status from new dates
+        const draftVenueIds = datesArray.map(e => e.placeId).filter(Boolean);
+        const draftVenues = await prisma.eventPlace.findMany({
+          where: { id: { in: draftVenueIds } },
+          select: { id: true, category: true },
+        });
+        const draftIsBotEvent = draftVenues.some(v => v.category === 'VIP');
 
         const sequence = await getFRFSequence(prisma);
         if (!sequence || sequence.steps.length === 0) {
@@ -1072,6 +1248,7 @@ export async function PATCH(request) {
             type,
             hasITOEquipment,
             hasCDOEquipment,
+            equipmentByDept: draftEquipmentByDept,
             hasPhysicalActivity,
             isVenueOnly,
             requestorDept: user.departmentCode,
@@ -1120,6 +1297,7 @@ export async function PATCH(request) {
                 attachments: finalAttachments,
                 hasPhysicalActivity,
                 isVenueOnly,
+                isBotEvent: draftIsBotEvent,
                 status: 'PENDING_APPROVAL',
                 dates: {
                   create: datesArray.map(entry => ({
@@ -1245,7 +1423,7 @@ export async function PATCH(request) {
                   { oic_start: { lte: new Date().toISOString() }, oic_end: { gte: new Date().toISOString() } },
                 ],
               },
-              select: { id: true },
+              select: { id: true, email: true, fname: true, lname: true },  // 🆕
             });
             for (const u of ackUsers) {
               await prisma.notification.create({
@@ -1260,6 +1438,16 @@ export async function PATCH(request) {
                   entityId: freshReservation.id,
                 },
               });
+            }
+            // 🆕 Email ACK recipients
+            try {
+              await sendFRFAcknowledgementRequest(
+                ackUsers.filter(u => u.email),
+                freshReservation,
+                user.departmentCode,
+              );
+            } catch (ackEmailErr) {
+              console.error('ACK request email error (submit-draft):', ackEmailErr);
             }
           }
         } catch (notifErr) {
@@ -1291,18 +1479,10 @@ export async function PATCH(request) {
         );
       }
 
-      // 🆕 Parse the frontend's explicit delete list but DEFER the actual del() call
-      // until AFTER the transaction succeeds. Deleting early risks losing blobs
-      // if the resubmit fails (leaving the DB with broken attachment URLs).
+      // 🆕 Parse the frontend's explicit delete list. The actual del() call
+      // happens AFTER the transaction commits (see post-transaction cleanup
+      // below) — deleting early risks losing blobs if the transaction fails.
       const attachmentsToDelete = JSON.parse(formData.get('attachmentsToDelete') || '[]');
-      if (attachmentsToDelete.length > 0) {
-        try {
-          await del(attachmentsToDelete);
-        } catch (delErr) {
-          console.error('Blob deletion error:', delErr);
-        }
-      }
-      
 
       const reservation = await prisma.facilityReservation.findUnique({
         where: { id },
@@ -1352,14 +1532,10 @@ export async function PATCH(request) {
         );
       }
 
-      const revisionApproval = await prisma.facilityApproval.findFirst({
-        where: {
-          reservationId: id,
-          status: 'REVISION_REQUESTED'
-        }
-      });
-
-      if (!revisionApproval) {
+      const hasRevisionRequest = reservation.approvals.some(
+        a => a.status === 'REVISION_REQUESTED'
+      );
+      if (!hasRevisionRequest) {
         return NextResponse.json(
           { success: false, message: 'No revision request found' },
           { status: 400 }
@@ -1419,6 +1595,17 @@ export async function PATCH(request) {
         }
       }
 
+      // 🆕 Re-run event-limit check — the new dates might exceed capacity.
+      const resubmitVenueIds = datesArray.map(entry => entry.placeId).filter(Boolean);
+      const { errors: resubmitLimitErrors, hasVip: resubmitIsBotEvent } = 
+        await validateEventLimit(datesArray, resubmitVenueIds, id);
+      if (resubmitLimitErrors.length > 0) {
+        return NextResponse.json({
+          success: false,
+          message: resubmitLimitErrors.join(' '),
+        }, { status: 409 });
+      }
+
       // --- Save new attachments ---
       // const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'frf');
       // await mkdir(uploadDir, { recursive: true });
@@ -1467,6 +1654,77 @@ export async function PATCH(request) {
         }, { status: 400 });
       }
 
+      // ==========================================
+      // 🆕 RESUBMIT RE-MATERIALIZATION
+      // ==========================================
+      // Detect if the approval chain has structurally changed based on the
+      // NEW context (type, equipment, physical activity). If yes, we fully
+      // re-materialize so newly-required departments are added and invalidated
+      // ones are dropped. If no, we fall back to resetting only the revision
+      // step so approvers who already approved don't redo their work.
+      //
+      // Compare by (departmentCode, stepType) tuples — order-only changes
+      // aren't possible without admin sequence edits, which are out of scope.
+
+      const resubmitEquipmentIds = equipmentRequests.map(item => item.equipmentId);
+      const resubmitEquipmentByDept = {};   // 🆕
+      if (resubmitEquipmentIds.length > 0) {
+        const equipmentList = await prisma.equipment.findMany({
+          where: { id: { in: resubmitEquipmentIds } },
+          select: { id: true, departmentCode: true },
+        });
+        for (const eq of equipmentList) {
+          if (eq.departmentCode) resubmitEquipmentByDept[eq.departmentCode] = true;
+        }
+      }
+      const resubmitHasCDOEquipment = !!resubmitEquipmentByDept['CDO'];
+      const resubmitHasITOEquipment = !!resubmitEquipmentByDept['ITO-MAIN'];
+
+      const resubmitHasPhysicalActivity = formData.get('hasPhysicalActivity') === 'true';
+      const resubmitIsRequestorHead = isHeadOrOIC(user);
+      const resubmitIsVenueOnly = reservation.isVenueOnly;
+
+      const resubmitSequence = await getFRFSequence(prisma);
+      if (!resubmitSequence || resubmitSequence.steps.length === 0) {
+        return NextResponse.json({
+          success: false,
+          message: 'No active FRF approval sequence is configured. Please contact the administrator.',
+        }, { status: 500 });
+      }
+
+      const resubmitNewChain = materializeApprovalChain(
+        {
+          type,
+          hasITOEquipment: resubmitHasITOEquipment,
+          hasCDOEquipment: resubmitHasCDOEquipment,
+          equipmentByDept: resubmitEquipmentByDept,
+          hasPhysicalActivity: resubmitHasPhysicalActivity,
+          isVenueOnly: resubmitIsVenueOnly,
+          requestorDept: user.departmentCode,
+        },
+        resubmitSequence.steps,
+      );
+
+      const chainKey = (dept, stepType) => `${dept}:${stepType || 'APPROVAL'}`;
+      const existingChainKeys = new Set(
+        reservation.approvals.map(a => chainKey(a.departmentCode, a.stepType))
+      );
+      const newChainKeys = new Set(
+        resubmitNewChain.map(s => chainKey(s.departmentCode, s.stepType))
+      );
+      const chainChanged =
+        existingChainKeys.size !== newChainKeys.size ||
+        [...newChainKeys].some(k => !existingChainKeys.has(k)) ||
+        [...existingChainKeys].some(k => !newChainKeys.has(k));
+
+      if (chainChanged) {
+        console.log('[RESUBMIT] Approval chain changed — re-materializing', {
+          reservationId: id,
+          oldChain: [...existingChainKeys],
+          newChain: [...newChainKeys],
+        });
+      }
+
       // --- Update reservation ---
       await prisma.$transaction(async (tx) => {
         await tx.facilityReservationDate.deleteMany({
@@ -1491,6 +1749,8 @@ export async function PATCH(request) {
             withCharge,
             requestorNotes: requestorNotes || undefined,
             attachments: finalAttachments,
+            hasPhysicalActivity: resubmitHasPhysicalActivity,
+            isBotEvent: resubmitIsBotEvent,
             status: 'PENDING_APPROVAL',
             dates: {
               create: datesArray.map(entry => ({
@@ -1512,16 +1772,90 @@ export async function PATCH(request) {
           }
         });
 
-        await tx.facilityApproval.update({
-          where: { id: revisionApproval.id },
-          data: {
-            status: 'PENDING',
-            revisionRequestedAt: null,
-            performedById: null,
-            performedAt: null,
-            remarks: `Resubmitted by requestor on ${new Date().toLocaleString()}`
+        // ==========================================
+        // 🆕 SURGICAL RESUBMIT MERGE
+        // ==========================================
+        // Rather than fully restarting the flow (which loses earlier approvers'
+        // work), we merge the old approvals into the new chain:
+        //   - Existing APPROVED/ACKNOWLEDGED → preserved
+        //   - Existing REVISION_REQUESTED → reset to PENDING (this is the resume point)
+        //   - Existing PENDING → stays PENDING
+        //   - New steps (newly-required depts) → PENDING
+        //   - Removed steps (no longer required) → dropped
+        //   - revisionReason preserved on all touched approvals so the context
+        //     is visible to the next reviewer and to the requestor
+        //
+        // This handles both cosmetic revisions (chain unchanged) AND
+        // context-changing revisions (equipment/type/activity) in one path.
+
+        const existingByKey = new Map();
+        for (const a of reservation.approvals) {
+          const key = `${a.departmentCode}:${a.stepType || 'APPROVAL'}`;
+          existingByKey.set(key, a);
+        }
+
+        const mergedApprovals = resubmitNewChain.map((step) => {
+          const key = `${step.departmentCode}:${step.stepType}`;
+          const existing = existingByKey.get(key);
+
+          let status = 'PENDING';
+          let performedById;
+          let performedAt;
+          let remarks;
+          let acknowledgedAt;
+          let revisionReason;
+          let revisionRequestedAt;
+
+          if (existing) {
+            if (existing.status === 'APPROVED' || existing.status === 'ACKNOWLEDGED') {
+              // Preserve completed work
+              status = existing.status;
+              performedById = existing.performedById;
+              performedAt = existing.performedAt;
+              remarks = existing.remarks;
+              acknowledgedAt = existing.acknowledgedAt;
+              // Preserve historical revision trail (previous rounds)
+              revisionReason = existing.revisionReason;
+              revisionRequestedAt = existing.revisionRequestedAt;
+            } else if (existing.status === 'REVISION_REQUESTED') {
+              // This is the resume point — reset to PENDING, keep the reason
+              // AND the original requested-at timestamp so the printout can
+              // show "requested on X, resolved on Y" after re-approval.
+              status = 'PENDING';
+              revisionReason = existing.revisionReason;
+              revisionRequestedAt = existing.revisionRequestedAt;
+            } else if (existing.status === 'PENDING') {
+              status = 'PENDING';
+            }
+            // REJECTED not expected here (would need new request)
           }
+
+          // Auto-approve the requestor's own step if they're head/OIC
+          const autoApprove = step.isRequestorStep && resubmitIsRequestorHead;
+          if (autoApprove && status === 'PENDING') {
+            status = 'APPROVED';
+            performedById = user.id;
+            performedAt = new Date();
+          }
+
+          return {
+            reservationId: id,
+            departmentCode: step.departmentCode,
+            stepOrder: step.stepOrder,
+            stepType: step.stepType,
+            sequenceStepId: step.sequenceStepId || undefined,
+            status,
+            ...(performedById && { performedById }),
+            ...(performedAt && { performedAt }),
+            ...(remarks && { remarks }),
+            ...(acknowledgedAt && { acknowledgedAt }),
+            ...(revisionReason && { revisionReason }),
+            ...(revisionRequestedAt && { revisionRequestedAt }),
+          };
         });
+
+        await tx.facilityApproval.deleteMany({ where: { reservationId: id } });
+        await tx.facilityApproval.createMany({ data: mergedApprovals });
 
         for (const item of equipmentRequests) {
           const eq = await tx.equipment.findUnique({
@@ -1564,6 +1898,101 @@ export async function PATCH(request) {
         }
       }
 
+      // 🆕 Notify approvers + ACK departments after successful resubmit
+      // (previously missing entirely — revising head had no way to know)
+      try {
+        const freshReservation = await prisma.facilityReservation.findUnique({
+          where: { id },
+          include: {
+            approvals: { orderBy: { stepOrder: 'asc' } },
+            requestor: true,
+            dates: { include: { place: true } },
+            equipmentRequests: { include: { equipment: true } },
+          }
+        });
+
+        if (freshReservation) {
+          // Notify first pending APPROVAL step
+          const firstApproval = freshReservation.approvals
+            .filter(a => a.status === 'PENDING' && a.stepType === 'APPROVAL')
+            .sort((a, b) => a.stepOrder - b.stepOrder)[0];
+
+          if (firstApproval) {
+            const nextDeptHeads = await getDepartmentHeads(firstApproval.departmentCode);
+            if (nextDeptHeads.length > 0) {
+              await sendFRFApprovalToNextDepartments(nextDeptHeads, freshReservation, user.departmentCode);
+              const nextUsers = await prisma.user.findMany({
+                where: {
+                  departmentCode: firstApproval.departmentCode,
+                  OR: [
+                    { role: 'DepartmentHead' },
+                    { oic_start: { lte: new Date().toISOString() }, oic_end: { gte: new Date().toISOString() } }
+                  ]
+                },
+                select: { id: true }
+              });
+              for (const u of nextUsers) {
+                await prisma.notification.create({
+                  data: {
+                    title: 'FRF Pending Approval (Resubmitted)',
+                    message: `FRF ${freshReservation.referenceId} was resubmitted and needs your approval.`,
+                    isRead: false,
+                    recipientId: u.id,
+                    senderId: user.id,
+                    linkUrl: `/dashboard/forms/frf?tab=pending_approval&focus=${freshReservation.id}`,
+                    entityType: 'FRF',
+                    entityId: freshReservation.id,
+                  }
+                });
+              }
+            }
+          }
+
+          // Notify all PENDING ACK departments
+          const ackSteps = freshReservation.approvals.filter(
+            a => a.stepType === 'ACKNOWLEDGEMENT' && a.status === 'PENDING'
+          );
+          for (const ack of ackSteps) {
+            const ackUsers = await prisma.user.findMany({
+              where: {
+                departmentCode: ack.departmentCode,
+                OR: [
+                  { role: 'DepartmentHead' },
+                  { oic_start: { lte: new Date().toISOString() }, oic_end: { gte: new Date().toISOString() } },
+                ],
+              },
+              select: { id: true, email: true, fname: true, lname: true },  // 🆕
+            });
+            for (const u of ackUsers) {
+              await prisma.notification.create({
+                data: {
+                  title: 'FRF Requires Your Acknowledgement',
+                  message: `FRF ${freshReservation.referenceId} was resubmitted and is available for acknowledgement.`,
+                  isRead: false,
+                  recipientId: u.id,
+                  senderId: user.id,
+                  linkUrl: `/dashboard/forms/frf?tab=for_acknowledgement&focus=${freshReservation.id}`,
+                  entityType: 'FRF',
+                  entityId: freshReservation.id,
+                }
+              });
+            }
+            // 🆕 Email ACK recipients
+            try {
+              await sendFRFAcknowledgementRequest(
+                ackUsers.filter(u => u.email),
+                freshReservation,
+                user.departmentCode,
+              );
+            } catch (ackEmailErr) {
+              console.error('ACK request email error (resubmit):', ackEmailErr);
+            }
+          }
+        }
+      } catch (notifErr) {
+        console.error('Resubmit notification error:', notifErr);
+      }
+
       await logActivity({
         req: request,
         userId: user.id,
@@ -1571,10 +2000,13 @@ export async function PATCH(request) {
         action: 'FRF_RESUBMIT',
         details: JSON.stringify({
           reservationId: id,
+          chainChanged,
+          oldChainKeys: chainChanged ? [...existingChainKeys] : undefined,
+          newChainKeys: chainChanged ? [...newChainKeys] : undefined,
           datesCount: datesArray.length,
           attachmentsKept: attachmentsToKeep.length,
           newAttachments: newAttachmentPaths.length,
-          removedAttachments: allToDelete.length,   // 🆕
+          removedAttachments: allToDelete.length,
         })
       });
 
@@ -2151,6 +2583,39 @@ export async function PATCH(request) {
         }),
       });
 
+      // 🆕 Notify requestor — in-app + email (best-effort)
+      try {
+        // Don't notify if ack'ing user IS the requestor (edge case)
+        if (reservation.requestorId && reservation.requestorId !== user.id) {
+          await prisma.notification.create({
+            data: {
+              title: 'FRF Acknowledged',
+              message: `${user.departmentCode} acknowledged ${reservation.referenceId}. Remarks: ${ackRemarks}`,
+              isRead: false,
+              recipientId: reservation.requestorId,
+              senderId: user.id,
+              linkUrl: `/dashboard/forms/frf?tab=my_requests&focus=${reservation.id}`,
+              entityType: 'FRF',
+              entityId: reservation.id,
+            },
+          });
+
+          if (reservation.requestor?.email) {
+            await sendFRFAcknowledgedConfirmation(
+              reservation.requestor,
+              reservation,
+              {
+                departmentCode: user.departmentCode,
+                performedBy: `${user.fname} ${user.lname}`,
+                remarks: ackRemarks,
+              },
+            );
+          }
+        }
+      } catch (notifyErr) {
+        console.error('ACK confirmation notify/email error (non-fatal):', notifyErr);
+      }
+
       return NextResponse.json({
         success: true,
         message: `Acknowledged by ${user.departmentCode}`,
@@ -2635,10 +3100,14 @@ export async function PATCH(request) {
         );
       }
 
-      // 2. Only APPROVED or COMPLETED reservations can be rescheduled
-      if (reservation.status !== 'APPROVED' && reservation.status !== 'COMPLETED') {
+      // 2. Only APPROVED, COMPLETED, or BOT_PREEMPTED reservations can be rescheduled
+      if (
+        reservation.status !== 'APPROVED' &&
+        reservation.status !== 'COMPLETED' &&
+        reservation.status !== 'BOT_PREEMPTED'
+      ) {
         return NextResponse.json(
-          { success: false, message: 'Only approved or completed reservations can be rescheduled' },
+          { success: false, message: 'Only approved, completed, or BOT-preempted reservations can be rescheduled' },
           { status: 400 }
         );
       }
@@ -2664,6 +3133,8 @@ export async function PATCH(request) {
       }
 
       // 4. Validate min reschedule days
+      // 🆕 Anchor on ORIGINAL event date + minRescheduleDays,
+      //    with `today` as a sanity floor (Option 2).
       const settings = await prisma.formSettings.findUnique({
         where: { id: 'single' },
       });
@@ -2671,8 +3142,17 @@ export async function PATCH(request) {
 
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-      const minAllowedDate = new Date(today);
-      minAllowedDate.setDate(today.getDate() + minRescheduleDays);
+
+      const originalEarliest = reservation.dates.reduce((earliest, d) => {
+        const dt = new Date(d.date);
+        dt.setHours(0, 0, 0, 0);
+        return dt < earliest ? dt : earliest;
+      }, new Date(8640000000000000));
+
+      const anchored = new Date(originalEarliest);
+      anchored.setDate(originalEarliest.getDate() + minRescheduleDays);
+
+      const minAllowedDate = anchored > today ? anchored : today;
 
       const earliestNewDate = newDatesArray.reduce((earliest, entry) => {
         const d = new Date(entry.date);
@@ -2684,24 +3164,8 @@ export async function PATCH(request) {
         return NextResponse.json(
           {
             success: false,
-            message: `Reschedule date must be at least ${minRescheduleDays} day(s) from today (earliest allowed: ${minAllowedDate.toLocaleDateString()}).`,
+            message: `Reschedule date must be at least ${minRescheduleDays} day(s) after the original event date (${originalEarliest.toLocaleDateString()}). Earliest allowed: ${minAllowedDate.toLocaleDateString()}.`,
           },
-          { status: 400 }
-        );
-      }
-
-      if (earliestNewDate < minAllowedDate) {
-        return NextResponse.json(
-          {
-            success: false,
-            message: `Reschedule date must be at least ${minRescheduleDays} day(s) from today (earliest allowed: ${minAllowedDate.toLocaleDateString()}).`,
-          },
-          { status: 400 }
-        );
-      }
-      if (!newDatesArray || newDatesArray.length === 0) {
-        return NextResponse.json(
-          { success: false, message: 'At least one new date is required' },
           { status: 400 }
         );
       }
@@ -2732,29 +3196,42 @@ export async function PATCH(request) {
         }
       }
 
+      // 🆕 Re-run event-limit check on new dates.
+      const rescheduleVenueIds = newDatesArray.map(entry => entry.placeId).filter(Boolean);
+      const { errors: rescheduleLimitErrors, hasVip: rescheduleIsBotEvent } = 
+        await validateEventLimit(newDatesArray, rescheduleVenueIds, id);
+      if (rescheduleLimitErrors.length > 0) {
+        return NextResponse.json({
+          success: false,
+          message: rescheduleLimitErrors.join(' '),
+        }, { status: 409 });
+      }
+
       // 5. Determine equipment to use (new if provided, otherwise existing)
       const equipmentToUse = newEquipmentRequests || reservation.equipmentRequests.map(eq => ({
         equipmentId: eq.equipmentId,
         quantity: eq.quantityRequested
       }));
 
-      // 6. Detect LED Wall and CDO Equipment from the NEW equipment
+      // 6. Detect equipment per dept (dynamic) + LED Wall
       let hasLedWall = false;
-      let hasCDOEquipment = false;
-      let hasITOEquipment = false;
+      const rescheduleEquipmentByDept = {}; 
 
       if (equipmentToUse.length > 0) {
         const equipmentIds = equipmentToUse.map(item => item.equipmentId);
         const equipmentList = await prisma.equipment.findMany({
           where: { id: { in: equipmentIds } },
-          select: { id: true, name: true, departmentCode: true }
+          select: { id: true, name: true, departmentCode: true },
         });
         hasLedWall = equipmentList.some(eq =>
           eq.name === 'LED Wall' || eq.name === 'LED_WALL' || eq.name === 'LED_Wall'
         );
-        hasCDOEquipment = equipmentList.some(eq => eq.departmentCode === 'CDO');
-        hasITOEquipment = equipmentList.some(eq => eq.departmentCode === 'ITO-MAIN');
+        for (const eq of equipmentList) {
+          if (eq.departmentCode) rescheduleEquipmentByDept[eq.departmentCode] = true;
+        }
       }
+      const hasCDOEquipment = !!rescheduleEquipmentByDept['CDO'];
+      const hasITOEquipment = !!rescheduleEquipmentByDept['ITO-MAIN'];
 
       // 7. Determine type (new if provided, otherwise existing)
       const finalType = newType || reservation.type;
@@ -2778,6 +3255,7 @@ export async function PATCH(request) {
           type: finalType,
           hasITOEquipment,
           hasCDOEquipment,
+          equipmentByDept: rescheduleEquipmentByDept,
           hasPhysicalActivity,
           isVenueOnly,
           requestorDept: user.departmentCode,
@@ -2827,6 +3305,7 @@ export async function PATCH(request) {
         performedAt: a.performedAt,
         remarks: a.remarks,
         revisionReason: a.revisionReason,
+        revisionRequestedAt: a.revisionRequestedAt,   // 🆕
         acknowledgedAt: a.acknowledgedAt,
         performedByName: a.performedBy ? `${a.performedBy.fname} ${a.performedBy.lname}` : null,
         performedBy: a.performedBy ? { fname: a.performedBy.fname, lname: a.performedBy.lname } : undefined,
@@ -2882,6 +3361,7 @@ export async function PATCH(request) {
             requestorNotes: newRequestorNotes || reason || `Reschedule requested: ${new Date().toLocaleString()}`,
             type: finalType,
             hasPhysicalActivity,
+            isBotEvent: rescheduleIsBotEvent,
             eventName: newEventName || reservation.eventName,
             attendeesCount: newAttendeesCount || reservation.attendeesCount,
             withCharge: newWithCharge !== undefined ? newWithCharge : reservation.withCharge,
@@ -2970,6 +3450,18 @@ export async function PATCH(request) {
           const ackSteps = rescheduleApprovals.filter(
             (a) => a.stepType === 'ACKNOWLEDGEMENT' && a.status === 'PENDING',
           );
+
+          // 🆕 Reload for email accuracy — dates were swapped in the transaction
+          const rescheduleForEmail = ackSteps.length > 0
+            ? await prisma.facilityReservation.findUnique({
+                where: { id },
+                include: {
+                  requestor: { select: { id: true, fname: true, lname: true, email: true } },
+                  dates: { orderBy: { date: 'asc' }, include: { place: true } },
+                },
+              })
+            : null;
+
           for (const ack of ackSteps) {
             const ackUsers = await prisma.user.findMany({
               where: {
@@ -2979,7 +3471,7 @@ export async function PATCH(request) {
                   { oic_start: { lte: new Date().toISOString() }, oic_end: { gte: new Date().toISOString() } },
                 ],
               },
-              select: { id: true },
+              select: { id: true, email: true, fname: true, lname: true },  // 🆕
             });
             for (const u of ackUsers) {
               await prisma.notification.create({
@@ -2994,6 +3486,16 @@ export async function PATCH(request) {
                   entityId: reservation.id,
                 },
               });
+            }
+            // 🆕 Email ACK recipients
+            try {
+              await sendFRFAcknowledgementRequest(
+                ackUsers.filter(u => u.email),
+                rescheduleForEmail ?? reservation,
+                user.departmentCode,
+              );
+            } catch (ackEmailErr) {
+              console.error('ACK request email error (reschedule):', ackEmailErr);
             }
           }
       } catch (notifErr) {
@@ -3042,36 +3544,27 @@ export async function PATCH(request) {
 // ==========================================
 // EVENT LIMIT VALIDATION HELPER
 // ==========================================
-const VENUE_CATEGORY_MAP = {
-  'HRM Bar': 'CATEGORY_1',
-  'Multipurpose Room': 'CATEGORY_1',
-  'NCST Gym': 'CATEGORY_2',
-  'NCST Field': 'CATEGORY_2',
-};
-
-async function getVenueCategory(placeName) {
-  const place = await prisma.eventPlace.findUnique({
-    where: { name: placeName },
-    select: { category: true }
-  });
-  if (place?.category && place.category !== 'REGULAR') {
-    return place.category;
-  }
-  return VENUE_CATEGORY_MAP[placeName] || 'REGULAR';
-}
-
+// Reads maxEventsPerDay from FormSettings (global, not per-branch).
+// VIP venue in request → bypass all limits.
+// Same-category collision: any two venues of the same non-REGULAR,
+// non-VIP category can't share a day. Generic — works for future
+// categories (CATEGORY_3, etc.) without code changes.
 async function validateEventLimit(datesArray, venueIds, excludeId = null) {
   const errors = [];
+
+  const settings = await prisma.formSettings.findUnique({ where: { id: 'single' } });
+  const maxEventsPerDay = settings?.maxEventsPerDay ?? 2;
+
   const allVenues = await prisma.eventPlace.findMany({
     where: { id: { in: venueIds } },
-    select: { id: true, name: true, category: true }
+    select: { id: true, name: true, category: true },
   });
   const venueMap = Object.fromEntries(allVenues.map(v => [v.id, v]));
 
-  // 🆕 VIP bypass — kapag may VIP place sa request, wag na i-apply ang daily limit
+  // VIP bypass — no limits for VIP events
   const requestedHasVip = allVenues.some(v => v.category === 'VIP');
   if (requestedHasVip) {
-    return []; // no limits for VIP events
+    return { errors: [], hasVip: true };   // 🆕
   }
 
   for (const dateEntry of datesArray) {
@@ -3081,7 +3574,6 @@ async function validateEventLimit(datesArray, venueIds, excludeId = null) {
     const dateEnd = new Date(dateStart);
     dateEnd.setDate(dateEnd.getDate() + 1);
 
-    // 🆕 Exclude VIP reservations sa daily count (they don't occupy regular slots)
     const existingReservations = await prisma.facilityReservation.findMany({
       where: {
         status: { in: ['PENDING_APPROVAL', 'APPROVED', 'COMPLETED'] },
@@ -3091,10 +3583,10 @@ async function validateEventLimit(datesArray, venueIds, excludeId = null) {
             date: { gte: dateStart, lt: dateEnd },
             OR: [
               { placeId: null },
-              { place: { category: { not: 'VIP' } } }
-            ]
-          }
-        }
+              { place: { category: { not: 'VIP' } } },
+            ],
+          },
+        },
       },
       include: {
         dates: {
@@ -3102,66 +3594,51 @@ async function validateEventLimit(datesArray, venueIds, excludeId = null) {
             date: { gte: dateStart, lt: dateEnd },
             OR: [
               { placeId: null },
-              { place: { category: { not: 'VIP' } } }
-            ]
+              { place: { category: { not: 'VIP' } } },
+            ],
           },
-          include: { place: true }
-        }
-      }
+          include: { place: true },
+        },
+      },
     });
 
+    // Rule 1: global max events per day
+    if (existingReservations.length >= maxEventsPerDay) {
+      errors.push(
+        `Maximum of ${maxEventsPerDay} events per day allowed on ${dateStart.toLocaleDateString()}`
+      );
+      continue;
+    }
+
+    // Rule 2: same-category collision (generic across all categories)
     const existingCategories = new Set();
     for (const res of existingReservations) {
       for (const d of res.dates) {
-        if (d.place?.category && d.place.category !== 'VIP') {
-          existingCategories.add(d.place.category);
-        } else if (d.place?.name) {
-          const cat = await getVenueCategory(d.place.name);
-          if (cat !== 'REGULAR' && cat !== 'VIP') existingCategories.add(cat);
+        const cat = d.place?.category;
+        if (cat && cat !== 'VIP' && cat !== 'REGULAR') {
+          existingCategories.add(cat);
         }
       }
     }
 
     const requestedCategories = new Set();
     for (const venueId of venueIds) {
-      const venue = venueMap[venueId];
-      if (venue?.category && venue.category !== 'REGULAR' && venue.category !== 'VIP') {
-        requestedCategories.add(venue.category);
-      } else if (venue?.name) {
-        const cat = await getVenueCategory(venue.name);
-        if (cat !== 'REGULAR' && cat !== 'VIP') requestedCategories.add(cat);
+      const cat = venueMap[venueId]?.category;
+      if (cat && cat !== 'VIP' && cat !== 'REGULAR') {
+        requestedCategories.add(cat);
       }
     }
 
-    if (existingReservations.length >= 2) {
-      errors.push(
-        `Maximum of 2 events per day allowed on ${dateStart.toLocaleDateString()}`
-      );
-      continue;
-    }
-
-    if (requestedCategories.has('CATEGORY_1') && existingCategories.has('CATEGORY_1')) {
-      errors.push(
-        `Category 1 venue already booked on ${dateStart.toLocaleDateString()}`
-      );
-    }
-
-    if (requestedCategories.has('CATEGORY_2') && existingCategories.has('CATEGORY_2')) {
-      errors.push(
-        `Category 2 venue already booked on ${dateStart.toLocaleDateString()}`
-      );
-    }
-
-    if (existingCategories.has('CATEGORY_1') && existingCategories.has('CATEGORY_2') &&
-        (requestedCategories.has('CATEGORY_1') || requestedCategories.has('CATEGORY_2'))) {
-      errors.push(
-        `Both Category 1 and Category 2 are occupied on ${dateStart.toLocaleDateString()}`
-      );
+    for (const cat of requestedCategories) {
+      if (existingCategories.has(cat)) {
+        errors.push(
+          `${cat.replace('_', ' ')} venue already booked on ${dateStart.toLocaleDateString()}`
+        );
+      }
     }
   }
-  
 
-  return errors;
+  return { errors, hasVip: false };
 }
 
 // ==========================================

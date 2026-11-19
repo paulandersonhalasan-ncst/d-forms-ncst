@@ -34,6 +34,7 @@ import { useDisclosure } from '@mantine/hooks';
 import { IconPlus, IconBuilding, IconBox, IconArrowLeft, IconSettings, IconInfoCircle, IconChevronDown, IconGitBranch } from '@tabler/icons-react';
 import useSWR from 'swr';
 
+// (or wherever the relative path to component/types is from manage/page.tsx)
 import SequenceBuilder from '../component/sequenceBuilder';
 
 // === Types ===
@@ -81,6 +82,38 @@ interface User {
 
 interface TabProps {
   currentUser?: User | null;
+}
+
+import type { FRFSettings as FormSettingsShape } from '../component/types';
+// (or wherever the relative path to component/types is from manage/page.tsx)
+
+const DEFAULT_SETTINGS: FormSettingsShape = {
+  minAdvanceDaysRegular: 7,
+  minAdvanceDaysVIP: 1,
+  maxEventsPerDay: 2,
+  minRescheduleDays: 3,
+  enableVipMode: true,
+  vipVisibleDepartments: ['PSMO/FMO', 'ITO-MAIN'],
+  equipmentLendingDepartments: ['ITO-MAIN', 'PSMO/FMO', 'OP', 'CDO'],
+  manageAccessDepartments: [],
+};
+
+// 🆕 Same logic as backend + types.ts — mirrors oic_start/oic_end window
+function isHeadOrOIC(user: User | null): boolean {
+  if (!user) return false;
+  const role = user.role?.toUpperCase();
+  if (role === 'DEPARTMENTHEAD' || role === 'DEPARTMENT_HEAD') return true;
+  if (user.oic_start && user.oic_end) {
+    try {
+      const now = new Date();
+      const start = new Date(user.oic_start);
+      const end = new Date(user.oic_end);
+      if (!isNaN(start.getTime()) && !isNaN(end.getTime()) && now >= start && now <= end) {
+        return true;
+      }
+    } catch {}
+  }
+  return false;
 }
 
 // SWR fetcher
@@ -436,7 +469,10 @@ function PlacesTab({ currentUser }: TabProps) {
   );
 }
 
-function EquipmentTab({ currentUser }: TabProps) {
+function EquipmentTab({
+  currentUser,
+  settings,
+}: TabProps & { settings: FormSettingsShape }) {
   const [opened, { open, close }] = useDisclosure(false);
   const [editing, setEditing] = useState<EquipmentItem | null>(null);
   const [name, setName] = useState('');
@@ -469,6 +505,16 @@ function EquipmentTab({ currentUser }: TabProps) {
   const { data, mutate, isLoading } = useSWR<{ data: EquipmentItem[] }>(
     '/api/frf/equipment',
     fetcher
+  );
+
+  // 🆕 SuperUser needs the full department list (others get their own dept only)
+  const { data: deptData } = useSWR<{ data: { code: string }[] }>(
+    isSuperUser ? '/api/department/get' : null,
+    fetcher
+  );
+  const allDepartmentCodes = useMemo(
+    () => (deptData?.data ?? []).map(d => d.code).filter(Boolean),
+    [deptData],
   );
 
   const allEquipment = data?.data || [];
@@ -611,7 +657,13 @@ function EquipmentTab({ currentUser }: TabProps) {
               leftSection={<IconPlus size={16} />}
               onClick={() => {
                 resetForm();
-                setDepartmentCode(currentUser?.departmentCode || 'ITO-MAIN');
+                // 🆕 Pre-select the dept: SuperUser sees dropdown (fallback to first lending dept);
+                // non-SuperUser is locked to their own
+                setDepartmentCode(
+                  isSuperUser
+                    ? (settings.equipmentLendingDepartments[0] ?? 'ITO-MAIN')
+                    : (currentUser?.departmentCode ?? '')
+                );
                 open();
               }}
             >
@@ -739,11 +791,16 @@ function EquipmentTab({ currentUser }: TabProps) {
           <TextInput label="Name" value={name} onChange={(e) => setName(e.currentTarget.value)} required />
           <Select
             label="Department"
-            data={['ITO-MAIN', 'PSMO/FMO', 'OP', 'CDO']}
+            data={
+              isSuperUser
+                ? allDepartmentCodes.map(d => ({ value: d, label: d }))
+                : [{ value: currentUser?.departmentCode ?? '', label: currentUser?.departmentCode ?? '' }]
+            }
             value={departmentCode}
-            onChange={(val) => setDepartmentCode(val || 'PSMO/FMO')}
+            onChange={(val) => setDepartmentCode(val || currentUser?.departmentCode || '')}
             required
             disabled={!isSuperUser}
+            searchable
           />
           <Select
             label="Branch"
@@ -833,32 +890,37 @@ function EquipmentTab({ currentUser }: TabProps) {
   );
 }
 
-// === Settings Tab ===
-function SettingsTab({ currentUser }: TabProps) {
-  const [settings, setSettings] = useState({
-    minAdvanceDaysRegular: 7,
-    minAdvanceDaysVIP: 1,
-    maxEventsPerDay: 2,
-    minRescheduleDays: 3,
-    enableVipMode: true,
-  });
+function SettingsTab({
+  currentUser,
+  settings,
+  onSettingsChange,
+}: TabProps & {
+  settings: FormSettingsShape;
+  onSettingsChange: (next: FormSettingsShape) => void;
+}) {
   const [loading, setLoading] = useState(false);
+  const [departmentOptions, setDepartmentOptions] = useState<{ value: string; label: string }[]>([]);
 
-  // Fetch settings on mount
+  // 🆕 Fetch departments (once)
   useEffect(() => {
-    const fetchSettings = async () => {
-      try {
-        const res = await fetch('/api/frf/settings');
-        const result = await res.json();
-        if (result.success && result.data) {
-          setSettings(result.data);
+    fetch('/api/department/get')
+      .then(res => res.json())
+      .then(data => {
+        if (data?.success && Array.isArray(data.data)) {
+          setDepartmentOptions(
+            data.data
+              .map((d: { code: string }) => ({ value: d.code, label: d.code }))
+              .filter((d: { value: string }) => d.value)
+          );
         }
-      } catch (err) {
-        console.error('Failed to fetch settings:', err);
-      }
-    };
-    fetchSettings();
+      })
+      .catch(err => console.error('Failed to load departments:', err));
   }, []);
+
+  // 🆕 Local setter — no longer owns state
+  const setSettings = (patch: Partial<FormSettingsShape>) => {
+    onSettingsChange({ ...settings, ...patch });
+  };
 
   const handleSave = async () => {
     setLoading(true);
@@ -872,13 +934,15 @@ function SettingsTab({ currentUser }: TabProps) {
           maxEventsPerDay: settings.maxEventsPerDay,
           minRescheduleDays: settings.minRescheduleDays,
           enableVipMode: settings.enableVipMode,
+          vipVisibleDepartments: settings.vipVisibleDepartments,
+          equipmentLendingDepartments: settings.equipmentLendingDepartments,   // 🆕
+          manageAccessDepartments: settings.manageAccessDepartments,           // 🆕
         }),
       });
       const result = await res.json();
       if (result.success) {
         alert('Settings updated successfully!');
-        // Optionally update the state with the returned data
-        if (result.data) setSettings(result.data);
+        if (result.data) onSettingsChange(result.data);
       } else {
         alert(result.message || 'Failed to update settings');
       }
@@ -895,8 +959,7 @@ function SettingsTab({ currentUser }: TabProps) {
       <Stack gap="md">
         <Text fw={700} size="lg">FRF Submission Settings</Text>
         <Text size="sm" c="dimmed">
-          Configure the minimum advance days required for event submissions.
-          These settings apply to all new reservations.
+          Configure submission limits, VIP visibility, and manage-access per department.
         </Text>
 
         <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="lg">
@@ -904,65 +967,92 @@ function SettingsTab({ currentUser }: TabProps) {
             label="Regular Request (Minimum Advance Days)"
             description="Standard events require this many days before the event date."
             value={settings.minAdvanceDaysRegular}
-            onChange={(val) => setSettings({ ...settings, minAdvanceDaysRegular: Number(val) || 0 })}
-            min={1}
-            max={30}
-            required
+            onChange={(val) => setSettings({ minAdvanceDaysRegular: Number(val) || 0 })}
+            min={1} max={30} required
           />
           <NumberInput
             label="VIP/Tomorrow Request (Minimum Advance Days)"
             description="VIP events with special approval can have shorter notice."
             value={settings.minAdvanceDaysVIP}
-            onChange={(val) => setSettings({ ...settings, minAdvanceDaysVIP: Number(val) || 0 })}
-            min={0}
-            max={7}
-            required
+            onChange={(val) => setSettings({ minAdvanceDaysVIP: Number(val) || 0 })}
+            min={0} max={7} required
           />
           <NumberInput
             label="Maximum Events Per Day"
-            description="How many events can be scheduled on the same day."
+            description="Global cap — applies across all branches. Read by both the schedule check and the submission validator."
             value={settings.maxEventsPerDay}
-            onChange={(val) => setSettings({ ...settings, maxEventsPerDay: Number(val) || 1 })}
-            min={1}
-            max={5}
-            required
+            onChange={(val) => setSettings({ maxEventsPerDay: Number(val) || 1 })}
+            min={1} max={5} required
           />
           <NumberInput
             label="Minimum Reschedule Days"
             description="How many days in advance are required when requesting a reschedule."
             value={settings.minRescheduleDays}
-            onChange={(val) => setSettings({ ...settings, minRescheduleDays: Number(val) || 3 })}
-            min={1}
-            max={30}
-            required
+            onChange={(val) => setSettings({ minRescheduleDays: Number(val) || 3 })}
+            min={1} max={30} required
           />
         </SimpleGrid>
 
-        {/* 🆕 VIP Mode Toggle */}
         <Divider label="VIP Mode" labelPosition="left" />
         <Switch
-          label="Enable VIP Mode (Tomorrow / 1-day advance)"
-          description="When enabled, ITO-MAIN and PSMO/FMO Heads/OICs can create VIP reservations for the next day, bypassing the 2-events-per-day limit. Turn OFF to hide the VIP option entirely."
+          label="Enable VIP Mode"
+          description="When ON, departments in the list below (and SuperUser) can create VIP reservations. Turn OFF to hide VIP entirely."
           checked={settings.enableVipMode}
-          onChange={(e) => setSettings({ ...settings, enableVipMode: e.currentTarget.checked })}
+          onChange={(e) => setSettings({ enableVipMode: e.currentTarget.checked })}
           size="md"
+        />
+        <MultiSelect
+          label="VIP-Visible Departments"
+          description="Heads / OICs of these departments can see and use VIP mode. SuperUser always sees VIP."
+          data={departmentOptions}
+          value={settings.vipVisibleDepartments}
+          onChange={(val) => setSettings({ vipVisibleDepartments: val })}
+          searchable clearable
+          placeholder={departmentOptions.length === 0 ? 'No departments loaded' : 'Select departments'}
+          disabled={departmentOptions.length === 0}
+          comboboxProps={{ zIndex: 5000 }}
+        />
+
+        <Divider label="Manage Access" labelPosition="left" />
+        <MultiSelect
+          label="Equipment-Lending Departments"
+          description="Depts that own/lend equipment. Their Head/OIC can (a) access /manage, and (b) create, edit, or delete ONLY their own dept's equipment."
+          data={departmentOptions}
+          value={settings.equipmentLendingDepartments}
+          onChange={(val) => setSettings({ equipmentLendingDepartments: val })}
+          searchable clearable
+          placeholder={departmentOptions.length === 0 ? 'No departments loaded' : 'Select departments'}
+          disabled={departmentOptions.length === 0}
+          comboboxProps={{ zIndex: 5000 }}
+        />
+        <MultiSelect
+          label="Extra Manage-Access Departments"
+          description="Depts that can access /manage but do NOT own equipment (e.g., advisory roles). Union with the lending list above."
+          data={departmentOptions}
+          value={settings.manageAccessDepartments}
+          onChange={(val) => setSettings({ manageAccessDepartments: val })}
+          searchable clearable
+          placeholder={departmentOptions.length === 0 ? 'No departments loaded' : 'Select departments'}
+          disabled={departmentOptions.length === 0}
+          comboboxProps={{ zIndex: 5000 }}
         />
 
         <Group justify="flex-end">
-          <Button loading={loading} onClick={handleSave} color="blue">
-            Save Settings
-          </Button>
+          <Button loading={loading} onClick={handleSave} color="blue">Save Settings</Button>
         </Group>
       </Stack>
     </Card>
   );
 }
 
-// === Main Manage Page ===
 export default function ManagePage() {
   const router = useRouter();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [userLoading, setUserLoading] = useState(true);
+
+  // 🆕 Settings + access computation
+  const [settings, setSettings] = useState<FormSettingsShape>(DEFAULT_SETTINGS);
+  const [settingsLoading, setSettingsLoading] = useState(true);
 
   // Fetch current user
   useEffect(() => {
@@ -970,9 +1060,7 @@ export default function ManagePage() {
       try {
         const res = await fetch('/api/auth/me');
         const data = await res.json();
-        if (data.success) {
-          setCurrentUser(data.data);
-        }
+        if (data.success) setCurrentUser(data.data);
       } catch (err) {
         console.error('Failed to fetch user:', err);
       } finally {
@@ -982,14 +1070,50 @@ export default function ManagePage() {
     fetchUser();
   }, []);
 
+  // 🆕 Fetch settings
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const res = await fetch('/api/frf/settings');
+        const data = await res.json();
+        if (data.success && data.data) setSettings(data.data);
+      } catch (err) {
+        console.error('Failed to fetch settings:', err);
+      } finally {
+        setSettingsLoading(false);
+      }
+    };
+    fetchSettings();
+  }, []);
+
   const isSuperUser = currentUser?.role === 'SuperUser';
   const canManagePlacesAndSettings =
     currentUser?.departmentCode === 'PSMO/FMO' || currentUser?.departmentCode === 'ITO-MAIN';
 
+  // 🆕 Access decision — union of lending + extra manage depts
+  const allowedDepts = useMemo(
+    () => [
+      ...new Set([
+        ...(settings.equipmentLendingDepartments ?? []),
+        ...(settings.manageAccessDepartments ?? []),
+      ]),
+    ],
+    [settings.equipmentLendingDepartments, settings.manageAccessDepartments],
+  );
+  const hasManageAccess =
+    isSuperUser || (isHeadOrOIC(currentUser) && allowedDepts.includes(currentUser?.departmentCode ?? ''));
+
+  // 🆕 Client-side redirect (defense in depth — middleware already blocks Staff/Faculty)
+  useEffect(() => {
+    if (userLoading || settingsLoading) return;
+    if (!hasManageAccess) router.replace('/unauthorized');
+  }, [userLoading, settingsLoading, hasManageAccess, router]);
+
   const defaultTab = canManagePlacesAndSettings ? 'places' : 'equipment';
   const [activeTab, setActiveTab] = useState<string | null>(defaultTab);
 
-  if (userLoading) {
+  // Show loader during initial fetch OR while redirect is in-flight
+  if (userLoading || settingsLoading) {
     return (
       <Container fluid py="md">
         <Card withBorder radius="lg" p="lg">
@@ -998,12 +1122,15 @@ export default function ManagePage() {
       </Container>
     );
   }
+  if (!hasManageAccess) return null;
 
   return (
     <Container fluid py="md">
       <Card withBorder radius="lg" p="lg">
         <Group justify="space-between" align="center" mb="md" wrap="wrap">
-          <Title order={2} style={{ fontSize: 'clamp(1.1rem, 3vw, 1.75rem)' }}>Facility / Equipment Management</Title>
+          <Title order={2} style={{ fontSize: 'clamp(1.1rem, 3vw, 1.75rem)' }}>
+            Facility / Equipment Management
+          </Title>
           <Button
             leftSection={<IconArrowLeft size={16} />}
             onClick={() => router.push('/dashboard/forms/frf')}
@@ -1029,7 +1156,9 @@ export default function ManagePage() {
             <Tabs.Tab value="equipment" leftSection={<IconBox size={16} />}>
               Equipment
             </Tabs.Tab>
-            {currentUser?.departmentCode === 'ITO-MAIN' && (
+            {/* 🆕 Settings tab: SuperUser OR ITO-MAIN Head/OIC (matches API) */}
+            {(isSuperUser ||
+              (currentUser?.departmentCode === 'ITO-MAIN' && isHeadOrOIC(currentUser))) && (
               <Tabs.Tab value="settings" leftSection={<IconSettings size={16} />}>
                 Settings
               </Tabs.Tab>
@@ -1048,13 +1177,8 @@ export default function ManagePage() {
                 color="blue"
                 icon={<IconInfoCircle size={16} />}
               >
-                Add, edit, or deactivate venues available for facility reservations. Each place can be
-                tagged as <b>Regular</b>, <b>Category 1</b>, or <b>Category 2</b> — categories are used by
-                the scheduling rules to limit how many events can happen per day.
-                <br /><br />
-                Magdagdag, mag‑edit, o mag‑deactivate ng mga venue na pwedeng i‑reserve. Ang bawat lugar ay
-                pwedeng i‑tag bilang <b>Regular</b>, <b>Category 1</b>, o <b>Category 2</b> — ginagamit ang
-                category ng scheduling rules para limitahan ang bilang ng events kada araw.
+                {/* ... existing text ... */}
+                Add, edit, or deactivate venues available for facility reservations.
               </CollapsibleAlert>
               <PlacesTab currentUser={currentUser} />
             </Tabs.Panel>
@@ -1066,32 +1190,27 @@ export default function ManagePage() {
               color="grape"
               icon={<IconInfoCircle size={16} />}
             >
-              Manage the equipment catalog per department (ITO‑MAIN, PSMO/FMO, OP, CDO). Mark items as
-              <b> Single Item</b> (e.g., projector, LED wall — not quantity‑based) or set a
-              <b> quantity available</b> for countable items.
-              <br /><br />
-              Pamahalaan ang listahan ng kagamitan kada departamento (ITO‑MAIN, PSMO/FMO, OP, CDO). Markahan
-              ang item bilang <b>Single Item</b> (hal. projector, LED wall — hindi binibilang) o magtakda ng
-              <b> dami</b> para sa mga nabibilang na item.
+              {/* ... existing text ... */}
+              Manage the equipment catalog. Head/OIC can only edit their own department&apos;s items.
             </CollapsibleAlert>
-            <EquipmentTab currentUser={currentUser} />
+            <EquipmentTab currentUser={currentUser} settings={settings} />
           </Tabs.Panel>
 
-          {currentUser?.departmentCode === 'ITO-MAIN' && (
+          {(isSuperUser ||
+            (currentUser?.departmentCode === 'ITO-MAIN' && isHeadOrOIC(currentUser))) && (
             <Tabs.Panel value="settings" pt="md">
               <CollapsibleAlert
                 title="FRF Submission Settings"
                 color="teal"
                 icon={<IconInfoCircle size={16} />}
               >
-                Configure minimum advance days required for new reservations, and the maximum number of
-                events allowed per day. These settings apply globally to all facility requests.
-                <br /><br />
-                I‑configure ang minimum na bilang ng araw bago ang event para makapag‑submit ng bagong
-                reservation, at ang maximum na bilang ng events kada araw. Naaapply ang mga setting na ito
-                sa lahat ng facility requests.
+                Configure advance-day limits, VIP visibility, and manage-access per department.
               </CollapsibleAlert>
-              <SettingsTab currentUser={currentUser} />
+              <SettingsTab
+                currentUser={currentUser}
+                settings={settings}
+                onSettingsChange={setSettings}
+              />
             </Tabs.Panel>
           )}
 
@@ -1102,13 +1221,7 @@ export default function ManagePage() {
                 color="blue"
                 icon={<IconInfoCircle size={16} />}
               >
-                Define the FRF approval chain. Drag to reorder. Each step has a <b>type</b> (approval
-                or acknowledgment) and a <b>trigger</b> (when it appears in the chain). Changes apply
-                only to new submissions — in-flight reservations keep their original chain.
-                <br /><br />
-                I‑configure ang approval chain para sa FRF. I‑drag para baguhin ang order. Ang bawat
-                step ay may <b>uri</b> (approval o acknowledgment) at <b>trigger</b> (kung kailan
-                kasama sa chain). Naaapply ang mga pagbabago sa mga bagong submission lamang.
+                Define the FRF approval chain.
               </CollapsibleAlert>
               <SequenceBuilder />
             </Tabs.Panel>

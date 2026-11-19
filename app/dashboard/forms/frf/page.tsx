@@ -41,7 +41,8 @@ import {
   DateEntry,
   isActiveHeadOrOIC,
   ReservationType,
-  OriginalDateEntry
+  OriginalDateEntry,
+  FRFSettings,
 } from './component/types';
 import RequestCard from './component/requestCard';
 import RequestStepper from './component/requestStepper';
@@ -172,6 +173,14 @@ export default function FRFDashboardPage() {
   const { data: equipmentData } = useSWR<{ data: Equipment[] }>('/api/frf/equipment', fetcher);
   const equipment = equipmentData?.data || [];
 
+  // 🆕 FRF settings — MUST live with the other SWRs (before any early return)
+  // so the hook order stays stable across renders.
+  const { data: frfSettingsData } = useSWR<{ success: boolean; data: FRFSettings }>(
+    '/api/frf/settings',
+    fetcher
+  );
+  const frfSettings = frfSettingsData?.data;
+
   const [isRescheduleMode, setIsRescheduleMode] = useState(false);
 
   const isHeadOrOIC = isActiveHeadOrOIC(currentUser);
@@ -223,6 +232,7 @@ export default function FRFDashboardPage() {
     if (isImportedFRF(r)) return false;
     const status = r.status as string;
     if (status === 'COMPLETED' || status === 'REJECTED') return false;
+    if (status === 'BOT_PREEMPTED') return false;   // 🆕 frozen — requestor must reschedule
     const myApproval = r.approvals.find(
       (a) => a.departmentCode === currentUser?.departmentCode && a.stepType !== 'ACKNOWLEDGEMENT'
     );
@@ -372,6 +382,12 @@ export default function FRFDashboardPage() {
       });
     };
 
+    // 🆕 Count revision rounds for header badge
+    const revisionRoundCount = (reservation.approvals || [])
+      .filter((a) => !!a.revisionReason).length;
+    const revisionResolvedCount = (reservation.approvals || [])
+      .filter((a) => !!a.revisionReason && a.status === 'APPROVED').length;
+
     const renderApprovalsTable = (approvals: FacilityApproval[], title: string) => {
       if (!approvals || approvals.length === 0) return '';
       const sorted = [...approvals].sort((a, b) => a.stepOrder - b.stepOrder);
@@ -386,6 +402,49 @@ export default function FRFDashboardPage() {
           : '—';
         const performedAt = approval.performedAt ? formatDate(approval.performedAt) : '—';
         const remark = approval.remarks || approval.revisionReason || '—';
+
+        // 🆕 Revision badge — three states:
+        //   1. Historical (already resolved) → reason + requested-at + resolved-at
+        //   2. Currently pending revision    → requested-at sub-line under reason
+        //   3. None                          → no badge
+        let revisionBadgeHtml = '';
+
+        if (approval.revisionReason && approval.status !== 'REVISION_REQUESTED') {
+          // ── Historical: revised then resolved
+          const requestedOn = approval.revisionRequestedAt
+            ? formatDate(approval.revisionRequestedAt)
+            : null;
+          const resolvedOn = approval.performedAt
+            ? formatDate(approval.performedAt)
+            : null;
+          const resolvedBy = performer !== '—' ? performer : null;
+
+          revisionBadgeHtml = `
+            <div style="margin-top: 4px; padding: 4px 8px; background: #fff3cd; border-left: 3px solid #ffc107; border-radius: 3px; font-size: 10px; line-height: 1.5;">
+              <div style="color: #856404;">
+                <b>Revision requested${requestedOn ? ` on ${requestedOn}` : ''}:</b> ${approval.revisionReason}
+              </div>
+              <div style="color: #155724; margin-top: 2px;">
+                <b>Marked resolved${resolvedOn ? ` on ${resolvedOn}` : ''}${resolvedBy ? ` by ${resolvedBy} ` : ''}</b>
+              </div>
+            </div>
+          `;
+        } else if (approval.status === 'REVISION_REQUESTED') {
+          // ── Currently awaiting revision: show requested-at context
+          const requestedOn = approval.revisionRequestedAt
+            ? formatDate(approval.revisionRequestedAt)
+            : null;
+          const requestedBy = performer !== '—' ? performer : null;
+
+          if (requestedOn || requestedBy) {
+            revisionBadgeHtml = `
+              <div style="margin-top: 4px; font-size: 10px; color: #856404;">
+                <b>Requested${requestedOn ? ` on ${requestedOn}` : ''}${requestedBy ? ` by ${requestedBy}` : ''}</b>
+              </div>
+            `;
+          }
+        }
+
         return `
           <tr style="border-bottom: 1px dashed #ccc;">
             <td style="padding: 6px 8px; font-weight: 600;">${approval.departmentCode}</td>
@@ -403,7 +462,10 @@ export default function FRFDashboardPage() {
             </td>
             <td style="padding: 6px 8px; font-size: 12px;">${performer}</td>
             <td style="padding: 6px 8px; font-size: 11px; color: #666;">${performedAt}</td>
-            <td style="padding: 6px 8px; font-size: 12px; max-width: 200px; word-wrap: break-word;">${remark}</td>
+            <td style="padding: 6px 8px; font-size: 12px; max-width: 200px; word-wrap: break-word;">
+              ${remark}
+              ${revisionBadgeHtml}
+            </td>
           </tr>
         `;
       }).join('');
@@ -545,11 +607,11 @@ export default function FRFDashboardPage() {
     if (reservation.isReschedule && reservation.originalDates && reservation.originalDates.length > 0) {
       originalDatesHtml = `
         <div class="section">
-          <div class="section-title">Original Dates</div>
+          <div class="section-title">Original Event Dates (Before Reschedule)</div>
           ${reservation.originalDates.map((d: OriginalDateEntry, i) => {
             const placeName = (typeof d.place === 'object' && d.place && 'name' in d.place) ? d.place.name : (d.placeOther || 'N/A');
             return `
-              <div style="margin: 6px 0; padding: 4px 8px; border-left: 3px solid #ffc107; background: #fff8e1;">
+              <div style="margin: 6px 0; padding: 4px 8px; border-left: 3px solid #000000; background: #fff8e1;">
                 <div style="font-weight: 600; font-size: 13px;">Date ${i + 1}: ${formatDateOnly(toDate(d.date))}</div>
                 <div style="font-size: 12px; margin-top: 2px;">
                   <b>Setup:</b> ${formatTimeOnly(toDate(d.setupTime))} &bull;
@@ -609,6 +671,67 @@ export default function FRFDashboardPage() {
       `;
     }
 
+    // 🆕 RESCHEDULE SUMMARY — high-level diff for the printout
+    let rescheduleSummaryHtml = '';
+    if (reservation.isReschedule) {
+      const summaryRows: string[] = [];
+
+      // ── Date changes ──
+      const origDates = reservation.originalDates || [];
+      const newDates = reservation.dates || [];
+      if (origDates.length === newDates.length) {
+        summaryRows.push(
+          `<li><b>Event Dates:</b> ${newDates.length} date(s) rescheduled (see details below)</li>`
+        );
+      } else {
+        summaryRows.push(
+          `<li><b>Event Dates:</b> ${origDates.length} original → ${newDates.length} new date(s)</li>`
+        );
+      }
+
+      // ── Equipment changes ──
+      const origEquip = reservation.originalEquipment || [];
+      if (origEquip.length > 0) {
+        const origEquipIds = new Set(origEquip.map((e) => e.equipmentId));
+        const newEquipIds = new Set(reservation.equipmentRequests.map((e) => e.equipmentId));
+        const addedCount = reservation.equipmentRequests.filter(
+          (e) => !origEquipIds.has(e.equipmentId)
+        ).length;
+        const removedCount = origEquip.filter(
+          (e) => !newEquipIds.has(e.equipmentId)
+        ).length;
+        const qtyChangedCount = reservation.equipmentRequests.filter((ne) => {
+          const oe = origEquip.find((oe) => oe.equipmentId === ne.equipmentId);
+          return oe && oe.quantityRequested !== ne.quantityRequested;
+        }).length;
+
+        const equipChanges: string[] = [];
+        if (addedCount > 0) equipChanges.push(`+${addedCount} added`);
+        if (removedCount > 0) equipChanges.push(`−${removedCount} removed`);
+        if (qtyChangedCount > 0) equipChanges.push(`${qtyChangedCount} qty changed`);
+
+        summaryRows.push(
+          equipChanges.length > 0
+            ? `<li><b>Equipment:</b> ${equipChanges.join(', ')}</li>`
+            : `<li><b>Equipment:</b> No changes</li>`
+        );
+      }
+
+      rescheduleSummaryHtml = `
+        <div class="section" style="background: #fff8e1; border: 2px solid #000000; padding: 12px; border-radius: 4px;">
+          <div style="font-weight: 700; font-size: 14px; color: #000000; margin-bottom: 8px;">
+            RESCHEDULE SUMMARY
+          </div>
+          <div style="font-size: 12px; line-height: 1.6;">
+            <div style="margin-bottom: 4px;"><b>Reason for Reschedule:</b></div>
+            <div style="padding: 8px 12px; background: #fff; border-left: 3px solid #000000; margin-bottom: 10px; white-space: pre-wrap;">${reservation.requestorNotes || '(No reason provided)'}</div>
+            <div style="margin-bottom: 4px;"><b>Summary of Changes:</b></div>
+            <ul style="margin: 0; padding-left: 20px;">${summaryRows.join('')}</ul>
+          </div>
+        </div>
+      `;
+    }
+
     // Build final HTML document
     printWindow.document.write(`
       <!DOCTYPE html>
@@ -637,11 +760,28 @@ export default function FRFDashboardPage() {
           <div class="header">
             NCST D-FORMS | FACILITY RESERVATION FORM (FRF)
             ${reservation.isReschedule ? '<span class="reschedule-badge">RESCHEDULE</span>' : ''}
+            ${reservation.isBotEvent ? '<span style="display:inline-block;background:#6d28d9;color:#fff;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:700;margin-left:8px;">BOARD OF TRUSTEES PRIORITY</span>' : ''}
           </div>
           <div class="sub-header">
             ${reservation.referenceId} &bull; ${formatDate(reservation.createdAt)}
             ${reservation.isReschedule ? ' &bull; <strong>Reschedule Request</strong>' : ''}
+            ${revisionRoundCount > 0 ? ` &bull; <span style="background: #fff3cd; color: #856404; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 700;">ℹ️ ${revisionRoundCount} revision${revisionRoundCount === 1 ? '' : 's'} (${revisionResolvedCount} resolved)</span>` : ''}
           </div>
+
+          ${reservation.status === 'BOT_PREEMPTED' ? `
+            <div style="background:#f8d7da;border:2px solid #dc3545;padding:10px 14px;border-radius:4px;margin:12px 0;font-size:12px;">
+              ⚠️ <b>PREEMPTED BY BOT PRIORITY BOOKING</b> — This reservation was preempted
+              ${reservation.botPreemptedAt ? `on ${formatDate(reservation.botPreemptedAt)}` : ''}.
+              The event needs to be rescheduled.
+            </div>
+          ` : ''}
+          ${reservation.botPreemptedAt && reservation.status !== 'BOT_PREEMPTED' ? `
+            <div style="background:#f3f5f3;border:1px solid #c0c0c0;padding:8px 12px;border-radius:4px;margin:12px 0;font-size:11px;color:#555;">
+              <b>PREEMPTION HISTORY:</b> This event was preempted by a BOT priority booking
+              ${reservation.botPreemptedAt ? `on ${formatDate(reservation.botPreemptedAt)}` : ''}
+              ${reservation.status === 'RESCHEDULE_PENDING' ? 'and a reschedule is pending approval.' : 'and has since been rescheduled.'}
+            </div>
+          ` : ''}
 
           <div class="meta-grid">
             <div class="meta-item"><span class="meta-label">Status:</span> ${reservation.status}</div>
@@ -655,7 +795,9 @@ export default function FRFDashboardPage() {
             <div class="meta-item"><span class="meta-label">With Charge:</span> ${reservation.withCharge ? 'Yes' : 'No'}</div>
           </div>
 
-          ${reservation.requestorNotes ? `
+          ${rescheduleSummaryHtml}
+
+          ${reservation.requestorNotes && !reservation.isReschedule ? `
             <div class="section">
               <div class="section-title">Requestor Notes</div>
               <div class="note-block">${reservation.requestorNotes}</div>
@@ -665,12 +807,12 @@ export default function FRFDashboardPage() {
           ${originalDatesHtml}
 
           <div class="section">
-            <div class="section-title">${reservation.isReschedule ? 'New Event Dates' : 'Event Dates'}</div>
+            <div class="section-title">${reservation.isReschedule ? 'New Event Dates (After Reschedule)' : 'Event Dates'}</div>
             ${datesHtml}
           </div>
 
           <div class="section">
-            <div class="section-title">Equipment Requested</div>
+            <div class="section-title">${reservation.isReschedule ? 'Equipment Requested (After Reschedule)' : 'Equipment Requested'}</div>
             ${equipmentTable}
           </div>
 
@@ -1254,13 +1396,17 @@ export default function FRFDashboardPage() {
     }
   }
 
-  const canManage = 
+  // 🆕 Dynamic manage access — reads FormSettings
+  // (frfSettings is already fetched above with the other SWRs — no conditional hook)
+  const allowedManageDepts = [
+    ...new Set([
+      ...(frfSettings?.equipmentLendingDepartments ?? []),
+      ...(frfSettings?.manageAccessDepartments ?? []),
+    ]),
+  ];
+  const canManage =
     currentUser?.role === 'SuperUser' ||
-    (isHeadOrOIC && currentUser?.departmentCode === 'ITO-MAIN') ||
-    currentUser?.departmentCode === 'PSMO/FMO' ||
-    currentUser?.departmentCode === 'CDO';
-  
-  console.log("canmanageness? ", canManage);
+    (isHeadOrOIC && allowedManageDepts.includes(currentUser?.departmentCode ?? ''));
   
   const visibleTabs = [
     ...(isHRDorSuper ? ['hr_copy'] : []),
@@ -1599,6 +1745,11 @@ export default function FRFDashboardPage() {
         onResubmit={handleResubmit}
         onReschedule={handleReschedule}
         onSaveDraft={handleSaveDraft} 
+        preemptedByRefId={
+          editingReservation?.botPreemptedById
+            ? reservations.find(r => r.id === editingReservation.botPreemptedById)?.referenceId ?? null
+            : null
+        }
       />
 
       <RequestDetailModal
@@ -1622,6 +1773,11 @@ export default function FRFDashboardPage() {
         }}
         onPrint={handlePrintFRF}
         onPackUpDone={(id) => handleAction('PACKUP_DONE', { id })}
+        preemptedByRefId={
+          selectedRequest?.botPreemptedById
+            ? reservations.find(r => r.id === selectedRequest.botPreemptedById)?.referenceId ?? null
+            : null
+        }
       />
 
       <PasswordGateModal

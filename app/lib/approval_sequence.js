@@ -16,6 +16,7 @@
  * @property {'EMPLOYEE_ONLY'|'WITH_STUDENTS'} type
  * @property {boolean} hasITOEquipment
  * @property {boolean} hasCDOEquipment
+ * @property {Record<string, boolean>} [equipmentByDept]
  * @property {boolean} hasPhysicalActivity
  * @property {boolean} isVenueOnly
  * @property {string} requestorDept
@@ -37,15 +38,29 @@
  * @returns {boolean}
  */
 function evaluateTrigger(triggerKey, ctx) {
+  // 🆕 Generic pattern — works for ANY lending department, no code change needed
+  //    when admin adds a new one via Settings. Format: `has_equipment_from_{DEPT}`
+  if (typeof triggerKey === 'string' && triggerKey.startsWith('has_equipment_from_')) {
+    const dept = triggerKey.slice('has_equipment_from_'.length);
+    if (!dept) return false;
+    // Venue-only reservations never have equipment requests anyway, but
+    // the guard is cheap and prevents surprising behavior if that ever
+    // changes (e.g. someone adds a "furniture-only" venue-only variant).
+    if (ctx.isVenueOnly) return false;
+    return !!ctx.equipmentByDept?.[dept];
+  }
+
   switch (triggerKey) {
     case 'always':
       return true;
     case 'with_students':
       return ctx.type === 'WITH_STUDENTS';
     case 'has_ito_equipment':
-      // ITO approval not needed for venue-only
+      // Legacy — kept for backward compat with existing sequences.
+      // New sequences should prefer `has_equipment_from_ITO-MAIN`.
       return ctx.hasITOEquipment && !ctx.isVenueOnly;
     case 'has_cdo_equipment':
+      // Legacy — same note as above.
       return ctx.hasCDOEquipment;
     case 'has_physical_activity':
       return ctx.hasPhysicalActivity;
