@@ -19,6 +19,7 @@ import {
   ThemeIcon,
   Box,
   Divider,
+  LoadingOverlay
 } from '@mantine/core';
 import { UseFormReturnType } from '@mantine/form';
 import { MemoFormValues } from './types';
@@ -132,7 +133,12 @@ export default function CreateMemoModal({
         },
       }}
     >
-      <form onSubmit={form.onSubmit(onSubmit)}>
+      <form style={{ position: 'relative' }} onSubmit={form.onSubmit(onSubmit)}>
+        <LoadingOverlay
+          visible={submitting}
+          zIndex={1000}
+          overlayProps={{ radius: 'md', blur: 2 }}
+        />
         <Stack gap="md">
           <TextInput
             label="Subject Reference Header"
@@ -356,7 +362,13 @@ export default function CreateMemoModal({
           </Box>
 
           <Group justify="flex-end" mt="md">
-            <Button variant="light" color="gray" onClick={onClose} type="button">
+            <Button
+              variant="light"
+              color="gray"
+              onClick={onClose}
+              disabled={submitting}
+              type="button"
+            >
               Cancel
             </Button>
             {onSaveDraft && (

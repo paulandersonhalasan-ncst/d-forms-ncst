@@ -10,6 +10,7 @@ import {
   FileInput,
   Button,
   Group,
+  LoadingOverlay,
 } from '@mantine/core';
 import { IconLock, IconFile } from '@tabler/icons-react';
 
@@ -74,7 +75,9 @@ export default function PasswordGateModal({
   return (
     <Modal
       opened={opened}
-      onClose={onClose}
+      onClose={() => {
+        if (!submitting) onClose();
+      }}
       zIndex={zIndex}
       title={
         <Group gap="xs">
@@ -85,8 +88,16 @@ export default function PasswordGateModal({
       centered
       size="sm"
       radius="md"
+      closeOnClickOutside={!submitting}
+      closeOnEscape={!submitting}
+      withCloseButton={!submitting}
     >
-      <Stack gap="sm">
+      <Stack gap="sm" style={{ position: 'relative' }}>
+        <LoadingOverlay
+          visible={submitting}
+          zIndex={1000}
+          overlayProps={{ radius: 'md', blur: 2 }}
+        />
         <Text size="xs" c="dimmed">
           {descriptionText}
         </Text>
