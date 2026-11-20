@@ -263,14 +263,14 @@ export default function AccountSettingsPage() {
   };
 
   const handleLogout = async () => {
-          try {
-              const res = await fetch("/api/auth/logout", { method: "DELETE" });
-              if (res.ok) window.location.replace("/");
-              else console.error("Logout failed:", await res.text());
-          } catch (err) {
-              console.error("Logout error:", err);
-          }
-      };
+    try {
+        const res = await fetch("/api/auth/logout", { method: "DELETE" });
+        if (res.ok) window.location.replace("/");
+        else console.error("Logout failed:", await res.text());
+    } catch (err) {
+        console.error("Logout error:", err);
+    }
+  };
 
   const resetEmailModal = () => {
     setEmailStep("input");
