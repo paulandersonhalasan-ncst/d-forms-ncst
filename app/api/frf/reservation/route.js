@@ -597,6 +597,29 @@ export async function POST(request) {
             },
           });
 
+          // 🆕 Release equipment reservations — BOT_PREEMPTED events won't push through
+          try {
+            const preemptedEquipReqs = await prisma.facilityEquipmentRequest.findMany({
+              where: { reservationId: b.id },
+            });
+            for (const eqReq of preemptedEquipReqs) {
+              const eq = await prisma.equipment.findUnique({
+                where: { id: eqReq.equipmentId },
+                select: { quantityReserved: true },
+              });
+              if (!eq) continue;
+              const release = Math.min(eqReq.quantityRequested, eq.quantityReserved);
+              if (release > 0) {
+                await prisma.equipment.update({
+                  where: { id: eqReq.equipmentId },
+                  data: { quantityReserved: { decrement: release } },
+                });
+              }
+            }
+          } catch (releaseErr) {
+            console.error('BOT preemption equipment release error:', releaseErr);
+          }
+
           await prisma.notification.create({
             data: {
               title: 'Venue Conflict — BOT Priority Booking',
@@ -3313,33 +3336,52 @@ export async function PATCH(request) {
 
         await prisma.$transaction(async (tx) => {
 
-          for (const req of reservation.equipmentRequests) {
-            const eq = await tx.equipment.findUnique({
-              where: { id: req.equipmentId },
-              select: { isSingleItem: true, quantityReserved: true }
-            });
-            if (!eq) continue;
+        // 🆕 Compute "was completed" BEFORE mutating status.
+        //    quantityAvailable is only ever decremented at COMPLETED time
+        //    (see approve-final logic), so only then should we restore it.
+        const wasCompletedBeforeReschedule =
+          reservation.status === 'COMPLETED' ||
+          (
+            reservation.status === 'BOT_PREEMPTED' &&
+            (reservation.approvals || [])
+              .filter(a => a.stepType !== 'ACKNOWLEDGEMENT')
+              .every(a => a.status === 'APPROVED')
+          );
 
-            const reserveDec = Math.min(req.quantityRequested, eq.quantityReserved);
+        for (const req of reservation.equipmentRequests) {
+          const eq = await tx.equipment.findUnique({
+            where: { id: req.equipmentId },
+            select: { isSingleItem: true, quantityReserved: true }
+          });
+          if (!eq) continue;
 
-            if (eq.isSingleItem) {
-              // ✅ Single items: release reservation only, don't touch availability
-              if (reserveDec > 0) {
-                await tx.equipment.update({
-                  where: { id: req.equipmentId },
-                  data: { quantityReserved: { decrement: reserveDec } }
-                });
-              }
-            } else {
+          // Idempotent release — if BOT preemption already released, Math.min caps at 0
+          const reserveDec = Math.min(req.quantityRequested, eq.quantityReserved);
+
+          if (eq.isSingleItem) {
+            if (reserveDec > 0) {
               await tx.equipment.update({
                 where: { id: req.equipmentId },
-                data: {
-                  quantityAvailable: { increment: req.quantityRequested },
-                  quantityReserved: { decrement: reserveDec }
-                }
+                data: { quantityReserved: { decrement: reserveDec } }
+              });
+            }
+          } else {
+            const updateData = {};
+            if (reserveDec > 0) {
+              updateData.quantityReserved = { decrement: reserveDec };
+            }
+            // Only restore stock if it was actually consumed (COMPLETED)
+            if (wasCompletedBeforeReschedule) {
+              updateData.quantityAvailable = { increment: req.quantityRequested };
+            }
+            if (Object.keys(updateData).length > 0) {
+              await tx.equipment.update({
+                where: { id: req.equipmentId },
+                data: updateData
               });
             }
           }
+        }
 
         // Delete old dates and equipment
         await tx.facilityReservationDate.deleteMany({
