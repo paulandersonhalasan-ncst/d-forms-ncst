@@ -47,6 +47,11 @@ export { Prisma }
  */
 export type User = Prisma.UserModel
 /**
+ * Model EmailChangeRequest
+ * 
+ */
+export type EmailChangeRequest = Prisma.EmailChangeRequestModel
+/**
  * Model Department
  * 
  */

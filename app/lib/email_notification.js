@@ -2037,3 +2037,124 @@ export async function sendFRFAcknowledgedConfirmation(
     html,
   });
 }
+
+// ==========================================
+// 🆕 EMAIL CHANGE VERIFICATION + SECURITY NOTICE
+// ==========================================
+
+/**
+ * Send a 6-digit verification code to the NEW email address.
+ * User must enter the code to complete the self-service email change.
+ */
+export async function sendEmailVerificationCode(user, newEmail, code) {
+  if (!newEmail) return;
+
+  const subject = `🔐 NCST D-Forms — Email Verification Code`;
+  const expiresInMin = 10;
+
+  const body = `
+    ${greetingBlock(`${user.fname} ${user.lname}`)}
+    ${bodyText(
+      `You requested to change your NCST D-Forms login email to <b>${esc(newEmail)}</b>.`,
+    )}
+
+    <div style="margin: 20px 0; padding: 20px 24px; background: ${BRAND.navyLight}; border: 1px solid ${BRAND.navyMid}; border-radius: 8px; text-align: center;">
+      <div style="color: ${BRAND.gray}; font-size: 12px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase; margin-bottom: 8px;">
+        Verification Code
+      </div>
+      <div style="font-size: 32px; font-weight: 800; letter-spacing: 8px; color: ${BRAND.navy}; font-family: 'Courier New', monospace;">
+        ${esc(code)}
+      </div>
+      <div style="color: ${BRAND.gray}; font-size: 11px; margin-top: 10px;">
+        Expires in ${expiresInMin} minutes
+      </div>
+    </div>
+
+    ${bodyText(
+      `Enter this code in the Account Settings page to confirm the change. If you didn't request this, <b>ignore this email</b> — your current email will stay unchanged.`,
+    )}
+
+    <div style="margin: 16px 0; padding: 12px 16px; border-left: 3px solid ${BRAND.cream}; background: ${BRAND.creamBg}; border-radius: 4px;">
+      <div style="font-size: 12px; color: ${BRAND.creamDark}; line-height: 1.5;">
+        ⚠️ <b>Do not share this code with anyone.</b> NCST D-Forms staff will never ask you for this code.
+      </div>
+    </div>
+  `;
+
+  const html = renderEmailWrapper({
+    title: 'Email Verification Code',
+    icon: '🔐',
+    accentColor: BRAND.navyMid,
+    subtitle: esc(new Date().toLocaleString('en-US', { timeZone: 'Asia/Manila' })),
+    bodyContent: body,
+    actionUrl: `${baseUrl}/dashboard/account/settings`,
+    actionLabel: 'Open Account Settings',
+    footerNote: 'This code is single-use and expires in 10 minutes.',
+  });
+
+  await sendEmailWithRetry({ to: newEmail, subject, html });
+}
+
+/**
+ * Security notice — sent to the OLD email AFTER a successful change.
+ * No code, pure "this happened" alert. If this wasn't you → contact admin.
+ */
+export async function sendEmailChangedSecurityNotice(user, oldEmail, newEmail) {
+  if (!oldEmail) return;
+
+  const subject = `⚠️ Your NCST D-Forms email was changed`;
+  const now = new Date().toLocaleString('en-US', {
+    timeZone: 'Asia/Manila',
+    year: 'numeric', month: 'long', day: 'numeric',
+    hour: 'numeric', minute: '2-digit', hour12: true,
+  });
+
+  const body = `
+    ${greetingBlock(`${user.fname} ${user.lname}`)}
+    ${bodyText(
+      `Your NCST D-Forms login email was <b>just changed</b>.`,
+    )}
+
+    <table cellpadding="0" cellspacing="0" border="0" style="width: 100%; border-collapse: collapse; background: #f8f9fa; border-radius: 6px; margin: 16px 0;">
+      <tr>
+        <td style="padding: 10px 12px; border-bottom: 1px solid #e9ecef;">
+          <div style="color: ${BRAND.gray}; font-size: 11px; font-weight: 600; text-transform: uppercase;">Previous Email</div>
+          <div style="font-size: 13px; color: ${BRAND.navy}; margin-top: 2px;">${esc(oldEmail)}</div>
+        </td>
+        <td style="padding: 10px 12px; border-bottom: 1px solid #e9ecef;">
+          <div style="color: ${BRAND.gray}; font-size: 11px; font-weight: 600; text-transform: uppercase;">New Email</div>
+          <div style="font-size: 13px; color: ${BRAND.navy}; margin-top: 2px;">${esc(newEmail)}</div>
+        </td>
+      </tr>
+      <tr>
+        <td colspan="2" style="padding: 10px 12px;">
+          <div style="color: ${BRAND.gray}; font-size: 11px; font-weight: 600; text-transform: uppercase;">When</div>
+          <div style="font-size: 13px; color: ${BRAND.navy}; margin-top: 2px;">${esc(now)}</div>
+        </td>
+      </tr>
+    </table>
+
+    <div style="margin: 16px 0; padding: 12px 16px; border-left: 3px solid ${BRAND.danger}; background: ${BRAND.dangerBg}; border-radius: 4px;">
+      <div style="font-weight: 700; font-size: 12px; color: ${BRAND.dangerText}; margin-bottom: 4px;">
+        ⚠️ Was this NOT you?
+      </div>
+      <div style="font-size: 12px; color: #333; line-height: 1.5;">
+        If you did not initiate this change, your account may be compromised.
+        Contact your <b>SuperUser or System Administrator immediately</b> to
+        restore access. You will also need to log in with your NEW email from
+        now on.
+      </div>
+    </div>
+  `;
+
+  const html = renderEmailWrapper({
+    title: 'Security Notice — Email Changed',
+    icon: '⚠️',
+    accentColor: BRAND.danger,
+    subtitle: esc(now),
+    bodyContent: body,
+    footerNote: 'You are receiving this because your account email was updated.',
+  });
+
+  await sendEmailWithRetry({ to: oldEmail, subject, html });
+}

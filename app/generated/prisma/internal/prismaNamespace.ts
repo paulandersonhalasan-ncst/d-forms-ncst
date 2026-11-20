@@ -398,6 +398,7 @@ type FieldRefInputType<Model, FieldType> = Model extends never ? never : FieldRe
 
 export const ModelName = {
   User: 'User',
+  EmailChangeRequest: 'EmailChangeRequest',
   Department: 'Department',
   ActivityLog: 'ActivityLog',
   Notification: 'Notification',
@@ -433,7 +434,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "user" | "department" | "activityLog" | "notification" | "loginLog" | "memo" | "memoRecipientStatus" | "memoHistory" | "facilityReservation" | "facilityApproval" | "facilityAssignment" | "eventPlace" | "equipment" | "equipmentPlace" | "facilityEquipmentRequest" | "facilityReservationDate" | "approvalSequence" | "approvalSequenceStep" | "formSettings" | "privacySettings" | "backupExport"
+    modelProps: "user" | "emailChangeRequest" | "department" | "activityLog" | "notification" | "loginLog" | "memo" | "memoRecipientStatus" | "memoHistory" | "facilityReservation" | "facilityApproval" | "facilityAssignment" | "eventPlace" | "equipment" | "equipmentPlace" | "facilityEquipmentRequest" | "facilityReservationDate" | "approvalSequence" | "approvalSequenceStep" | "formSettings" | "privacySettings" | "backupExport"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -508,6 +509,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         count: {
           args: Prisma.UserCountArgs<ExtArgs>
           result: runtime.Types.Utils.Optional<Prisma.UserCountAggregateOutputType> | number
+        }
+      }
+    }
+    EmailChangeRequest: {
+      payload: Prisma.$EmailChangeRequestPayload<ExtArgs>
+      fields: Prisma.EmailChangeRequestFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.EmailChangeRequestFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EmailChangeRequestPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.EmailChangeRequestFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EmailChangeRequestPayload>
+        }
+        findFirst: {
+          args: Prisma.EmailChangeRequestFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EmailChangeRequestPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.EmailChangeRequestFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EmailChangeRequestPayload>
+        }
+        findMany: {
+          args: Prisma.EmailChangeRequestFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EmailChangeRequestPayload>[]
+        }
+        create: {
+          args: Prisma.EmailChangeRequestCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EmailChangeRequestPayload>
+        }
+        createMany: {
+          args: Prisma.EmailChangeRequestCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.EmailChangeRequestCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EmailChangeRequestPayload>[]
+        }
+        delete: {
+          args: Prisma.EmailChangeRequestDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EmailChangeRequestPayload>
+        }
+        update: {
+          args: Prisma.EmailChangeRequestUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EmailChangeRequestPayload>
+        }
+        deleteMany: {
+          args: Prisma.EmailChangeRequestDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.EmailChangeRequestUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.EmailChangeRequestUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EmailChangeRequestPayload>[]
+        }
+        upsert: {
+          args: Prisma.EmailChangeRequestUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EmailChangeRequestPayload>
+        }
+        aggregate: {
+          args: Prisma.EmailChangeRequestAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateEmailChangeRequest>
+        }
+        groupBy: {
+          args: Prisma.EmailChangeRequestGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.EmailChangeRequestGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.EmailChangeRequestCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.EmailChangeRequestCountAggregateOutputType> | number
         }
       }
     }
@@ -2054,6 +2129,19 @@ export const UserScalarFieldEnum = {
 export type UserScalarFieldEnum = (typeof UserScalarFieldEnum)[keyof typeof UserScalarFieldEnum]
 
 
+export const EmailChangeRequestScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  newEmail: 'newEmail',
+  codeHash: 'codeHash',
+  attempts: 'attempts',
+  expiresAt: 'expiresAt',
+  createdAt: 'createdAt'
+} as const
+
+export type EmailChangeRequestScalarFieldEnum = (typeof EmailChangeRequestScalarFieldEnum)[keyof typeof EmailChangeRequestScalarFieldEnum]
+
+
 export const DepartmentScalarFieldEnum = {
   id: 'id',
   code: 'code',
@@ -2907,6 +2995,7 @@ export interface PrismaClientOptionsWithAdapter extends PrismaClientBaseOptions 
 export type PrismaClientOptions = PrismaClientOptionsWithAccelerateUrl | PrismaClientOptionsWithAdapter
 export type GlobalOmitConfig = {
   user?: Prisma.UserOmit
+  emailChangeRequest?: Prisma.EmailChangeRequestOmit
   department?: Prisma.DepartmentOmit
   activityLog?: Prisma.ActivityLogOmit
   notification?: Prisma.NotificationOmit

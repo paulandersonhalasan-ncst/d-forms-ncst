@@ -62,7 +62,23 @@ model User {
 
   packUpDoneReservations FacilityReservation[] @relation("PackUpDoneBy")
 
+  emailChangeRequests EmailChangeRequest[]
+
   backupExports  BackupExport[] @relation("BackupExports")
+}
+
+model EmailChangeRequest {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  newEmail   String
+  codeHash   String
+  attempts   Int      @default(0)
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 model Department {

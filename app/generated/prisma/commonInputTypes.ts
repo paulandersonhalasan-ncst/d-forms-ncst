@@ -193,13 +193,6 @@ export type IntFilter<$PrismaModel = never> = {
   not?: Prisma.NestedIntFilter<$PrismaModel> | number
 }
 
-export type EnumLoginStatusFilter<$PrismaModel = never> = {
-  equals?: $Enums.LoginStatus | Prisma.EnumLoginStatusFieldRefInput<$PrismaModel>
-  in?: $Enums.LoginStatus[] | Prisma.ListEnumLoginStatusFieldRefInput<$PrismaModel>
-  notIn?: $Enums.LoginStatus[] | Prisma.ListEnumLoginStatusFieldRefInput<$PrismaModel>
-  not?: Prisma.NestedEnumLoginStatusFilter<$PrismaModel> | $Enums.LoginStatus
-}
-
 export type IntWithAggregatesFilter<$PrismaModel = never> = {
   equals?: number | Prisma.IntFieldRefInput<$PrismaModel>
   in?: number[] | Prisma.ListIntFieldRefInput<$PrismaModel>
@@ -214,6 +207,13 @@ export type IntWithAggregatesFilter<$PrismaModel = never> = {
   _sum?: Prisma.NestedIntFilter<$PrismaModel>
   _min?: Prisma.NestedIntFilter<$PrismaModel>
   _max?: Prisma.NestedIntFilter<$PrismaModel>
+}
+
+export type EnumLoginStatusFilter<$PrismaModel = never> = {
+  equals?: $Enums.LoginStatus | Prisma.EnumLoginStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.LoginStatus[] | Prisma.ListEnumLoginStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.LoginStatus[] | Prisma.ListEnumLoginStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumLoginStatusFilter<$PrismaModel> | $Enums.LoginStatus
 }
 
 export type EnumLoginStatusWithAggregatesFilter<$PrismaModel = never> = {
@@ -736,13 +736,6 @@ export type NestedStringNullableWithAggregatesFilter<$PrismaModel = never> = {
   _max?: Prisma.NestedStringNullableFilter<$PrismaModel>
 }
 
-export type NestedEnumLoginStatusFilter<$PrismaModel = never> = {
-  equals?: $Enums.LoginStatus | Prisma.EnumLoginStatusFieldRefInput<$PrismaModel>
-  in?: $Enums.LoginStatus[] | Prisma.ListEnumLoginStatusFieldRefInput<$PrismaModel>
-  notIn?: $Enums.LoginStatus[] | Prisma.ListEnumLoginStatusFieldRefInput<$PrismaModel>
-  not?: Prisma.NestedEnumLoginStatusFilter<$PrismaModel> | $Enums.LoginStatus
-}
-
 export type NestedIntWithAggregatesFilter<$PrismaModel = never> = {
   equals?: number | Prisma.IntFieldRefInput<$PrismaModel>
   in?: number[] | Prisma.ListIntFieldRefInput<$PrismaModel>
@@ -768,6 +761,13 @@ export type NestedFloatFilter<$PrismaModel = never> = {
   gt?: number | Prisma.FloatFieldRefInput<$PrismaModel>
   gte?: number | Prisma.FloatFieldRefInput<$PrismaModel>
   not?: Prisma.NestedFloatFilter<$PrismaModel> | number
+}
+
+export type NestedEnumLoginStatusFilter<$PrismaModel = never> = {
+  equals?: $Enums.LoginStatus | Prisma.EnumLoginStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.LoginStatus[] | Prisma.ListEnumLoginStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.LoginStatus[] | Prisma.ListEnumLoginStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumLoginStatusFilter<$PrismaModel> | $Enums.LoginStatus
 }
 
 export type NestedEnumLoginStatusWithAggregatesFilter<$PrismaModel = never> = {

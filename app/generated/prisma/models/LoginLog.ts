@@ -426,14 +426,6 @@ export type EnumLoginStatusFieldUpdateOperationsInput = {
   set?: $Enums.LoginStatus
 }
 
-export type IntFieldUpdateOperationsInput = {
-  set?: number
-  increment?: number
-  decrement?: number
-  multiply?: number
-  divide?: number
-}
-
 export type LoginLogCreateWithoutUserInput = {
   email?: string | null
   status?: $Enums.LoginStatus

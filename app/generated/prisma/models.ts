@@ -9,6 +9,7 @@
  * 🟢 You can import this file directly.
  */
 export type * from './models/User'
+export type * from './models/EmailChangeRequest'
 export type * from './models/Department'
 export type * from './models/ActivityLog'
 export type * from './models/Notification'
