@@ -28,7 +28,8 @@ import {
   ScrollArea,
   PasswordInput,
   ThemeIcon,
-  UnstyledButton
+  UnstyledButton,
+  LoadingOverlay,
 } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { FRFFormValues, Equipment, EventPlace, ReservationType, UserContext, DateEntry, FacilityReservation, isActiveHeadOrOIC, BotPreemptPreview, BotConflictEntry } from './types';
@@ -877,6 +878,7 @@ export default function RequestStepper({
     const isBotBooking = selectedPlaces.some(p => p?.category === 'VIP');
 
     if (isBotBooking && !bumpedIds) {
+      setSubmitting(true);
       try {
         const previewRes = await fetch('/api/frf/bot_preempt_preview', {
           method: 'POST',
@@ -1149,6 +1151,7 @@ export default function RequestStepper({
 
   // --- Local close handler with unsaved-data confirmation ---
   const handleLocalClose = () => {
+    if (submitting) return;
     if (hasUserInteraction) {
       const confirmed = window.confirm(
         'You have unsaved changes. Are you sure you want to close this form?'
@@ -1250,6 +1253,8 @@ export default function RequestStepper({
       radius="md"
       centered
       closeOnClickOutside={false}
+      closeOnEscape={!submitting}
+      withCloseButton={!submitting}
       styles={{
         inner: {
           paddingLeft: 'var(--sidebar-offset, 0)',
@@ -1257,8 +1262,10 @@ export default function RequestStepper({
         },
       }}
     >
-      <form onSubmit={(e) => {
-        e.preventDefault();
+        <form
+          style={{ position: 'relative' }}
+        onSubmit={(e) => {
+          e.preventDefault();
 
         const validationResult = form.validate();
         //console.log('Validation result:', validationResult);
@@ -1272,6 +1279,11 @@ export default function RequestStepper({
 
         handleSubmit({ ...form.values, assignments });
       }}>
+        <LoadingOverlay
+          visible={submitting}
+          zIndex={1000}
+          overlayProps={{ radius: 'md', blur: 2 }}
+        />
         {/* 🆕 BOT Preemption banner — shows during reschedule mode only */}
         {isRescheduleMode && editData?.status === 'BOT_PREEMPTED' && (
           <Alert
@@ -2325,7 +2337,7 @@ export default function RequestStepper({
               <Button
                 variant="default"
                 onClick={prevStep}
-                disabled={activeStep === 0}
+                disabled={activeStep === 0 || submitting}
                 type="button"
                 size="md"
               >
@@ -2345,6 +2357,7 @@ export default function RequestStepper({
                 <Button
                   key="next-btn"
                   onClick={nextStep}
+                  disabled={submitting}
                   color="blue"
                   type="button"
                   size="md"
@@ -2354,7 +2367,7 @@ export default function RequestStepper({
               )}
             </Group>
             {!isRescheduleMode && (!isEditing || isDraftMode) && onSaveDraft && (
-              <Button variant="light" color="violet" onClick={handleSaveDraftClick} type="button" size="md" fullWidth>
+              <Button variant="light" color="violet" onClick={handleSaveDraftClick} disabled={submitting} type="button" size="md" fullWidth>
                 Save as Draft
               </Button>
             )}
@@ -2362,6 +2375,7 @@ export default function RequestStepper({
               variant="light"
               color="red"
               onClick={handleLocalClose}
+              disabled={submitting}
               type="button"
               size="md"
               fullWidth
@@ -2372,17 +2386,17 @@ export default function RequestStepper({
         ) : (
           /* 💻 Desktop: dating layout */
           <Group justify="space-between" mt="xl">
-            <Button variant="default" onClick={prevStep} disabled={activeStep === 0} type="button">
+            <Button variant="default" onClick={prevStep} disabled={activeStep === 0 || submitting} type="button">
               Back
             </Button>
 
             <Group gap="sm">
               {!isRescheduleMode && (!isEditing || isDraftMode) && onSaveDraft && (
-                <Button variant="light" color="violet" onClick={handleSaveDraftClick} type="button">
+                <Button variant="light" color="violet" onClick={handleSaveDraftClick} disabled={submitting} type="button">
                   Save as Draft
                 </Button>
               )}
-              <Button variant="filled" color="red" onClick={handleLocalClose} type="button">
+              <Button variant="filled" color="red" onClick={handleLocalClose} disabled={submitting} type="button">
                 Cancel
               </Button>
               {activeStep === 3 ? (
@@ -2390,7 +2404,7 @@ export default function RequestStepper({
                   {isRescheduleMode ? 'Submit Reschedule' : isEditing ? 'Resubmit Revision' : 'Submit Request'}
                 </Button>
               ) : (
-                <Button key="next-btn" onClick={nextStep} color="blue" type="button">
+                <Button key="next-btn" onClick={nextStep} disabled={submitting} color="blue" type="button">
                   Next
                 </Button>
               )}
